@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # One image per app and edge: APP is staff or admin, EDGE is live (the default) or mock.
 # The edge is fixed when the image is built; a running container can't be switched to mock.
 #   docker build --build-arg APP=staff -t sneakers-web-staff .
@@ -10,8 +11,18 @@ ARG EDGE=live
 RUN test "$APP" = staff || test "$APP" = admin || { echo "APP must be staff or admin" >&2; exit 1; }
 RUN test "$EDGE" = live || test "$EDGE" = mock || { echo "EDGE must be live or mock" >&2; exit 1; }
 WORKDIR /src
+# Install from the manifests first, so a source change reuses this layer instead of adding a
+# new full install to the build cache each time.
+COPY package.json package-lock.json ./
+COPY apps/staff/package.json apps/staff/
+COPY apps/admin/package.json apps/admin/
+COPY packages/api-client/package.json packages/api-client/
+COPY packages/mock-gateway/package.json packages/mock-gateway/
+COPY packages/shell/package.json packages/shell/
+COPY packages/ui/package.json packages/ui/
+COPY packages/vite-config/package.json packages/vite-config/
+RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts --no-audit --no-fund
 COPY . .
-RUN npm ci --ignore-scripts --no-audit --no-fund
 RUN cd "apps/$APP" && if [ "$EDGE" = mock ]; then MODE=mock; else MODE=production; fi \
     && APP_BUILD_DIR=build npx react-router build --mode "$MODE"
 
@@ -28,8 +39,8 @@ COPY packages/api-client/package.json packages/api-client/
 COPY packages/shell/package.json packages/shell/
 COPY packages/ui/package.json packages/ui/
 COPY packages/mock-gateway/package.json packages/mock-gateway/
-RUN node scripts/runtime-deps.mjs "$APP" "$EDGE" \
-    && npm install --omit=dev --ignore-scripts --no-audit --no-fund \
+RUN --mount=type=cache,target=/tmp/npm-cache node scripts/runtime-deps.mjs "$APP" "$EDGE" \
+    && npm install --omit=dev --ignore-scripts --no-audit --no-fund --cache /tmp/npm-cache \
     && rm -rf node_modules/@sneakers-web
 
 FROM ${NODE_IMAGE}
