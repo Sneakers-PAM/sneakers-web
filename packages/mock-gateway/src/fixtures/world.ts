@@ -1,5 +1,5 @@
 /*
- * The invented organisation the staff screens run against in mock mode: folders, secrets,
+ * The invented organisation the staff and admin screens run against in mock mode: folders, secrets,
  * targets, checkouts, requests and agent access. Everything here is made up. Ids start with
  * "mock-", hosts live under example.org or 192.0.2.0/24, and no value is a real credential.
  * Times are relative to when the world is built, so "expires in 5 days" stays true.

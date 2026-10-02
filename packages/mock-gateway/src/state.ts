@@ -44,7 +44,7 @@ export const mockState = {
   needsSetup: false,
   pending: new Map<string, MockPending>(ssoPending()),
   sessions: new Map<string, MockSession>(),
-  /** The invented organisation the staff screens read and change. */
+  /** The invented organisation the staff and admin screens read and change. */
   world: initialWorld(),
 };
 
