@@ -43,9 +43,19 @@ Before changing anything, know two things:
   `@sneakers-web/shell/server`).
 - `packages/api-client/src/`: the gateway client, auth routes, errors, logger, public config and
   the generated GraphQL documents (`generated/`, rebuilt by `npm run schema:generate`).
-- `packages/mock-gateway/src/`: fixtures, MSW handlers and the mock edge.
+- `packages/mock-gateway/src/`: fixtures, MSW handlers and the mock edge. `fixtures/world.ts` is
+  the invented organisation the staff screens use (folders, secrets, targets, checkouts, requests,
+  agent access), rebuilt by `resetMockState()`; handlers read and change `mockState.world`.
+  Staff answers live in `handlers/staff/<area>.ts`, one module per area.
 - `packages/ui/src/`: the Laces kit (components, theme, brand).
 - `packages/vite-config/src/`: the shared Vite and Vitest config, and the edge choice.
+
+Staff screens: one route module per page in `apps/staff/app/routes/` (the table in `routes.ts`
+lists every page), screen-only components in `apps/staff/app/features/<area>/`, and the GraphQL
+for an area in `packages/api-client/src/operations/staff/<area>.graphql`. Page tests render
+through `renderRoute(url, routes, { user })` (`apps/staff/app/test/routeStub.tsx`), which signs in
+a fixture user and puts the pages under the real frame loader. The staff app's tests always run
+against the mock gateway.
 
 Paths inside an app are base-free (`appPath("sign-in")` is `/sign-in` in both apps). React
 Router adds the `/admin/` basename to links and redirects; a redirect that leaves the app (single
