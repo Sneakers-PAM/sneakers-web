@@ -256,7 +256,16 @@
     cursor: not-allowed;
   }
 
-  :where(a, button, input, select, textarea, [tabindex], [role="switch"], [role="menuitem"]):focus-visible {
+  :where(
+    a,
+    button,
+    input,
+    select,
+    textarea,
+    [tabindex],
+    [role="switch"],
+    [role="menuitem"]
+  ):focus-visible {
     outline: 3px solid var(--color-primary);
     outline-offset: 2px;
   }
