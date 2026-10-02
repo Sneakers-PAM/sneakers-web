@@ -2,19 +2,35 @@
 
 > 🧭 Sneakers web apps in one repo: staff, admin, appliance admin, maintenance, docs and the UI kit
 
-A Vite + React 19 + TypeScript single-page app.
+The staff app (`/`) and the admin console (`/admin/`) are React Router v7 apps rendered on the
+server. Each one is its own Node server and its own container image, and talks to the Sneakers
+gateway from the server side; the browser holds only the HttpOnly session cookie.
 
 ## 🛠 Develop
 
 ```bash
-npm install
-npm run dev        # vite dev server with HMR
-npm run build      # tsc type-check + vite build -> dist/
-npm run preview    # serve the production build
-npm test           # vitest (jsdom + Testing Library)
-npm run lint       # eslint + prettier
-npm run typecheck  # tsc --noEmit
+npm install --ignore-scripts
+npm run dev             # staff app against the gateway at GATEWAY_URL (default http://localhost:9100)
+npm run dev:mock        # staff app against the in-process mock gateway (invented data, banner on)
+npm run dev:admin       # admin console; dev:admin:mock for its mock build
+npm test                # vitest
+npm run lint            # eslint + prettier
+npm run typecheck
+npm run check           # everything CI runs, including both builds and the no-mock check
 ```
+
+## 📦 Images
+
+One image per app and edge, built from the repo root:
+
+```bash
+docker build --build-arg APP=staff -t sneakers-web-staff .
+docker build --build-arg APP=admin --build-arg EDGE=mock -t sneakers-web-admin-mock .
+```
+
+The server listens on `PORT` (3000) and answers `GET /healthz`. Runtime settings: `GATEWAY_URL`,
+`APP_ENV`, `LOG_LEVEL`, `LOG_FORMAT`, `SSO_ENABLED`, `STAFF_URL`, `ADMIN_URL`. More in
+[AGENTS.md](AGENTS.md).
 
 ## ⚖️ License
 
