@@ -54,8 +54,9 @@ Staff screens: one route module per page in `apps/staff/app/routes/` (the table 
 lists every page), screen-only components in `apps/staff/app/features/<area>/`, and the GraphQL
 for an area in `packages/api-client/src/operations/staff/<area>.graphql`. Page tests render
 through `renderRoute(url, routes, { user })` (`apps/staff/app/test/routeStub.tsx`), which signs in
-a fixture user and puts the pages under the real frame loader. The staff app's tests always run
-against the mock gateway.
+a fixture user and puts the pages under the real frame loader. The staff app's tests run
+against the mock gateway through `apps/staff/vitest.config.ts`, so the build config has no test
+switch.
 
 Paths inside an app are base-free (`appPath("sign-in")` is `/sign-in` in both apps). React
 Router adds the `/admin/` basename to links and redirects; a redirect that leaves the app (single
