@@ -1,0 +1,308 @@
+/* Laces: the Sneakers-PAM theme for Tailwind CSS v4.
+   Import after tailwindcss in each app's stylesheet. Themes: light by default; the
+   ThemeProvider sets "dark", "system" (follows prefers-color-scheme) or "hc" (high
+   contrast) on <html>, and "reduce-motion" when the user asks for less motion. */
+@import "./fonts.css";
+
+@source "../";
+
+@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant hc (&:where(.hc, .hc *));
+
+@theme {
+  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --color-bg: #fbf8f3;
+  --color-surface: #ffffff;
+  --color-sunken: #f4f0e8;
+  --color-ink: #1c2230;
+  --color-muted: #5a6170;
+  --color-border: #e4ded3;
+  --color-border-strong: #d6cfc2;
+  --color-control: #8a8170;
+  --color-primary: #2f5bd3;
+  --color-primary-hover: #2549b0;
+  --color-primary-active: #1d3c94;
+  --color-on-primary: #ffffff;
+  --color-primary-soft: #e3eafb;
+  --color-reveal: #eaf0ff;
+  --color-sole: #f07a2b;
+  --color-ok: #1f7a4d;
+  --color-ok-soft: #e2f2e9;
+  --color-warn: #9a5b00;
+  --color-warn-soft: #fbebd0;
+  --color-danger: #c0312b;
+  --color-danger-hover: #a1261f;
+  --color-on-danger: #ffffff;
+  --color-danger-soft: #f9e1df;
+  --color-info: #2f5bd3;
+  --color-neutral-soft: #eeeae2;
+  --color-hatch: #f7d9c4;
+
+  --color-term-bg: #0e1117;
+  --color-term-fg: #e6e9ef;
+  --color-term-cursor: #ff9a55;
+  --color-term-selection: #2a3550;
+  --color-term-green: #6fd39b;
+  --color-term-yellow: #f2c55c;
+  --color-term-red: #ff8577;
+  --color-term-blue: #8fa9ff;
+
+  --text-display: 2.5rem;
+  --text-display--line-height: 2.75rem;
+  --text-display--letter-spacing: -0.02em;
+  --text-h1: 2rem;
+  --text-h1--line-height: 2.375rem;
+  --text-h1--letter-spacing: -0.02em;
+  --text-title: 2.25rem;
+  --text-title--line-height: 2.375rem;
+  --text-title--letter-spacing: -0.02em;
+  --text-h2: 1.375rem;
+  --text-h2--line-height: 1.75rem;
+  --text-h3: 1.125rem;
+  --text-h3--line-height: 1.5rem;
+  --text-body-lg: 1.0625rem;
+  --text-body-lg--line-height: 1.625rem;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.375rem;
+  --text-small: 0.8125rem;
+  --text-small--line-height: 1.125rem;
+  --text-label: 0.75rem;
+  --text-label--line-height: 1rem;
+  --text-label--letter-spacing: 0.08em;
+  --text-value: 1.125rem;
+  --text-value--line-height: 1.5rem;
+  --text-code: 0.875rem;
+  --text-code--line-height: 1.25rem;
+
+  --spacing: 0.25rem;
+
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 24px;
+
+  --shadow-menu: 0 18px 40px -16px rgb(28 34 48 / 0.35);
+  --shadow-dialog: 0 30px 80px -30px rgb(28 34 48 / 0.5);
+  --shadow-seg: 0 1px 3px rgb(0 0 0 / 0.15);
+
+  --ease-laces: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-heartbeat: heartbeat 1.6s ease-in-out infinite;
+  --animate-spin-slow: spin 1.2s linear infinite;
+  @keyframes heartbeat {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    15% {
+      transform: scale(1.25);
+    }
+    30% {
+      transform: scale(1);
+    }
+    45% {
+      transform: scale(1.15);
+    }
+  }
+
+  --breakpoint-tablet: 600px;
+  --breakpoint-desktop: 1024px;
+  --breakpoint-wide: 1440px;
+}
+
+@layer base {
+  .dark {
+    --color-bg: #12151c;
+    --color-surface: #1a1f29;
+    --color-sunken: #232936;
+    --color-ink: #eceff4;
+    --color-muted: #9aa3b2;
+    --color-border: #2a3140;
+    --color-border-strong: #3a4252;
+    --color-control: #6e788c;
+    --color-primary: #7c9bff;
+    --color-primary-hover: #9bb3ff;
+    --color-primary-active: #b5c7ff;
+    --color-on-primary: #12151c;
+    --color-primary-soft: #1d2640;
+    --color-reveal: #1d2640;
+    --color-sole: #ff9a55;
+    --color-ok: #4cc38a;
+    --color-ok-soft: #16302a;
+    --color-warn: #f2b33d;
+    --color-warn-soft: #3a2e14;
+    --color-danger: #ff7a6e;
+    --color-danger-hover: #ff968c;
+    --color-on-danger: #12151c;
+    --color-danger-soft: #3a1e1e;
+    --color-info: #7c9bff;
+    --color-neutral-soft: #232936;
+    --color-hatch: #4a3324;
+    --shadow-menu: 0 18px 40px -16px rgb(0 0 0 / 0.55);
+    --shadow-dialog: 0 30px 80px -30px rgb(0 0 0 / 0.7);
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    .system {
+      --color-bg: #12151c;
+      --color-surface: #1a1f29;
+      --color-sunken: #232936;
+      --color-ink: #eceff4;
+      --color-muted: #9aa3b2;
+      --color-border: #2a3140;
+      --color-border-strong: #3a4252;
+      --color-control: #6e788c;
+      --color-primary: #7c9bff;
+      --color-primary-hover: #9bb3ff;
+      --color-primary-active: #b5c7ff;
+      --color-on-primary: #12151c;
+      --color-primary-soft: #1d2640;
+      --color-reveal: #1d2640;
+      --color-sole: #ff9a55;
+      --color-ok: #4cc38a;
+      --color-ok-soft: #16302a;
+      --color-warn: #f2b33d;
+      --color-warn-soft: #3a2e14;
+      --color-danger: #ff7a6e;
+      --color-danger-hover: #ff968c;
+      --color-on-danger: #12151c;
+      --color-danger-soft: #3a1e1e;
+      --color-info: #7c9bff;
+      --color-neutral-soft: #232936;
+      --color-hatch: #4a3324;
+      --shadow-menu: 0 18px 40px -16px rgb(0 0 0 / 0.55);
+      --shadow-dialog: 0 30px 80px -30px rgb(0 0 0 / 0.7);
+      color-scheme: dark;
+    }
+  }
+  .hc {
+    --color-bg: #ffffff;
+    --color-surface: #ffffff;
+    --color-sunken: #f2f2f2;
+    --color-ink: #000000;
+    --color-muted: #1f1f1f;
+    --color-border: #000000;
+    --color-border-strong: #000000;
+    --color-control: #000000;
+    --color-primary: #0033b3;
+    --color-primary-hover: #00227a;
+    --color-primary-active: #001a5c;
+    --color-on-primary: #ffffff;
+    --color-primary-soft: #e6ecff;
+    --color-reveal: #ffffff;
+    --color-sole: #000000;
+    --color-ok: #005c2e;
+    --color-ok-soft: #ffffff;
+    --color-warn: #6b3f00;
+    --color-warn-soft: #ffffff;
+    --color-danger: #a00000;
+    --color-danger-hover: #7a0000;
+    --color-on-danger: #ffffff;
+    --color-danger-soft: #ffffff;
+    --color-info: #0033b3;
+    --color-neutral-soft: #ffffff;
+    --color-hatch: #000000;
+    color-scheme: light;
+  }
+
+  /* shadcn/ui variable names, mapped onto Laces for any third-party piece that reads them. */
+  :root {
+    --background: var(--color-bg);
+    --foreground: var(--color-ink);
+    --card: var(--color-surface);
+    --card-foreground: var(--color-ink);
+    --popover: var(--color-surface);
+    --popover-foreground: var(--color-ink);
+    --muted: var(--color-sunken);
+    --muted-foreground: var(--color-muted);
+    --border: var(--color-border);
+    --input: var(--color-control);
+    --ring: var(--color-primary);
+    --primary: var(--color-primary);
+    --primary-foreground: var(--color-on-primary);
+    --destructive: var(--color-danger);
+    --radius: 10px;
+    --text-scale: 1;
+
+    --z-sticky: 10;
+    --z-rail: 20;
+    --z-header: 30;
+    --z-dropdown: 40;
+    --z-sheet: 50;
+    --z-dialog: 60;
+    --z-toast: 70;
+    --z-a11y: 80;
+    --z-reauth: 90;
+  }
+
+  html {
+    font-size: calc(100% * var(--text-scale));
+    @apply bg-bg font-sans text-body text-ink antialiased;
+  }
+  body {
+    @apply m-0 min-h-dvh bg-bg text-ink;
+  }
+  a {
+    @apply text-primary hover:text-ink;
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  :where(a, button, input, select, textarea, [tabindex], [role="switch"], [role="menuitem"]):focus-visible {
+    outline: 3px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+  .hc :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 4px solid #000;
+    box-shadow: 0 0 0 2px #fff inset;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0ms !important;
+    }
+  }
+  .reduce-motion *,
+  .reduce-motion *::before,
+  .reduce-motion *::after {
+    animation-duration: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0ms !important;
+  }
+}
+
+@utility env-hatch {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--color-hatch) 0 5px,
+    var(--color-surface) 5px 10px
+  );
+}
+@utility deny-hatch {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--color-danger-soft) 0 4px,
+    var(--color-surface) 4px 8px
+  );
+}
+@utility eyebrow {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--text-label);
+  line-height: var(--text-label--line-height);
+  letter-spacing: var(--text-label--letter-spacing);
+  text-transform: uppercase;
+  color: var(--color-muted);
+}

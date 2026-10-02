@@ -7,7 +7,7 @@
   "type": "module",
   "private": true,
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "repository": {
     "type": "git",
@@ -17,42 +17,57 @@
   "bugs": {
     "url": "https://github.com/Sneakers-PAM/sneakers-web/issues"
   },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
+    "dev": "npm run dev -w @sneakers-web/staff",
+    "dev:mock": "npm run dev:mock -w @sneakers-web/staff",
+    "dev:admin": "npm run dev -w @sneakers-web/admin",
+    "dev:admin:mock": "npm run dev:mock -w @sneakers-web/admin",
+    "build": "npm run build --workspaces --if-present",
+    "build:mock": "npm run build:mock --workspaces --if-present",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test:e2e": "playwright test",
+    "typecheck": "npm run typecheck --workspaces --if-present && tsc --noEmit -p tsconfig.json",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
-  },
-  "dependencies": {
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "format:check": "prettier --check .",
+    "schema:generate": "bash scripts/schema-generate.sh",
+    "check:no-mock": "node scripts/check-no-mock.mjs",
+    "check:assets": "node scripts/check-assets.mjs",
+    "check": "npm run lint && npm run typecheck && npm test && npm run build && npm run check:no-mock && npm run check:assets"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.0",
-    "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^16.1.0",
-    "@testing-library/user-event": "^14.5.2",
-    "@types/react": "^19.2.0",
-    "@types/react-dom": "^19.2.0",
-    "@vitejs/plugin-react": "^6.0.0",
-    "@vitest/coverage-v8": "^4.1.0",
-    "eslint": "^10.0.0",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-prettier": "^5.2.1",
-    "eslint-plugin-react-hooks": "^7.1.0",
-    "eslint-plugin-react-refresh": "^0.4.16",
-    "jsdom": "^25.0.1",
-    "prettier": "^3.8.0",
-    "typescript": "^5.9.0",
-    "typescript-eslint": "^8.60.0",
-    "vite": "^8.0.0",
-    "vitest": "^4.1.0"
+    "@graphql-codegen/cli": "^7.4.3",
+    "@graphql-codegen/client-preset": "^6.2.0",
+    "@graphql-codegen/typescript": "^6.1.0",
+    "@graphql-codegen/typescript-operations": "^6.1.9",
+    "@playwright/test": "^1.63.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
+    "@the-rabbit-hole/eslint-config": "^0.7.0",
+    "@types/node": "^26.6.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "@vitest/coverage-v8": "^5.0.3",
+    "eslint": "^10.11.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "graphql": "^17.0.2",
+    "jsdom": "^30.1.1",
+    "prettier": "3.9.4",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0",
+    "vite": "^8.3.2",
+    "vitest": "^5.0.3"
   }
 }

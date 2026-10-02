@@ -9,3 +9,9 @@ coverage/
 .DS_Store
 .idea/
 .vscode/
+
+# fetched schemas (never committed) and mock builds
+.schemas/
+dist-mock/
+test-results/
+playwright-report/

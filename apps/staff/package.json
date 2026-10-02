@@ -1,0 +1,28 @@
+{
+  "name": "@sneakers-web/staff",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "scripts": {
+    "dev": "vite",
+    "dev:mock": "vite --mode mock",
+    "build": "vite build",
+    "build:mock": "vite build --mode mock --outDir dist-mock",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@sneakers-web/api-client": "*",
+    "@sneakers-web/shell": "*",
+    "@sneakers-web/ui": "*",
+    "lucide-react": "^1.49.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-router": "^8.4.0"
+  },
+  "devDependencies": {
+    "@sneakers-web/mock-gateway": "*",
+    "@sneakers-web/vite-config": "*"
+  }
+}
