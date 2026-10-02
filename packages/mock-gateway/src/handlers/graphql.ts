@@ -56,29 +56,25 @@ export const shellHandlers = [
     }),
   ),
 
-  api.query(ShellCountsDocument, ({ request }) =>
-    asUser(request, (userId) =>
-      HttpResponse.json({
+  api.query(ShellCountsDocument, ({ request, variables }) =>
+    asUser(request, (userId) => {
+      const { leases, requests, secretUses } = mockState.world;
+      return HttpResponse.json({
         data: {
-          activeLeasesForUser:
-            userId === "mock-user-alice"
-              ? [
-                  {
-                    expiresAt: new Date(Date.now() + 2 * 3_600_000).toISOString(),
-                    id: "mock-lease-1",
-                    secretId: "mock-secret-acme-vpn",
-                  },
-                ]
-              : [],
-          approvalRequests: [
-            { id: "mock-req-1", requestedByUserId: "mock-user-bob", status: "pending" },
-            { id: "mock-req-2", requestedByUserId: "mock-user-dave", status: "pending" },
-            { id: "mock-req-3", requestedByUserId: "mock-user-bob", status: "approved" },
-          ],
-          pendingSecretUses: userId === "mock-user-alice" ? [{ id: "mock-use-1" }] : [],
+          activeLeasesForUser: leases
+            .filter((l) => l.userId === variables.userId && !l.returned)
+            .map(({ expiresAt, id, secretId }) => ({ expiresAt, id, secretId })),
+          approvalRequests: requests.map(({ id, requestedByUserId, status }) => ({
+            id,
+            requestedByUserId,
+            status,
+          })),
+          pendingSecretUses: secretUses
+            .filter((u) => u.ownerUserId === userId && u.state === "pending")
+            .map(({ id }) => ({ id })),
         },
-      }),
-    ),
+      });
+    }),
   ),
 
   api.query(MyNotificationsDocument, ({ request, variables }) =>
