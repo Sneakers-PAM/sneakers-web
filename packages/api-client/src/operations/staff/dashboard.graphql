@@ -1,0 +1,78 @@
+# U-01: the tiles, the quick cards and the most-opened secrets, in one round trip.
+query DashboardHome($userId: String!, $limit: Int) {
+  secretStats {
+    total
+    expiringSoon
+    expired
+    drift
+  }
+  topAccessedSecrets(limit: $limit) {
+    id
+    name
+    folderId
+    viewCount
+    lastAccessedAt
+  }
+  activeLeasesForUser(userId: $userId) {
+    id
+    secretId
+    issuedAt
+    expiresAt
+  }
+  approvalRequests {
+    id
+    kind
+    status
+    requestedByUserId
+    requestedAt
+    folderName
+    comments {
+      id
+    }
+  }
+  pendingSecretUses {
+    id
+    secretName
+    fieldKey
+    clientLabel
+    argv
+    reveal
+    expiresAtUnix
+  }
+  folders {
+    id
+    name
+    parentId
+  }
+}
+
+# The name of a secret a quick card points at (a checkout holds only the id).
+query DashboardSecretName($id: ID!) {
+  secret(id: $id) {
+    id
+    name
+  }
+}
+
+# U-02: the readable secrets behind a stat tile.
+query DashboardSecretsByStatus($status: String!) {
+  secretsByStatus(status: $status) {
+    id
+    name
+    typeId
+    folderId
+    targetId
+    expiresAt
+    lastHeartbeatResult
+    heartbeatOptOut
+  }
+  folders {
+    id
+    name
+    parentId
+  }
+  secretTypes {
+    id
+    name
+  }
+}

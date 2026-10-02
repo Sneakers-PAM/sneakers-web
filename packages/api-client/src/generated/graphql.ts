@@ -10,6 +10,9 @@ export type ApprovalStatus = "approved" | "denied" | "pending";
 export type FieldKind =
   "boolean" | "file" | "multiline" | "password" | "select" | "sensitive" | "text";
 
+export type HeartbeatResult =
+  "failed" | "hostKeyMismatch" | "hostKeyNotPinned" | "ok" | "unknown" | "unreachable";
+
 export type PasswordPolicyInput = {
   endLiteral?: string | null | undefined;
   excludeChars?: string | null | undefined;
@@ -28,6 +31,8 @@ export type PasswordPolicyInput = {
 export type PolicyEnforcement = "lax" | "strict";
 
 export type PwStartClass = "any" | "digit" | "letter" | "symbol";
+
+export type RequestKind = "folder_move" | "secret_access" | "secret_move";
 
 export type SecretFieldDefInput = {
   defaultValue?: string | null | undefined;
@@ -593,6 +598,67 @@ export type MarkNotificationReadMutation = { markNotificationRead: boolean };
 export type MarkAllNotificationsReadMutationVariables = Exact<{ [key: string]: never }>;
 
 export type MarkAllNotificationsReadMutation = { markAllNotificationsRead: boolean };
+
+export type DashboardHomeQueryVariables = Exact<{
+  userId: string;
+  limit?: number | null | undefined;
+}>;
+
+export type DashboardHomeQuery = {
+  secretStats: { total: number; expiringSoon: number; expired: number; drift: number };
+  topAccessedSecrets: Array<{
+    id: string;
+    name: string;
+    folderId: string;
+    viewCount: number | null;
+    lastAccessedAt: string | null;
+  }>;
+  activeLeasesForUser: Array<{ id: string; secretId: string; issuedAt: string; expiresAt: string }>;
+  approvalRequests: Array<{
+    id: string;
+    kind: RequestKind;
+    status: ApprovalStatus;
+    requestedByUserId: string;
+    requestedAt: string;
+    folderName: string;
+    comments: Array<{ id: string }>;
+  }>;
+  pendingSecretUses: Array<{
+    id: string;
+    secretName: string;
+    fieldKey: string;
+    clientLabel: string;
+    argv: Array<string>;
+    reveal: boolean;
+    expiresAtUnix: number;
+  }>;
+  folders: Array<{ id: string; name: string; parentId: string | null }>;
+};
+
+export type DashboardSecretNameQueryVariables = Exact<{
+  id: string;
+}>;
+
+export type DashboardSecretNameQuery = { secret: { id: string; name: string } | null };
+
+export type DashboardSecretsByStatusQueryVariables = Exact<{
+  status: string;
+}>;
+
+export type DashboardSecretsByStatusQuery = {
+  secretsByStatus: Array<{
+    id: string;
+    name: string;
+    typeId: string;
+    folderId: string;
+    targetId: string | null;
+    expiresAt: string | null;
+    lastHeartbeatResult: HeartbeatResult | null;
+    heartbeatOptOut: boolean | null;
+  }>;
+  folders: Array<{ id: string; name: string; parentId: string | null }>;
+  secretTypes: Array<{ id: string; name: string }>;
+};
 
 export class TypedDocumentString<TResult, TVariables>
   extends String
@@ -1231,4 +1297,89 @@ export const MarkAllNotificationsReadDocument = new TypedDocumentString(`
     `) as unknown as TypedDocumentString<
   MarkAllNotificationsReadMutation,
   MarkAllNotificationsReadMutationVariables
+>;
+export const DashboardHomeDocument = new TypedDocumentString(`
+    query DashboardHome($userId: String!, $limit: Int) {
+  secretStats {
+    total
+    expiringSoon
+    expired
+    drift
+  }
+  topAccessedSecrets(limit: $limit) {
+    id
+    name
+    folderId
+    viewCount
+    lastAccessedAt
+  }
+  activeLeasesForUser(userId: $userId) {
+    id
+    secretId
+    issuedAt
+    expiresAt
+  }
+  approvalRequests {
+    id
+    kind
+    status
+    requestedByUserId
+    requestedAt
+    folderName
+    comments {
+      id
+    }
+  }
+  pendingSecretUses {
+    id
+    secretName
+    fieldKey
+    clientLabel
+    argv
+    reveal
+    expiresAtUnix
+  }
+  folders {
+    id
+    name
+    parentId
+  }
+}
+    `) as unknown as TypedDocumentString<DashboardHomeQuery, DashboardHomeQueryVariables>;
+export const DashboardSecretNameDocument = new TypedDocumentString(`
+    query DashboardSecretName($id: ID!) {
+  secret(id: $id) {
+    id
+    name
+  }
+}
+    `) as unknown as TypedDocumentString<
+  DashboardSecretNameQuery,
+  DashboardSecretNameQueryVariables
+>;
+export const DashboardSecretsByStatusDocument = new TypedDocumentString(`
+    query DashboardSecretsByStatus($status: String!) {
+  secretsByStatus(status: $status) {
+    id
+    name
+    typeId
+    folderId
+    targetId
+    expiresAt
+    lastHeartbeatResult
+    heartbeatOptOut
+  }
+  folders {
+    id
+    name
+    parentId
+  }
+  secretTypes {
+    id
+    name
+  }
+}
+    `) as unknown as TypedDocumentString<
+  DashboardSecretsByStatusQuery,
+  DashboardSecretsByStatusQueryVariables
 >;
