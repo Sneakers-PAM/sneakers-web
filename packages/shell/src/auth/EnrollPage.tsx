@@ -33,13 +33,21 @@ type Method = "authenticator" | "passkey" | "token";
 export const EnrollPage = () => {
   const { enforced, enrollment, next } = useLoaderData<EnrollLoaderData>();
   const nextHref = useHref(next);
-  const state = useActionData<EnrollState>() ?? { view: "form" as const };
+  const acted = useActionData<EnrollState>();
+  const state = acted ?? { view: "form" as const };
   const submit = useSubmit();
   const navigation = useNavigation();
   const busy = navigation.state !== "idle";
   const form = useRef<HTMLFormElement>(null);
   const [method, setMethod] = useState<Method>("authenticator");
-  const [code, setCode] = useState("");
+  // A wrong code stays on screen, marked, until the person edits it (frame 13f): `for` is the
+  // server answer the last edit was made against.
+  const [typed, setTyped] = useState<{ code: string; for: null | typeof acted }>({
+    code: "",
+    for: null,
+  });
+  const code = typed.code;
+  const setCode = (next: string) => setTyped({ code: next, for: acted });
   const canPasskey = useIsClient() && passkeysSupported();
 
   useEffect(() => {
@@ -64,7 +72,7 @@ export const EnrollPage = () => {
         : enrollment
           ? null
           : "We couldn't start the setup. Refresh the page and try again.";
-  const wrong = state.view === "form" && !!state.wrong && code.length === 0;
+  const wrong = state.view === "form" && !!state.wrong && typed.for !== acted;
 
   return (
     <CenteredFrame>

@@ -208,11 +208,15 @@ const CodeStep = ({
   const form = useRef<HTMLFormElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const [factor, setFactor] = useState<CodeFactor>(state.factor);
-  // The typed code belongs to the server answer it was typed against; a new answer (a wrong
-  // code, a resent email) starts the field empty again.
-  const [typed, setTyped] = useState<{ code: string; for: typeof state }>({ code: "", for: state });
-  const code = typed.for === state ? typed.code : "";
+  // A wrong code stays on screen, marked, until the person edits it (frame 13f): `for` is the
+  // server answer the last edit was made against.
+  const [typed, setTyped] = useState<{ code: string; for: null | typeof state }>({
+    code: "",
+    for: null,
+  });
+  const code = typed.code;
   const setCode = (next: string) => setTyped({ code: next, for: state });
+  const wrong = !!state.wrong && typed.for !== state;
   const busy = useBusy("verify");
   const offered = state.factors.filter((f): f is CodeFactor => f === "totp" || f === "email");
   const tabs: CodeFactor[] = offered.length > 0 ? offered : ["totp"];
@@ -292,8 +296,8 @@ const CodeStep = ({
       )}
       {state.problem && <Alert tone="danger">{CODE_PROBLEMS[state.problem]}</Alert>}
       <CodeInput
-        aria-describedby={state.wrong ? "code-wrong" : undefined}
-        invalid={state.wrong && code.length === 0}
+        aria-describedby={wrong ? "code-wrong" : undefined}
+        invalid={wrong}
         name="code"
         onChange={setCode}
         onComplete={() =>
@@ -304,7 +308,7 @@ const CodeStep = ({
         ref={input}
         value={code}
       />
-      {state.wrong && code.length === 0 && (
+      {wrong && (
         <span
           className="text-[0.875rem] leading-[1.3] font-bold text-danger"
           id="code-wrong"

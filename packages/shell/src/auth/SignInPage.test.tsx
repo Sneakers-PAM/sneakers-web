@@ -45,6 +45,9 @@ describe("SignInPage", () => {
     await user.type(code, "000000");
     expect(await screen.findByText(/That code didn.t work/)).toBeInTheDocument();
 
+    expect(screen.getByLabelText("6-digit code")).toHaveValue("000000");
+    await user.clear(screen.getByLabelText("6-digit code"));
+    expect(screen.queryByText(/That code didn.t work/)).not.toBeInTheDocument();
     await user.type(screen.getByLabelText("6-digit code"), "481027");
     expect(await screen.findByText("Welcome back, Alice")).toBeInTheDocument();
   });
