@@ -124,7 +124,7 @@ describe("user detail", () => {
       await screen.findByRole("button", { name: "Add to Platform engineers" }),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Revoke alice-laptop" }));
+    await user.click(screen.getByRole("button", { name: "Revoke build1 agent" }));
     expect(await screen.findByText("Revoked")).toBeInTheDocument();
   });
 

@@ -17,12 +17,12 @@ import {
 } from "@sneakers-web/api-client";
 import { http, HttpResponse } from "msw";
 
-import { directory, groupsOf, membersOf } from "#mock/admin/directory";
+import { groups, groupsOf, membersOf } from "#mock/admin/directory";
 import { isSiteAdmin, notSiteAdmin, refusal } from "#mock/admin/refuse";
 import { type MockUser, userById, USERS, WRONG_CODE } from "#mock/fixtures/users";
 import { authed, sessionOf } from "#mock/handlers/auth";
 import { api, asUser } from "#mock/handlers/graphql";
-import { MOCK_GATEWAY_URL, newToken } from "#mock/state";
+import { MOCK_GATEWAY_URL, mockState, newToken } from "#mock/state";
 
 const view = (u: MockUser) => ({
   disabled: u.disabled,
@@ -56,12 +56,12 @@ export const userHandlers = [
     asAdmin(request, () => {
       const u = userById(variables.id);
       return ok({
-        groups: directory.groups,
+        groups: groups(),
         user: u ? view(u) : null,
         userGroups: u ? groupsOf(u.id) : [],
-        userTokens: directory.tokens
-          .filter((t) => t.userId === variables.id)
-          .map((t) => ({ ...t, userId: undefined })),
+        userTokens: mockState.world.tokens
+          .filter((t) => t.ownerUserId === variables.id)
+          .map((t) => ({ ...t, ownerUserId: undefined })),
       });
     }),
   ),
@@ -152,8 +152,8 @@ export const userHandlers = [
 
   api.mutation(AdminRevokeUserTokenDocument, ({ request, variables }) =>
     asAdmin(request, () => {
-      const t = directory.tokens.find(
-        (x) => x.id === variables.id && x.userId === variables.userId,
+      const t = mockState.world.tokens.find(
+        (x) => x.id === variables.id && x.ownerUserId === variables.userId,
       );
       if (!t) return refusal("NOT_FOUND", "token not found");
       if (!t.revokedAtUnix) t.revokedAtUnix = Math.floor(Date.now() / 1000);
@@ -161,13 +161,11 @@ export const userHandlers = [
     }),
   ),
 
-  api.query(AdminGroupsDocument, ({ request }) =>
-    asAdmin(request, () => ok({ groups: directory.groups })),
-  ),
+  api.query(AdminGroupsDocument, ({ request }) => asAdmin(request, () => ok({ groups: groups() }))),
 
   api.query(AdminGroupDocument, ({ request, variables }) =>
     asAdmin(request, () =>
-      ok({ groupMembers: membersOf(variables.id).map((u) => person(u)), groups: directory.groups }),
+      ok({ groupMembers: membersOf(variables.id).map((u) => person(u)), groups: groups() }),
     ),
   ),
 
@@ -187,10 +185,10 @@ export const userHandlers = [
     asAdmin(request, () => {
       const name = variables.name.trim();
       if (!name) return refusal("INVALID_ARGUMENT", "a group needs a name");
-      if (directory.groups.some((g) => g.name.toLowerCase() === name.toLowerCase()))
+      if (groups().some((g) => g.name.toLowerCase() === name.toLowerCase()))
         return refusal("ALREADY_EXISTS", "a group with that name already exists");
       const g = { id: newToken("mock-group"), name };
-      directory.groups.push(g);
+      mockState.world.groups.push(g);
       return ok({ createGroup: g });
     }),
   ),
@@ -198,16 +196,17 @@ export const userHandlers = [
   api.mutation(AdminAddGroupMemberDocument, ({ request, variables }) =>
     asAdmin(request, () => {
       if (!userById(variables.userId)) return noUser();
-      if (!directory.members.some(([g, u]) => g === variables.groupId && u === variables.userId))
-        directory.members.push([variables.groupId, variables.userId]);
+      const members = mockState.world.groupMembers;
+      if (!members.some((m) => m.groupId === variables.groupId && m.userId === variables.userId))
+        members.push({ groupId: variables.groupId, userId: variables.userId });
       return ok({ addGroupMember: true });
     }),
   ),
 
   api.mutation(AdminRemoveGroupMemberDocument, ({ request, variables }) =>
     asAdmin(request, () => {
-      directory.members = directory.members.filter(
-        ([g, u]) => !(g === variables.groupId && u === variables.userId),
+      mockState.world.groupMembers = mockState.world.groupMembers.filter(
+        (m) => !(m.groupId === variables.groupId && m.userId === variables.userId),
       );
       return ok({ removeGroupMember: true });
     }),
