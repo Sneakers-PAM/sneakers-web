@@ -47,7 +47,10 @@ describe("StepUpDialog", () => {
     await user.clear(screen.getByLabelText("6-digit code"));
     await user.type(screen.getByLabelText("6-digit code"), "481027");
     await vi.waitFor(() => expect(onRetry).toHaveBeenCalledTimes(1));
-    expect(screen.queryByRole("heading", { name: "Confirm it's you" })).not.toBeInTheDocument();
+    // The dialog closes after its exit animation, so wait for it rather than expect it at once.
+    await vi.waitFor(() =>
+      expect(screen.queryByRole("heading", { name: "Confirm it's you" })).not.toBeInTheDocument(),
+    );
   });
 
   it("closes without retrying on Cancel", async () => {
