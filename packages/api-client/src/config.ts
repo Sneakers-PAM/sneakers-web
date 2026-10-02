@@ -1,40 +1,36 @@
-export type AppEnv = "dev" | "prod" | "qa";
+export type AppEnvironment = "dev" | "prod" | "qa";
 export type LogLevel = "debug" | "error" | "info" | "trace" | "warn";
 
-/** Settings the server writes into /config.js at deploy time (window.__APP_CONFIG__). */
-export interface RuntimeConfig {
+/** The settings the browser may see. The server reads them from its environment and hands them to every page. */
+export interface PublicConfig {
   /** Where the admin console lives, for the staff app's "Admin console" link. */
   adminUrl: string;
-  appEnv: AppEnv;
+  appEnv: AppEnvironment;
   logLevel: LogLevel;
   /** Offer "Sign in with SSO" first. Off when the install has no SAML provider. */
   sso: boolean;
   /** Where the staff app lives, for the admin console's "User app" link. */
   staffUrl: string;
+  version: string;
 }
 
-declare global {
-  interface Window {
-    __APP_CONFIG__?: Partial<Record<keyof RuntimeConfig, unknown>>;
-  }
-}
-
-const ENVS: Set<AppEnv> = new Set(["dev", "prod", "qa"]);
-const LEVELS: Set<LogLevel> = new Set(["debug", "error", "info", "trace", "warn"]);
+const ENVIRONMENTS = new Set<AppEnvironment>(["dev", "prod", "qa"]);
+const LEVELS = new Set<LogLevel>(["debug", "error", "info", "trace", "warn"]);
 
 /**
- * Read the runtime config. Anything missing or unknown falls back to the safe default:
- * production, error-level logging. Local dev servers write a dev config.
+ * Read the public settings from the server's environment. Anything missing or unknown
+ * falls back to the safe default: production, error-level logging, SSO offered.
  */
-export const runtimeConfig = (): RuntimeConfig => {
-  const raw = (globalThis.window !== undefined && globalThis.__APP_CONFIG__) || {};
-  const appEnvironment = ENVS.has(raw.appEnv as AppEnv) ? (raw.appEnv as AppEnv) : "prod";
-  const logLevel = LEVELS.has(raw.logLevel as LogLevel) ? (raw.logLevel as LogLevel) : "error";
-  return {
-    adminUrl: typeof raw.adminUrl === "string" ? raw.adminUrl : "/admin/",
-    appEnv: appEnvironment,
-    logLevel,
-    sso: raw.sso !== false,
-    staffUrl: typeof raw.staffUrl === "string" ? raw.staffUrl : "/",
-  };
-};
+export const publicConfigFrom = (
+  env: Record<string, string | undefined>,
+  version: string,
+): PublicConfig => ({
+  adminUrl: env.ADMIN_URL || "/admin/",
+  appEnv: ENVIRONMENTS.has(env.APP_ENV as AppEnvironment)
+    ? (env.APP_ENV as AppEnvironment)
+    : "prod",
+  logLevel: LEVELS.has(env.LOG_LEVEL as LogLevel) ? (env.LOG_LEVEL as LogLevel) : "error",
+  sso: env.SSO_ENABLED !== "false",
+  staffUrl: env.STAFF_URL || "/",
+  version,
+});

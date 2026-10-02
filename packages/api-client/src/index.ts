@@ -8,26 +8,30 @@ export type {
   SsoReturn,
   TotpEnrollment,
 } from "#api/auth";
-export { type AppEnv, type LogLevel, runtimeConfig, type RuntimeConfig } from "#api/config";
-export { clearCsrf, getCsrf, setCsrf } from "#api/csrf";
+export {
+  type AppEnvironment,
+  type LogLevel,
+  type PublicConfig,
+  publicConfigFrom,
+} from "#api/config";
 export type { Edge } from "#api/edge/types";
 export {
   ApiError,
+  type ErrorExtensions,
+  GatewayUnreachableError,
+  type GraphQLErrorItem,
   GraphQLRequestError,
-  type GrpcCode,
-  grpcCodeOf,
-  NetworkError,
+  isRefusal,
+  legacyCode,
 } from "#api/errors";
-export * from "#api/generated/graphql";
-export { gql, type TypedDocument } from "#api/graphql";
 export {
-  requestJson,
+  GatewayClient,
+  type GatewayOptions,
+  readCookie,
   type RequestOptions,
-  sessionEvents,
-  type SessionEvents,
-  setSessionEvents,
-} from "#api/http";
-export { createLogger, type LogFields, type Logger } from "#api/log";
+  type TypedDocument,
+} from "#api/gateway";
+export * from "#api/generated/graphql";
+export { createLogger, type LogFields, type Logger, setLogFormat, setLogLevel } from "#api/log";
 export { fetchSetupState } from "#api/setup";
-export { storageKey } from "#api/storage";
 export { createCredential, getAssertion, passkeysSupported } from "#api/webauthn";

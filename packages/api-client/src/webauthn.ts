@@ -8,14 +8,14 @@ const fromB64url = (s: string): ArrayBuffer => {
   const pad = "=".repeat((4 - (s.length % 4)) % 4);
   const bin = atob((s + pad).replaceAll("-", "+").replaceAll("_", "/"));
   const out = new Uint8Array(bin.length);
-  for (let index = 0; index < bin.length; index++) out[index] = bin.charCodeAt(index);
+  for (let index = 0; index < bin.length; index++) out[index] = bin.codePointAt(index) ?? 0;
   return out.buffer;
 };
 
 const toB64url = (buf: ArrayBuffer): string => {
   const bytes = new Uint8Array(buf);
   let bin = "";
-  for (const b of bytes) bin += String.fromCharCode(b);
+  for (const b of bytes) bin += String.fromCodePoint(b);
   return btoa(bin).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
 };
 
