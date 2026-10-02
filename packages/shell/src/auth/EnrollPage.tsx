@@ -8,6 +8,7 @@ import {
   Skeleton,
   useIsClient,
 } from "@sneakers-web/ui";
+import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
   Form,
@@ -151,7 +152,8 @@ export const EnrollPage = () => {
               />
               {wrong && (
                 <span className="text-small font-bold text-danger" role="alert">
-                  ✕ That code didn&apos;t match. Check the time on your phone.
+                  <X aria-hidden className="mr-1 inline size-3.5 align-[-2px]" strokeWidth={3} />
+                  That code didn&apos;t match. Check the time on your phone.
                 </span>
               )}
             </div>

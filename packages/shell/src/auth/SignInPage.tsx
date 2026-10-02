@@ -1,6 +1,6 @@
 import { getAssertion, passkeysSupported } from "@sneakers-web/api-client";
 import { Alert, Button, CodeInput, Field, Input, Segmented, SneakerLoader } from "@sneakers-web/ui";
-import { ChevronLeft, KeyRound } from "lucide-react";
+import { ChevronLeft, KeyRound, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
   Form,
@@ -310,7 +310,8 @@ const CodeStep = ({
           id="code-wrong"
           role="alert"
         >
-          ✕ That code didn&apos;t work. Codes change every 30 seconds.
+          <X aria-hidden className="mr-1 inline size-3.5 align-[-2px]" strokeWidth={3} />
+          That code didn&apos;t work. Codes change every 30 seconds.
         </span>
       )}
       <Button
