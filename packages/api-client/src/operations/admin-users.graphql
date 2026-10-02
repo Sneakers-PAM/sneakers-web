@@ -1,0 +1,117 @@
+query AdminUsers {
+  users {
+    ...UserFields
+  }
+}
+
+query AdminUser($id: String!) {
+  user(id: $id) {
+    ...UserFields
+    subject
+  }
+  userGroups(userId: $id) {
+    id
+    name
+  }
+  groups {
+    id
+    name
+  }
+  userTokens(userId: $id) {
+    id
+    label
+    clientName
+    createdAtUnix
+    lastUsedAtUnix
+    expiresAtUnix
+    revokedAtUnix
+  }
+}
+
+mutation AdminCreateLocalUser(
+  $username: String!
+  $email: String!
+  $name: String!
+  $password: String!
+) {
+  createLocalUser(username: $username, email: $email, name: $name, password: $password) {
+    id
+  }
+}
+
+mutation AdminUpdateUser($userId: String!, $name: String!, $email: String!, $username: String!) {
+  updateUser(userId: $userId, name: $name, email: $email, username: $username) {
+    ...UserFields
+  }
+}
+
+mutation AdminSetUserRoles($userId: String!, $roles: [String!]!) {
+  setUserRoles(userId: $userId, roles: $roles) {
+    ...UserFields
+  }
+}
+
+mutation AdminSetUserDisabled($userId: String!, $disabled: Boolean!) {
+  setUserDisabled(userId: $userId, disabled: $disabled) {
+    ...UserFields
+  }
+}
+
+mutation AdminRequestEmailVerification($userId: String!) {
+  requestEmailVerification(userId: $userId)
+}
+
+mutation AdminConfirmEmailVerification($userId: String!, $code: String!) {
+  confirmEmailVerification(userId: $userId, code: $code)
+}
+
+mutation AdminRevokeUserToken($userId: String!, $id: ID!) {
+  revokeUserToken(userId: $userId, id: $id) {
+    id
+    revokedAtUnix
+  }
+}
+
+query AdminGroups {
+  groups {
+    id
+    name
+  }
+}
+
+query AdminGroup($id: String!) {
+  groups {
+    id
+    name
+  }
+  groupMembers(groupId: $id) {
+    id
+    name
+    email
+    username
+  }
+}
+
+query AdminSearchUsers($query: String!, $limit: Int) {
+  searchUsers(query: $query, limit: $limit) {
+    id
+    name
+    email
+    username
+  }
+}
+
+mutation AdminCreateGroup($name: String!) {
+  createGroup(name: $name) {
+    id
+    name
+  }
+}
+
+mutation AdminAddGroupMember($userId: String!, $groupId: String!) {
+  addGroupMember(userId: $userId, groupId: $groupId)
+}
+
+mutation AdminRemoveGroupMember($userId: String!, $groupId: String!) {
+  removeGroupMember(userId: $userId, groupId: $groupId)
+}

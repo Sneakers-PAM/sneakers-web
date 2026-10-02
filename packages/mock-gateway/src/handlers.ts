@@ -1,5 +1,6 @@
 import { http, HttpResponse } from "msw";
 
+import { adminHandlers } from "#mock/admin/handlers";
 import { authHandlers } from "#mock/handlers/auth";
 import { api, shellHandlers } from "#mock/handlers/graphql";
 import { stepUpHandlers } from "#mock/handlers/stepUp";
@@ -26,4 +27,10 @@ const notMocked = [
 ];
 
 /** Every request the mock gateway answers. */
-export const handlers = [...authHandlers, ...stepUpHandlers, ...shellHandlers, ...notMocked];
+export const handlers = [
+  ...authHandlers,
+  ...stepUpHandlers,
+  ...shellHandlers,
+  ...adminHandlers,
+  ...notMocked,
+];

@@ -38,12 +38,19 @@ Before changing anything, know two things:
 - `apps/<app>/app/`: `root.tsx` (document, root loader, error screen), `routes.ts` (the route
   table), `routes/` (one module per route: loader, action, page), `frame/` (the signed-in frame),
   `entry.server.tsx` (starts the edge, then renders).
+- `apps/admin/app/lib/admin.server.ts`: `adminLoad` (a page's data; a refusal becomes a 403 or 404
+  for the page's `PageError` boundary) and `adminAct` (one form intent; a refusal comes back as
+  data for the toast). `components/` holds the console's own pieces (`Panel`, `SettingRow`).
+  Route tests (`routes/*.test.tsx`) mount the real loaders and actions with `renderAdmin` from
+  `app/test/stub.tsx`, as a chosen fixture user.
 - `packages/shell/src/`: the shared pages (sign-in, reset, enrolment), the frame pieces and error
   screens; `server/` holds the server-only loaders and actions (`*.server.ts`, exported from
   `@sneakers-web/shell/server`).
 - `packages/api-client/src/`: the gateway client, auth routes, errors, logger, public config and
   the generated GraphQL documents (`generated/`, rebuilt by `npm run schema:generate`).
-- `packages/mock-gateway/src/`: fixtures, MSW handlers and the mock edge.
+- `packages/mock-gateway/src/`: fixtures, MSW handlers and the mock edge. The admin console's
+  operations live in `admin/` (one file per area, collected in `admin/handlers.ts`); an area that
+  keeps its own state registers its reset with `onMockReset`.
 - `packages/ui/src/`: the Laces kit (components, theme, brand).
 - `packages/vite-config/src/`: the shared Vite and Vitest config, and the edge choice.
 
