@@ -1,0 +1,12 @@
+**/node_modules
+**/build
+**/build-mock
+**/.react-router
+**/dist
+**/dist-mock
+.git
+.local
+.schemas
+coverage
+test-results
+playwright-report
