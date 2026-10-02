@@ -35,3 +35,4 @@ export {
   type SignInState,
   signOutAction,
 } from "#shell/server/signIn.server";
+export { stepUpAction, type StepUpState } from "#shell/server/stepUp.server";

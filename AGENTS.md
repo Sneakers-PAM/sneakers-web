@@ -38,15 +38,22 @@ Before changing anything, know two things:
 - `apps/<app>/app/`: `root.tsx` (document, root loader, error screen), `routes.ts` (the route
   table), `routes/` (one module per route: loader, action, page), `frame/` (the signed-in frame),
   `entry.server.tsx` (starts the edge, then renders).
+- `apps/admin/app/lib/admin.server.ts`: `adminLoad` (a page's data; a refusal becomes a 403 or 404
+  for the page's `PageError` boundary) and `adminAct` (one form intent; a refusal comes back as
+  data for the toast). `components/` holds the console's own pieces (`Panel`, `SettingRow`).
+  Route tests (`routes/*.test.tsx`) mount the real loaders and actions with `renderAdmin` from
+  `app/test/stub.tsx`, as a chosen fixture user.
 - `packages/shell/src/`: the shared pages (sign-in, reset, enrolment), the frame pieces and error
   screens; `server/` holds the server-only loaders and actions (`*.server.ts`, exported from
   `@sneakers-web/shell/server`).
 - `packages/api-client/src/`: the gateway client, auth routes, errors, logger, public config and
   the generated GraphQL documents (`generated/`, rebuilt by `npm run schema:generate`).
 - `packages/mock-gateway/src/`: fixtures, MSW handlers and the mock edge. `fixtures/world.ts` is
-  the invented organisation the staff screens use (folders, secrets, targets, checkouts, requests,
-  agent access), rebuilt by `resetMockState()`; handlers read and change `mockState.world`.
-  Staff answers live in `handlers/staff/<area>.ts`, one module per area.
+  the invented organisation the staff and admin screens use (folders, secrets, targets,
+  checkouts, requests, agent access), rebuilt by `resetMockState()`; handlers read and change
+  `mockState.world`. The admin console's operations live in `admin/` (one file per area,
+  collected in `admin/handlers.ts`); an area that keeps its own state registers its reset with
+  `onMockReset`. Staff answers live in `handlers/staff/<area>.ts`, one module per area.
 - `packages/ui/src/`: the Laces kit (components, theme, brand).
 - `packages/vite-config/src/`: the shared Vite and Vitest config, and the edge choice.
 
@@ -61,6 +68,19 @@ switch.
 Paths inside an app are base-free (`appPath("sign-in")` is `/sign-in` in both apps). React
 Router adds the `/admin/` basename to links and redirects; a redirect that leaves the app (single
 sign-on) uses an absolute URL.
+
+## Refusals and step-up
+
+- A gateway refusal arrives as `GraphQLRequestError` with `code`, `reason` and `metadata`. In an
+  action, turn it into data with `refusalOf(error)` (`@sneakers-web/shell`) and show
+  `refusalMessage(refusal)`; match on `reason` and `code`, never on the text.
+- `STEP_UP_REQUIRED` means the vault wants a fresh second factor. The page opens
+  `StepUpDialog` (wired with `useStepUp()`); it posts to the app's `resources/step-up` route
+  (`stepUpAction`, which calls `POST /auth/mfa/step-up`) and, once the factor checks out, runs
+  the retry the page gave it. Five wrong proofs end the session, and the prompt sends the person
+  to sign in.
+- The mock gateway counts a step-up as fresh for five minutes (`freshMfa`), and a session that
+  never stepped up as stale, so the prompt shows the first time in mock mode.
 
 ## Build, test, lint
 

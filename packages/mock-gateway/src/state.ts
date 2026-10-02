@@ -17,7 +17,10 @@ export interface MockSession {
   enrolled: boolean;
   enrollmentRequired: boolean;
   mfaVerified: boolean;
+  /** When the session last passed a step-up (ms). Unset means a reveal that wants one asks. */
+  mfaVerifiedAt?: number;
   setupRecommended: boolean;
+  stepUpFailures?: number;
   userId: string;
 }
 
@@ -45,8 +48,16 @@ export const mockState = {
   world: initialWorld(),
 };
 
+const resetHooks: (() => void)[] = [];
+
+/** Register extra mock state (an area's own fixtures) to be restored by resetMockState. */
+export const onMockReset = (hook: () => void): void => {
+  resetHooks.push(hook);
+};
+
 /** Reset everything (tests call this between cases). */
 export const resetMockState = (): void => {
+  for (const hook of resetHooks) hook();
   mockState.enrollments.clear();
   mockState.inbox = initialInbox();
   mockState.needsSetup = false;

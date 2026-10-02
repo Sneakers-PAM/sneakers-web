@@ -7,7 +7,7 @@ import {
   NavItem,
   useRootData,
 } from "@sneakers-web/shell";
-import { useBreakpoint } from "@sneakers-web/ui";
+import { Button, EmptyState, useBreakpoint } from "@sneakers-web/ui";
 import {
   ArrowLeft,
   ArrowRightLeft,
@@ -25,7 +25,7 @@ import type { loader } from "@/routes/frame";
 
 /** The admin console frame. The header is inverted (an ink bar) so it's never mistaken for the user app. */
 export const AdminFrame = () => {
-  const { mfaSetupRecommended, user } = useLoaderData<typeof loader>();
+  const { isAdmin, mfaSetupRecommended, user } = useLoaderData<typeof loader>();
   const { config } = useRootData();
   const submit = useSubmit();
   const phone = useBreakpoint() === "phone";
@@ -86,7 +86,19 @@ export const AdminFrame = () => {
       )}
       variant="admin"
     >
-      <Outlet />
+      {isAdmin ? (
+        <Outlet />
+      ) : (
+        <EmptyState
+          action={
+            <Button asChild variant="secondary">
+              <a href={config.staffUrl}>Go to the user app</a>
+            </Button>
+          }
+          body="The admin console is for site admins. Ask one if you need access."
+          title="This console is for site admins"
+        />
+      )}
     </AppShell>
   );
 };
