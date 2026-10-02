@@ -51,6 +51,19 @@ Paths inside an app are base-free (`appPath("sign-in")` is `/sign-in` in both ap
 Router adds the `/admin/` basename to links and redirects; a redirect that leaves the app (single
 sign-on) uses an absolute URL.
 
+## Refusals and step-up
+
+- A gateway refusal arrives as `GraphQLRequestError` with `code`, `reason` and `metadata`. In an
+  action, turn it into data with `refusalOf(error)` (`@sneakers-web/shell`) and show
+  `refusalMessage(refusal)`; match on `reason` and `code`, never on the text.
+- `STEP_UP_REQUIRED` means the vault wants a fresh second factor. The page opens
+  `StepUpDialog` (wired with `useStepUp()`); it posts to the app's `resources/step-up` route
+  (`stepUpAction`, which calls `POST /auth/mfa/step-up`) and, once the factor checks out, runs
+  the retry the page gave it. Five wrong proofs end the session, and the prompt sends the person
+  to sign in.
+- The mock gateway counts a step-up as fresh for five minutes (`freshMfa`), and a session that
+  never stepped up as stale, so the prompt shows the first time in mock mode.
+
 ## Build, test, lint
 
 - Build: `npm run build` (live, to `apps/*/build`) and `npm run build:mock` (to

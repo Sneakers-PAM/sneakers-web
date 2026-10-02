@@ -34,4 +34,11 @@ export {
 export * from "#api/generated/graphql";
 export { createLogger, type LogFields, type Logger, setLogFormat, setLogLevel } from "#api/log";
 export { fetchSetupState } from "#api/setup";
+export {
+  beginStepUpPasskey,
+  sendStepUpEmail,
+  stepUp,
+  type StepUpProof,
+  type StepUpResult,
+} from "#api/stepUp";
 export { createCredential, getAssertion, passkeysSupported } from "#api/webauthn";

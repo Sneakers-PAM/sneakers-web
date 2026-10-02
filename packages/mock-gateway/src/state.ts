@@ -16,7 +16,10 @@ export interface MockSession {
   enrolled: boolean;
   enrollmentRequired: boolean;
   mfaVerified: boolean;
+  /** When the session last passed a step-up (ms). Unset means a reveal that wants one asks. */
+  mfaVerifiedAt?: number;
   setupRecommended: boolean;
+  stepUpFailures?: number;
   userId: string;
 }
 
