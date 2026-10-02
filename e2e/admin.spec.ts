@@ -30,6 +30,7 @@ test("a site admin grants the recovery role and files a new hire into a group", 
   await expect(page.getByRole("heading", { name: "Bob" })).toBeVisible();
   const recovery = page.getByRole("switch", { name: "Recovery" });
   await recovery.click();
+  await page.getByRole("button", { name: "Grant" }).click();
   await expect(recovery).toBeChecked();
   await page.reload();
   await expect(page.getByRole("switch", { name: "Recovery" })).toBeChecked();
@@ -47,4 +48,21 @@ test("a site admin grants the recovery role and files a new hire into a group", 
   await page.getByLabel("Add member…").fill("frank");
   await page.getByRole("button", { name: "Add Frank" }).click();
   await expect(page.getByText("Group · 2 members")).toBeVisible();
+});
+
+test("a site admin turns on MFA before a reveal and builds a custom type", async ({ page }) => {
+  await signInAsAlice(page, "/admin/policies");
+  const reveal = page.getByRole("switch", { name: "Require MFA before a reveal" });
+  await expect(reveal).not.toBeChecked();
+  await reveal.click();
+  await expect(reveal).toBeChecked();
+  await page.reload();
+  await expect(page.getByRole("switch", { name: "Require MFA before a reveal" })).toBeChecked();
+
+  await page.goto("/admin/types/new");
+  await page.getByLabel(/Type name/).fill("Alarm Panel");
+  await page.getByRole("button", { name: "Add field" }).click();
+  await page.getByLabel("Field 1 label").fill("Code");
+  await page.getByRole("button", { name: "Save type" }).click();
+  await expect(page.getByRole("link", { exact: true, name: "Alarm Panel" })).toBeVisible();
 });

@@ -7,6 +7,350 @@ export type Incremental<T> =
 import type { DocumentTypeDecoration } from "@graphql-typed-document-node/core";
 export type ApprovalStatus = "approved" | "denied" | "pending";
 
+export type FieldKind =
+  "boolean" | "file" | "multiline" | "password" | "select" | "sensitive" | "text";
+
+export type PasswordPolicyInput = {
+  endLiteral?: string | null | undefined;
+  excludeChars?: string | null | undefined;
+  id?: string | null | undefined;
+  maxLength?: number | null | undefined;
+  minLength: number;
+  name: string;
+  requireDigit: boolean;
+  requireLower: boolean;
+  requireSymbol: boolean;
+  requireUpper: boolean;
+  rotationDays?: number | null | undefined;
+  startClass?: PwStartClass | null | undefined;
+};
+
+export type PolicyEnforcement = "lax" | "strict";
+
+export type PwStartClass = "any" | "digit" | "letter" | "symbol";
+
+export type SecretFieldDefInput = {
+  defaultValue?: string | null | undefined;
+  key: string;
+  kind: FieldKind;
+  label: string;
+  maxLength?: number | null | undefined;
+  options?: Array<string> | null | undefined;
+  pattern?: string | null | undefined;
+  policyEnforcement?: PolicyEnforcement | null | undefined;
+  policyId?: string | null | undefined;
+  required?: boolean | null | undefined;
+  rotates?: boolean | null | undefined;
+  sensitive?: boolean | null | undefined;
+  superSensitive?: boolean | null | undefined;
+};
+
+export type SecretTypeInput = {
+  checkout?: boolean | null | undefined;
+  fields: Array<SecretFieldDefInput>;
+  heartbeat?: boolean | null | undefined;
+  name: string;
+  rotation?: boolean | null | undefined;
+};
+
+export type SecuritySettingsInput = {
+  allowApiForSensitive?: boolean | null | undefined;
+  defaultPasswordPolicyId?: string | null | undefined;
+  requestHistoryRetentionDays?: number | null | undefined;
+  requireMfaForReveal?: boolean | null | undefined;
+  requireMfaForSensitiveCheckout?: boolean | null | undefined;
+  sessionTtlSeconds?: number | null | undefined;
+};
+
+export type TypeOrigin = "custom" | "extension" | "system";
+
+export type SecretTypeFieldsFragment = {
+  id: string;
+  name: string;
+  heartbeat: boolean | null;
+  checkout: boolean | null;
+  rotation: boolean | null;
+  origin: TypeOrigin;
+  vendor: string | null;
+  fields: Array<{
+    key: string;
+    label: string;
+    kind: FieldKind;
+    options: Array<string> | null;
+    defaultValue: string | null;
+    required: boolean | null;
+    sensitive: boolean | null;
+    policyId: string | null;
+    policyEnforcement: PolicyEnforcement | null;
+    rotates: boolean | null;
+    superSensitive: boolean | null;
+    pattern: string | null;
+    maxLength: number | null;
+  }>;
+};
+
+export type PasswordPolicyFieldsFragment = {
+  id: string;
+  name: string;
+  minLength: number;
+  maxLength: number | null;
+  requireUpper: boolean;
+  requireLower: boolean;
+  requireDigit: boolean;
+  requireSymbol: boolean;
+  rotationDays: number | null;
+  startClass: PwStartClass | null;
+  endLiteral: string | null;
+  excludeChars: string | null;
+  isDefault: boolean;
+  byTypeFields: number;
+  deletable: boolean;
+};
+
+export type SecuritySettingsFieldsFragment = {
+  defaultPasswordPolicyId: string | null;
+  requireMfaForSensitiveCheckout: boolean;
+  allowApiForSensitive: boolean;
+  requestHistoryRetentionDays: number | null;
+  sessionTtlSeconds: number | null;
+  requireMfaForReveal: boolean;
+};
+
+export type AdminSecretTypesQueryVariables = Exact<{ [key: string]: never }>;
+
+export type AdminSecretTypesQuery = {
+  secretTypes: Array<{
+    id: string;
+    name: string;
+    heartbeat: boolean | null;
+    checkout: boolean | null;
+    rotation: boolean | null;
+    origin: TypeOrigin;
+    vendor: string | null;
+    fields: Array<{
+      key: string;
+      label: string;
+      kind: FieldKind;
+      options: Array<string> | null;
+      defaultValue: string | null;
+      required: boolean | null;
+      sensitive: boolean | null;
+      policyId: string | null;
+      policyEnforcement: PolicyEnforcement | null;
+      rotates: boolean | null;
+      superSensitive: boolean | null;
+      pattern: string | null;
+      maxLength: number | null;
+    }>;
+  }>;
+  availableExtensions: Array<{
+    id: string;
+    name: string;
+    vendor: string | null;
+    fields: Array<{ label: string }>;
+  }>;
+};
+
+export type AdminSecretTypeQueryVariables = Exact<{ [key: string]: never }>;
+
+export type AdminSecretTypeQuery = {
+  secretTypes: Array<{
+    id: string;
+    name: string;
+    heartbeat: boolean | null;
+    checkout: boolean | null;
+    rotation: boolean | null;
+    origin: TypeOrigin;
+    vendor: string | null;
+    fields: Array<{
+      key: string;
+      label: string;
+      kind: FieldKind;
+      options: Array<string> | null;
+      defaultValue: string | null;
+      required: boolean | null;
+      sensitive: boolean | null;
+      policyId: string | null;
+      policyEnforcement: PolicyEnforcement | null;
+      rotates: boolean | null;
+      superSensitive: boolean | null;
+      pattern: string | null;
+      maxLength: number | null;
+    }>;
+  }>;
+  passwordPolicies: Array<{
+    id: string;
+    name: string;
+    minLength: number;
+    maxLength: number | null;
+    isDefault: boolean;
+  }>;
+};
+
+export type AdminCreateSecretTypeMutationVariables = Exact<{
+  input: SecretTypeInput;
+}>;
+
+export type AdminCreateSecretTypeMutation = {
+  createSecretType: {
+    id: string;
+    name: string;
+    heartbeat: boolean | null;
+    checkout: boolean | null;
+    rotation: boolean | null;
+    origin: TypeOrigin;
+    vendor: string | null;
+    fields: Array<{
+      key: string;
+      label: string;
+      kind: FieldKind;
+      options: Array<string> | null;
+      defaultValue: string | null;
+      required: boolean | null;
+      sensitive: boolean | null;
+      policyId: string | null;
+      policyEnforcement: PolicyEnforcement | null;
+      rotates: boolean | null;
+      superSensitive: boolean | null;
+      pattern: string | null;
+      maxLength: number | null;
+    }>;
+  };
+};
+
+export type AdminUpdateSecretTypeMutationVariables = Exact<{
+  id: string;
+  input: SecretTypeInput;
+}>;
+
+export type AdminUpdateSecretTypeMutation = {
+  updateSecretType: {
+    id: string;
+    name: string;
+    heartbeat: boolean | null;
+    checkout: boolean | null;
+    rotation: boolean | null;
+    origin: TypeOrigin;
+    vendor: string | null;
+    fields: Array<{
+      key: string;
+      label: string;
+      kind: FieldKind;
+      options: Array<string> | null;
+      defaultValue: string | null;
+      required: boolean | null;
+      sensitive: boolean | null;
+      policyId: string | null;
+      policyEnforcement: PolicyEnforcement | null;
+      rotates: boolean | null;
+      superSensitive: boolean | null;
+      pattern: string | null;
+      maxLength: number | null;
+    }>;
+  };
+};
+
+export type AdminDeleteSecretTypeMutationVariables = Exact<{
+  id: string;
+}>;
+
+export type AdminDeleteSecretTypeMutation = { deleteSecretType: boolean };
+
+export type AdminCloneSecretTypeMutationVariables = Exact<{
+  id: string;
+}>;
+
+export type AdminCloneSecretTypeMutation = { cloneSecretType: { id: string; name: string } };
+
+export type AdminImportExtensionMutationVariables = Exact<{
+  id: string;
+}>;
+
+export type AdminImportExtensionMutation = { importExtension: { id: string; name: string } };
+
+export type AdminImportExtensionFromJsonMutationVariables = Exact<{
+  json: string;
+}>;
+
+export type AdminImportExtensionFromJsonMutation = {
+  importExtensionFromJson: { id: string; name: string };
+};
+
+export type AdminPoliciesQueryVariables = Exact<{ [key: string]: never }>;
+
+export type AdminPoliciesQuery = {
+  passwordPolicies: Array<{
+    id: string;
+    name: string;
+    minLength: number;
+    maxLength: number | null;
+    requireUpper: boolean;
+    requireLower: boolean;
+    requireDigit: boolean;
+    requireSymbol: boolean;
+    rotationDays: number | null;
+    startClass: PwStartClass | null;
+    endLiteral: string | null;
+    excludeChars: string | null;
+    isDefault: boolean;
+    byTypeFields: number;
+    deletable: boolean;
+  }>;
+  securitySettings: {
+    defaultPasswordPolicyId: string | null;
+    requireMfaForSensitiveCheckout: boolean;
+    allowApiForSensitive: boolean;
+    requestHistoryRetentionDays: number | null;
+    sessionTtlSeconds: number | null;
+    requireMfaForReveal: boolean;
+  };
+};
+
+export type AdminSavePasswordPolicyMutationVariables = Exact<{
+  input: PasswordPolicyInput;
+}>;
+
+export type AdminSavePasswordPolicyMutation = {
+  savePasswordPolicy: {
+    id: string;
+    name: string;
+    minLength: number;
+    maxLength: number | null;
+    requireUpper: boolean;
+    requireLower: boolean;
+    requireDigit: boolean;
+    requireSymbol: boolean;
+    rotationDays: number | null;
+    startClass: PwStartClass | null;
+    endLiteral: string | null;
+    excludeChars: string | null;
+    isDefault: boolean;
+    byTypeFields: number;
+    deletable: boolean;
+  };
+};
+
+export type AdminDeletePasswordPolicyMutationVariables = Exact<{
+  id: string;
+}>;
+
+export type AdminDeletePasswordPolicyMutation = { deletePasswordPolicy: boolean };
+
+export type AdminUpdateSecuritySettingsMutationVariables = Exact<{
+  input: SecuritySettingsInput;
+}>;
+
+export type AdminUpdateSecuritySettingsMutation = {
+  updateSecuritySettings: {
+    defaultPasswordPolicyId: string | null;
+    requireMfaForSensitiveCheckout: boolean;
+    allowApiForSensitive: boolean;
+    requestHistoryRetentionDays: number | null;
+    sessionTtlSeconds: number | null;
+    requireMfaForReveal: boolean;
+  };
+};
+
 export type AdminUsersQueryVariables = Exact<{ [key: string]: never }>;
 
 export type AdminUsersQuery = {
@@ -268,6 +612,70 @@ export class TypedDocumentString<TResult, TVariables>
     return this.value;
   }
 }
+export const SecretTypeFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment SecretTypeFields on SecretType {
+  id
+  name
+  heartbeat
+  checkout
+  rotation
+  origin
+  vendor
+  fields {
+    key
+    label
+    kind
+    options
+    defaultValue
+    required
+    sensitive
+    policyId
+    policyEnforcement
+    rotates
+    superSensitive
+    pattern
+    maxLength
+  }
+}
+    `,
+  { fragmentName: "SecretTypeFields" },
+) as unknown as TypedDocumentString<SecretTypeFieldsFragment, unknown>;
+export const PasswordPolicyFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment PasswordPolicyFields on PasswordPolicy {
+  id
+  name
+  minLength
+  maxLength
+  requireUpper
+  requireLower
+  requireDigit
+  requireSymbol
+  rotationDays
+  startClass
+  endLiteral
+  excludeChars
+  isDefault
+  byTypeFields
+  deletable
+}
+    `,
+  { fragmentName: "PasswordPolicyFields" },
+) as unknown as TypedDocumentString<PasswordPolicyFieldsFragment, unknown>;
+export const SecuritySettingsFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment SecuritySettingsFields on SecuritySettings {
+  defaultPasswordPolicyId
+  requireMfaForSensitiveCheckout
+  allowApiForSensitive
+  requestHistoryRetentionDays
+  sessionTtlSeconds
+  requireMfaForReveal
+}
+    `,
+  { fragmentName: "SecuritySettingsFields" },
+) as unknown as TypedDocumentString<SecuritySettingsFieldsFragment, unknown>;
 export const UserFieldsFragmentDoc = new TypedDocumentString(
   `
     fragment UserFields on User {
@@ -283,6 +691,273 @@ export const UserFieldsFragmentDoc = new TypedDocumentString(
     `,
   { fragmentName: "UserFields" },
 ) as unknown as TypedDocumentString<UserFieldsFragment, unknown>;
+export const AdminSecretTypesDocument = new TypedDocumentString(`
+    query AdminSecretTypes {
+  secretTypes {
+    ...SecretTypeFields
+  }
+  availableExtensions {
+    id
+    name
+    vendor
+    fields {
+      label
+    }
+  }
+}
+    fragment SecretTypeFields on SecretType {
+  id
+  name
+  heartbeat
+  checkout
+  rotation
+  origin
+  vendor
+  fields {
+    key
+    label
+    kind
+    options
+    defaultValue
+    required
+    sensitive
+    policyId
+    policyEnforcement
+    rotates
+    superSensitive
+    pattern
+    maxLength
+  }
+}`) as unknown as TypedDocumentString<AdminSecretTypesQuery, AdminSecretTypesQueryVariables>;
+export const AdminSecretTypeDocument = new TypedDocumentString(`
+    query AdminSecretType {
+  secretTypes {
+    ...SecretTypeFields
+  }
+  passwordPolicies {
+    id
+    name
+    minLength
+    maxLength
+    isDefault
+  }
+}
+    fragment SecretTypeFields on SecretType {
+  id
+  name
+  heartbeat
+  checkout
+  rotation
+  origin
+  vendor
+  fields {
+    key
+    label
+    kind
+    options
+    defaultValue
+    required
+    sensitive
+    policyId
+    policyEnforcement
+    rotates
+    superSensitive
+    pattern
+    maxLength
+  }
+}`) as unknown as TypedDocumentString<AdminSecretTypeQuery, AdminSecretTypeQueryVariables>;
+export const AdminCreateSecretTypeDocument = new TypedDocumentString(`
+    mutation AdminCreateSecretType($input: SecretTypeInput!) {
+  createSecretType(input: $input) {
+    ...SecretTypeFields
+  }
+}
+    fragment SecretTypeFields on SecretType {
+  id
+  name
+  heartbeat
+  checkout
+  rotation
+  origin
+  vendor
+  fields {
+    key
+    label
+    kind
+    options
+    defaultValue
+    required
+    sensitive
+    policyId
+    policyEnforcement
+    rotates
+    superSensitive
+    pattern
+    maxLength
+  }
+}`) as unknown as TypedDocumentString<
+  AdminCreateSecretTypeMutation,
+  AdminCreateSecretTypeMutationVariables
+>;
+export const AdminUpdateSecretTypeDocument = new TypedDocumentString(`
+    mutation AdminUpdateSecretType($id: ID!, $input: SecretTypeInput!) {
+  updateSecretType(id: $id, input: $input) {
+    ...SecretTypeFields
+  }
+}
+    fragment SecretTypeFields on SecretType {
+  id
+  name
+  heartbeat
+  checkout
+  rotation
+  origin
+  vendor
+  fields {
+    key
+    label
+    kind
+    options
+    defaultValue
+    required
+    sensitive
+    policyId
+    policyEnforcement
+    rotates
+    superSensitive
+    pattern
+    maxLength
+  }
+}`) as unknown as TypedDocumentString<
+  AdminUpdateSecretTypeMutation,
+  AdminUpdateSecretTypeMutationVariables
+>;
+export const AdminDeleteSecretTypeDocument = new TypedDocumentString(`
+    mutation AdminDeleteSecretType($id: ID!) {
+  deleteSecretType(id: $id)
+}
+    `) as unknown as TypedDocumentString<
+  AdminDeleteSecretTypeMutation,
+  AdminDeleteSecretTypeMutationVariables
+>;
+export const AdminCloneSecretTypeDocument = new TypedDocumentString(`
+    mutation AdminCloneSecretType($id: ID!) {
+  cloneSecretType(id: $id) {
+    id
+    name
+  }
+}
+    `) as unknown as TypedDocumentString<
+  AdminCloneSecretTypeMutation,
+  AdminCloneSecretTypeMutationVariables
+>;
+export const AdminImportExtensionDocument = new TypedDocumentString(`
+    mutation AdminImportExtension($id: ID!) {
+  importExtension(id: $id) {
+    id
+    name
+  }
+}
+    `) as unknown as TypedDocumentString<
+  AdminImportExtensionMutation,
+  AdminImportExtensionMutationVariables
+>;
+export const AdminImportExtensionFromJsonDocument = new TypedDocumentString(`
+    mutation AdminImportExtensionFromJson($json: String!) {
+  importExtensionFromJson(json: $json) {
+    id
+    name
+  }
+}
+    `) as unknown as TypedDocumentString<
+  AdminImportExtensionFromJsonMutation,
+  AdminImportExtensionFromJsonMutationVariables
+>;
+export const AdminPoliciesDocument = new TypedDocumentString(`
+    query AdminPolicies {
+  passwordPolicies {
+    ...PasswordPolicyFields
+  }
+  securitySettings {
+    ...SecuritySettingsFields
+  }
+}
+    fragment PasswordPolicyFields on PasswordPolicy {
+  id
+  name
+  minLength
+  maxLength
+  requireUpper
+  requireLower
+  requireDigit
+  requireSymbol
+  rotationDays
+  startClass
+  endLiteral
+  excludeChars
+  isDefault
+  byTypeFields
+  deletable
+}
+fragment SecuritySettingsFields on SecuritySettings {
+  defaultPasswordPolicyId
+  requireMfaForSensitiveCheckout
+  allowApiForSensitive
+  requestHistoryRetentionDays
+  sessionTtlSeconds
+  requireMfaForReveal
+}`) as unknown as TypedDocumentString<AdminPoliciesQuery, AdminPoliciesQueryVariables>;
+export const AdminSavePasswordPolicyDocument = new TypedDocumentString(`
+    mutation AdminSavePasswordPolicy($input: PasswordPolicyInput!) {
+  savePasswordPolicy(input: $input) {
+    ...PasswordPolicyFields
+  }
+}
+    fragment PasswordPolicyFields on PasswordPolicy {
+  id
+  name
+  minLength
+  maxLength
+  requireUpper
+  requireLower
+  requireDigit
+  requireSymbol
+  rotationDays
+  startClass
+  endLiteral
+  excludeChars
+  isDefault
+  byTypeFields
+  deletable
+}`) as unknown as TypedDocumentString<
+  AdminSavePasswordPolicyMutation,
+  AdminSavePasswordPolicyMutationVariables
+>;
+export const AdminDeletePasswordPolicyDocument = new TypedDocumentString(`
+    mutation AdminDeletePasswordPolicy($id: ID!) {
+  deletePasswordPolicy(id: $id)
+}
+    `) as unknown as TypedDocumentString<
+  AdminDeletePasswordPolicyMutation,
+  AdminDeletePasswordPolicyMutationVariables
+>;
+export const AdminUpdateSecuritySettingsDocument = new TypedDocumentString(`
+    mutation AdminUpdateSecuritySettings($input: SecuritySettingsInput!) {
+  updateSecuritySettings(input: $input) {
+    ...SecuritySettingsFields
+  }
+}
+    fragment SecuritySettingsFields on SecuritySettings {
+  defaultPasswordPolicyId
+  requireMfaForSensitiveCheckout
+  allowApiForSensitive
+  requestHistoryRetentionDays
+  sessionTtlSeconds
+  requireMfaForReveal
+}`) as unknown as TypedDocumentString<
+  AdminUpdateSecuritySettingsMutation,
+  AdminUpdateSecuritySettingsMutationVariables
+>;
 export const AdminUsersDocument = new TypedDocumentString(`
     query AdminUsers {
   users {

@@ -1,0 +1,140 @@
+fragment SecretTypeFields on SecretType {
+  id
+  name
+  heartbeat
+  checkout
+  rotation
+  origin
+  vendor
+  fields {
+    key
+    label
+    kind
+    options
+    defaultValue
+    required
+    sensitive
+    policyId
+    policyEnforcement
+    rotates
+    superSensitive
+    pattern
+    maxLength
+  }
+}
+
+fragment PasswordPolicyFields on PasswordPolicy {
+  id
+  name
+  minLength
+  maxLength
+  requireUpper
+  requireLower
+  requireDigit
+  requireSymbol
+  rotationDays
+  startClass
+  endLiteral
+  excludeChars
+  isDefault
+  byTypeFields
+  deletable
+}
+
+fragment SecuritySettingsFields on SecuritySettings {
+  defaultPasswordPolicyId
+  requireMfaForSensitiveCheckout
+  allowApiForSensitive
+  requestHistoryRetentionDays
+  sessionTtlSeconds
+  requireMfaForReveal
+}
+
+query AdminSecretTypes {
+  secretTypes {
+    ...SecretTypeFields
+  }
+  availableExtensions {
+    id
+    name
+    vendor
+    fields {
+      label
+    }
+  }
+}
+
+query AdminSecretType {
+  secretTypes {
+    ...SecretTypeFields
+  }
+  passwordPolicies {
+    id
+    name
+    minLength
+    maxLength
+    isDefault
+  }
+}
+
+mutation AdminCreateSecretType($input: SecretTypeInput!) {
+  createSecretType(input: $input) {
+    ...SecretTypeFields
+  }
+}
+
+mutation AdminUpdateSecretType($id: ID!, $input: SecretTypeInput!) {
+  updateSecretType(id: $id, input: $input) {
+    ...SecretTypeFields
+  }
+}
+
+mutation AdminDeleteSecretType($id: ID!) {
+  deleteSecretType(id: $id)
+}
+
+mutation AdminCloneSecretType($id: ID!) {
+  cloneSecretType(id: $id) {
+    id
+    name
+  }
+}
+
+mutation AdminImportExtension($id: ID!) {
+  importExtension(id: $id) {
+    id
+    name
+  }
+}
+
+mutation AdminImportExtensionFromJson($json: String!) {
+  importExtensionFromJson(json: $json) {
+    id
+    name
+  }
+}
+
+query AdminPolicies {
+  passwordPolicies {
+    ...PasswordPolicyFields
+  }
+  securitySettings {
+    ...SecuritySettingsFields
+  }
+}
+
+mutation AdminSavePasswordPolicy($input: PasswordPolicyInput!) {
+  savePasswordPolicy(input: $input) {
+    ...PasswordPolicyFields
+  }
+}
+
+mutation AdminDeletePasswordPolicy($id: ID!) {
+  deletePasswordPolicy(id: $id)
+}
+
+mutation AdminUpdateSecuritySettings($input: SecuritySettingsInput!) {
+  updateSecuritySettings(input: $input) {
+    ...SecuritySettingsFields
+  }
+}
