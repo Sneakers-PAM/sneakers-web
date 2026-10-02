@@ -1,27 +1,8 @@
-export { AppProviders } from "#shell/AppProviders";
-export {
-  AuthProvider,
-  type AuthState,
-  type AuthStatus,
-  type SessionUser,
-  useAuth,
-  useUser,
-} from "#shell/auth/AuthProvider";
-export { EnrollFactor } from "#shell/auth/EnrollFactor";
-export { EnrollWall } from "#shell/auth/EnrollWall";
+export { EnrollPage } from "#shell/auth/EnrollPage";
 export { groupKey, maskEmail } from "#shell/auth/mask";
-export { PasswordReset } from "#shell/auth/PasswordReset";
-export { SignIn } from "#shell/auth/SignIn";
-export { boot } from "#shell/boot";
-export { CrashBoundary, CrashScreen } from "#shell/CrashScreen";
-export {
-  useMarkAllRead,
-  useMarkRead,
-  useNotifications,
-  useShellCounts,
-  useUnreadCount,
-} from "#shell/data/hooks";
-export { createQueryClient } from "#shell/data/queryClient";
+export { ResetPage } from "#shell/auth/ResetPage";
+export { SignInPage } from "#shell/auth/SignInPage";
+export { CrashScreen } from "#shell/CrashScreen";
 export {
   CenteredFrame,
   EnvironmentBadge,
@@ -29,13 +10,22 @@ export {
   SignInLayout,
   SignInTitle,
 } from "#shell/gate/Frames";
-export { Gate } from "#shell/gate/Gate";
-export { ConnectingScreen, NotSetUpScreen, OfflineScreen } from "#shell/gate/Screens";
-export { type Probe, useGatewayProbe } from "#shell/gate/useGatewayProbe";
+export {
+  ConnectingScreen,
+  NotFoundScreen,
+  NotSetUpScreen,
+  OfflineScreen,
+} from "#shell/gate/Screens";
 export { AccountMenu, type AccountMenuItem, HeaderButton } from "#shell/layout/AccountMenu";
 export { AppShell, type AppShellProps } from "#shell/layout/AppShell";
 export { EdgeBanner } from "#shell/layout/EdgeBanner";
 export { HeaderSearch } from "#shell/layout/HeaderSearch";
 export { MfaBanner } from "#shell/layout/MfaBanner";
 export { NavGroup, NavItem, type NavItemProps, NavList } from "#shell/layout/Nav";
-export { NotificationBell, type NotificationTarget } from "#shell/layout/Notifications";
+export { NotificationBell, type NotificationItem } from "#shell/layout/Notifications";
+export { AppRoot, Document } from "#shell/root/Document";
+export { RouteError } from "#shell/root/RouteError";
+export { useQuietRefresh } from "#shell/root/useQuietRefresh";
+export { useRootData } from "#shell/root/useRootData";
+export type { FrameData } from "#shell/server/frame.server";
+export type { RootData } from "#shell/server/root.server";

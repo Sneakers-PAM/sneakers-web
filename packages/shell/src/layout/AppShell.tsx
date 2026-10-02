@@ -1,7 +1,7 @@
 import { Brand, cn, DisplayPanel, useBreakpoint } from "@sneakers-web/ui";
 import { Menu, X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Link, useLocation } from "react-router";
 
 import { EnvironmentBadge } from "#shell/gate/Frames";
@@ -40,11 +40,16 @@ export const AppShell = ({
   variant = "staff",
 }: AppShellProps) => {
   const bp = useBreakpoint();
-  const [expanded, setExpanded] = useState(bp === "desktop");
-  const [drawer, setDrawer] = useState(false);
   const { pathname } = useLocation();
-  useEffect(() => setExpanded(bp === "desktop"), [bp]);
-  useEffect(() => setDrawer(false), [pathname]);
+  // A sidebar toggle holds for the breakpoint it was made at; the drawer for the page it
+  // was opened on, so it closes itself after a navigation.
+  const [toggle, setToggle] = useState<{ at: string; expanded: boolean } | null>(null);
+  const [drawerOn, setDrawerOn] = useState<null | string>(null);
+  const expanded = toggle?.at === bp ? toggle.expanded : bp === "desktop";
+  const setExpanded = (next: (v: boolean) => boolean) =>
+    setToggle({ at: bp, expanded: next(expanded) });
+  const drawer = drawerOn === pathname;
+  const setDrawer = (open: boolean) => setDrawerOn(open ? pathname : null);
   const admin = variant === "admin";
   const phone = bp === "phone";
   const railOpen = expanded && !phone;

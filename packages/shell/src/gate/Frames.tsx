@@ -1,8 +1,8 @@
-import { runtimeConfig } from "@sneakers-web/api-client";
-import { Brand, cn, EnvBadge, SneakerLoader } from "@sneakers-web/ui";
+import { Brand, cn, EnvironmentTag, SneakerLoader } from "@sneakers-web/ui";
 import { type ReactNode } from "react";
 
 import { EdgeBanner } from "#shell/layout/EdgeBanner";
+import { useRootData } from "#shell/root/useRootData";
 
 /**
  * The frame for screens shown before the app opens (connecting, offline, not set up,
@@ -35,9 +35,9 @@ export const CenteredFrame = ({
 
 /** The DEV or QA badge for this install; production shows none. */
 export const EnvironmentBadge = ({ className }: { className?: string }) => {
-  const env = runtimeConfig().appEnv;
+  const env = useRootData().config.appEnv;
   if (env === "prod") return null;
-  return <EnvBadge className={className} env={env} />;
+  return <EnvironmentTag className={className} env={env} />;
 };
 
 export const FrameTitle = ({ body, title }: { body?: ReactNode; title: ReactNode }) => {
@@ -54,6 +54,7 @@ export const FrameTitle = ({ body, title }: { body?: ReactNode; title: ReactNode
  * on the right. On a phone the brand panel shrinks to a header.
  */
 export const SignInLayout = ({ children }: { children: ReactNode }) => {
+  const { version } = useRootData().config;
   return (
     <div className="flex min-h-dvh flex-col">
       <EdgeBanner />
@@ -77,7 +78,7 @@ export const SignInLayout = ({ children }: { children: ReactNode }) => {
             </p>
           </div>
           <span className="hidden font-mono text-small text-muted desktop:block">
-            Open source · v{__APP_VERSION__}
+            Open source · v{version}
           </span>
         </aside>
         <main className="flex items-start justify-center bg-bg px-6 py-10 tablet:items-center tablet:p-12">

@@ -1,15 +1,19 @@
+import type { MyNotificationsQuery } from "@sneakers-web/api-client";
+
 import { Avatar, cn, Skeleton, timeAgo } from "@sneakers-web/ui";
 import { Bell, X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useFetcher } from "react-router";
 
-import { useMarkAllRead, useMarkRead, useNotifications, useUnreadCount } from "#shell/data/hooks";
+export type NotificationItem = MyNotificationsQuery["myNotifications"][number];
 
-export interface NotificationTarget {
-  id: string;
-  resourceId: string;
-  resourceKind: string;
+interface PanelData {
+  items: NotificationItem[] | null;
+  unread: number;
 }
+
+const UNREAD_POLL_MS = 25_000;
 
 const tone = (actor: string): "neutral" | "ok" | "warn" => {
   const c = actor.trim().charAt(0).toUpperCase();
@@ -17,34 +21,52 @@ const tone = (actor: string): "neutral" | "ok" | "warn" => {
 };
 
 /**
- * The bell and its panel. The unread count polls quietly; the list loads when the panel
- * opens. Opening a notification marks it read and goes to the thing it is about.
+ * The bell and its panel. The unread count starts from the page's data and polls quietly
+ * through the app server; the list loads when the panel opens. Opening a notification marks
+ * it read and goes to the thing it is about.
  */
 export const NotificationBell = ({
+  initialUnread,
   onOpenItem,
 }: {
-  onOpenItem: (n: NotificationTarget) => void;
+  initialUnread: number;
+  onOpenItem: (n: NotificationItem) => void;
 }) => {
   const [open, setOpen] = useState(false);
-  const unread = useUnreadCount();
-  const list = useNotifications(open);
-  const markRead = useMarkRead();
-  const markAll = useMarkAllRead();
-  const count = unread.data ?? 0;
+  const list = useFetcher<PanelData>();
+  const count = useFetcher<PanelData>();
+  const mark = useFetcher();
+  const unread = list.data?.unread ?? count.data?.unread ?? initialUnread;
 
+  useEffect(() => {
+    const iv = setInterval(() => {
+      if (document.visibilityState === "visible") count.load("/resources/notifications?count=1");
+    }, UNREAD_POLL_MS);
+    return () => clearInterval(iv);
+    // count.load is stable for the life of the fetcher.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (open) list.load("/resources/notifications");
+    // Reload the list each time the panel opens, and after a mark-read finishes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, mark.state === "idle"]);
+
+  const items = list.data?.items;
   return (
     <DialogPrimitive.Root onOpenChange={setOpen} open={open}>
       <DialogPrimitive.Trigger
-        aria-label={`Notifications, ${count} unread`}
+        aria-label={`Notifications, ${unread} unread`}
         className={cn(
           "relative inline-flex size-10 items-center justify-center rounded-md border-[1.5px] border-border-strong",
           open ? "bg-sunken" : "bg-surface hover:bg-sunken",
         )}
       >
         <Bell aria-hidden className="size-4.5" strokeWidth={2} />
-        {count > 0 && (
+        {unread > 0 && (
           <span className="absolute -top-1.5 -right-1.5 h-5 min-w-5 rounded-full bg-danger px-1.25 text-center text-[0.75rem] leading-5 font-bold text-on-danger">
-            {count}
+            {unread}
           </span>
         )}
       </DialogPrimitive.Trigger>
@@ -55,11 +77,13 @@ export const NotificationBell = ({
             <DialogPrimitive.Title className="m-0 font-display text-h2 font-bold">
               Notifications
             </DialogPrimitive.Title>
-            <span className="font-mono text-[0.75rem] font-bold text-muted">{count} unread</span>
+            <span className="font-mono text-[0.75rem] font-bold text-muted">{unread} unread</span>
             <button
               className="ml-auto h-8.5 rounded-sm px-2.5 text-[0.875rem] font-bold text-primary hover:bg-primary-soft disabled:text-muted"
-              disabled={count === 0}
-              onClick={() => markAll.mutate()}
+              disabled={unread === 0}
+              onClick={() =>
+                mark.submit({}, { action: "/resources/notifications", method: "post" })
+              }
               type="button"
             >
               Mark all read
@@ -75,26 +99,26 @@ export const NotificationBell = ({
             Recent activity on your secrets and folders
           </DialogPrimitive.Description>
           <div className="flex-1 overflow-y-auto">
-            {list.isPending && (
+            {!items && list.state !== "idle" && (
               <div aria-label="Loading notifications" className="flex flex-col gap-3 p-5.5">
                 {[0, 1, 2].map((index) => (
                   <Skeleton className="h-12 w-full" key={index} />
                 ))}
               </div>
             )}
-            {list.isError && (
+            {!items && list.state === "idle" && open && list.data === undefined && (
               <div className="flex flex-col items-start gap-2 p-5.5 text-[0.875rem]" role="alert">
-                <b>Notifications didn't load.</b>
+                <b>Notifications didn&apos;t load.</b>
                 <button
                   className="font-bold text-primary"
-                  onClick={() => void list.refetch()}
+                  onClick={() => list.load("/resources/notifications")}
                   type="button"
                 >
                   Retry
                 </button>
               </div>
             )}
-            {list.data?.myNotifications.map((n) => (
+            {items?.map((n) => (
               <button
                 className={cn(
                   "flex w-full gap-3.5 border-b border-border px-5.5 py-4 text-left hover:bg-sunken",
@@ -102,7 +126,11 @@ export const NotificationBell = ({
                 )}
                 key={n.id}
                 onClick={() => {
-                  if (!n.read) markRead.mutate(n.id);
+                  if (!n.read)
+                    mark.submit(
+                      { id: n.id },
+                      { action: "/resources/notifications", method: "post" },
+                    );
                   setOpen(false);
                   onOpenItem(n);
                 }}
@@ -125,9 +153,9 @@ export const NotificationBell = ({
                 )}
               </button>
             ))}
-            {list.data && list.data.myNotifications.every((n) => n.read) && (
+            {items?.every((n) => n.read) && (
               <p className="m-0 px-5.5 py-4.5 text-center text-[0.875rem] leading-[1.4] text-muted">
-                You're all caught up.
+                You&apos;re all caught up.
               </p>
             )}
           </div>

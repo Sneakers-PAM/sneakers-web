@@ -15,11 +15,11 @@ export const HeaderSearch = ({
   const ref = useRef<HTMLInputElement>(null);
   const [q, setQ] = useState("");
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "/" || e.defaultPrevented) return;
-      const t = e.target as HTMLElement | null;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "/" || event.defaultPrevented) return;
+      const t = event.target as HTMLElement | null;
       if (t && (t.isContentEditable || ["INPUT", "SELECT", "TEXTAREA"].includes(t.tagName))) return;
-      e.preventDefault();
+      event.preventDefault();
       ref.current?.focus();
     };
     globalThis.addEventListener("keydown", onKey);
@@ -28,8 +28,8 @@ export const HeaderSearch = ({
   return (
     <form
       className="flex h-10.5 items-center gap-2.5 rounded-md border-[1.5px] border-border-strong bg-bg px-3 focus-within:border-primary focus-within:ring-3 focus-within:ring-primary-soft"
-      onSubmit={(e) => {
-        e.preventDefault();
+      onSubmit={(event) => {
+        event.preventDefault();
         if (q.trim()) onSearch(q.trim());
       }}
       role="search"
@@ -38,7 +38,7 @@ export const HeaderSearch = ({
       <input
         aria-label="Search secrets and folders"
         className="h-full min-w-0 flex-1 bg-transparent text-body text-ink outline-none placeholder:text-muted"
-        onChange={(e) => setQ(e.target.value)}
+        onChange={(event) => setQ(event.target.value)}
         placeholder={placeholder}
         ref={ref}
         value={q}

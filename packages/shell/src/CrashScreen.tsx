@@ -1,45 +1,20 @@
 import { createLogger } from "@sneakers-web/api-client";
 import { Button } from "@sneakers-web/ui";
 import { ChevronDown, Copy, X } from "lucide-react";
-import { Component, type ErrorInfo, type ReactNode, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { CenteredFrame } from "#shell/gate/Frames";
 
 const log = createLogger("crash");
 
-interface BoundaryState {
-  error: Error | null;
-}
-
-/** Catches render errors anywhere below it and shows the crash screen instead of a blank page. */
-export class CrashBoundary extends Component<{ children: ReactNode }, BoundaryState> {
-  override state: BoundaryState = { error: null };
-
-  static getDerivedStateFromError(error: Error): BoundaryState {
-    return { error };
-  }
-
-  override componentDidCatch(error: Error, info: ErrorInfo) {
-    log.error("render failed", {
-      error: error.name,
-      where: info.componentStack?.split("\n", 2)[1]?.trim(),
-    });
-  }
-
-  override render() {
-    if (this.state.error) {
-      return (
-        <CrashScreen error={this.state.error} onReset={() => this.setState({ error: null })} />
-      );
-    }
-    return this.props.children;
-  }
-}
-
-/** G-04: something threw while rendering. Offers a reload, a retry and the technical detail. */
-export const CrashScreen = ({ error, onReset }: { error: Error; onReset: () => void }) => {
+/** G-04: something threw while rendering. Offers a reload, a way back and the technical detail. */
+export const CrashScreen = ({ error }: { error: Error }) => {
   const [open, setOpen] = useState(false);
-  const detail = `${error.name}: ${error.message}${error.stack ? `\n${error.stack.split("\n").slice(1, 6).join("\n")}` : ""}`;
+  useEffect(() => {
+    log.error("page crashed", { error: error.name });
+  }, [error]);
+  const stack = error.stack ? `\n${error.stack.split("\n").slice(1, 6).join("\n")}` : "";
+  const detail = `${error.name}: ${error.message}${stack}`;
   return (
     <CenteredFrame>
       <div className="flex items-start gap-3.5">
@@ -86,8 +61,8 @@ export const CrashScreen = ({ error, onReset }: { error: Error; onReset: () => v
       </div>
       <div className="flex flex-wrap gap-2.5">
         <Button onClick={() => globalThis.location.reload()}>Reload page</Button>
-        <Button onClick={onReset} variant="secondary">
-          Try again
+        <Button onClick={() => globalThis.history.back()} variant="secondary">
+          Go back
         </Button>
       </div>
     </CenteredFrame>
