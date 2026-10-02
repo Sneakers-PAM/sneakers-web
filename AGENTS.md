@@ -130,3 +130,7 @@ Follow the logging rules in `CLAUDE.md`. In short:
   and mark the PR ready when the work is finished; see CLAUDE.md "CI and Actions minutes".
 - Install with `npm install --ignore-scripts`.
 - Keep server-only code in `*.server.ts` modules so it never reaches the browser bundle.
+- `Secret.canRead` (set by `secret` and `secretsInFolder`): `false` shows the secret locked with a
+  way to request access, and `null` means unknown, never readable. A reveal of a secret the user
+  can't read is refused with `NO_ACCESS`, and one of a retired secret with `RETIRED` (the
+  gateway's `docs/api.md` lists the reasons).
