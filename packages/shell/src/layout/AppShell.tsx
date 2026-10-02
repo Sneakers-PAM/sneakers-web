@@ -59,7 +59,7 @@ export const AppShell = ({
       <EdgeBanner />
       <header
         className={cn(
-          "relative z-(--z-header) flex h-16 flex-none items-center gap-3.5 px-3 tablet:px-5",
+          "relative z-(--z-header) flex h-16 flex-none items-center gap-2 px-3 tablet:gap-3.5 tablet:px-5",
           admin ? "bg-ink text-bg" : "border-b border-border bg-surface",
         )}
       >
@@ -94,7 +94,7 @@ export const AppShell = ({
         )}
         <EnvironmentBadge className={admin ? "border-bg" : undefined} />
         {search && !phone && <div className="ml-6 max-w-110 flex-1">{search}</div>}
-        <div className="ml-auto flex items-center gap-2.5">
+        <div className="ml-auto flex items-center gap-2 tablet:gap-2.5">
           {actions}
           {account}
         </div>
@@ -161,7 +161,8 @@ const BrandForHeader = ({ admin, compact }: { admin: boolean; compact: boolean }
     <Brand
       hole={admin ? "var(--color-ink)" : "var(--color-surface)"}
       ink={admin ? "var(--color-bg)" : undefined}
-      wordmarkClassName={compact ? "text-[1.125rem]" : undefined}
+      // On a phone the mark stands alone; the name stays for screen readers.
+      wordmarkClassName={compact ? "hidden" : undefined}
     />
   );
 };

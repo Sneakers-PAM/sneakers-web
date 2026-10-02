@@ -46,7 +46,12 @@ export const AccountMenu = ({
       >
         <Avatar name={name} tone={inverted ? "ok" : "primary"} />
         {!compact && <span>{name}</span>}
-        <ChevronDown aria-hidden className={cn("size-3.5", inverted ? "text-bg" : "text-muted")} />
+        {!compact && (
+          <ChevronDown
+            aria-hidden
+            className={cn("size-3.5", inverted ? "text-bg" : "text-muted")}
+          />
+        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-65">
         <DropdownMenuLabel>
