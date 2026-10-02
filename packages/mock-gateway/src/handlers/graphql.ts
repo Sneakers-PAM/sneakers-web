@@ -11,9 +11,9 @@ import { graphql } from "msw/graphql";
 
 import { userById } from "#mock/fixtures/users";
 import { authed } from "#mock/handlers/auth";
-import { db } from "#mock/state";
+import { MOCK_GATEWAY_URL, mockState } from "#mock/state";
 
-export const api = graphql.link("/graphql");
+export const api = graphql.link(`${MOCK_GATEWAY_URL}/graphql`);
 
 /** The gateway answers an unauthenticated /graphql call with 401, never with data. */
 export const unauthenticated = () =>
@@ -23,14 +23,15 @@ export const mfaRequired = () =>
   HttpResponse.json({ error: "mfa_required" } as never, { status: 403 });
 
 /** Run `fn` as the signed-in mock user, or answer the way the gateway does without one. */
-export const asUser = <T>(request: Request, function_: (userId: string) => T) => {
+export const asUser = <T>(request: Request, run: (userId: string) => T): T => {
   const s = authed(request);
-  if (!s) return unauthenticated();
-  if (s.enrollmentRequired) return mfaRequired();
-  return function_(s.userId);
+  // The gateway's 401 and 403 aren't GraphQL bodies, so they don't fit the resolver's type.
+  if (!s) return unauthenticated() as unknown as T;
+  if (s.enrollmentRequired) return mfaRequired() as unknown as T;
+  return run(s.userId);
 };
 
-const unread = () => db.inbox.filter((n) => !n.read).length;
+const unread = () => mockState.inbox.filter((n) => !n.read).length;
 
 export const shellHandlers = [
   api.query(MeDocument, ({ request, variables }) =>
@@ -84,7 +85,7 @@ export const shellHandlers = [
     asUser(request, () =>
       HttpResponse.json({
         data: {
-          myNotifications: db.inbox.slice(0, variables.limit ?? 50),
+          myNotifications: mockState.inbox.slice(0, variables.limit ?? 50),
           myUnreadNotificationCount: unread(),
         },
       }),
@@ -97,14 +98,16 @@ export const shellHandlers = [
 
   api.mutation(MarkNotificationReadDocument, ({ request, variables }) =>
     asUser(request, () => {
-      db.inbox = db.inbox.map((n) => (n.id === variables.id ? { ...n, read: true } : n));
+      mockState.inbox = mockState.inbox.map((n) =>
+        n.id === variables.id ? { ...n, read: true } : n,
+      );
       return HttpResponse.json({ data: { markNotificationRead: true } });
     }),
   ),
 
   api.mutation(MarkAllNotificationsReadDocument, ({ request }) =>
     asUser(request, () => {
-      db.inbox = db.inbox.map((n) => ({ ...n, read: true }));
+      mockState.inbox = mockState.inbox.map((n) => ({ ...n, read: true }));
       return HttpResponse.json({ data: { markAllNotificationsRead: true } });
     }),
   ),
