@@ -2,11 +2,7 @@
   "compilerOptions": {
     "target": "ES2022",
     "useDefineForClassFields": true,
-    "lib": [
-      "ES2023",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
@@ -24,30 +20,14 @@
     "moduleDetection": "force",
     "resolveJsonModule": true,
     "noEmit": true,
-    "types": [
-      "vite/client",
-      "vitest/globals",
-      "@testing-library/jest-dom"
-    ],
+    "types": ["node", "vite/client", "vitest/globals", "@testing-library/jest-dom/vitest"],
     "paths": {
-      "#ui/*": [
-        "./packages/ui/src/*"
-      ],
-      "#api/*": [
-        "./packages/api-client/src/*"
-      ],
-      "#shell/*": [
-        "./packages/shell/src/*"
-      ],
-      "#mock/*": [
-        "./packages/mock-gateway/src/*"
-      ],
-      "@sneakers-web/edge": [
-        "./packages/api-client/src/edge/live.ts"
-      ]
+      "#ui/*": ["./packages/ui/src/*"],
+      "#api/*": ["./packages/api-client/src/*"],
+      "#shell/*": ["./packages/shell/src/*"],
+      "#mock/*": ["./packages/mock-gateway/src/*"],
+      "@sneakers-web/edge.server": ["./packages/api-client/src/edge/live.server.ts"]
     }
   },
-  "files": [
-    "./types/env.d.ts"
-  ]
+  "files": ["./types/env.d.ts"]
 }

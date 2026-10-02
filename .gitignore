@@ -13,5 +13,8 @@ coverage/
 # fetched schemas (never committed) and mock builds
 .schemas/
 dist-mock/
+build/
+build-mock/
+.react-router/
 test-results/
 playwright-report/

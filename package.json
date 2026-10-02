@@ -40,7 +40,7 @@
     "schema:generate": "bash scripts/schema-generate.sh",
     "check:no-mock": "node scripts/check-no-mock.mjs",
     "check:assets": "node scripts/check-assets.mjs",
-    "check": "npm run lint && npm run typecheck && npm test && npm run build && npm run check:no-mock && npm run check:assets"
+    "check": "npm run lint && npm run typecheck && npm test && npm run build && npm run build:mock && npm run check:no-mock && npm run check:assets"
   },
   "devDependencies": {
     "@graphql-codegen/cli": "^7.4.3",
@@ -48,6 +48,7 @@
     "@graphql-codegen/typescript": "^6.1.0",
     "@graphql-codegen/typescript-operations": "^6.1.9",
     "@playwright/test": "^1.63.0",
+    "@react-router/dev": "^7.18.4",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",
