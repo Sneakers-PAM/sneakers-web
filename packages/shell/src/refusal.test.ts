@@ -50,3 +50,32 @@ describe("refusals", () => {
     expect(refusalMessage(r!)).toBe("You don't have permission to do that.");
   });
 });
+
+describe("workflow refusals for requests, check-outs and check-ins", () => {
+  it.each([
+    [
+      "SELF_APPROVAL",
+      "PERMISSION_DENIED",
+      "You can't decide your own request. Another approver has to.",
+    ],
+    [
+      "NOT_APPROVER",
+      "PERMISSION_DENIED",
+      "Only an approver for this secret can decide this request.",
+    ],
+    ["CHECKOUT_TYPE_DISABLED", "FAILED_PRECONDITION", "This kind of secret can't be checked out."],
+    [
+      "CHECKOUT_NO_ACCESS",
+      "PERMISSION_DENIED",
+      "You can't check this secret out. Ask for access first.",
+    ],
+    [
+      "CHECKIN_NOT_HOLDER",
+      "PERMISSION_DENIED",
+      "Only the person who checked it out can check it in.",
+    ],
+  ])("explains %s", (reason, code, text) => {
+    const r = refusalOf(refused(reason, code, "rpc error: code = X desc = backend words"));
+    expect(refusalMessage(r!)).toBe(text);
+  });
+});

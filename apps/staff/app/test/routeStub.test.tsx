@@ -26,4 +26,16 @@ describe("renderRoute", () => {
     );
     expect(await screen.findByText(/^mock_sneakers_sid=/)).toBeInTheDocument();
   });
+
+  it("draws a page's error boundary when its loader fails", async () => {
+    renderRoute("/broken", {
+      Component: () => <p>never drawn</p>,
+      ErrorBoundary: () => <p>the page error</p>,
+      loader: () => {
+        throw new Error("boom");
+      },
+      path: "/broken",
+    });
+    expect(await screen.findByText("the page error")).toBeInTheDocument();
+  });
 });

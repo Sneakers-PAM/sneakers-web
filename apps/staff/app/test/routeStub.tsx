@@ -15,6 +15,7 @@ export interface StubRoute {
   action?: (arguments_: ActionFunctionArgs) => unknown;
   children?: StubRoute[];
   Component?: ComponentType;
+  ErrorBoundary?: ComponentType;
   id?: string;
   loader?: (arguments_: LoaderFunctionArgs) => unknown;
   path?: string;
