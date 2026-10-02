@@ -83,6 +83,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ref={ref}
       type={type ?? "button"}
       {...props}
+      onClick={
+        loading
+          ? (event) => {
+              // A busy button swallows clicks, so a slow submit can't be sent twice.
+              event.preventDefault();
+            }
+          : props.onClick
+      }
     >
       {loading ? (
         <>

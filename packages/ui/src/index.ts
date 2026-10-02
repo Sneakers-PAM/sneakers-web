@@ -1,4 +1,4 @@
-export { Brand, EnvBadge, Mark, MARK_BODY, Wordmark } from "#ui/brand/Mark";
+export { Brand, EnvironmentTag, Mark, MARK_BODY, Wordmark } from "#ui/brand/Mark";
 export { SneakerLoader } from "#ui/brand/SneakerLoader";
 
 export { Button, type ButtonProps, buttonVariants } from "#ui/components/Button";
@@ -105,9 +105,10 @@ export {
   TableRow,
 } from "#ui/components/Table";
 export { announce, LiveRegion, toast, Toaster } from "#ui/components/Toast";
+export { useIsClient, useSessionValue } from "#ui/lib/client";
 export { cn } from "#ui/lib/cn";
-export { clockTime, plural, shortDate, timeAgo } from "#ui/lib/format";
 
+export { clockTime, plural, shortDate, timeAgo } from "#ui/lib/format";
 export { type Breakpoint, useBreakpoint, useMediaQuery } from "#ui/lib/media";
 export { prefersReducedMotion } from "#ui/lib/motion";
 export { DisplayPanel } from "#ui/theme/DisplayPanel";
@@ -115,6 +116,7 @@ export {
   applyDisplay,
   type ContrastChoice,
   DEFAULT_DISPLAY,
+  displayClassName,
   type DisplaySettings,
   type MotionChoice,
   parseDisplay,

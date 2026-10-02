@@ -42,7 +42,7 @@ export const SneakerLoader = ({
     cancelAnimationFrame(raf.current);
     clearTimeout(wait.current);
     if (prefersReducedMotion()) {
-      setFrame({ p: 1, t: 0 });
+      raf.current = requestAnimationFrame(() => setFrame({ p: 1, t: 0 }));
       return;
     }
     const run = () => {
@@ -55,8 +55,10 @@ export const SneakerLoader = ({
       raf.current = requestAnimationFrame(tick);
     };
     const go = () => {
-      setFrame({ p: 0, t: 0 });
-      wait.current = setTimeout(run, delay);
+      wait.current = setTimeout(() => {
+        setFrame({ p: 0, t: 0 });
+        run();
+      }, delay);
     };
     if (document.readyState === "complete") go();
     else window.addEventListener("load", go, { once: true });

@@ -37,7 +37,7 @@ export const Brand = ({
 };
 
 /** DEV or QA badge. Hatched, ink-bordered, and never a status colour. Production shows nothing. */
-export const EnvBadge = ({ className, env }: { className?: string; env: string }) => {
+export const EnvironmentTag = ({ className, env }: { className?: string; env: string }) => {
   return (
     <span
       className={cn(

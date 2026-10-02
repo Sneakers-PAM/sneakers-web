@@ -4,12 +4,13 @@ import { cn } from "#ui/lib/cn";
 
 export interface CodeInputProps {
   "aria-describedby"?: string;
-  autoFocus?: boolean;
   disabled?: boolean;
   id?: string;
   invalid?: boolean;
   label?: string;
   length?: number;
+  /** The form field name, so the code posts with the form. */
+  name?: string;
   onChange: (value: string) => void;
   /** Called when the sixth digit is typed. */
   onComplete?: (value: string) => void;
@@ -24,12 +25,12 @@ export interface CodeInputProps {
 export const CodeInput = forwardRef<HTMLInputElement, CodeInputProps>(function CodeInput(
   {
     "aria-describedby": describedBy,
-    autoFocus,
     disabled,
     id,
     invalid,
     label = "6-digit code",
     length = 6,
+    name,
     onChange,
     onComplete,
     size = "lg",
@@ -66,15 +67,15 @@ export const CodeInput = forwardRef<HTMLInputElement, CodeInputProps>(function C
         aria-invalid={invalid || undefined}
         aria-label={label}
         autoComplete="one-time-code"
-        autoFocus={autoFocus}
         className="absolute inset-0 cursor-text text-base opacity-0"
         disabled={disabled}
         id={id}
         inputMode="numeric"
         maxLength={length}
+        name={name}
         onBlur={() => setFocused(false)}
-        onChange={(e) => {
-          const next = e.target.value.replaceAll(/\D/g, "").slice(0, length);
+        onChange={(event) => {
+          const next = event.target.value.replaceAll(/\D/g, "").slice(0, length);
           onChange(next);
           if (next.length === length) onComplete?.(next);
         }}
