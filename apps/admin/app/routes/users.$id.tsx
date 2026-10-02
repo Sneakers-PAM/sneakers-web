@@ -164,6 +164,22 @@ const tokenStatus = (t: { expiresAtUnix: number; revokedAtUnix: number }): Grant
   return "active";
 };
 
+const roleQuestion = (name: string, { on, role }: { on: boolean; role: string }) => {
+  if (role === RECOVERY_ROLE)
+    return on ? `Give ${name} the recovery role?` : `Remove ${name}'s recovery role?`;
+  return on ? `Make ${name} a site admin?` : `Remove ${name}'s site admin access?`;
+};
+
+const roleEffect = (name: string, { on, role }: { on: boolean; role: string }) => {
+  if (role === RECOVERY_ROLE)
+    return on
+      ? `${name} will be able to see and restore earlier values of every secret they can read, with a fresh second factor each time. The grant is recorded at high severity.`
+      : `${name} will no longer see or restore earlier secret values. The change is recorded at high severity.`;
+  return on
+    ? `${name} will be able to configure everything, read the audit trail, break glass and hard-delete.`
+    : `${name} loses the admin console straight away.`;
+};
+
 const UserDetail = () => {
   const { enrolled, groups, memberOf, tokens, user } = useLoaderData<typeof loader>();
   const me = useRouteLoaderData<typeof frameLoader>("routes/frame")?.user;
@@ -174,6 +190,8 @@ const UserDetail = () => {
   useResultToast(save.data);
   const [username, setUsername] = useState(user.username);
   const [confirmTotp, setConfirmTotp] = useState(false);
+  // A role change waits for a confirmation that names the person and the role.
+  const [roleChange, setRoleChange] = useState<{ on: boolean; role: string } | null>(null);
   const admin = isSiteAdmin(user);
   const recovery = user.roles.includes(RECOVERY_ROLE);
   const others = groups.filter((g) => !memberOf.some((m) => m.id === g.id));
@@ -340,7 +358,7 @@ const UserDetail = () => {
                     aria-labelledby="sw-admin"
                     checked={admin}
                     disabled={user.isRoot}
-                    onCheckedChange={(on) => toggle("role", on, { role: "site-admin" })}
+                    onCheckedChange={(on) => setRoleChange({ on, role: "site-admin" })}
                   />
                 }
                 id="sw-admin"
@@ -352,7 +370,7 @@ const UserDetail = () => {
                   <Switch
                     aria-labelledby="sw-recovery"
                     checked={recovery}
-                    onCheckedChange={(on) => toggle("role", on, { role: RECOVERY_ROLE })}
+                    onCheckedChange={(on) => setRoleChange({ on, role: RECOVERY_ROLE })}
                   />
                 }
                 id="sw-recovery"
@@ -450,6 +468,24 @@ const UserDetail = () => {
           </Panel>
         </div>
       </div>
+
+      <AlertDialog onOpenChange={(open) => !open && setRoleChange(null)} open={roleChange !== null}>
+        {roleChange && (
+          <AlertDialogContent>
+            <AlertDialogTitle>{roleQuestion(user.name, roleChange)}</AlertDialogTitle>
+            <AlertDialogDescription>{roleEffect(user.name, roleChange)}</AlertDialogDescription>
+            <div className="flex justify-end gap-2.5">
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => toggle("role", roleChange.on, { role: roleChange.role })}
+                variant={roleChange.on ? "primary" : "danger"}
+              >
+                {roleChange.on ? "Grant" : "Remove"}
+              </AlertDialogAction>
+            </div>
+          </AlertDialogContent>
+        )}
+      </AlertDialog>
 
       <AlertDialog onOpenChange={setConfirmTotp} open={confirmTotp}>
         <AlertDialogContent>
