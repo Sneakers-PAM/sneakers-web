@@ -56,9 +56,10 @@ sign-on) uses an absolute URL.
 - Build: `npm run build` (live, to `apps/*/build`) and `npm run build:mock` (to
   `apps/*/build-mock`). Run one locally with `npm run start -w @sneakers-web/staff`.
 - Image: `docker build --build-arg APP=<staff|admin> [--build-arg EDGE=mock] .`
-- Test: `npm test`. Server tests run in Node against the mock gateway (`withMockGateway` in
-  `packages/shell/src/test/mockGateway.ts`); page tests use `createRoutesStub` with the real
-  loaders and actions.
+- Test: `npm test`. Server tests run in Node against the mock gateway, with the helpers in
+  `@sneakers-web/mock-gateway/testing`: `withMockGateway()` for the file, `sessionCookie(userId)`
+  for a signed-in fixture user, and `withCookie(cookie, loader)` to send it with a route's
+  requests. Page tests use `createRoutesStub` with the real loaders and actions.
 - End to end: `npm run test:e2e` builds and serves both mock builds and runs `e2e/*.spec.ts`
   (sign-in, theme kept across a reload, sign-out, SSO hand-back). Set `CHROME_PATH` to use an
   installed Chrome when Playwright's browser isn't downloaded.

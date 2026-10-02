@@ -1,3 +1,4 @@
+import { appRequest, cookieFrom, form, withMockGateway } from "@sneakers-web/mock-gateway/testing";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createRoutesStub } from "react-router";
@@ -5,7 +6,6 @@ import { createRoutesStub } from "react-router";
 import { EnrollPage } from "#shell/auth/EnrollPage";
 import { enrollAction, enrollLoader } from "#shell/server/enroll.server";
 import { signInAction } from "#shell/server/signIn.server";
-import { appRequest, cookieFrom, form, withMockGateway } from "#shell/test/mockGateway";
 
 withMockGateway();
 

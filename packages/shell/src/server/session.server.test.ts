@@ -1,9 +1,9 @@
 // @vitest-environment node
 import { MOCK_GATEWAY_URL } from "@sneakers-web/mock-gateway";
+import { appRequest, server, withMockGateway } from "@sneakers-web/mock-gateway/testing";
 import { http, HttpResponse } from "msw";
 
 import { needsSetup, requireUser } from "#shell/server/session.server";
-import { appRequest, server, withMockGateway } from "#shell/test/mockGateway";
 
 withMockGateway();
 

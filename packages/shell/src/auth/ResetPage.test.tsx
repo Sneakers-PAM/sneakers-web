@@ -1,10 +1,10 @@
+import { withMockGateway } from "@sneakers-web/mock-gateway/testing";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createRoutesStub } from "react-router";
 
 import { ResetPage } from "#shell/auth/ResetPage";
 import { resetAction } from "#shell/server/signIn.server";
-import { withMockGateway } from "#shell/test/mockGateway";
 
 withMockGateway();
 
