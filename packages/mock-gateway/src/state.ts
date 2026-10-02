@@ -45,8 +45,16 @@ export const mockState = {
   sessions: new Map<string, MockSession>(),
 };
 
+const resetHooks: (() => void)[] = [];
+
+/** Register extra mock state (an area's own fixtures) to be restored by resetMockState. */
+export const onMockReset = (hook: () => void): void => {
+  resetHooks.push(hook);
+};
+
 /** Reset everything (tests call this between cases). */
 export const resetMockState = (): void => {
+  for (const hook of resetHooks) hook();
   mockState.enrollments.clear();
   mockState.inbox = initialInbox();
   mockState.needsSetup = false;
