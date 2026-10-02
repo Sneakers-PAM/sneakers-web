@@ -1,0 +1,32 @@
+{
+  "name": "@sneakers-web/staff",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "scripts": {
+    "dev": "react-router dev",
+    "dev:mock": "react-router dev --mode mock",
+    "build": "react-router build",
+    "build:mock": "react-router build --mode mock",
+    "start": "react-router-serve ./build/server/index.js",
+    "start:mock": "react-router-serve ./build-mock/server/index.js",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@react-router/node": "^7.18.4",
+    "@react-router/serve": "^7.18.4",
+    "@sneakers-web/api-client": "*",
+    "@sneakers-web/shell": "*",
+    "@sneakers-web/ui": "*",
+    "isbot": "^5.2.2",
+    "lucide-react": "^1.49.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-router": "^7.18.4"
+  },
+  "devDependencies": {
+    "@sneakers-web/mock-gateway": "*",
+    "@sneakers-web/vite-config": "*"
+  }
+}

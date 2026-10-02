@@ -1,4 +1,4 @@
-version: '3'
+version: "3"
 # go-task is the standard runner for every project (regardless of ecosystem).
 # It drives golic, the license-header tool. golic ships built-in license
 # types, so only a .licignore is needed at the repo root.

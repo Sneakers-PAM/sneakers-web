@@ -1,0 +1,44 @@
+/* eslint-disable testing-library/no-container, testing-library/no-node-access -- these check the drawn SVG and the absence of an element, which have no accessible role to query. */
+import { render, screen } from "@testing-library/react";
+
+import { GrantPill, HeartbeatPill, RequestPill, RotationPill } from "#ui/components/Pill";
+
+describe("status pills", () => {
+  it.each([
+    ["verified", "Verified"],
+    ["drift", "Drift"],
+    ["unreachable", "Unreachable"],
+    ["unknown", "Unknown"],
+    ["none", "No target"],
+  ] as const)("heartbeat %s reads as words, not colour alone", (status, label) => {
+    render(<HeartbeatPill status={status} />);
+    expect(screen.getByText(label)).toBeInTheDocument();
+    expect(screen.getByText("Heartbeat:")).toHaveClass("sr-only");
+  });
+
+  it("spins only the rotating state, and stops with reduced motion", () => {
+    const { container } = render(<RotationPill status="rotating" />);
+    expect(container.querySelector("svg")).toHaveClass(
+      "animate-spin-slow",
+      "motion-reduce:animate-none",
+    );
+  });
+
+  it("strikes through a revoked grant", () => {
+    render(<GrantPill status="revoked" />);
+    expect(screen.getByText("Revoked")).toHaveClass("line-through");
+  });
+
+  it("names request states", () => {
+    render(
+      <>
+        <RequestPill status="pending" />
+        <RequestPill status="approved" />
+        <RequestPill status="denied" />
+      </>,
+    );
+    expect(screen.getByText("Pending")).toBeInTheDocument();
+    expect(screen.getByText("Approved")).toBeInTheDocument();
+    expect(screen.getByText("Denied")).toBeInTheDocument();
+  });
+});

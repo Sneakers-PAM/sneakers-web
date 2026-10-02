@@ -1,0 +1,16 @@
+fragment UserFields on User {
+  id
+  name
+  username
+  email
+  roles
+  isRoot
+  emailVerified
+  disabled
+}
+
+query Me($id: String!) {
+  user(id: $id) {
+    ...UserFields
+  }
+}

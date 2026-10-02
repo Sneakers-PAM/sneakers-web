@@ -1,0 +1,41 @@
+query ShellCounts($userId: String!) {
+  activeLeasesForUser(userId: $userId) {
+    id
+    secretId
+    expiresAt
+  }
+  approvalRequests {
+    id
+    status
+    requestedByUserId
+  }
+  pendingSecretUses {
+    id
+  }
+}
+
+query MyNotifications($limit: Int) {
+  myNotifications(limit: $limit) {
+    id
+    action
+    resourceKind
+    resourceId
+    resourceLabel
+    actorLabel
+    occurredAt
+    read
+  }
+  myUnreadNotificationCount
+}
+
+query UnreadCount {
+  myUnreadNotificationCount
+}
+
+mutation MarkNotificationRead($id: ID!) {
+  markNotificationRead(id: $id)
+}
+
+mutation MarkAllNotificationsRead {
+  markAllNotificationsRead
+}

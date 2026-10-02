@@ -1,0 +1,21 @@
+{
+  "name": "@sneakers-web/mock-gateway",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./src/index.ts",
+    "./edge.server": "./src/edge.server.ts"
+  },
+  "dependencies": {
+    "msw": "^3.0.1",
+    "@sneakers-web/api-client": "*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "devDependencies": {
+    "graphql": "^17.0.2"
+  }
+}

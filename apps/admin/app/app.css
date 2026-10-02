@@ -1,0 +1,5 @@
+@import "tailwindcss";
+@import "@sneakers-web/ui/laces.css";
+@import "@sneakers-web/shell/styles.css";
+
+@source "./";

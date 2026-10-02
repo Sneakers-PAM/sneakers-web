@@ -1,0 +1,29 @@
+{
+  "name": "@sneakers-web/shell",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/index.server.ts",
+    "./styles.css": "./src/styles.css"
+  },
+  "dependencies": {
+    "@react-router/node": "^7.18.4",
+    "@sneakers-web/api-client": "*",
+    "@sneakers-web/ui": "*",
+    "isbot": "^5.2.2",
+    "lucide-react": "^1.49.0",
+    "radix-ui": "^1.6.7",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-router": "^7.18.4"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "devDependencies": {
+    "msw": "^3.0.1"
+  }
+}
