@@ -6,7 +6,8 @@
   "license": "Apache-2.0",
   "exports": {
     ".": "./src/index.ts",
-    "./edge.server": "./src/edge.server.ts"
+    "./edge.server": "./src/edge.server.ts",
+    "./testing": "./src/testing.ts"
   },
   "dependencies": {
     "msw": "^3.0.1",

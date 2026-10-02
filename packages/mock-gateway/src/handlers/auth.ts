@@ -46,7 +46,10 @@ export const authed = (request: Request): MockSession | null => {
 };
 
 /** Mint a session the way the gateway does, with the MFA posture for that user. */
-const issue = (userId: string, mfaVerified: boolean) => {
+export const mintSession = (
+  userId: string,
+  mfaVerified: boolean,
+): { session: MockSession; sid: string } => {
   const user = userById(userId);
   const enrolled = mfaVerified || (user?.factors.length ?? 0) > 0;
   const s: MockSession = {
@@ -59,6 +62,11 @@ const issue = (userId: string, mfaVerified: boolean) => {
   };
   const sid = newToken("mock-sid");
   mockState.sessions.set(sid, s);
+  return { session: s, sid };
+};
+
+const issue = (userId: string, mfaVerified: boolean) => {
+  const { session: s, sid } = mintSession(userId, mfaVerified);
   return json(
     {
       csrfToken: s.csrf,

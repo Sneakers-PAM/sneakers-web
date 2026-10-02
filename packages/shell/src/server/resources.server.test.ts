@@ -1,6 +1,7 @@
+import { appRequest, form } from "@sneakers-web/mock-gateway/testing";
+
 // @vitest-environment node
 import { displayAction } from "#shell/server/resources.server";
-import { appRequest, form } from "#shell/test/mockGateway";
 
 const save = async (headers: Record<string, string> = {}) => {
   // Plain http, as the app server sees a request after the ingress has terminated TLS. The

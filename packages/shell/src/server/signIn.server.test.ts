@@ -1,9 +1,9 @@
 // @vitest-environment node
 import { MOCK_SESSION_COOKIE } from "@sneakers-web/mock-gateway";
+import { appRequest, cookieFrom, form, withMockGateway } from "@sneakers-web/mock-gateway/testing";
 
 import { requireUser } from "#shell/server/session.server";
 import { signInAction, signInLoader, type SignInState } from "#shell/server/signIn.server";
-import { appRequest, cookieFrom, form, withMockGateway } from "#shell/test/mockGateway";
 
 withMockGateway();
 
