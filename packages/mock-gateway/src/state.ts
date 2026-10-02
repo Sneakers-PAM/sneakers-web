@@ -1,4 +1,5 @@
 import { initialInbox, type MockNotification } from "#mock/fixtures/inbox";
+import { initialWorld } from "#mock/fixtures/world";
 
 /** Where the mock gateway "answers". The .invalid name never resolves, so nothing can leak past it. */
 export const MOCK_GATEWAY_URL = "https://mock-gateway.example.invalid";
@@ -43,6 +44,8 @@ export const mockState = {
   needsSetup: false,
   pending: new Map<string, MockPending>(ssoPending()),
   sessions: new Map<string, MockSession>(),
+  /** The invented organisation the staff and admin screens read and change. */
+  world: initialWorld(),
 };
 
 const resetHooks: (() => void)[] = [];
@@ -60,4 +63,5 @@ export const resetMockState = (): void => {
   mockState.needsSetup = false;
   mockState.pending = new Map(ssoPending());
   mockState.sessions.clear();
+  mockState.world = initialWorld();
 };
