@@ -12,10 +12,11 @@ import { guard, requireUser } from "#shell/server/session.server";
 
 const YEAR = 60 * 60 * 24 * 365;
 
-/** Whether the browser used https, including behind an ingress that terminated TLS. */
-const isHttps = (request: Request): boolean =>
-  new URL(request.url).protocol === "https:" ||
-  request.headers.get("X-Forwarded-Proto")?.split(",", 1)[0]?.trim() === "https";
+/**
+ * Whether the browser used https. Behind a TLS-terminating proxy the server sees https only
+ * when it trusts that proxy (TRUST_PROXY), so a client can't fake it with a header.
+ */
+const isHttps = (request: Request): boolean => new URL(request.url).protocol === "https:";
 
 /** Save the display settings (theme, contrast, motion, text size) to their cookie. */
 export const displayAction = async ({ request }: ActionFunctionArgs) => {

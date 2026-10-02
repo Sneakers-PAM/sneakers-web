@@ -31,7 +31,24 @@ describe("displayAction", () => {
     expect(cookie).not.toContain("Secure");
   });
 
-  it("marks the cookie Secure behind a TLS-terminating proxy", async () => {
-    expect(await save({ "X-Forwarded-Proto": "https" })).toContain("; Secure");
+  it("ignores a forwarded-proto header; only a trusted proxy can make the request https", async () => {
+    // The server applies X-Forwarded-Proto itself, and only from a trusted proxy (TRUST_PROXY);
+    // by the time a request reaches the action, the header alone proves nothing.
+    expect(await save({ "X-Forwarded-Proto": "https" })).not.toContain("Secure");
+  });
+
+  it("marks the cookie Secure when the request is https", async () => {
+    const request = appRequest("/resources/display", {
+      body: form({ settings: JSON.stringify({ theme: "dark" }) }),
+      method: "POST",
+    });
+    const result = (await displayAction({
+      context: {},
+      params: {},
+      request,
+    } as never)) as unknown as {
+      init: { headers: Record<string, string> };
+    };
+    expect(result.init.headers["Set-Cookie"]).toContain("; Secure");
   });
 });

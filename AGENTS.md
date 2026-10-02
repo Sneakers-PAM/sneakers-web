@@ -65,6 +65,14 @@ sign-on) uses an absolute URL.
   installed Chrome when Playwright's browser isn't downloaded.
 - Lint: `npm run lint`; types: `npm run typecheck`.
 - All of it, as CI runs it: `npm run check`.
+- The app server is `server/serve.mjs` (Express with React Router's handler, built on
+  `server/app.mjs`), used by `npm run start` and the image. `react-router-serve` isn't used: it
+  can't be told to trust a proxy.
+- `TRUST_PROXY`: set it when the app sits behind a TLS-terminating proxy, so the server takes the
+  protocol and host from `X-Forwarded-Proto` and `X-Forwarded-Host` and same-origin form posts
+  pass React Router's origin check. `true`, a hop count (`1`), or the proxies' addresses or CIDR
+  ranges. Leave it unset when clients can reach the app directly: with it set, a direct client
+  could claim any host.
 - Runtime settings (server environment): `GATEWAY_URL`, `PORT`, `APP_ENV` (dev, qa, prod),
   `LOG_LEVEL`, `LOG_FORMAT` (`console` locally, JSON otherwise), `SSO_ENABLED`, `STAFF_URL`,
   `ADMIN_URL`. Only the public subset reaches the browser, through the root loader.
