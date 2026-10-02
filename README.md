@@ -29,7 +29,7 @@ docker build --build-arg APP=admin --build-arg EDGE=mock -t sneakers-web-admin-m
 ```
 
 The server listens on `PORT` (3000) and answers `GET /healthz`. Runtime settings: `GATEWAY_URL`,
-`APP_ENV`, `LOG_LEVEL`, `LOG_FORMAT`, `SSO_ENABLED`, `STAFF_URL`, `ADMIN_URL`. More in
+`TRUST_PROXY`, `APP_ENV`, `LOG_LEVEL`, `LOG_FORMAT`, `SSO_ENABLED`, `STAFF_URL`, `ADMIN_URL`. More in
 [AGENTS.md](AGENTS.md).
 
 ## ⚖️ License

@@ -1,7 +1,5 @@
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  test: {
-    projects: ["packages/*", "apps/*", "server"],
-  },
+  test: { environment: "node", include: ["*.test.mjs"], name: "server" },
 });

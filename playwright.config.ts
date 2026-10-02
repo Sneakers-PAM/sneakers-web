@@ -6,9 +6,16 @@ import { defineConfig, devices } from "@playwright/test";
 const STAFF_PORT = 4176;
 const ADMIN_PORT = 4177;
 
-const serve = (app: string, port: number) => ({
+// The staff server trusts a proxy in front of it and the admin server doesn't, so e2e/proxy.spec.ts
+// can check both.
+const serve = (app: string, port: number, trustProxy?: string) => ({
   command: `npm run build:mock -w @sneakers-web/${app} && npm run start:mock -w @sneakers-web/${app}`,
-  env: { APP_ENV: "dev", LOG_LEVEL: "warn", PORT: String(port) },
+  env: {
+    APP_ENV: "dev",
+    LOG_LEVEL: "warn",
+    PORT: String(port),
+    ...(trustProxy ? { TRUST_PROXY: trustProxy } : {}),
+  },
   reuseExistingServer: !process.env.CI,
   timeout: 180_000,
   url: `http://127.0.0.1:${port}${app === "admin" ? "/admin" : ""}/healthz`,
@@ -22,6 +29,7 @@ export default defineConfig({
       testMatch: "staff.spec.ts",
       use: { ...devices["Desktop Chrome"], baseURL: `http://127.0.0.1:${STAFF_PORT}` },
     },
+    { name: "proxy", testMatch: "proxy.spec.ts" },
     {
       name: "admin",
       testMatch: "admin.spec.ts",
@@ -35,5 +43,5 @@ export default defineConfig({
     launchOptions: process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {},
     trace: "retain-on-failure",
   },
-  webServer: [serve("staff", STAFF_PORT), serve("admin", ADMIN_PORT)],
+  webServer: [serve("staff", STAFF_PORT, "1"), serve("admin", ADMIN_PORT)],
 });

@@ -51,7 +51,8 @@ WORKDIR /app
 COPY --from=deps /src/node_modules ./node_modules
 COPY --from=build /src/apps/${APP}/build ./build
 COPY --from=build /src/apps/${APP}/package.json ./package.json
+COPY server/serve.mjs server/app.mjs ./
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s CMD wget -q -O /dev/null "http://127.0.0.1:${PORT}/healthz" || exit 1
-CMD ["node_modules/.bin/react-router-serve", "./build/server/index.js"]
+CMD ["node", "serve.mjs", "./build/server/index.js"]
