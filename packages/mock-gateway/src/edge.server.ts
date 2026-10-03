@@ -1,7 +1,7 @@
 import type { Edge } from "@sneakers-web/api-client";
 
 import { MOCK_MARKER } from "#mock/marker";
-import { MOCK_GATEWAY_URL, MOCK_SESSION_COOKIE, SSO_PENDING_ID } from "#mock/state";
+import { MOCK_GATEWAY_URL, MOCK_SESSION_COOKIE, mockState, SSO_PENDING_ID } from "#mock/state";
 
 /** The banner every screen shows while the app runs against the mock gateway. */
 export const MOCK_BANNER = "MOCK DATA, not a real server";
@@ -25,6 +25,8 @@ export const edge: Edge = {
       import("#mock/handlers"),
     ]);
     setupServer(...handlers).listen({ onUnhandledFrame: "bypass" });
+    // A mock build can start as a fresh install, to walk through first-run setup.
+    if (process.env.MOCK_FRESH_INSTALL === "1") mockState.needsSetup = true;
     console.info(`[mock] ${MOCK_MARKER}: gateway calls are answered from fixtures`);
   },
   storagePrefix: "mock:",
