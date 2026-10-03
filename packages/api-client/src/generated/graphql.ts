@@ -85,6 +85,154 @@ export type TargetInput = {
 
 export type TypeOrigin = "custom" | "extension" | "system";
 
+export type ServiceAccountFieldsFragment = {
+  id: string;
+  name: string;
+  description: string;
+  disabled: boolean;
+  createdBy: string;
+  createdAtUnix: number;
+  oidcIssuer: string | null;
+  oidcSubject: string | null;
+  oidcAllowedGroups: Array<string>;
+};
+
+export type ApiTokenFieldsFragment = {
+  id: string;
+  serviceAccountId: string;
+  scope: string;
+  expiresAtUnix: number;
+  revokedAtUnix: number;
+  lastUsedAtUnix: number;
+  createdBy: string;
+};
+
+export type AdminServiceAccountsQueryVariables = Exact<{ [key: string]: never }>;
+
+export type AdminServiceAccountsQuery = {
+  serviceAccounts: Array<{
+    id: string;
+    name: string;
+    description: string;
+    disabled: boolean;
+    createdBy: string;
+    createdAtUnix: number;
+    oidcIssuer: string | null;
+    oidcSubject: string | null;
+    oidcAllowedGroups: Array<string>;
+  }>;
+  users: Array<{ id: string; name: string }>;
+};
+
+export type AdminServiceAccountQueryVariables = Exact<{
+  id: string;
+}>;
+
+export type AdminServiceAccountQuery = {
+  serviceAccounts: Array<{
+    id: string;
+    name: string;
+    description: string;
+    disabled: boolean;
+    createdBy: string;
+    createdAtUnix: number;
+    oidcIssuer: string | null;
+    oidcSubject: string | null;
+    oidcAllowedGroups: Array<string>;
+  }>;
+  apiTokens: Array<{
+    id: string;
+    serviceAccountId: string;
+    scope: string;
+    expiresAtUnix: number;
+    revokedAtUnix: number;
+    lastUsedAtUnix: number;
+    createdBy: string;
+  }>;
+  groups: Array<{ id: string; name: string }>;
+  users: Array<{ id: string; name: string }>;
+};
+
+export type AdminCreateServiceAccountMutationVariables = Exact<{
+  name: string;
+  description: string;
+}>;
+
+export type AdminCreateServiceAccountMutation = { createServiceAccount: { id: string } };
+
+export type AdminDisableServiceAccountMutationVariables = Exact<{
+  id: string;
+}>;
+
+export type AdminDisableServiceAccountMutation = {
+  disableServiceAccount: { id: string; disabled: boolean };
+};
+
+export type AdminMintApiTokenMutationVariables = Exact<{
+  serviceAccountId: string;
+  scope: string;
+  expiresAt?: number | null | undefined;
+}>;
+
+export type AdminMintApiTokenMutation = {
+  mintApiToken: {
+    token: string;
+    apiToken: {
+      id: string;
+      serviceAccountId: string;
+      scope: string;
+      expiresAtUnix: number;
+      revokedAtUnix: number;
+      lastUsedAtUnix: number;
+      createdBy: string;
+    };
+  };
+};
+
+export type AdminRevokeApiTokenMutationVariables = Exact<{
+  id: string;
+}>;
+
+export type AdminRevokeApiTokenMutation = { revokeApiToken: { id: string; revokedAtUnix: number } };
+
+export type AdminLinkOidcClientMutationVariables = Exact<{
+  serviceAccountId: string;
+  oidcSubject: string;
+  allowedGroups: Array<string> | string;
+}>;
+
+export type AdminLinkOidcClientMutation = {
+  linkOidcClient: {
+    id: string;
+    name: string;
+    description: string;
+    disabled: boolean;
+    createdBy: string;
+    createdAtUnix: number;
+    oidcIssuer: string | null;
+    oidcSubject: string | null;
+    oidcAllowedGroups: Array<string>;
+  };
+};
+
+export type AdminUnlinkOidcClientMutationVariables = Exact<{
+  serviceAccountId: string;
+}>;
+
+export type AdminUnlinkOidcClientMutation = {
+  unlinkOidcClient: {
+    id: string;
+    name: string;
+    description: string;
+    disabled: boolean;
+    createdBy: string;
+    createdAtUnix: number;
+    oidcIssuer: string | null;
+    oidcSubject: string | null;
+    oidcAllowedGroups: Array<string>;
+  };
+};
+
 export type SecretTypeFieldsFragment = {
   id: string;
   name: string;
@@ -739,6 +887,36 @@ export class TypedDocumentString<TResult, TVariables>
     return this.value;
   }
 }
+export const ServiceAccountFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment ServiceAccountFields on ServiceAccount {
+  id
+  name
+  description
+  disabled
+  createdBy
+  createdAtUnix
+  oidcIssuer
+  oidcSubject
+  oidcAllowedGroups
+}
+    `,
+  { fragmentName: "ServiceAccountFields" },
+) as unknown as TypedDocumentString<ServiceAccountFieldsFragment, unknown>;
+export const ApiTokenFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment ApiTokenFields on ApiToken {
+  id
+  serviceAccountId
+  scope
+  expiresAtUnix
+  revokedAtUnix
+  lastUsedAtUnix
+  createdBy
+}
+    `,
+  { fragmentName: "ApiTokenFields" },
+) as unknown as TypedDocumentString<ApiTokenFieldsFragment, unknown>;
 export const SecretTypeFieldsFragmentDoc = new TypedDocumentString(
   `
     fragment SecretTypeFields on SecretType {
@@ -850,6 +1028,168 @@ export const UserFieldsFragmentDoc = new TypedDocumentString(
     `,
   { fragmentName: "UserFields" },
 ) as unknown as TypedDocumentString<UserFieldsFragment, unknown>;
+export const AdminServiceAccountsDocument = new TypedDocumentString(`
+    query AdminServiceAccounts {
+  serviceAccounts {
+    ...ServiceAccountFields
+  }
+  users {
+    id
+    name
+  }
+}
+    fragment ServiceAccountFields on ServiceAccount {
+  id
+  name
+  description
+  disabled
+  createdBy
+  createdAtUnix
+  oidcIssuer
+  oidcSubject
+  oidcAllowedGroups
+}`) as unknown as TypedDocumentString<
+  AdminServiceAccountsQuery,
+  AdminServiceAccountsQueryVariables
+>;
+export const AdminServiceAccountDocument = new TypedDocumentString(`
+    query AdminServiceAccount($id: ID!) {
+  serviceAccounts {
+    ...ServiceAccountFields
+  }
+  apiTokens(serviceAccountId: $id) {
+    ...ApiTokenFields
+  }
+  groups {
+    id
+    name
+  }
+  users {
+    id
+    name
+  }
+}
+    fragment ServiceAccountFields on ServiceAccount {
+  id
+  name
+  description
+  disabled
+  createdBy
+  createdAtUnix
+  oidcIssuer
+  oidcSubject
+  oidcAllowedGroups
+}
+fragment ApiTokenFields on ApiToken {
+  id
+  serviceAccountId
+  scope
+  expiresAtUnix
+  revokedAtUnix
+  lastUsedAtUnix
+  createdBy
+}`) as unknown as TypedDocumentString<AdminServiceAccountQuery, AdminServiceAccountQueryVariables>;
+export const AdminCreateServiceAccountDocument = new TypedDocumentString(`
+    mutation AdminCreateServiceAccount($name: String!, $description: String!) {
+  createServiceAccount(name: $name, description: $description) {
+    id
+  }
+}
+    `) as unknown as TypedDocumentString<
+  AdminCreateServiceAccountMutation,
+  AdminCreateServiceAccountMutationVariables
+>;
+export const AdminDisableServiceAccountDocument = new TypedDocumentString(`
+    mutation AdminDisableServiceAccount($id: ID!) {
+  disableServiceAccount(id: $id) {
+    id
+    disabled
+  }
+}
+    `) as unknown as TypedDocumentString<
+  AdminDisableServiceAccountMutation,
+  AdminDisableServiceAccountMutationVariables
+>;
+export const AdminMintApiTokenDocument = new TypedDocumentString(`
+    mutation AdminMintApiToken($serviceAccountId: ID!, $scope: String!, $expiresAt: Int) {
+  mintApiToken(
+    serviceAccountId: $serviceAccountId
+    scope: $scope
+    expiresAt: $expiresAt
+  ) {
+    token
+    apiToken {
+      ...ApiTokenFields
+    }
+  }
+}
+    fragment ApiTokenFields on ApiToken {
+  id
+  serviceAccountId
+  scope
+  expiresAtUnix
+  revokedAtUnix
+  lastUsedAtUnix
+  createdBy
+}`) as unknown as TypedDocumentString<
+  AdminMintApiTokenMutation,
+  AdminMintApiTokenMutationVariables
+>;
+export const AdminRevokeApiTokenDocument = new TypedDocumentString(`
+    mutation AdminRevokeApiToken($id: ID!) {
+  revokeApiToken(id: $id) {
+    id
+    revokedAtUnix
+  }
+}
+    `) as unknown as TypedDocumentString<
+  AdminRevokeApiTokenMutation,
+  AdminRevokeApiTokenMutationVariables
+>;
+export const AdminLinkOidcClientDocument = new TypedDocumentString(`
+    mutation AdminLinkOidcClient($serviceAccountId: ID!, $oidcSubject: String!, $allowedGroups: [String!]!) {
+  linkOidcClient(
+    serviceAccountId: $serviceAccountId
+    oidcSubject: $oidcSubject
+    allowedGroups: $allowedGroups
+  ) {
+    ...ServiceAccountFields
+  }
+}
+    fragment ServiceAccountFields on ServiceAccount {
+  id
+  name
+  description
+  disabled
+  createdBy
+  createdAtUnix
+  oidcIssuer
+  oidcSubject
+  oidcAllowedGroups
+}`) as unknown as TypedDocumentString<
+  AdminLinkOidcClientMutation,
+  AdminLinkOidcClientMutationVariables
+>;
+export const AdminUnlinkOidcClientDocument = new TypedDocumentString(`
+    mutation AdminUnlinkOidcClient($serviceAccountId: ID!) {
+  unlinkOidcClient(serviceAccountId: $serviceAccountId) {
+    ...ServiceAccountFields
+  }
+}
+    fragment ServiceAccountFields on ServiceAccount {
+  id
+  name
+  description
+  disabled
+  createdBy
+  createdAtUnix
+  oidcIssuer
+  oidcSubject
+  oidcAllowedGroups
+}`) as unknown as TypedDocumentString<
+  AdminUnlinkOidcClientMutation,
+  AdminUnlinkOidcClientMutationVariables
+>;
 export const AdminSecretTypesDocument = new TypedDocumentString(`
     query AdminSecretTypes {
   secretTypes {

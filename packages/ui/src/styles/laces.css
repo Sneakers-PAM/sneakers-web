@@ -231,9 +231,11 @@
     --z-sticky: 10;
     --z-rail: 20;
     --z-header: 30;
-    --z-dropdown: 40;
     --z-sheet: 50;
     --z-dialog: 60;
+    /* Menus, selects and popovers portal to the body, so they sit above the sheet or dialog
+       they were opened from. Only the thing in front can open one, so they never cover it. */
+    --z-dropdown: 65;
     --z-toast: 70;
     --z-a11y: 80;
     --z-reauth: 90;
