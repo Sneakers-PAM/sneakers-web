@@ -223,6 +223,13 @@ describe("folder operations", () => {
     expect(screen.queryByRole("button", { name: "Folder actions" })).not.toBeInTheDocument();
   });
 
+  it("offers only folders the user manages as move destinations", async () => {
+    open("/browse/mock-folder-archive", "mock-user-bob");
+    await folderMenu("Move…");
+    const dialog = await screen.findByRole("dialog", { name: "Move Archive" });
+    expect(within(dialog).queryByRole("radio", { name: /Platform/ })).not.toBeInTheDocument();
+  });
+
   it("moves a folder to another one the user manages", async () => {
     open("/browse/mock-folder-databases");
     const user = await folderMenu("Move…");
@@ -230,7 +237,8 @@ describe("folder operations", () => {
     expect(
       within(dialog).getByRole("radio", { name: /Platform \/ Databases \(this folder\)/ }),
     ).toBeDisabled();
-    expect(within(dialog).queryByRole("radio", { name: /Finance/ })).not.toBeInTheDocument();
+    // Alice is a site admin, so every shared folder is a destination for her.
+    expect(within(dialog).getByRole("radio", { name: "Finance" })).toBeEnabled();
     await user.click(within(dialog).getByRole("radio", { name: "Platform / Network" }));
     await user.click(within(dialog).getByRole("button", { name: "Move here" }));
     await waitFor(() =>

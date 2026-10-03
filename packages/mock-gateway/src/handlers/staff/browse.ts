@@ -68,12 +68,15 @@ const subtree = (id: string): Set<string> => {
 const visible = (userId: string, f: MockFolder) =>
   f.scope !== "personal" || f.ownerUserId === userId;
 
-const canManage = (userId: string, f: MockFolder) =>
+const ownsChain = (userId: string, f: MockFolder) =>
   chain(f).some((c) => c.owners.includes(userId));
+
+/** As the vault's isFolderOwner: a site admin or root manages every folder, owners their own. */
+const canManage = (userId: string, f: MockFolder) => isSiteAdmin(userId) || ownsChain(userId, f);
 
 const canRead = (userId: string, f: MockFolder): boolean => {
   if (f.scope === "personal") return f.ownerUserId === userId;
-  if (canManage(userId, f)) return true;
+  if (ownsChain(userId, f)) return true;
   const groups = new Set(groupsOf(userId).map((g) => g.id));
   const roles = new Set(userById(userId)?.roles);
   return chain(f).some(
