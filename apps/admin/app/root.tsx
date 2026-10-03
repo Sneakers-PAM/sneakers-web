@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 import type { LinksFunction, LoaderFunctionArgs } from "react-router";
 
-import { Document } from "@sneakers-web/shell";
+import { AppRoot, Document } from "@sneakers-web/shell";
 import { rootLoader } from "@sneakers-web/shell/server";
 
 import appCss from "@/app.css?url";
+import { SetupGate } from "@/frame/SetupGate";
 
 export const loader = (arguments_: LoaderFunctionArgs) => rootLoader(arguments_);
 
@@ -18,4 +19,8 @@ export const Layout = ({ children }: { children: ReactNode }) => <Document>{chil
 
 export const meta = () => [{ title: "Sneakers-PAM admin console" }];
 
-export { AppRoot as default, RouteError as ErrorBoundary } from "@sneakers-web/shell";
+const Root = () => <AppRoot whenNotSetUp={<SetupGate />} />;
+
+export default Root;
+
+export { RouteError as ErrorBoundary } from "@sneakers-web/shell";

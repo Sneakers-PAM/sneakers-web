@@ -33,7 +33,15 @@ export {
 } from "#api/gateway";
 export * from "#api/generated/graphql";
 export { createLogger, type LogFields, type Logger, setLogFormat, setLogLevel } from "#api/log";
-export { fetchSetupState } from "#api/setup";
+export {
+  bootstrapAdmin,
+  confirmEmailCode,
+  fetchSetupState,
+  type FirstAdmin,
+  requestEmailCode,
+  seedBuiltins,
+  type SetupProblem,
+} from "#api/setup";
 export {
   beginStepUpPasskey,
   sendStepUpEmail,

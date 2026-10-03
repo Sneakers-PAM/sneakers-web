@@ -55,6 +55,9 @@ Before changing anything, know two things:
   same data. The admin console's operations live in `admin/` (one file per area, collected in
   `admin/handlers.ts`). State only the console uses (password policies, security settings, the
   extension packs not yet installed) stays there and registers its reset with `onMockReset`.
+  A mock server started with `MOCK_FRESH_INSTALL=1` has no administrator yet, so the admin console
+  opens first-run setup (the setup token is `mock-setup-token`). Live builds never contain the
+  mock edge, so the variable does nothing there.
   Staff answers live in `handlers/staff/<area>.ts`, one module per area.
 - `packages/ui/src/`: the Laces kit (components, theme, brand).
 - `packages/vite-config/src/`: the shared Vite and Vitest config, and the edge choice.
@@ -103,7 +106,8 @@ sign-on) uses an absolute URL.
   (sign-in, theme kept across a reload, sign-out, SSO hand-back, each staff screen's flow in
   `e2e/staff-<area>.spec.ts`, and a flow per admin area). CI runs it in the "End to end" job. Set
   `CHROME_PATH` to use an installed Chrome when Playwright's browser isn't downloaded. The servers
-  use fixed ports (4176 staff, 4177 admin) and a run never reuses a server it didn't start, so a
+  use fixed ports (4176 staff, 4177 admin, 4178 an admin that starts as a fresh install for the
+  first-run setup flow) and a run never reuses a server it didn't start, so a
   busy port fails the run at once: two runs on one machine take turns (under `flock`, say).
 - Lint: `npm run lint`; types: `npm run typecheck`.
 - All of it, as CI runs it: `npm run check`.
