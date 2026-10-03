@@ -100,9 +100,11 @@ sign-on) uses an absolute URL.
   for a signed-in fixture user, and `withCookie(cookie, loader)` to send it with a route's
   requests. Page tests use `createRoutesStub` with the real loaders and actions.
 - End to end: `npm run test:e2e` builds and serves both mock builds and runs `e2e/*.spec.ts`
-  (sign-in, theme kept across a reload, sign-out, SSO hand-back, and each staff screen's flow in
-  `e2e/staff-<area>.spec.ts`). CI runs it in the "End to end" job. Set `CHROME_PATH` to use an
-  installed Chrome when Playwright's browser isn't downloaded.
+  (sign-in, theme kept across a reload, sign-out, SSO hand-back, each staff screen's flow in
+  `e2e/staff-<area>.spec.ts`, and a flow per admin area). CI runs it in the "End to end" job. Set
+  `CHROME_PATH` to use an installed Chrome when Playwright's browser isn't downloaded. The servers
+  use fixed ports (4176 staff, 4177 admin) and a run never reuses a server it didn't start, so a
+  busy port fails the run at once: two runs on one machine take turns (under `flock`, say).
 - Lint: `npm run lint`; types: `npm run typecheck`.
 - All of it, as CI runs it: `npm run check`.
 - The app server is `server/serve.mjs` (Express with React Router's handler, built on
