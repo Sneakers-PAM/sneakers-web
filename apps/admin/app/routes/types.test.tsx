@@ -1,3 +1,4 @@
+import { mockState } from "@sneakers-web/mock-gateway";
 import { withMockGateway } from "@sneakers-web/mock-gateway/testing";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -17,7 +18,7 @@ const ROUTES = [
 describe("secret types", () => {
   it("lists types with their source and capabilities", async () => {
     renderAdmin(ROUTES, "/types");
-    const database = await screen.findByRole("row", { name: /Database Account/ });
+    const database = await screen.findByRole("row", { name: /Active Directory Account/ });
     expect(within(database).getByText("Built-in")).toBeInTheDocument();
     expect(within(database).getByText("Checkout")).toBeInTheDocument();
     expect(within(database).queryByRole("button", { name: /Delete/ })).not.toBeInTheDocument();
@@ -26,6 +27,8 @@ describe("secret types", () => {
   });
 
   it("refuses to delete a type secrets use, with the count", async () => {
+    // Put three of the world's secrets on the custom type, as if they'd been made with it.
+    for (const secret of mockState.world.secrets.slice(0, 3)) secret.typeId = "type-door-code";
     const user = userEvent.setup();
     renderAdmin(ROUTES, "/types");
     await user.click(await screen.findByRole("button", { name: "Delete Break-room Door Code" }));
@@ -58,7 +61,7 @@ describe("secret types", () => {
   });
 
   it("shows a built-in type read-only", async () => {
-    renderAdmin(ROUTES, "/types/mock-type-password");
+    renderAdmin(ROUTES, "/types/type-password");
     expect(await screen.findByText(/can't be changed/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save type" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("Field 1 label")).toBeDisabled();

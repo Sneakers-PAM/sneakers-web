@@ -26,10 +26,19 @@ export interface MockConnection {
 }
 
 export interface MockFieldDefinition {
+  /** The option a select field starts on. */
+  defaultValue?: string;
   key: string;
   kind: FieldKind;
   label: string;
+  maxLength?: number;
   options?: string[];
+  /** A regular expression the value must match. */
+  pattern?: string;
+  /** For a password field: "strict" makes a typed value pass the policy too. */
+  policyEnforcement?: "lax" | "strict";
+  /** For a password field: the policy that generates (and with "strict", checks) it. */
+  policyId?: string;
   required?: boolean;
   rotates?: boolean;
   sensitive?: boolean;
@@ -48,6 +57,12 @@ export interface MockFolder {
   parentId?: string;
   role?: string;
   scope: "group" | "personal" | "role";
+}
+
+/** A group in identity's directory. Folder rules and the admin console name groups. */
+export interface MockGroup {
+  id: string;
+  name: string;
 }
 
 export interface MockLease {
@@ -110,6 +125,8 @@ export interface MockSecretType {
   name: string;
   origin: "custom" | "extension" | "system";
   rotation?: boolean;
+  /** Who made an extension pack's type. */
+  vendor?: string;
 }
 
 export interface MockSecretUse {
@@ -177,6 +194,9 @@ export interface MockVersion {
 export interface MockWorld {
   connections: MockConnection[];
   folders: MockFolder[];
+  /** Who is in which group. */
+  groupMembers: { groupId: string; userId: string }[];
+  groups: MockGroup[];
   leases: MockLease[];
   requests: MockRequest[];
   secrets: MockSecret[];
@@ -325,6 +345,76 @@ const SECRET_TYPES: MockSecretType[] = [
     name: "Secure Note",
     origin: "system",
   },
+  {
+    fields: [
+      { key: "host", kind: "text", label: "Host", required: true },
+      { key: "username", kind: "text", label: "Username", required: true },
+      {
+        key: "password",
+        kind: "password",
+        label: "Password",
+        required: true,
+        rotates: true,
+        sensitive: true,
+      },
+      { key: "enable", kind: "password", label: "Enable secret", sensitive: true },
+    ],
+    heartbeat: true,
+    id: "type-acme-router",
+    name: "Acme Router Admin",
+    origin: "extension",
+    rotation: true,
+    vendor: "Acme",
+  },
+  {
+    fields: [
+      { key: "gateway", kind: "text", label: "Gateway", required: true },
+      { key: "username", kind: "text", label: "Username", required: true },
+      { key: "profile", kind: "file", label: "Profile" },
+    ],
+    id: "type-acme-vpn",
+    name: "Acme VPN Profile",
+    origin: "extension",
+    vendor: "Acme",
+  },
+  {
+    fields: [
+      {
+        defaultValue: "North door",
+        key: "location",
+        kind: "select",
+        label: "Location",
+        options: ["North door", "South door", "Loading bay"],
+        required: true,
+      },
+      {
+        key: "code",
+        kind: "password",
+        label: "Code",
+        policyEnforcement: "strict",
+        policyId: "mock-policy-pin",
+        required: true,
+        sensitive: true,
+      },
+    ],
+    id: "type-door-code",
+    name: "Break-room Door Code",
+    origin: "custom",
+  },
+];
+
+const GROUPS: MockGroup[] = [
+  { id: "mock-group-platform", name: "Platform engineers" },
+  { id: "mock-group-db", name: "DB team" },
+  { id: "mock-group-finance", name: "Finance" },
+];
+
+const GROUP_MEMBERS = [
+  { groupId: "mock-group-platform", userId: "mock-user-alice" },
+  { groupId: "mock-group-platform", userId: "mock-user-carol" },
+  { groupId: "mock-group-db", userId: "mock-user-bob" },
+  { groupId: "mock-group-db", userId: "mock-user-dave" },
+  { groupId: "mock-group-finance", userId: "mock-user-erin" },
 ];
 
 const ALICE = "mock-user-alice";
@@ -799,6 +889,8 @@ export const initialWorld = (now = Date.now()): MockWorld => {
   return {
     connections: structuredClone(CONNECTIONS),
     folders: structuredClone(FOLDERS),
+    groupMembers: structuredClone(GROUP_MEMBERS),
+    groups: structuredClone(GROUPS),
     leases: [
       {
         expiresAt: iso(now + 2 * HOUR),
