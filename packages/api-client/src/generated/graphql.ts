@@ -1954,6 +1954,36 @@ export type SecretRevealVersionMutationVariables = Exact<{
 
 export type SecretRevealVersionMutation = { revealSecretVersionField: string };
 
+export type SecretRestoreVersionMutationVariables = Exact<{
+  secretId: string;
+  versionNo: number;
+}>;
+
+export type SecretRestoreVersionMutation = {
+  restoreSecretVersion: {
+    id: string;
+    name: string;
+    canRead: boolean | null;
+    folderId: string;
+    typeId: string;
+    targetId: string | null;
+    expiresAt: string | null;
+    lastHeartbeatResult: HeartbeatResult | null;
+    verifiedAt: string | null;
+    viewCount: number | null;
+    lastAccessedAt: string | null;
+    retired: boolean;
+    retiredAt: string;
+    lastRotationResult: RotationState | null;
+    rotatedAt: string | null;
+    rotationIntervalDays: number | null;
+    nextRotationAt: string | null;
+    rotationOptOut: boolean | null;
+    heartbeatOptOut: boolean | null;
+    requireTokenApproval: boolean | null;
+  };
+};
+
 export type SecretBreakGlassMutationVariables = Exact<{
   secretId: string;
   reason: string;
@@ -4804,6 +4834,37 @@ export const SecretRevealVersionDocument = new TypedDocumentString(`
     `) as unknown as TypedDocumentString<
   SecretRevealVersionMutation,
   SecretRevealVersionMutationVariables
+>;
+export const SecretRestoreVersionDocument = new TypedDocumentString(`
+    mutation SecretRestoreVersion($secretId: ID!, $versionNo: Int!) {
+  restoreSecretVersion(secretId: $secretId, versionNo: $versionNo) {
+    ...SecretDetailFields
+  }
+}
+    fragment SecretDetailFields on Secret {
+  id
+  name
+  canRead
+  folderId
+  typeId
+  targetId
+  expiresAt
+  lastHeartbeatResult
+  verifiedAt
+  viewCount
+  lastAccessedAt
+  retired
+  retiredAt
+  lastRotationResult
+  rotatedAt
+  rotationIntervalDays
+  nextRotationAt
+  rotationOptOut
+  heartbeatOptOut
+  requireTokenApproval
+}`) as unknown as TypedDocumentString<
+  SecretRestoreVersionMutation,
+  SecretRestoreVersionMutationVariables
 >;
 export const SecretBreakGlassDocument = new TypedDocumentString(`
     mutation SecretBreakGlass($secretId: String!, $reason: String!, $code: String!) {
