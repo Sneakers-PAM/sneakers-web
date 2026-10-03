@@ -141,6 +141,19 @@ describe("restoring a secret version in the mock gateway", () => {
     expect(secret(DB).versions).toHaveLength(3);
   });
 
+  it("is refused for a retired secret, even to the recovery role with a fresh MFA", async () => {
+    const legacy = secret("mock-secret-legacy-portal");
+    // A second version, so version 1 is one that could otherwise be restored.
+    for (const v of legacy.versions) v.active = false;
+    legacy.versions.unshift({ ...legacy.versions[0]!, active: true, versionNo: 2 });
+    const gw = await recovering();
+    expect(
+      await refused(gw.gql(SecretRestoreVersionDocument, { secretId: legacy.id, versionNo: 1 })),
+    ).toMatchObject({ code: "FAILED_PRECONDITION", reason: "RETIRED" });
+    expect(legacy.versions).toHaveLength(2);
+    expect(legacy.retired).toBe(true);
+  });
+
   it("refuses the current version, a missing one, a locked secret and one the user can't see", async () => {
     const gw = await recovering();
     expect(
