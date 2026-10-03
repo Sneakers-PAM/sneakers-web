@@ -84,3 +84,17 @@ test("a site admin adds a connection and a pinned SSH target on it", async ({ pa
   await page.getByRole("button", { name: "Create target" }).click();
   await expect(page.getByRole("row", { name: /Bastion/ })).toContainText("1 pin");
 });
+
+test("a site admin makes a service account and mints its first token", async ({ page }) => {
+  await signInAsAlice(page, "/admin/service-accounts/new");
+  await page.getByLabel(/Name/).fill("Report runner");
+  await page.getByRole("button", { name: "Create service account" }).click();
+  await expect(page.getByRole("heading", { name: "Report runner" })).toBeVisible();
+  await page.getByRole("button", { name: "Mint token…" }).click();
+  await page.getByRole("button", { name: "Add group" }).click();
+  await page.getByRole("menuitem", { name: "DB team" }).click();
+  await page.getByRole("button", { name: "Mint token" }).click();
+  await expect(page.getByLabel("New API token")).toContainText("mock-sa-token-");
+  await page.getByRole("button", { name: "Done, I've stored it" }).click();
+  await expect(page.getByRole("row", { name: /^DB team/ })).toBeVisible();
+});

@@ -2,6 +2,10 @@ import { refusalMessage } from "@sneakers-web/shell";
 import {
   Card,
   cn,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Select,
   SelectContent,
   SelectItem,
@@ -9,6 +13,7 @@ import {
   SelectValue,
   toast,
 } from "@sneakers-web/ui";
+import { Diamond, Plus, X } from "lucide-react";
 import { type ReactNode, useEffect, useRef } from "react";
 
 import type { ActionResult } from "@/lib/admin.server";
@@ -108,3 +113,56 @@ export const Choice = <T extends string>({
     </SelectContent>
   </Select>
 );
+
+/** Groups as removable chips, with "Add group" offering the ones not picked yet. */
+export const GroupPicker = ({
+  groups,
+  label,
+  onChange,
+  value,
+}: {
+  groups: { id: string; name: string }[];
+  label: string;
+  onChange: (ids: string[]) => void;
+  value: string[];
+}) => {
+  const name = (id: string) => groups.find((g) => g.id === id)?.name ?? id;
+  const rest = groups.filter((g) => !value.includes(g.id));
+  return (
+    <div aria-label={label} className="flex flex-wrap items-center gap-2" role="group">
+      {value.map((id) => (
+        <span
+          className="inline-flex h-8.5 items-center gap-1.5 rounded-sm bg-sunken pr-1 pl-2.5 text-[0.875rem] font-bold"
+          key={id}
+        >
+          <Diamond aria-hidden className="size-3.5" />
+          {name(id)}
+          <button
+            aria-label={`Remove ${name(id)}`}
+            className="inline-flex size-6 items-center justify-center rounded-xs text-muted hover:bg-surface hover:text-danger"
+            onClick={() => onChange(value.filter((v) => v !== id))}
+            type="button"
+          >
+            <X aria-hidden className="size-3.5" />
+          </button>
+        </span>
+      ))}
+      {value.length === 0 && <span className="text-small text-muted">No groups.</span>}
+      {rest.length > 0 && (
+        <DropdownMenu>
+          <DropdownMenuTrigger className="inline-flex items-center gap-1 text-small font-bold text-primary hover:text-ink">
+            <Plus aria-hidden className="size-3.5" />
+            Add group
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            {rest.map((g) => (
+              <DropdownMenuItem key={g.id} onSelect={() => onChange([...value, g.id])}>
+                {g.name}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </div>
+  );
+};
