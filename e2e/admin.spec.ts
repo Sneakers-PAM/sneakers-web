@@ -66,3 +66,35 @@ test("a site admin turns on MFA before a reveal and builds a custom type", async
   await page.getByRole("button", { name: "Save type" }).click();
   await expect(page.getByRole("link", { exact: true, name: "Alarm Panel" })).toBeVisible();
 });
+
+test("a site admin adds a connection and a pinned SSH target on it", async ({ page }) => {
+  await signInAsAlice(page, "/admin/connections");
+  await page.getByRole("button", { name: "Add connection" }).click();
+  const card = page.getByRole("form", { name: "New connection" });
+  await card.getByLabel("Name").fill("Bastion SSH");
+  await card.getByRole("button", { name: "Save the new connection" }).click();
+  await expect(page.getByRole("form", { name: "Connection Bastion SSH" })).toBeVisible();
+
+  await page.goto("/admin/targets/new");
+  await page.getByLabel(/^Name/).fill("Bastion");
+  await page.getByLabel(/^Hostname/).fill("bastion.example.org");
+  await page.getByRole("combobox", { name: /Connection/ }).click();
+  await page.getByRole("option", { name: "Bastion SSH (ssh:22)" }).click();
+  await page.getByLabel("Pinned keys").fill("ssh-ed25519 AAAAC3Nza bastion");
+  await page.getByRole("button", { name: "Create target" }).click();
+  await expect(page.getByRole("row", { name: /Bastion/ })).toContainText("1 pin");
+});
+
+test("a site admin makes a service account and mints its first token", async ({ page }) => {
+  await signInAsAlice(page, "/admin/service-accounts/new");
+  await page.getByLabel(/Name/).fill("Report runner");
+  await page.getByRole("button", { name: "Create service account" }).click();
+  await expect(page.getByRole("heading", { name: "Report runner" })).toBeVisible();
+  await page.getByRole("button", { name: "Mint token…" }).click();
+  await page.getByRole("button", { name: "Add group" }).click();
+  await page.getByRole("menuitem", { name: "DB team" }).click();
+  await page.getByRole("button", { name: "Mint token" }).click();
+  await expect(page.getByLabel("New API token")).toContainText("mock-sa-token-");
+  await page.getByRole("button", { name: "Done, I've stored it" }).click();
+  await expect(page.getByRole("row", { name: /^DB team/ })).toBeVisible();
+});

@@ -547,7 +547,7 @@ const TARGETS: MockTarget[] = [
     kind: "linux",
     name: "Build host",
     ownerUserId: ALICE,
-    sshHostKeys: ["ssh-ed25519 mock-host-key-build1"],
+    sshHostKeys: ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockBuild1HostKeyNotReal build1"],
   },
   {
     connectionId: "mock-conn-ssh",
@@ -555,7 +555,7 @@ const TARGETS: MockTarget[] = [
     id: "mock-target-edge-router",
     kind: "network",
     name: "Edge router",
-    sshHostKeys: ["ssh-ed25519 mock-host-key-edge"],
+    sshHostKeys: ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockEdgeHostKeyNotReal edge"],
   },
   {
     connectionId: "mock-conn-postgres",

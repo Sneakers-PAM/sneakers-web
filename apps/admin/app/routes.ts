@@ -1,6 +1,6 @@
 import { index, layout, route, type RouteConfig } from "@react-router/dev/routes";
 
-const PAGES = ["targets", "connections", "service-accounts", "audit", "folders"];
+const PAGES = ["audit", "folders"];
 
 export default [
   route("sign-in", "routes/sign-in.tsx"),
@@ -26,6 +26,13 @@ export default [
     route("policies", "routes/policies.tsx"),
     route("policies/new", "routes/policies.$id.tsx", { id: "routes/policies.new" }),
     route("policies/:id", "routes/policies.$id.tsx"),
+    route("targets", "routes/targets.tsx"),
+    route("targets/new", "routes/targets.$id.tsx", { id: "routes/targets.new" }),
+    route("targets/:id", "routes/targets.$id.tsx"),
+    route("connections", "routes/connections.tsx"),
+    route("service-accounts", "routes/service-accounts.tsx"),
+    route("service-accounts/new", "routes/service-accounts.new.tsx"),
+    route("service-accounts/:id", "routes/service-accounts.$id.tsx"),
     ...PAGES.map((p) => route(p, "routes/coming-soon.tsx", { id: p })),
   ]),
   route("*", "routes/not-found.tsx"),
