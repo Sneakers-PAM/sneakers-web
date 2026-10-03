@@ -324,7 +324,7 @@ describe("a secret the gateway doesn't say can be read", () => {
 });
 
 describe("checking a secret out", () => {
-  it("checks in and out, and reveals only while the secret is held", async () => {
+  it("checks in and out, and asks for a check-out before revealing, as a workflow aid", async () => {
     const user = userEvent.setup();
     open("mock-secret-acme-vpn");
     const checkout = await screen.findByRole("region", { name: "Checkout" });
@@ -332,7 +332,9 @@ describe("checking a secret out", () => {
     expect(within(row("Password")).getByRole("button", { name: "Reveal Password" })).toBeEnabled();
 
     await user.click(within(checkout).getByRole("button", { name: "Check in now" }));
-    expect(await within(row("Password")).findByText("Check out to reveal")).toBeInTheDocument();
+    expect(
+      await within(row("Password")).findByText("Check out first, so others know it's in use"),
+    ).toBeInTheDocument();
     expect(within(card("Checkout")).getByText("Available")).toBeInTheDocument();
 
     await user.click(within(card("Checkout")).getByRole("radio", { name: "4h" }));

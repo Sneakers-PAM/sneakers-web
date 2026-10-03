@@ -124,8 +124,9 @@ export const SecretPage = ({ page }: { page: Page }) => {
     : read
       ? checksOut && heldByOther
         ? "Checked out by someone else"
-        : checksOut && !heldByMe
-          ? "Check out to reveal"
+        : // A workflow aid, not a control: read access is what lets someone reveal.
+          checksOut && !heldByMe
+          ? "Check out first, so others know it's in use"
           : undefined
       : "Request access to reveal";
   const path = folderPath.map((f) => f.name).join(" / ");
