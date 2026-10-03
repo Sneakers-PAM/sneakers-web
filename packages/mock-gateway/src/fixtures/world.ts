@@ -93,6 +93,12 @@ export interface MockRequest {
 }
 
 export interface MockSecret {
+  /**
+   * Whether the signed-in user may read it. The gateway sets this per user on `secret` and
+   * `secretsInFolder`; the mock keeps one answer for everyone. A secret with `false` is listed,
+   * shown locked, and refused on reveal with NO_ACCESS.
+   */
+  canRead: boolean;
   expiresAt?: string;
   /** Every field value, sensitive ones included. Screens get sensitive values only by reveal. */
   fields: Record<string, string>;
@@ -594,6 +600,7 @@ interface SecretSeed extends Partial<MockSecret> {
 }
 
 const secret = (now: number, seed: SecretSeed, versions = 1): MockSecret => ({
+  canRead: true,
   heartbeatOptOut: false,
   requireTokenApproval: false,
   retired: false,
@@ -780,6 +787,7 @@ const secrets = (now: number): MockSecret[] => [
     typeId: "type-web-password",
   }),
   secret(now, {
+    canRead: false,
     fields: {
       domain: "corp.example.org",
       password: "mock-Heel-Counter-30",

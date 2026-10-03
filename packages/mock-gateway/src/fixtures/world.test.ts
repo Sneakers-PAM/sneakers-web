@@ -81,6 +81,16 @@ describe("the mock world", () => {
     expect(world().secrets.some((s) => s.retired)).toBe(true);
   });
 
+  it("has a secret users can see but not read, so screens can show it locked", () => {
+    const locked = world().secrets.filter((s) => !s.canRead);
+    expect(locked.length).toBeGreaterThan(0);
+    for (const s of locked) {
+      expect(world().leases.some((l) => l.secretId === s.id && !l.returned)).toBe(false);
+      expect(world().useGrants.some((g) => g.secretIds.includes(s.id))).toBe(false);
+    }
+    expect(world().secrets.filter((s) => s.canRead).length).toBeGreaterThan(locked.length);
+  });
+
   it("starts fresh after a reset", () => {
     world().secrets = [];
     resetMockState();

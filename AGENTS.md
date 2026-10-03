@@ -55,8 +55,23 @@ Before changing anything, know two things:
   same data. The admin console's operations live in `admin/` (one file per area, collected in
   `admin/handlers.ts`). State only the console uses (password policies, security settings, the
   extension packs not yet installed) stays there and registers its reset with `onMockReset`.
+  Staff answers live in `handlers/staff/<area>.ts`, one module per area.
 - `packages/ui/src/`: the Laces kit (components, theme, brand).
 - `packages/vite-config/src/`: the shared Vite and Vitest config, and the edge choice.
+
+Staff screens: one route module per page in `apps/staff/app/routes/` (the table in `routes.ts`
+lists every page), screen-only components in `apps/staff/app/features/<area>/`, and the GraphQL
+for an area in `packages/api-client/src/operations/staff/<area>.graphql`. Page tests render
+through `renderRoute(url, routes, { user })` (`apps/staff/app/test/routeStub.tsx`), which signs in
+a fixture user and puts the pages under the real frame loader. The staff app's tests run
+against the mock gateway through `apps/staff/vitest.config.ts`, so the build config has no test
+switch.
+
+Browse (U-03): the folder tree lives in the page (`features/browse/FolderNav`), not the frame
+sidebar. Moves follow the vault's gate (`moveKind` in `features/browse/tree.ts`): a personal folder
+going shared is confirmed first, and shared into someone's personal folder is a folder_move or
+secret_move request unless the user is a site admin. The mock's canManage comes from the owners of
+the folder or any folder above it, and read access from ownership, the folder's group or its role.
 
 Paths inside an app are base-free (`appPath("sign-in")` is `/sign-in` in both apps). React
 Router adds the `/admin/` basename to links and redirects; a redirect that leaves the app (single
@@ -85,7 +100,8 @@ sign-on) uses an absolute URL.
   for a signed-in fixture user, and `withCookie(cookie, loader)` to send it with a route's
   requests. Page tests use `createRoutesStub` with the real loaders and actions.
 - End to end: `npm run test:e2e` builds and serves both mock builds and runs `e2e/*.spec.ts`
-  (sign-in, theme kept across a reload, sign-out, SSO hand-back). Set `CHROME_PATH` to use an
+  (sign-in, theme kept across a reload, sign-out, SSO hand-back, and each staff screen's flow in
+  `e2e/staff-<area>.spec.ts`). CI runs it in the "End to end" job. Set `CHROME_PATH` to use an
   installed Chrome when Playwright's browser isn't downloaded.
 - Lint: `npm run lint`; types: `npm run typecheck`.
 - All of it, as CI runs it: `npm run check`.
@@ -123,3 +139,7 @@ Follow the logging rules in `CLAUDE.md`. In short:
   and mark the PR ready when the work is finished; see CLAUDE.md "CI and Actions minutes".
 - Install with `npm install --ignore-scripts`.
 - Keep server-only code in `*.server.ts` modules so it never reaches the browser bundle.
+- `Secret.canRead` (set by `secret` and `secretsInFolder`): `false` shows the secret locked with a
+  way to request access, and `null` means unknown, never readable. A reveal of a secret the user
+  can't read is refused with `NO_ACCESS`, and one of a retired secret with `RETIRED` (the
+  gateway's `docs/api.md` lists the reasons).

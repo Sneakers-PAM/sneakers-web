@@ -26,7 +26,7 @@ export default defineConfig({
   projects: [
     {
       name: "staff",
-      testMatch: "staff.spec.ts",
+      testMatch: /staff(-[a-z-]+)?\.spec\.ts$/,
       use: { ...devices["Desktop Chrome"], baseURL: `http://127.0.0.1:${STAFF_PORT}` },
     },
     { name: "proxy", testMatch: "proxy.spec.ts" },

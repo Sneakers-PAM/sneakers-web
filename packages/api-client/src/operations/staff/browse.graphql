@@ -1,0 +1,136 @@
+fragment BrowseFolderFields on Folder {
+  id
+  name
+  parentId
+  scope
+  ownerUserId
+  groupId
+  role
+  isMasterPersonal
+  order
+  subtreeSecretCount
+  owners
+  canManage
+}
+
+query BrowseFolders {
+  folders {
+    ...BrowseFolderFields
+  }
+}
+
+query BrowseFolderAccess($folderId: String!, $ownerIds: [String!]!) {
+  myFolderAccess(folderId: $folderId) {
+    read
+    reveal
+    manage
+    approve
+    informed
+    manageRuleset
+  }
+  resolveUserLabels(ids: $ownerIds) {
+    id
+    name
+  }
+}
+
+query BrowseSecrets($folderId: String!, $includeRetired: Boolean) {
+  secretsInFolder(folderId: $folderId, includeRetired: $includeRetired) {
+    id
+    name
+    folderId
+    typeId
+    targetId
+    lastHeartbeatResult
+    retired
+    retiredAt
+    canRead
+  }
+  secretTypes {
+    id
+    name
+  }
+}
+
+mutation BrowseCreateFolder($parentId: String, $name: String!) {
+  createFolder(parentId: $parentId, name: $name) {
+    ...BrowseFolderFields
+  }
+}
+
+mutation BrowseRenameFolder($id: ID!, $name: String!) {
+  renameFolder(id: $id, name: $name) {
+    id
+    name
+  }
+}
+
+mutation BrowseMoveFolder($id: ID!, $newParentId: String) {
+  moveFolder(id: $id, newParentId: $newParentId) {
+    id
+    parentId
+    scope
+  }
+}
+
+mutation BrowseDeleteFolder($id: ID!, $reassignToId: String) {
+  deleteFolder(id: $id, reassignToId: $reassignToId)
+}
+
+mutation BrowseReorderFolders($parentId: String, $orderedIds: [String!]!) {
+  reorderFolders(parentId: $parentId, orderedIds: $orderedIds)
+}
+
+mutation BrowseCreateFolderMoveRequest(
+  $folderId: String!
+  $destParentId: String!
+  $reason: String
+  $folderName: String
+  $destParentName: String
+) {
+  createFolderMoveRequest(
+    folderId: $folderId
+    destParentId: $destParentId
+    reason: $reason
+    folderName: $folderName
+    destParentName: $destParentName
+  ) {
+    id
+    kind
+    status
+  }
+}
+
+mutation BrowseCreateSecretMoveRequest(
+  $secretId: String!
+  $destFolderId: String!
+  $reason: String
+  $secretName: String
+  $destFolderName: String
+) {
+  createSecretMoveRequest(
+    secretId: $secretId
+    destFolderId: $destFolderId
+    reason: $reason
+    secretName: $secretName
+    destFolderName: $destFolderName
+  ) {
+    id
+    kind
+    status
+  }
+}
+
+mutation BrowseMoveSecret($id: ID!, $folderId: String!) {
+  updateSecret(id: $id, input: { folderId: $folderId }) {
+    id
+    folderId
+  }
+}
+
+mutation BrowseRestoreSecret($id: String!) {
+  restoreSecret(id: $id) {
+    id
+    retired
+  }
+}

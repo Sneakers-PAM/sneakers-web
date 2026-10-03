@@ -1,0 +1,102 @@
+fragment RequestsRequestFields on ApprovalRequest {
+  id
+  kind
+  secretId
+  folderId
+  folderName
+  destParentId
+  destParentName
+  requestedByUserId
+  requestedAt
+  reason
+  status
+  resolvedAt
+  resolvedByUserId
+  resolvedByUserName
+  comments {
+    id
+    authorUserId
+    authorName
+    body
+    createdAt
+  }
+}
+
+fragment CheckoutsLeaseFields on Lease {
+  id
+  secretId
+  userId
+  issuedAt
+  expiresAt
+  returned
+}
+
+query RequestsList {
+  approvalRequests {
+    ...RequestsRequestFields
+  }
+}
+
+# One secret a request or a lease names: its label, and what the caller may do with it.
+query RequestsSecret($id: ID!, $secretId: String!) {
+  secret(id: $id) {
+    id
+    name
+    folderId
+    typeId
+  }
+  mySecretAccess(secretId: $secretId) {
+    read
+    approve
+  }
+}
+
+query RequestsPeople($ids: [String!]!) {
+  resolveUserLabels(ids: $ids) {
+    id
+    name
+  }
+}
+
+mutation RequestsResolve($id: ID!, $approve: Boolean!, $grantHours: Int) {
+  resolveApproval(id: $id, approve: $approve, grantHours: $grantHours) {
+    ...RequestsRequestFields
+  }
+}
+
+mutation RequestsComment($requestId: String!, $body: String!) {
+  addApprovalComment(requestId: $requestId, body: $body) {
+    id
+    comments {
+      id
+    }
+  }
+}
+
+mutation RequestsCreate($secretId: String!, $reason: String) {
+  createAccessRequest(secretId: $secretId, reason: $reason) {
+    ...RequestsRequestFields
+  }
+}
+
+query CheckoutsMine($userId: String!) {
+  activeLeasesForUser(userId: $userId) {
+    ...CheckoutsLeaseFields
+  }
+}
+
+query CheckoutsActiveLease($secretId: String!) {
+  activeLease(secretId: $secretId) {
+    ...CheckoutsLeaseFields
+  }
+}
+
+mutation CheckoutsCheckout($secretId: String!, $hours: Int) {
+  checkoutSecret(secretId: $secretId, hours: $hours) {
+    ...CheckoutsLeaseFields
+  }
+}
+
+mutation CheckoutsCheckin($secretId: String!) {
+  checkinSecret(secretId: $secretId)
+}

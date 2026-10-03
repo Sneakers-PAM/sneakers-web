@@ -3,6 +3,7 @@ import { http, HttpResponse } from "msw";
 import { adminHandlers } from "#mock/admin/handlers";
 import { authHandlers } from "#mock/handlers/auth";
 import { api, shellHandlers } from "#mock/handlers/graphql";
+import { staffHandlers } from "#mock/handlers/staff";
 import { stepUpHandlers } from "#mock/handlers/stepUp";
 import { MOCK_GATEWAY_URL } from "#mock/state";
 
@@ -32,5 +33,6 @@ export const handlers = [
   ...stepUpHandlers,
   ...shellHandlers,
   ...adminHandlers,
+  ...staffHandlers,
   ...notMocked,
 ];
