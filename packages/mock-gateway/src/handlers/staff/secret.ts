@@ -42,13 +42,12 @@ const typeOf = (s: MockSecret): MockSecretType | undefined =>
 const folderVisible = (userId: string, f: MockFolder) =>
   f.scope !== "personal" || f.ownerUserId === userId;
 
-/**
- * A checkout type's values are for whoever holds its lease. The gateway's docs name no reason
- * for this refusal yet, so the mock uses its own.
- */
+/** A checkout type's values are for whoever holds its lease. */
 const leaseMissing = (userId: string, s: MockSecret) =>
   !!typeOf(s)?.checkout && activeLease(s.id)?.userId !== userId;
 
+// The vault doesn't refuse a reveal for a missing lease yet; the mock does, so the locked
+// state can be tried. The reason is the mock's own until the vault sends one.
 const checkoutRequired = () =>
   refusal(
     "FAILED_PRECONDITION",
