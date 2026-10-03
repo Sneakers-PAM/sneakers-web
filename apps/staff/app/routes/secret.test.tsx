@@ -244,6 +244,85 @@ describe("the secret detail page", () => {
   });
 });
 
+describe("a secret the gateway doesn't say can be read", () => {
+  it("shows it locked when canRead is null, never as readable", async () => {
+    const id = "mock-secret-edge-router";
+    const w = mockState.world;
+    const s = w.secrets.find((x) => x.id === id)!;
+    const type = w.secretTypes.find((t) => t.id === s.typeId)!;
+    server.use(
+      api.query("SecretDetail", () =>
+        HttpResponse.json({
+          data: {
+            folders: w.folders
+              .filter((f) => f.scope !== "personal")
+              .map((f) => ({
+                id: f.id,
+                name: f.name,
+                parentId: f.parentId ?? null,
+                scope: f.scope,
+              })),
+            secret: {
+              canRead: null,
+              expiresAt: null,
+              folderId: s.folderId,
+              heartbeatOptOut: false,
+              id,
+              lastAccessedAt: null,
+              lastHeartbeatResult: null,
+              lastRotationResult: null,
+              name: s.name,
+              nextRotationAt: null,
+              requireTokenApproval: false,
+              retired: false,
+              retiredAt: "",
+              rotatedAt: null,
+              rotationIntervalDays: null,
+              rotationOptOut: false,
+              targetId: null,
+              typeId: s.typeId,
+              verifiedAt: null,
+              viewCount: 0,
+            },
+            secretTypes: [
+              {
+                checkout: null,
+                fields: type.fields.map((f) => ({
+                  key: f.key,
+                  kind: f.kind,
+                  label: f.label,
+                  options: null,
+                  rotates: null,
+                  sensitive: f.sensitive ?? null,
+                  superSensitive: null,
+                })),
+                heartbeat: null,
+                id: type.id,
+                name: type.name,
+                origin: type.origin,
+                rotation: null,
+                vendor: null,
+              },
+            ],
+            targets: [],
+          },
+        }),
+      ),
+    );
+    open(id);
+    expect(
+      await screen.findByRole("heading", { level: 1, name: /Edge router admin/ }),
+    ).toBeInTheDocument();
+    const password = row("Password");
+    expect(within(password).getByText("Request access to reveal")).toBeInTheDocument();
+    expect(within(password).queryByRole("button", { name: /Reveal/ })).toBeNull();
+    expect(screen.getByRole("link", { name: "Request access" })).toHaveAttribute(
+      "href",
+      `/requests?new=${id}`,
+    );
+  });
+});
+
 describe("checking a secret out", () => {
   it("checks in and out, and reveals only while the secret is held", async () => {
     const user = userEvent.setup();

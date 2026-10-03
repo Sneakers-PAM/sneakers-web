@@ -342,4 +342,49 @@ describe("secret detail in the mock gateway", () => {
       await refusal(gw.gql(SecretReplaceCertificateDocument, { fileBase64: "", secretId: CERT })),
     ).toMatchObject({ code: "INVALID_ARGUMENT" });
   });
+
+  it("refuses an old value of a locked secret even to the recovery role with a fresh MFA", async () => {
+    const gw = await as(ALICE);
+    userById(ALICE)?.roles.push("recovery");
+    await stepUp(gw, { code: "123456", kind: "totp" });
+    expect(
+      await refusal(
+        gw.gql(SecretRevealVersionDocument, {
+          fieldKey: "password",
+          secretId: "mock-secret-helpdesk",
+          versionNo: 1,
+        }),
+      ),
+    ).toEqual({ code: "PERMISSION_DENIED", reason: "NO_ACCESS" });
+  });
+
+  it("lets the lease holder read and reveal a locked secret, and nobody else", async () => {
+    const id = "mock-secret-helpdesk";
+    world().leases.push({
+      expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+      id: "mock-lease-helpdesk-bob",
+      issuedAt: new Date().toISOString(),
+      returned: false,
+      secretId: id,
+      userId: BOB,
+    });
+    const bob = await as(BOB);
+    expect(await bob.gql(SecretAccessDocument, { secretId: id })).toMatchObject({
+      mySecretAccess: { read: true, reveal: true },
+    });
+    expect(await bob.gql(SecretDetailDocument, { id })).toMatchObject({
+      secret: { canRead: true },
+    });
+    const { revealSecretField } = await bob.gql(SecretRevealDocument, { fieldKey: "password", id });
+    expect(revealSecretField).toBe(secret(id)?.fields.password);
+
+    const alice = await as(ALICE);
+    expect(await alice.gql(SecretAccessDocument, { secretId: id })).toMatchObject({
+      mySecretAccess: { read: false },
+    });
+    expect(await refusal(alice.gql(SecretRevealDocument, { fieldKey: "password", id }))).toEqual({
+      code: "PERMISSION_DENIED",
+      reason: "NO_ACCESS",
+    });
+  });
 });
