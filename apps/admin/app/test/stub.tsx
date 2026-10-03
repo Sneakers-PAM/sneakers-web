@@ -1,9 +1,13 @@
 import { sessionCookie, withCookie } from "@sneakers-web/mock-gateway/testing";
 import { Toaster, TooltipProvider } from "@sneakers-web/ui";
-import { render } from "@testing-library/react";
+import { configure, render } from "@testing-library/react";
 import { createRoutesStub, Outlet } from "react-router";
 
 import { loader as frameLoader } from "@/routes/frame";
+
+// Each step runs a real loader or action against the mock gateway, so under a full parallel test
+// run a find can take longer than Testing Library's one-second default.
+configure({ asyncUtilTimeout: 3000 });
 
 /** A route module as the tests mount it: the page, its loader and action. */
 export interface RouteModule {

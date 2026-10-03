@@ -94,6 +94,49 @@ export type TargetInput = {
 
 export type TypeOrigin = "custom" | "extension" | "system";
 
+export type AuditRecordFieldsFragment = {
+  seq: number;
+  tier: string;
+  action: string;
+  actorUserId: string;
+  actorName: string;
+  subject: string;
+  groupId: string;
+  sensitive: boolean;
+  occurredAt: string;
+  prevHash: string;
+  hash: string;
+  attributes: Array<{ key: string; value: string }>;
+};
+
+export type AdminAuditQueryVariables = Exact<{
+  actorUserId?: string | null | undefined;
+  subject?: string | null | undefined;
+  excludeActions?: Array<string> | string | null | undefined;
+  limit?: number | null | undefined;
+}>;
+
+export type AdminAuditQuery = {
+  auditActions: Array<string>;
+  auditRecords: Array<{
+    seq: number;
+    tier: string;
+    action: string;
+    actorUserId: string;
+    actorName: string;
+    subject: string;
+    groupId: string;
+    sensitive: boolean;
+    occurredAt: string;
+    prevHash: string;
+    hash: string;
+    attributes: Array<{ key: string; value: string }>;
+  }>;
+  auditChain: { valid: boolean; brokenAtSeq: number; length: number };
+  users: Array<{ id: string; name: string; username: string }>;
+  groups: Array<{ id: string; name: string }>;
+};
+
 export type ServiceAccountFieldsFragment = {
   id: string;
   name: string;
@@ -1652,6 +1695,28 @@ export class TypedDocumentString<TResult, TVariables>
     return this.value;
   }
 }
+export const AuditRecordFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment AuditRecordFields on AuditRecord {
+  seq
+  tier
+  action
+  actorUserId
+  actorName
+  subject
+  groupId
+  sensitive
+  attributes {
+    key
+    value
+  }
+  occurredAt
+  prevHash
+  hash
+}
+    `,
+  { fragmentName: "AuditRecordFields" },
+) as unknown as TypedDocumentString<AuditRecordFieldsFragment, unknown>;
 export const ServiceAccountFieldsFragmentDoc = new TypedDocumentString(
   `
     fragment ServiceAccountFields on ServiceAccount {
@@ -1898,6 +1963,49 @@ export const SecretCertMetaFieldsFragmentDoc = new TypedDocumentString(
     `,
   { fragmentName: "SecretCertMetaFields" },
 ) as unknown as TypedDocumentString<SecretCertMetaFieldsFragment, unknown>;
+export const AdminAuditDocument = new TypedDocumentString(`
+    query AdminAudit($actorUserId: String, $subject: String, $excludeActions: [String!], $limit: Int) {
+  auditRecords(
+    actorUserId: $actorUserId
+    subject: $subject
+    excludeActions: $excludeActions
+    limit: $limit
+  ) {
+    ...AuditRecordFields
+  }
+  auditActions
+  auditChain {
+    valid
+    brokenAtSeq
+    length
+  }
+  users {
+    id
+    name
+    username
+  }
+  groups {
+    id
+    name
+  }
+}
+    fragment AuditRecordFields on AuditRecord {
+  seq
+  tier
+  action
+  actorUserId
+  actorName
+  subject
+  groupId
+  sensitive
+  attributes {
+    key
+    value
+  }
+  occurredAt
+  prevHash
+  hash
+}`) as unknown as TypedDocumentString<AdminAuditQuery, AdminAuditQueryVariables>;
 export const AdminServiceAccountsDocument = new TypedDocumentString(`
     query AdminServiceAccounts {
   serviceAccounts {
