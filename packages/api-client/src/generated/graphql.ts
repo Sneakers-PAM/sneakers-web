@@ -16,6 +16,13 @@ export type ConnectionInput = {
   useTls?: boolean | null | undefined;
 };
 
+export type FactorInput = {
+  code?: string | null | undefined;
+  credentialJson?: string | null | undefined;
+  kind: string;
+  webauthnSessionId?: string | null | undefined;
+};
+
 export type FieldKind =
   "boolean" | "file" | "multiline" | "password" | "select" | "sensitive" | "text";
 
@@ -93,6 +100,22 @@ export type TargetInput = {
 };
 
 export type TypeOrigin = "custom" | "extension" | "system";
+
+export type UseGrantInput = {
+  allowReveal?: boolean | null | undefined;
+  expiresAtUnix: number;
+  fieldKeys?: Array<string> | null | undefined;
+  folderId?: string | null | undefined;
+  maxUses?: number | null | undefined;
+  programs: Array<UseGrantProgramInput>;
+  secretIds?: Array<string> | null | undefined;
+  tokenId: string;
+};
+
+export type UseGrantProgramInput = {
+  argPattern: string;
+  program: string;
+};
 
 export type AuditRecordFieldsFragment = {
   seq: number;
@@ -920,6 +943,189 @@ export type MarkNotificationReadMutation = { markNotificationRead: boolean };
 export type MarkAllNotificationsReadMutationVariables = Exact<{ [key: string]: never }>;
 
 export type MarkAllNotificationsReadMutation = { markAllNotificationsRead: boolean };
+
+export type AgentsTokenFieldsFragment = {
+  id: string;
+  label: string;
+  clientName: string;
+  createdAtUnix: number;
+  lastUsedAtUnix: number;
+  expiresAtUnix: number;
+  revokedAtUnix: number;
+};
+
+export type AgentsUseFieldsFragment = {
+  id: string;
+  secretName: string;
+  fieldKey: string;
+  argv: Array<string>;
+  clientLabel: string;
+  state: string;
+  expiresAtUnix: number;
+  reveal: boolean;
+};
+
+export type AgentsGrantFieldsFragment = {
+  id: string;
+  tokenId: string;
+  secretIds: Array<string>;
+  folderId: string | null;
+  fieldKeys: Array<string>;
+  expiresAtUnix: number;
+  maxUses: number;
+  uses: number;
+  revokedAtUnix: number;
+  allowReveal: boolean;
+  programs: Array<{ program: string; argPattern: string }>;
+};
+
+export type AgentsTokensQueryVariables = Exact<{ [key: string]: never }>;
+
+export type AgentsTokensQuery = {
+  myTokens: Array<{
+    id: string;
+    label: string;
+    clientName: string;
+    createdAtUnix: number;
+    lastUsedAtUnix: number;
+    expiresAtUnix: number;
+    revokedAtUnix: number;
+  }>;
+};
+
+export type AgentsRevokeTokenMutationVariables = Exact<{
+  id: string;
+}>;
+
+export type AgentsRevokeTokenMutation = {
+  revokeMyToken: {
+    id: string;
+    label: string;
+    clientName: string;
+    createdAtUnix: number;
+    lastUsedAtUnix: number;
+    expiresAtUnix: number;
+    revokedAtUnix: number;
+  };
+};
+
+export type AgentsPendingUsesQueryVariables = Exact<{ [key: string]: never }>;
+
+export type AgentsPendingUsesQuery = {
+  pendingSecretUses: Array<{
+    id: string;
+    secretName: string;
+    fieldKey: string;
+    argv: Array<string>;
+    clientLabel: string;
+    state: string;
+    expiresAtUnix: number;
+    reveal: boolean;
+  }>;
+};
+
+export type AgentsDecideUseMutationVariables = Exact<{
+  id: string;
+  approve: boolean;
+  factor?: FactorInput | null | undefined;
+}>;
+
+export type AgentsDecideUseMutation = {
+  decideSecretUse: {
+    id: string;
+    secretName: string;
+    fieldKey: string;
+    argv: Array<string>;
+    clientLabel: string;
+    state: string;
+    expiresAtUnix: number;
+    reveal: boolean;
+  };
+};
+
+export type AgentsGrantsQueryVariables = Exact<{ [key: string]: never }>;
+
+export type AgentsGrantsQuery = {
+  useGrants: Array<{
+    id: string;
+    tokenId: string;
+    secretIds: Array<string>;
+    folderId: string | null;
+    fieldKeys: Array<string>;
+    expiresAtUnix: number;
+    maxUses: number;
+    uses: number;
+    revokedAtUnix: number;
+    allowReveal: boolean;
+    programs: Array<{ program: string; argPattern: string }>;
+  }>;
+  myTokens: Array<{
+    id: string;
+    label: string;
+    clientName: string;
+    createdAtUnix: number;
+    lastUsedAtUnix: number;
+    expiresAtUnix: number;
+    revokedAtUnix: number;
+  }>;
+  folders: Array<{ id: string; name: string; parentId: string | null }>;
+  secretsByStatus: Array<{ id: string; name: string; folderId: string; typeId: string }>;
+  secretTypes: Array<{
+    id: string;
+    fields: Array<{ key: string; label: string; sensitive: boolean | null }>;
+  }>;
+};
+
+export type AgentsCreateGrantMutationVariables = Exact<{
+  input: UseGrantInput;
+  factor: FactorInput;
+}>;
+
+export type AgentsCreateGrantMutation = {
+  createUseGrant: {
+    id: string;
+    tokenId: string;
+    secretIds: Array<string>;
+    folderId: string | null;
+    fieldKeys: Array<string>;
+    expiresAtUnix: number;
+    maxUses: number;
+    uses: number;
+    revokedAtUnix: number;
+    allowReveal: boolean;
+    programs: Array<{ program: string; argPattern: string }>;
+  };
+};
+
+export type AgentsRevokeGrantMutationVariables = Exact<{
+  id: string;
+}>;
+
+export type AgentsRevokeGrantMutation = {
+  revokeUseGrant: {
+    id: string;
+    tokenId: string;
+    secretIds: Array<string>;
+    folderId: string | null;
+    fieldKeys: Array<string>;
+    expiresAtUnix: number;
+    maxUses: number;
+    uses: number;
+    revokedAtUnix: number;
+    allowReveal: boolean;
+    programs: Array<{ program: string; argPattern: string }>;
+  };
+};
+
+export type AgentsSendFactorEmailMutationVariables = Exact<{ [key: string]: never }>;
+
+export type AgentsSendFactorEmailMutation = { sendMfaEmailCode: boolean };
+
+export type AgentsBeginFactorPasskeyMutationVariables = Exact<{ [key: string]: never }>;
+
+export type AgentsBeginFactorPasskeyMutation = {
+  beginMfaPasskey: { options: string; webauthnSessionId: string };
+};
 
 export type BrowseFolderFieldsFragment = {
   id: string;
@@ -1858,6 +2064,56 @@ export const UserFieldsFragmentDoc = new TypedDocumentString(
     `,
   { fragmentName: "UserFields" },
 ) as unknown as TypedDocumentString<UserFieldsFragment, unknown>;
+export const AgentsTokenFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment AgentsTokenFields on UserToken {
+  id
+  label
+  clientName
+  createdAtUnix
+  lastUsedAtUnix
+  expiresAtUnix
+  revokedAtUnix
+}
+    `,
+  { fragmentName: "AgentsTokenFields" },
+) as unknown as TypedDocumentString<AgentsTokenFieldsFragment, unknown>;
+export const AgentsUseFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment AgentsUseFields on SecretUse {
+  id
+  secretName
+  fieldKey
+  argv
+  clientLabel
+  state
+  expiresAtUnix
+  reveal
+}
+    `,
+  { fragmentName: "AgentsUseFields" },
+) as unknown as TypedDocumentString<AgentsUseFieldsFragment, unknown>;
+export const AgentsGrantFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment AgentsGrantFields on UseGrant {
+  id
+  tokenId
+  secretIds
+  folderId
+  fieldKeys
+  programs {
+    program
+    argPattern
+  }
+  expiresAtUnix
+  maxUses
+  uses
+  revokedAtUnix
+  allowReveal
+}
+    `,
+  { fragmentName: "AgentsGrantFields" },
+) as unknown as TypedDocumentString<AgentsGrantFieldsFragment, unknown>;
 export const BrowseFolderFieldsFragmentDoc = new TypedDocumentString(
   `
     fragment BrowseFolderFields on Folder {
@@ -2806,6 +3062,193 @@ export const MarkAllNotificationsReadDocument = new TypedDocumentString(`
     `) as unknown as TypedDocumentString<
   MarkAllNotificationsReadMutation,
   MarkAllNotificationsReadMutationVariables
+>;
+export const AgentsTokensDocument = new TypedDocumentString(`
+    query AgentsTokens {
+  myTokens {
+    ...AgentsTokenFields
+  }
+}
+    fragment AgentsTokenFields on UserToken {
+  id
+  label
+  clientName
+  createdAtUnix
+  lastUsedAtUnix
+  expiresAtUnix
+  revokedAtUnix
+}`) as unknown as TypedDocumentString<AgentsTokensQuery, AgentsTokensQueryVariables>;
+export const AgentsRevokeTokenDocument = new TypedDocumentString(`
+    mutation AgentsRevokeToken($id: ID!) {
+  revokeMyToken(id: $id) {
+    ...AgentsTokenFields
+  }
+}
+    fragment AgentsTokenFields on UserToken {
+  id
+  label
+  clientName
+  createdAtUnix
+  lastUsedAtUnix
+  expiresAtUnix
+  revokedAtUnix
+}`) as unknown as TypedDocumentString<
+  AgentsRevokeTokenMutation,
+  AgentsRevokeTokenMutationVariables
+>;
+export const AgentsPendingUsesDocument = new TypedDocumentString(`
+    query AgentsPendingUses {
+  pendingSecretUses {
+    ...AgentsUseFields
+  }
+}
+    fragment AgentsUseFields on SecretUse {
+  id
+  secretName
+  fieldKey
+  argv
+  clientLabel
+  state
+  expiresAtUnix
+  reveal
+}`) as unknown as TypedDocumentString<AgentsPendingUsesQuery, AgentsPendingUsesQueryVariables>;
+export const AgentsDecideUseDocument = new TypedDocumentString(`
+    mutation AgentsDecideUse($id: ID!, $approve: Boolean!, $factor: FactorInput) {
+  decideSecretUse(id: $id, approve: $approve, factor: $factor) {
+    ...AgentsUseFields
+  }
+}
+    fragment AgentsUseFields on SecretUse {
+  id
+  secretName
+  fieldKey
+  argv
+  clientLabel
+  state
+  expiresAtUnix
+  reveal
+}`) as unknown as TypedDocumentString<AgentsDecideUseMutation, AgentsDecideUseMutationVariables>;
+export const AgentsGrantsDocument = new TypedDocumentString(`
+    query AgentsGrants {
+  useGrants {
+    ...AgentsGrantFields
+  }
+  myTokens {
+    ...AgentsTokenFields
+  }
+  folders {
+    id
+    name
+    parentId
+  }
+  secretsByStatus(status: "all") {
+    id
+    name
+    folderId
+    typeId
+  }
+  secretTypes {
+    id
+    fields {
+      key
+      label
+      sensitive
+    }
+  }
+}
+    fragment AgentsTokenFields on UserToken {
+  id
+  label
+  clientName
+  createdAtUnix
+  lastUsedAtUnix
+  expiresAtUnix
+  revokedAtUnix
+}
+fragment AgentsGrantFields on UseGrant {
+  id
+  tokenId
+  secretIds
+  folderId
+  fieldKeys
+  programs {
+    program
+    argPattern
+  }
+  expiresAtUnix
+  maxUses
+  uses
+  revokedAtUnix
+  allowReveal
+}`) as unknown as TypedDocumentString<AgentsGrantsQuery, AgentsGrantsQueryVariables>;
+export const AgentsCreateGrantDocument = new TypedDocumentString(`
+    mutation AgentsCreateGrant($input: UseGrantInput!, $factor: FactorInput!) {
+  createUseGrant(input: $input, factor: $factor) {
+    ...AgentsGrantFields
+  }
+}
+    fragment AgentsGrantFields on UseGrant {
+  id
+  tokenId
+  secretIds
+  folderId
+  fieldKeys
+  programs {
+    program
+    argPattern
+  }
+  expiresAtUnix
+  maxUses
+  uses
+  revokedAtUnix
+  allowReveal
+}`) as unknown as TypedDocumentString<
+  AgentsCreateGrantMutation,
+  AgentsCreateGrantMutationVariables
+>;
+export const AgentsRevokeGrantDocument = new TypedDocumentString(`
+    mutation AgentsRevokeGrant($id: ID!) {
+  revokeUseGrant(id: $id) {
+    ...AgentsGrantFields
+  }
+}
+    fragment AgentsGrantFields on UseGrant {
+  id
+  tokenId
+  secretIds
+  folderId
+  fieldKeys
+  programs {
+    program
+    argPattern
+  }
+  expiresAtUnix
+  maxUses
+  uses
+  revokedAtUnix
+  allowReveal
+}`) as unknown as TypedDocumentString<
+  AgentsRevokeGrantMutation,
+  AgentsRevokeGrantMutationVariables
+>;
+export const AgentsSendFactorEmailDocument = new TypedDocumentString(`
+    mutation AgentsSendFactorEmail {
+  sendMfaEmailCode
+}
+    `) as unknown as TypedDocumentString<
+  AgentsSendFactorEmailMutation,
+  AgentsSendFactorEmailMutationVariables
+>;
+export const AgentsBeginFactorPasskeyDocument = new TypedDocumentString(`
+    mutation AgentsBeginFactorPasskey {
+  beginMfaPasskey {
+    options
+    webauthnSessionId
+  }
+}
+    `) as unknown as TypedDocumentString<
+  AgentsBeginFactorPasskeyMutation,
+  AgentsBeginFactorPasskeyMutationVariables
 >;
 export const BrowseFoldersDocument = new TypedDocumentString(`
     query BrowseFolders {
