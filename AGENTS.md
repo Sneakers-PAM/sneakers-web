@@ -143,3 +143,6 @@ Follow the logging rules in `CLAUDE.md`. In short:
   way to request access, and `null` means unknown, never readable. A reveal of a secret the user
   can't read is refused with `NO_ACCESS`, and one of a retired secret with `RETIRED` (the
   gateway's `docs/api.md` lists the reasons).
+- A check-out isn't a control on reveal: the gateway reveals to anyone with read access, checked
+  out or not, so the mock does too. The secret page asks for a check-out first as a workflow aid
+  (others see it's in use, and check-in rotates where the type rotates).

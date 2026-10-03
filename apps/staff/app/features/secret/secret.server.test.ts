@@ -94,14 +94,11 @@ describe("acting on a secret", () => {
     expect(r.ok && r.value).toBe("mock-Lace-Up-4417");
   });
 
-  it("reveals a checkout secret only while the person holds its lease", async () => {
+  it("reveals a checkout secret whether or not it is checked out", async () => {
     const reveal = { fieldKey: "password", intent: "reveal" };
     expect(await act(VPN, reveal)).toMatchObject({ ok: true, value: "mock-Lace-Up-4417" });
     expect(await act(VPN, { intent: "checkin" })).toMatchObject({ ok: true });
-    expect(await act(VPN, reveal)).toMatchObject({
-      ok: false,
-      refusal: { reason: "CHECKOUT_REQUIRED" },
-    });
+    expect(await act(VPN, reveal)).toMatchObject({ ok: true, value: "mock-Lace-Up-4417" });
     expect(await act(VPN, { hours: "2", intent: "checkout" })).toMatchObject({ ok: true });
     expect(await act(VPN, reveal)).toMatchObject({ ok: true, value: "mock-Lace-Up-4417" });
   });

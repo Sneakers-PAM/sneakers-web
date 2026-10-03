@@ -42,19 +42,6 @@ const typeOf = (s: MockSecret): MockSecretType | undefined =>
 const folderVisible = (userId: string, f: MockFolder) =>
   f.scope !== "personal" || f.ownerUserId === userId;
 
-/** A checkout type's values are for whoever holds its lease. */
-const leaseMissing = (userId: string, s: MockSecret) =>
-  !!typeOf(s)?.checkout && activeLease(s.id)?.userId !== userId;
-
-// The vault doesn't refuse a reveal for a missing lease yet; the mock does, so the locked
-// state can be tried. The reason is the mock's own until the vault sends one.
-const checkoutRequired = () =>
-  refusal(
-    "FAILED_PRECONDITION",
-    "check the secret out before revealing its values",
-    "CHECKOUT_REQUIRED",
-  );
-
 const isSensitive = (t: MockSecretType | undefined, key: string) => {
   const definition = t?.fields.find((f) => f.key === key);
   return (
@@ -241,7 +228,6 @@ export const secretHandlers: RequestHandler[] = [
       if (!isSensitive(t, variables.fieldKey))
         return refusal("INVALID_ARGUMENT", "field is not sensitive");
       if (!canRead(userId, s)) return noRead("reveal");
-      if (leaseMissing(userId, s)) return checkoutRequired();
       if (isSuperSensitive(t, variables.fieldKey) && !freshMfa(request))
         return HttpResponse.json({ errors: [stepUpRequired()] }) as never;
       const value = s.fields[variables.fieldKey];
@@ -265,7 +251,6 @@ export const secretHandlers: RequestHandler[] = [
       if (!s || !canSee(userId, s)) return notFound();
       if (s.retired) return retired();
       if (!canRead(userId, s)) return noRead("reveal");
-      if (leaseMissing(userId, s)) return checkoutRequired();
       const v = s.versions.find((x) => x.versionNo === variables.versionNo);
       if (!v?.fieldKeys.includes(variables.fieldKey))
         return refusal("NOT_FOUND", "field not found");

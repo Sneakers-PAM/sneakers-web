@@ -104,24 +104,23 @@ describe("secret detail in the mock gateway", () => {
     expect(held.mySecretAccess).toMatchObject({ manage: false, read: true, reveal: true });
   });
 
-  it("reveals a checkout secret's values only to the person holding its lease", async () => {
+  it("reveals a checkout secret's values to anyone who can read it, checked out or not", async () => {
+    // Read permission is the control; a check-out is a workflow aid the server doesn't enforce.
     const ssh = "mock-secret-build-ssh";
     const alice = await as(ALICE);
-    const noLease = { code: "FAILED_PRECONDITION", reason: "CHECKOUT_REQUIRED" };
-    expect(
-      await refusal(alice.gql(SecretRevealDocument, { fieldKey: "passphrase", id: ssh })),
-    ).toEqual(noLease);
+    const { revealSecretField: unheld } = await alice.gql(SecretRevealDocument, {
+      fieldKey: "passphrase",
+      id: ssh,
+    });
+    expect(unheld).toBe(secret(ssh)?.fields.passphrase);
     userById(ALICE)?.roles.push("recovery");
     await stepUp(alice, { code: "123456", kind: "totp" });
-    expect(
-      await refusal(
-        alice.gql(SecretRevealVersionDocument, {
-          fieldKey: "passphrase",
-          secretId: ssh,
-          versionNo: 1,
-        }),
-      ),
-    ).toEqual(noLease);
+    const old = await alice.gql(SecretRevealVersionDocument, {
+      fieldKey: "passphrase",
+      secretId: ssh,
+      versionNo: 1,
+    });
+    expect(old.revealSecretVersionField).toBeTruthy();
 
     const bob = await as(BOB);
     const { revealSecretField } = await bob.gql(SecretRevealDocument, {

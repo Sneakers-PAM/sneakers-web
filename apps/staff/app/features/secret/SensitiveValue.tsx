@@ -1,4 +1,4 @@
-import { needsStepUp, StepUpDialog, useStepUp } from "@sneakers-web/shell";
+import { needsStepUp, refusalMessage, StepUpDialog, useStepUp } from "@sneakers-web/shell";
 import { Button, cn, toast } from "@sneakers-web/ui";
 import { Copy, Lock, Play, Square } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
@@ -7,7 +7,6 @@ import type { SecretType } from "@/features/secret/secret.server";
 
 import { natoWords, partialMask } from "@/features/secret/phonetic";
 import { PhoneticKeypad } from "@/features/secret/PhoneticKeypad";
-import { revealMessage } from "@/features/secret/revealMessage";
 import { useSecretFetcher } from "@/features/secret/useSecretFetcher";
 
 type FieldDefinition = SecretType["fields"][number];
@@ -240,7 +239,7 @@ export const SensitiveValue = ({
       {hint && <span className="text-small text-muted">{hint}</span>}
       {refusal && (
         <span className="text-small font-bold text-danger" role="alert">
-          {revealMessage(refusal)}
+          {refusalMessage(refusal)}
         </span>
       )}
       <StepUpDialog
