@@ -186,7 +186,7 @@ export const RulesetEditor = ({
     : undefined;
 
   return (
-    <div className="flex flex-col gap-5.5">
+    <div className="flex min-w-0 flex-col gap-5.5">
       {readOnly && (
         <Alert role="status" tone="info">
           {readOnlyReason}
@@ -267,6 +267,7 @@ export const RulesetEditor = ({
 
       <div className="flex flex-wrap items-center gap-3">
         <Segmented
+          className="[&>button]:whitespace-nowrap"
           label="View"
           onChange={setView}
           options={[
@@ -280,7 +281,7 @@ export const RulesetEditor = ({
 
       {view === "simple" ? (
         <>
-          <Card>
+          <Card className="min-w-0 overflow-hidden">
             <CardHeader subtitle="Tick what each person or group can do." title="Share with" />
             <Table>
               <TableHead>
@@ -291,7 +292,7 @@ export const RulesetEditor = ({
                       {LABEL[k]}
                     </TableHeaderCell>
                   ))}
-                  <TableHeaderCell className="w-13">
+                  <TableHeaderCell className="relative w-13">
                     <span className="sr-only">Remove</span>
                   </TableHeaderCell>
                 </tr>
@@ -408,7 +409,7 @@ export const RulesetEditor = ({
           ))}
         </>
       ) : (
-        <Card>
+        <Card className="min-w-0 overflow-hidden">
           <div className="flex flex-wrap items-center gap-3 border-b border-border px-6 py-4.5">
             <div className="flex flex-col gap-1.5">
               <h2 className="m-0 font-display text-[1.25rem] leading-none font-bold">Rules</h2>
@@ -433,7 +434,7 @@ export const RulesetEditor = ({
                     {a.label}
                   </TableHeaderCell>
                 ))}
-                <TableHeaderCell className="w-33 pr-6">
+                <TableHeaderCell className="relative w-33 pr-6">
                   <span className="sr-only">Order</span>
                 </TableHeaderCell>
               </tr>
