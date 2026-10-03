@@ -79,3 +79,12 @@ describe("workflow refusals for requests, check-outs and check-ins", () => {
     expect(refusalMessage(r!)).toBe(text);
   });
 });
+
+describe("sign-in method refusals", () => {
+  it("says why the last second factor can't go when MFA is required", () => {
+    const r = refusalOf(refused("MFA_LAST_FACTOR", "FAILED_PRECONDITION", "x"));
+    expect(refusalMessage(r!)).toBe(
+      "Your administrator requires a second factor. Add another one before removing this one.",
+    );
+  });
+});
