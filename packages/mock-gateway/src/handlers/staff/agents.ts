@@ -15,7 +15,7 @@ import { http, HttpResponse, type RequestHandler } from "msw";
 import type { MockSecretUse, MockToken, MockUseGrant } from "#mock/fixtures/world";
 
 import { refusal } from "#mock/admin/refuse";
-import { agentsState } from "#mock/fixtures/staff/agents";
+import { agentsState, consentRequest } from "#mock/fixtures/staff/agents";
 import { WRONG_CODE } from "#mock/fixtures/users";
 import { authed } from "#mock/handlers/auth";
 import { api, asUser } from "#mock/handlers/graphql";
@@ -136,7 +136,7 @@ const restRefuse = (status: number, error: string) =>
   HttpResponse.json({ error } as never, { status });
 
 const liveConsent = (id: string) => {
-  const c = agentsState.consents.get(id);
+  const c = consentRequest(id);
   return c && Date.now() < c.expiresAt ? c : undefined;
 };
 

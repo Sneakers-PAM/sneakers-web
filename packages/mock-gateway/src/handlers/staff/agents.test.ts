@@ -103,6 +103,13 @@ describe("pending uses", () => {
     expect(counts.pendingSecretUses).toEqual([]);
   });
 
+  it("leaves an expired pending use out of the header count, even before anything sweeps it", async () => {
+    use("mock-use-1").expiresAtUnix = nowUnix() - 1;
+    const gw = await as(ALICE);
+    const counts = await gw.gql(ShellCountsDocument, { userId: ALICE });
+    expect(counts.pendingSecretUses).toEqual([]);
+  });
+
   it("approves with a factor, for a minute's redemption", async () => {
     const gw = await as(ALICE);
     const { decideSecretUse } = await gw.gql(AgentsDecideUseDocument, {
@@ -235,6 +242,19 @@ describe("agent consent", () => {
       clientName: "MCP client",
       redirectHost: "127.0.0.1:53682",
     });
+  });
+
+  it("starts a fresh request for a new mock id, as an agent's sign-in would, and only once", async () => {
+    const gw = await as(ALICE);
+    const id = "mock-consent-new-e2e-1";
+    expect(await consent(gw, id)).toEqual({
+      clientName: "MCP client",
+      redirectHost: "127.0.0.1:53682",
+    });
+    const { redirect } = await consent(gw, id, { approve: false, factor: {}, label: "" });
+    expect(new URL(redirect!).searchParams.get("error")).toBe("access_denied");
+    const again = await consent(gw, id).catch((error_: unknown) => error_);
+    expect((again as ApiError).code).toBe("request_expired");
   });
 
   it("answers an expired or unknown request with request_expired", async () => {
