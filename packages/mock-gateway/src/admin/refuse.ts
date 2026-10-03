@@ -3,14 +3,19 @@ import { HttpResponse } from "msw";
 import { userById } from "#mock/fixtures/users";
 
 /**
- * A GraphQL refusal shaped the way the gateway sends one. Typed `never` so a typed resolver
- * can return it in place of its data.
+ * A GraphQL refusal shaped the way the gateway sends one: the canonical code, the stable reason
+ * and its metadata. Typed `never` so a typed resolver can return it in place of its data.
  */
-export const refusal = (code: string, desc: string, reason?: string): never =>
+export const refusal = (
+  code: string,
+  desc: string,
+  reason?: string,
+  metadata?: Record<string, string>,
+): never =>
   HttpResponse.json({
     errors: [
       {
-        extensions: { code, ...(reason ? { reason } : {}) },
+        extensions: { code, ...(reason ? { reason } : {}), ...(metadata ? { metadata } : {}) },
         message: `rpc error: code = ${code
           .toLowerCase()
           .replaceAll(/(^|_)([a-z])/g, (_, __, c: string) => c.toUpperCase())} desc = ${desc}`,

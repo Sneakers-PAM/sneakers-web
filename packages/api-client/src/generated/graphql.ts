@@ -660,6 +660,207 @@ export type DashboardSecretsByStatusQuery = {
   secretTypes: Array<{ id: string; name: string }>;
 };
 
+export type RequestsRequestFieldsFragment = {
+  id: string;
+  kind: RequestKind;
+  secretId: string;
+  folderId: string;
+  folderName: string;
+  destParentId: string;
+  destParentName: string;
+  requestedByUserId: string;
+  requestedAt: string;
+  reason: string | null;
+  status: ApprovalStatus;
+  resolvedAt: string | null;
+  resolvedByUserId: string | null;
+  resolvedByUserName: string | null;
+  comments: Array<{
+    id: string;
+    authorUserId: string;
+    authorName: string;
+    body: string;
+    createdAt: string;
+  }>;
+};
+
+export type CheckoutsLeaseFieldsFragment = {
+  id: string;
+  secretId: string;
+  userId: string;
+  issuedAt: string;
+  expiresAt: string;
+  returned: boolean | null;
+};
+
+export type RequestsListQueryVariables = Exact<{ [key: string]: never }>;
+
+export type RequestsListQuery = {
+  approvalRequests: Array<{
+    id: string;
+    kind: RequestKind;
+    secretId: string;
+    folderId: string;
+    folderName: string;
+    destParentId: string;
+    destParentName: string;
+    requestedByUserId: string;
+    requestedAt: string;
+    reason: string | null;
+    status: ApprovalStatus;
+    resolvedAt: string | null;
+    resolvedByUserId: string | null;
+    resolvedByUserName: string | null;
+    comments: Array<{
+      id: string;
+      authorUserId: string;
+      authorName: string;
+      body: string;
+      createdAt: string;
+    }>;
+  }>;
+};
+
+export type RequestsSecretQueryVariables = Exact<{
+  id: string;
+  secretId: string;
+}>;
+
+export type RequestsSecretQuery = {
+  secret: { id: string; name: string; folderId: string; typeId: string } | null;
+  mySecretAccess: { read: boolean; approve: boolean };
+};
+
+export type RequestsPeopleQueryVariables = Exact<{
+  ids: Array<string> | string;
+}>;
+
+export type RequestsPeopleQuery = { resolveUserLabels: Array<{ id: string; name: string }> };
+
+export type RequestsResolveMutationVariables = Exact<{
+  id: string;
+  approve: boolean;
+  grantHours?: number | null | undefined;
+}>;
+
+export type RequestsResolveMutation = {
+  resolveApproval: {
+    id: string;
+    kind: RequestKind;
+    secretId: string;
+    folderId: string;
+    folderName: string;
+    destParentId: string;
+    destParentName: string;
+    requestedByUserId: string;
+    requestedAt: string;
+    reason: string | null;
+    status: ApprovalStatus;
+    resolvedAt: string | null;
+    resolvedByUserId: string | null;
+    resolvedByUserName: string | null;
+    comments: Array<{
+      id: string;
+      authorUserId: string;
+      authorName: string;
+      body: string;
+      createdAt: string;
+    }>;
+  };
+};
+
+export type RequestsCommentMutationVariables = Exact<{
+  requestId: string;
+  body: string;
+}>;
+
+export type RequestsCommentMutation = {
+  addApprovalComment: { id: string; comments: Array<{ id: string }> };
+};
+
+export type RequestsCreateMutationVariables = Exact<{
+  secretId: string;
+  reason?: string | null | undefined;
+}>;
+
+export type RequestsCreateMutation = {
+  createAccessRequest: {
+    id: string;
+    kind: RequestKind;
+    secretId: string;
+    folderId: string;
+    folderName: string;
+    destParentId: string;
+    destParentName: string;
+    requestedByUserId: string;
+    requestedAt: string;
+    reason: string | null;
+    status: ApprovalStatus;
+    resolvedAt: string | null;
+    resolvedByUserId: string | null;
+    resolvedByUserName: string | null;
+    comments: Array<{
+      id: string;
+      authorUserId: string;
+      authorName: string;
+      body: string;
+      createdAt: string;
+    }>;
+  };
+};
+
+export type CheckoutsMineQueryVariables = Exact<{
+  userId: string;
+}>;
+
+export type CheckoutsMineQuery = {
+  activeLeasesForUser: Array<{
+    id: string;
+    secretId: string;
+    userId: string;
+    issuedAt: string;
+    expiresAt: string;
+    returned: boolean | null;
+  }>;
+};
+
+export type CheckoutsActiveLeaseQueryVariables = Exact<{
+  secretId: string;
+}>;
+
+export type CheckoutsActiveLeaseQuery = {
+  activeLease: {
+    id: string;
+    secretId: string;
+    userId: string;
+    issuedAt: string;
+    expiresAt: string;
+    returned: boolean | null;
+  } | null;
+};
+
+export type CheckoutsCheckoutMutationVariables = Exact<{
+  secretId: string;
+  hours?: number | null | undefined;
+}>;
+
+export type CheckoutsCheckoutMutation = {
+  checkoutSecret: {
+    id: string;
+    secretId: string;
+    userId: string;
+    issuedAt: string;
+    expiresAt: string;
+    returned: boolean | null;
+  };
+};
+
+export type CheckoutsCheckinMutationVariables = Exact<{
+  secretId: string;
+}>;
+
+export type CheckoutsCheckinMutation = { checkinSecret: boolean };
+
 export class TypedDocumentString<TResult, TVariables>
   extends String
   implements DocumentTypeDecoration<TResult, TVariables>
@@ -757,6 +958,47 @@ export const UserFieldsFragmentDoc = new TypedDocumentString(
     `,
   { fragmentName: "UserFields" },
 ) as unknown as TypedDocumentString<UserFieldsFragment, unknown>;
+export const RequestsRequestFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment RequestsRequestFields on ApprovalRequest {
+  id
+  kind
+  secretId
+  folderId
+  folderName
+  destParentId
+  destParentName
+  requestedByUserId
+  requestedAt
+  reason
+  status
+  resolvedAt
+  resolvedByUserId
+  resolvedByUserName
+  comments {
+    id
+    authorUserId
+    authorName
+    body
+    createdAt
+  }
+}
+    `,
+  { fragmentName: "RequestsRequestFields" },
+) as unknown as TypedDocumentString<RequestsRequestFieldsFragment, unknown>;
+export const CheckoutsLeaseFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment CheckoutsLeaseFields on Lease {
+  id
+  secretId
+  userId
+  issuedAt
+  expiresAt
+  returned
+}
+    `,
+  { fragmentName: "CheckoutsLeaseFields" },
+) as unknown as TypedDocumentString<CheckoutsLeaseFieldsFragment, unknown>;
 export const AdminSecretTypesDocument = new TypedDocumentString(`
     query AdminSecretTypes {
   secretTypes {
@@ -1382,4 +1624,179 @@ export const DashboardSecretsByStatusDocument = new TypedDocumentString(`
     `) as unknown as TypedDocumentString<
   DashboardSecretsByStatusQuery,
   DashboardSecretsByStatusQueryVariables
+>;
+export const RequestsListDocument = new TypedDocumentString(`
+    query RequestsList {
+  approvalRequests {
+    ...RequestsRequestFields
+  }
+}
+    fragment RequestsRequestFields on ApprovalRequest {
+  id
+  kind
+  secretId
+  folderId
+  folderName
+  destParentId
+  destParentName
+  requestedByUserId
+  requestedAt
+  reason
+  status
+  resolvedAt
+  resolvedByUserId
+  resolvedByUserName
+  comments {
+    id
+    authorUserId
+    authorName
+    body
+    createdAt
+  }
+}`) as unknown as TypedDocumentString<RequestsListQuery, RequestsListQueryVariables>;
+export const RequestsSecretDocument = new TypedDocumentString(`
+    query RequestsSecret($id: ID!, $secretId: String!) {
+  secret(id: $id) {
+    id
+    name
+    folderId
+    typeId
+  }
+  mySecretAccess(secretId: $secretId) {
+    read
+    approve
+  }
+}
+    `) as unknown as TypedDocumentString<RequestsSecretQuery, RequestsSecretQueryVariables>;
+export const RequestsPeopleDocument = new TypedDocumentString(`
+    query RequestsPeople($ids: [String!]!) {
+  resolveUserLabels(ids: $ids) {
+    id
+    name
+  }
+}
+    `) as unknown as TypedDocumentString<RequestsPeopleQuery, RequestsPeopleQueryVariables>;
+export const RequestsResolveDocument = new TypedDocumentString(`
+    mutation RequestsResolve($id: ID!, $approve: Boolean!, $grantHours: Int) {
+  resolveApproval(id: $id, approve: $approve, grantHours: $grantHours) {
+    ...RequestsRequestFields
+  }
+}
+    fragment RequestsRequestFields on ApprovalRequest {
+  id
+  kind
+  secretId
+  folderId
+  folderName
+  destParentId
+  destParentName
+  requestedByUserId
+  requestedAt
+  reason
+  status
+  resolvedAt
+  resolvedByUserId
+  resolvedByUserName
+  comments {
+    id
+    authorUserId
+    authorName
+    body
+    createdAt
+  }
+}`) as unknown as TypedDocumentString<RequestsResolveMutation, RequestsResolveMutationVariables>;
+export const RequestsCommentDocument = new TypedDocumentString(`
+    mutation RequestsComment($requestId: String!, $body: String!) {
+  addApprovalComment(requestId: $requestId, body: $body) {
+    id
+    comments {
+      id
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<RequestsCommentMutation, RequestsCommentMutationVariables>;
+export const RequestsCreateDocument = new TypedDocumentString(`
+    mutation RequestsCreate($secretId: String!, $reason: String) {
+  createAccessRequest(secretId: $secretId, reason: $reason) {
+    ...RequestsRequestFields
+  }
+}
+    fragment RequestsRequestFields on ApprovalRequest {
+  id
+  kind
+  secretId
+  folderId
+  folderName
+  destParentId
+  destParentName
+  requestedByUserId
+  requestedAt
+  reason
+  status
+  resolvedAt
+  resolvedByUserId
+  resolvedByUserName
+  comments {
+    id
+    authorUserId
+    authorName
+    body
+    createdAt
+  }
+}`) as unknown as TypedDocumentString<RequestsCreateMutation, RequestsCreateMutationVariables>;
+export const CheckoutsMineDocument = new TypedDocumentString(`
+    query CheckoutsMine($userId: String!) {
+  activeLeasesForUser(userId: $userId) {
+    ...CheckoutsLeaseFields
+  }
+}
+    fragment CheckoutsLeaseFields on Lease {
+  id
+  secretId
+  userId
+  issuedAt
+  expiresAt
+  returned
+}`) as unknown as TypedDocumentString<CheckoutsMineQuery, CheckoutsMineQueryVariables>;
+export const CheckoutsActiveLeaseDocument = new TypedDocumentString(`
+    query CheckoutsActiveLease($secretId: String!) {
+  activeLease(secretId: $secretId) {
+    ...CheckoutsLeaseFields
+  }
+}
+    fragment CheckoutsLeaseFields on Lease {
+  id
+  secretId
+  userId
+  issuedAt
+  expiresAt
+  returned
+}`) as unknown as TypedDocumentString<
+  CheckoutsActiveLeaseQuery,
+  CheckoutsActiveLeaseQueryVariables
+>;
+export const CheckoutsCheckoutDocument = new TypedDocumentString(`
+    mutation CheckoutsCheckout($secretId: String!, $hours: Int) {
+  checkoutSecret(secretId: $secretId, hours: $hours) {
+    ...CheckoutsLeaseFields
+  }
+}
+    fragment CheckoutsLeaseFields on Lease {
+  id
+  secretId
+  userId
+  issuedAt
+  expiresAt
+  returned
+}`) as unknown as TypedDocumentString<
+  CheckoutsCheckoutMutation,
+  CheckoutsCheckoutMutationVariables
+>;
+export const CheckoutsCheckinDocument = new TypedDocumentString(`
+    mutation CheckoutsCheckin($secretId: String!) {
+  checkinSecret(secretId: $secretId)
+}
+    `) as unknown as TypedDocumentString<
+  CheckoutsCheckinMutation,
+  CheckoutsCheckinMutationVariables
 >;

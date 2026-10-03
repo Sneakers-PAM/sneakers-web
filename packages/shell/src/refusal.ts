@@ -26,13 +26,18 @@ export const needsStepUp = (r: null | Refusal | undefined): boolean =>
 const BY_REASON: Record<string, string> = {
   API_SENSITIVE_DISABLED:
     "Tokens and service accounts can't use super-sensitive fields while API access to sensitive secrets is off.",
+  CHECKIN_NOT_HOLDER: "Only the person who checked it out can check it in.",
   CHECKOUT_LEASE_HELD: "Someone has this secret checked out. Try again after it's checked in.",
+  CHECKOUT_NO_ACCESS: "You can't check this secret out. Ask for access first.",
+  CHECKOUT_TYPE_DISABLED: "This kind of secret can't be checked out.",
   GROUP_ID_REQUIRED: "A group rule needs the group itself. Pick the group from the list again.",
+  NOT_APPROVER: "Only an approver for this secret can decide this request.",
   NOT_FOLDER_OWNER: "Only an owner of this folder can do that.",
   NOT_SITE_ADMIN: "Only a site admin can do that.",
   RECOVERY_ROLE_REQUIRED:
     "Prior values need the recovery role. A site admin can grant it on your user page.",
   ROTATION_IN_PROGRESS: "The secret is being rotated. Try again when the rotation finishes.",
+  SELF_APPROVAL: "You can't decide your own request. Another approver has to.",
   STEP_UP_REQUIRED: "Confirm it's you with a fresh second factor, then try again.",
 };
 
