@@ -73,11 +73,25 @@ describe("user detail", () => {
     const recovery = await screen.findByRole("switch", { name: "Recovery" });
     expect(recovery).not.toBeChecked();
     await user.click(recovery);
+    expect(
+      screen.getByRole("alertdialog", { name: "Give Bob the recovery role?" }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Grant" }));
     await vi.waitFor(() => expect(screen.getByRole("switch", { name: "Recovery" })).toBeChecked());
     await user.click(screen.getByRole("switch", { name: "Recovery" }));
+    await user.click(await screen.findByRole("button", { name: "Remove" }));
     await vi.waitFor(() =>
       expect(screen.getByRole("switch", { name: "Recovery" })).not.toBeChecked(),
     );
+  });
+
+  it("asks before a role change and changes nothing on Cancel", async () => {
+    const user = userEvent.setup();
+    renderAdmin(ROUTES, "/users/mock-user-bob");
+    await user.click(await screen.findByRole("switch", { name: "Site admin" }));
+    expect(screen.getByRole("alertdialog", { name: "Make Bob a site admin?" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByRole("switch", { name: "Site admin" })).not.toBeChecked();
   });
 
   it("locks the root admin's admin and disable switches", async () => {
@@ -110,7 +124,7 @@ describe("user detail", () => {
       await screen.findByRole("button", { name: "Add to Platform engineers" }),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Revoke alice-laptop" }));
+    await user.click(screen.getByRole("button", { name: "Revoke build1 agent" }));
     expect(await screen.findByText("Revoked")).toBeInTheDocument();
   });
 

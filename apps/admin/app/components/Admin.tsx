@@ -1,5 +1,14 @@
 import { refusalMessage } from "@sneakers-web/shell";
-import { Card, cn, toast } from "@sneakers-web/ui";
+import {
+  Card,
+  cn,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  toast,
+} from "@sneakers-web/ui";
 import { type ReactNode, useEffect, useRef } from "react";
 
 import type { ActionResult } from "@/lib/admin.server";
@@ -65,4 +74,37 @@ export const SettingRow = ({
     </div>
     <div className="shrink-0">{control}</div>
   </div>
+);
+
+/**
+ * A one-of-many picker. With `name` it also posts with a form (Radix renders a hidden
+ * native select), so it works in a plain <Form> as well as with a fetcher.
+ */
+export const Choice = <T extends string>({
+  id,
+  label,
+  name,
+  onChange,
+  options,
+  value,
+}: {
+  id?: string;
+  label?: string;
+  name?: string;
+  onChange?: (value: T) => void;
+  options: { label: string; value: T }[];
+  value: T;
+}) => (
+  <Select name={name} onValueChange={(v) => onChange?.(v as T)} value={value}>
+    <SelectTrigger aria-label={label} id={id}>
+      <SelectValue />
+    </SelectTrigger>
+    <SelectContent>
+      {options.map((o) => (
+        <SelectItem key={o.value} value={o.value}>
+          {o.label}
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
 );

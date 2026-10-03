@@ -1,4 +1,5 @@
 import { sessionCookie, withCookie } from "@sneakers-web/mock-gateway/testing";
+import { Toaster, TooltipProvider } from "@sneakers-web/ui";
 import { render } from "@testing-library/react";
 import { createRoutesStub, Outlet } from "react-router";
 
@@ -40,5 +41,10 @@ export const renderAdmin = (
       loader: wrap(frameLoader),
     },
   ]);
-  return render(<Stub initialEntries={[start]} />);
+  return render(
+    <TooltipProvider>
+      <Stub initialEntries={[start]} />
+      <Toaster />
+    </TooltipProvider>,
+  );
 };

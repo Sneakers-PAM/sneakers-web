@@ -24,6 +24,7 @@ describe("the mock world", () => {
       ...w.tokens,
       ...w.secretUses,
       ...w.useGrants,
+      ...w.groups,
     ];
     for (const row of rows) expect(row.id).toMatch(/^mock-/);
     for (const t of w.targets) expect(t.hostname).toMatch(/\.example\.(org|com|net)$|^192\.0\.2\./);
@@ -45,6 +46,11 @@ describe("the mock world", () => {
       expect(s.versions.filter((v) => v.active)).toHaveLength(1);
     }
     for (const t of w.targets) expect(ids(w.connections)).toContain(t.connectionId);
+    for (const f of w.folders) if (f.groupId) expect(ids(w.groups)).toContain(f.groupId);
+    for (const m of w.groupMembers) {
+      expect(ids(w.groups)).toContain(m.groupId);
+      expect(users).toContain(m.userId);
+    }
     for (const l of w.leases) {
       expect(secrets).toContain(l.secretId);
       expect(users).toContain(l.userId);

@@ -49,11 +49,13 @@ Before changing anything, know two things:
 - `packages/api-client/src/`: the gateway client, auth routes, errors, logger, public config and
   the generated GraphQL documents (`generated/`, rebuilt by `npm run schema:generate`).
 - `packages/mock-gateway/src/`: fixtures, MSW handlers and the mock edge. `fixtures/world.ts` is
-  the invented organisation the staff and admin screens use (folders, secrets, targets,
-  checkouts, requests, agent access), rebuilt by `resetMockState()`; handlers read and change
-  `mockState.world`. The admin console's operations live in `admin/` (one file per area,
-  collected in `admin/handlers.ts`); an area that keeps its own state registers its reset with
-  `onMockReset`. Staff answers live in `handlers/staff/<area>.ts`, one module per area.
+  the invented organisation the staff and admin screens use (folders, secrets, secret types,
+  targets, groups and their members, personal tokens, checkouts, requests, agent access), rebuilt
+  by `resetMockState()`; handlers read and change `mockState.world`, so both apps always see the
+  same data. The admin console's operations live in `admin/` (one file per area, collected in
+  `admin/handlers.ts`). State only the console uses (password policies, security settings, the
+  extension packs not yet installed) stays there and registers its reset with `onMockReset`.
+  Staff answers live in `handlers/staff/<area>.ts`, one module per area.
 - `packages/ui/src/`: the Laces kit (components, theme, brand).
 - `packages/vite-config/src/`: the shared Vite and Vitest config, and the edge choice.
 
