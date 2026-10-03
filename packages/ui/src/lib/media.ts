@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 export type Breakpoint = "desktop" | "phone" | "tablet";
 
@@ -9,16 +9,22 @@ export const useBreakpoint = (): Breakpoint => {
   return desktop ? "desktop" : tablet ? "tablet" : "phone";
 };
 
-/** Track a CSS media query. */
+/**
+ * Track a CSS media query. The server has no screen, so it answers false; hydration uses that
+ * same answer and switches to the real one straight after, so the markup always matches.
+ */
 export const useMediaQuery = (query: string): boolean => {
-  const get = () => typeof matchMedia !== "undefined" && matchMedia(query).matches;
-  const [matches, setMatches] = useState(get);
-  useEffect(() => {
-    const mq = matchMedia(query);
-    const on = () => setMatches(mq.matches);
-    on();
-    mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
-  }, [query]);
-  return matches;
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      const mq = matchMedia(query);
+      mq.addEventListener("change", onChange);
+      return () => mq.removeEventListener("change", onChange);
+    },
+    [query],
+  );
+  return useSyncExternalStore(
+    subscribe,
+    () => matchMedia(query).matches,
+    () => false,
+  );
 };
