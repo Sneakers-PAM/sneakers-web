@@ -7,6 +7,15 @@ export type Incremental<T> =
 import type { DocumentTypeDecoration } from "@graphql-typed-document-node/core";
 export type ApprovalStatus = "approved" | "denied" | "pending";
 
+export type ConnectionInput = {
+  description?: string | null | undefined;
+  id?: string | null | undefined;
+  name: string;
+  port?: number | null | undefined;
+  protocol: string;
+  useTls?: boolean | null | undefined;
+};
+
 export type FieldKind =
   "boolean" | "file" | "multiline" | "password" | "select" | "sensitive" | "text";
 
@@ -60,6 +69,18 @@ export type SecuritySettingsInput = {
   requireMfaForReveal?: boolean | null | undefined;
   requireMfaForSensitiveCheckout?: boolean | null | undefined;
   sessionTtlSeconds?: number | null | undefined;
+};
+
+export type TargetInput = {
+  connectionId: string;
+  description?: string | null | undefined;
+  domain?: string | null | undefined;
+  hostname: string;
+  id?: string | null | undefined;
+  kind?: string | null | undefined;
+  name: string;
+  realm?: string | null | undefined;
+  sshHostKeys?: Array<string> | null | undefined;
 };
 
 export type TypeOrigin = "custom" | "extension" | "system";
@@ -350,6 +371,112 @@ export type AdminUpdateSecuritySettingsMutation = {
     requireMfaForReveal: boolean;
   };
 };
+
+export type ConnectionFieldsFragment = {
+  id: string;
+  name: string;
+  protocol: string;
+  port: number | null;
+  useTls: boolean | null;
+  description: string | null;
+  targetCount: number;
+};
+
+export type TargetFieldsFragment = {
+  id: string;
+  name: string;
+  hostname: string;
+  kind: string | null;
+  domain: string | null;
+  realm: string | null;
+  connectionId: string;
+  description: string | null;
+  secretCount: number;
+  ownerUserId: string | null;
+  sshHostKeys: Array<string>;
+};
+
+export type AdminConnectionsQueryVariables = Exact<{ [key: string]: never }>;
+
+export type AdminConnectionsQuery = {
+  connections: Array<{
+    id: string;
+    name: string;
+    protocol: string;
+    port: number | null;
+    useTls: boolean | null;
+    description: string | null;
+    targetCount: number;
+  }>;
+  targets: Array<{ id: string; name: string; connectionId: string }>;
+};
+
+export type AdminSaveConnectionMutationVariables = Exact<{
+  input: ConnectionInput;
+}>;
+
+export type AdminSaveConnectionMutation = {
+  saveConnection: {
+    id: string;
+    name: string;
+    protocol: string;
+    port: number | null;
+    useTls: boolean | null;
+    description: string | null;
+    targetCount: number;
+  };
+};
+
+export type AdminDeleteConnectionMutationVariables = Exact<{
+  id: string;
+}>;
+
+export type AdminDeleteConnectionMutation = { deleteConnection: boolean };
+
+export type AdminTargetsQueryVariables = Exact<{ [key: string]: never }>;
+
+export type AdminTargetsQuery = {
+  targets: Array<{
+    id: string;
+    name: string;
+    hostname: string;
+    kind: string | null;
+    domain: string | null;
+    realm: string | null;
+    connectionId: string;
+    description: string | null;
+    secretCount: number;
+    ownerUserId: string | null;
+    sshHostKeys: Array<string>;
+  }>;
+  connections: Array<{ id: string; name: string; protocol: string; port: number | null }>;
+};
+
+export type AdminSaveTargetMutationVariables = Exact<{
+  input: TargetInput;
+}>;
+
+export type AdminSaveTargetMutation = {
+  saveTarget: {
+    id: string;
+    name: string;
+    hostname: string;
+    kind: string | null;
+    domain: string | null;
+    realm: string | null;
+    connectionId: string;
+    description: string | null;
+    secretCount: number;
+    ownerUserId: string | null;
+    sshHostKeys: Array<string>;
+  };
+};
+
+export type AdminDeleteTargetMutationVariables = Exact<{
+  id: string;
+}>;
+
+export type AdminDeleteTargetMutation = { deleteTarget: boolean };
 
 export type AdminUsersQueryVariables = Exact<{ [key: string]: never }>;
 
@@ -676,6 +803,38 @@ export const SecuritySettingsFieldsFragmentDoc = new TypedDocumentString(
     `,
   { fragmentName: "SecuritySettingsFields" },
 ) as unknown as TypedDocumentString<SecuritySettingsFieldsFragment, unknown>;
+export const ConnectionFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment ConnectionFields on Connection {
+  id
+  name
+  protocol
+  port
+  useTls
+  description
+  targetCount
+}
+    `,
+  { fragmentName: "ConnectionFields" },
+) as unknown as TypedDocumentString<ConnectionFieldsFragment, unknown>;
+export const TargetFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment TargetFields on Target {
+  id
+  name
+  hostname
+  kind
+  domain
+  realm
+  connectionId
+  description
+  secretCount
+  ownerUserId
+  sshHostKeys
+}
+    `,
+  { fragmentName: "TargetFields" },
+) as unknown as TypedDocumentString<TargetFieldsFragment, unknown>;
 export const UserFieldsFragmentDoc = new TypedDocumentString(
   `
     fragment UserFields on User {
@@ -957,6 +1116,104 @@ export const AdminUpdateSecuritySettingsDocument = new TypedDocumentString(`
 }`) as unknown as TypedDocumentString<
   AdminUpdateSecuritySettingsMutation,
   AdminUpdateSecuritySettingsMutationVariables
+>;
+export const AdminConnectionsDocument = new TypedDocumentString(`
+    query AdminConnections {
+  connections {
+    ...ConnectionFields
+  }
+  targets {
+    id
+    name
+    connectionId
+  }
+}
+    fragment ConnectionFields on Connection {
+  id
+  name
+  protocol
+  port
+  useTls
+  description
+  targetCount
+}`) as unknown as TypedDocumentString<AdminConnectionsQuery, AdminConnectionsQueryVariables>;
+export const AdminSaveConnectionDocument = new TypedDocumentString(`
+    mutation AdminSaveConnection($input: ConnectionInput!) {
+  saveConnection(input: $input) {
+    ...ConnectionFields
+  }
+}
+    fragment ConnectionFields on Connection {
+  id
+  name
+  protocol
+  port
+  useTls
+  description
+  targetCount
+}`) as unknown as TypedDocumentString<
+  AdminSaveConnectionMutation,
+  AdminSaveConnectionMutationVariables
+>;
+export const AdminDeleteConnectionDocument = new TypedDocumentString(`
+    mutation AdminDeleteConnection($id: ID!) {
+  deleteConnection(id: $id)
+}
+    `) as unknown as TypedDocumentString<
+  AdminDeleteConnectionMutation,
+  AdminDeleteConnectionMutationVariables
+>;
+export const AdminTargetsDocument = new TypedDocumentString(`
+    query AdminTargets {
+  targets {
+    ...TargetFields
+  }
+  connections {
+    id
+    name
+    protocol
+    port
+  }
+}
+    fragment TargetFields on Target {
+  id
+  name
+  hostname
+  kind
+  domain
+  realm
+  connectionId
+  description
+  secretCount
+  ownerUserId
+  sshHostKeys
+}`) as unknown as TypedDocumentString<AdminTargetsQuery, AdminTargetsQueryVariables>;
+export const AdminSaveTargetDocument = new TypedDocumentString(`
+    mutation AdminSaveTarget($input: TargetInput!) {
+  saveTarget(input: $input) {
+    ...TargetFields
+  }
+}
+    fragment TargetFields on Target {
+  id
+  name
+  hostname
+  kind
+  domain
+  realm
+  connectionId
+  description
+  secretCount
+  ownerUserId
+  sshHostKeys
+}`) as unknown as TypedDocumentString<AdminSaveTargetMutation, AdminSaveTargetMutationVariables>;
+export const AdminDeleteTargetDocument = new TypedDocumentString(`
+    mutation AdminDeleteTarget($id: ID!) {
+  deleteTarget(id: $id)
+}
+    `) as unknown as TypedDocumentString<
+  AdminDeleteTargetMutation,
+  AdminDeleteTargetMutationVariables
 >;
 export const AdminUsersDocument = new TypedDocumentString(`
     query AdminUsers {

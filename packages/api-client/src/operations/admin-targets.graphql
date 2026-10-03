@@ -1,0 +1,66 @@
+fragment ConnectionFields on Connection {
+  id
+  name
+  protocol
+  port
+  useTls
+  description
+  targetCount
+}
+
+fragment TargetFields on Target {
+  id
+  name
+  hostname
+  kind
+  domain
+  realm
+  connectionId
+  description
+  secretCount
+  ownerUserId
+  sshHostKeys
+}
+
+query AdminConnections {
+  connections {
+    ...ConnectionFields
+  }
+  targets {
+    id
+    name
+    connectionId
+  }
+}
+
+mutation AdminSaveConnection($input: ConnectionInput!) {
+  saveConnection(input: $input) {
+    ...ConnectionFields
+  }
+}
+
+mutation AdminDeleteConnection($id: ID!) {
+  deleteConnection(id: $id)
+}
+
+query AdminTargets {
+  targets {
+    ...TargetFields
+  }
+  connections {
+    id
+    name
+    protocol
+    port
+  }
+}
+
+mutation AdminSaveTarget($input: TargetInput!) {
+  saveTarget(input: $input) {
+    ...TargetFields
+  }
+}
+
+mutation AdminDeleteTarget($id: ID!) {
+  deleteTarget(id: $id)
+}
