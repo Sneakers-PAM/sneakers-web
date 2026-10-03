@@ -36,6 +36,8 @@ export type PwStartClass = "any" | "digit" | "letter" | "symbol";
 
 export type RequestKind = "folder_move" | "secret_access" | "secret_move";
 
+export type RotationState = "degraded" | "failed" | "ok" | "rotating" | "unknown";
+
 export type SecretFieldDefInput = {
   defaultValue?: string | null | undefined;
   key: string;
@@ -1023,6 +1025,340 @@ export type CheckoutsCheckinMutationVariables = Exact<{
 
 export type CheckoutsCheckinMutation = { checkinSecret: boolean };
 
+export type SecretDetailFieldsFragment = {
+  id: string;
+  name: string;
+  canRead: boolean | null;
+  folderId: string;
+  typeId: string;
+  targetId: string | null;
+  expiresAt: string | null;
+  lastHeartbeatResult: HeartbeatResult | null;
+  verifiedAt: string | null;
+  viewCount: number | null;
+  lastAccessedAt: string | null;
+  retired: boolean;
+  retiredAt: string;
+  lastRotationResult: RotationState | null;
+  rotatedAt: string | null;
+  rotationIntervalDays: number | null;
+  nextRotationAt: string | null;
+  rotationOptOut: boolean | null;
+  heartbeatOptOut: boolean | null;
+  requireTokenApproval: boolean | null;
+};
+
+export type SecretCertMetaFieldsFragment = {
+  subject: string;
+  issuer: string;
+  sans: Array<string>;
+  notBefore: string;
+  notAfter: string;
+  serialNumber: string;
+  fingerprintSha256: string;
+  keyAlgorithm: string;
+  keyBits: number;
+  isCA: boolean;
+  hasPrivateKey: boolean;
+};
+
+export type SecretDetailQueryVariables = Exact<{
+  id: string;
+}>;
+
+export type SecretDetailQuery = {
+  secret: {
+    id: string;
+    name: string;
+    canRead: boolean | null;
+    folderId: string;
+    typeId: string;
+    targetId: string | null;
+    expiresAt: string | null;
+    lastHeartbeatResult: HeartbeatResult | null;
+    verifiedAt: string | null;
+    viewCount: number | null;
+    lastAccessedAt: string | null;
+    retired: boolean;
+    retiredAt: string;
+    lastRotationResult: RotationState | null;
+    rotatedAt: string | null;
+    rotationIntervalDays: number | null;
+    nextRotationAt: string | null;
+    rotationOptOut: boolean | null;
+    heartbeatOptOut: boolean | null;
+    requireTokenApproval: boolean | null;
+  } | null;
+  secretTypes: Array<{
+    id: string;
+    name: string;
+    origin: TypeOrigin;
+    vendor: string | null;
+    checkout: boolean | null;
+    heartbeat: boolean | null;
+    rotation: boolean | null;
+    fields: Array<{
+      key: string;
+      label: string;
+      kind: FieldKind;
+      options: Array<string> | null;
+      sensitive: boolean | null;
+      superSensitive: boolean | null;
+      rotates: boolean | null;
+    }>;
+  }>;
+  folders: Array<{ id: string; name: string; parentId: string | null; scope: FolderScope }>;
+  targets: Array<{ id: string; name: string; hostname: string }>;
+};
+
+export type SecretAccessQueryVariables = Exact<{
+  secretId: string;
+}>;
+
+export type SecretAccessQuery = {
+  mySecretAccess: {
+    read: boolean;
+    reveal: boolean;
+    manage: boolean;
+    approve: boolean;
+    informed: boolean;
+  };
+};
+
+export type SecretFieldsQueryVariables = Exact<{
+  id: string;
+}>;
+
+export type SecretFieldsQuery = { secretFields: Array<{ key: string; value: string }> };
+
+export type SecretVersionsQueryVariables = Exact<{
+  secretId: string;
+}>;
+
+export type SecretVersionsQuery = {
+  secretVersions: Array<{
+    versionNo: number;
+    createdBy: string;
+    createdByName: string;
+    createdAt: string;
+    active: boolean;
+    fieldKeys: Array<string>;
+    changedFieldKeys: Array<string>;
+  }>;
+};
+
+export type SecretRevealMutationVariables = Exact<{
+  id: string;
+  fieldKey: string;
+}>;
+
+export type SecretRevealMutation = { revealSecretField: string };
+
+export type SecretRevealVersionMutationVariables = Exact<{
+  secretId: string;
+  versionNo: number;
+  fieldKey: string;
+}>;
+
+export type SecretRevealVersionMutation = { revealSecretVersionField: string };
+
+export type SecretBreakGlassMutationVariables = Exact<{
+  secretId: string;
+  reason: string;
+  code: string;
+}>;
+
+export type SecretBreakGlassMutation = { breakGlassSecret: Array<{ key: string; value: string }> };
+
+export type SecretRotateMutationVariables = Exact<{
+  secretId: string;
+}>;
+
+export type SecretRotateMutation = { rotateSecret: boolean };
+
+export type SecretSetAutomationMutationVariables = Exact<{
+  secretId: string;
+  disableRotation: boolean;
+  disableHeartbeat: boolean;
+}>;
+
+export type SecretSetAutomationMutation = {
+  setSecretAutomation: {
+    id: string;
+    name: string;
+    canRead: boolean | null;
+    folderId: string;
+    typeId: string;
+    targetId: string | null;
+    expiresAt: string | null;
+    lastHeartbeatResult: HeartbeatResult | null;
+    verifiedAt: string | null;
+    viewCount: number | null;
+    lastAccessedAt: string | null;
+    retired: boolean;
+    retiredAt: string;
+    lastRotationResult: RotationState | null;
+    rotatedAt: string | null;
+    rotationIntervalDays: number | null;
+    nextRotationAt: string | null;
+    rotationOptOut: boolean | null;
+    heartbeatOptOut: boolean | null;
+    requireTokenApproval: boolean | null;
+  };
+};
+
+export type SecretSetTokenApprovalMutationVariables = Exact<{
+  secretId: string;
+  required: boolean;
+}>;
+
+export type SecretSetTokenApprovalMutation = {
+  setSecretTokenApproval: {
+    id: string;
+    name: string;
+    canRead: boolean | null;
+    folderId: string;
+    typeId: string;
+    targetId: string | null;
+    expiresAt: string | null;
+    lastHeartbeatResult: HeartbeatResult | null;
+    verifiedAt: string | null;
+    viewCount: number | null;
+    lastAccessedAt: string | null;
+    retired: boolean;
+    retiredAt: string;
+    lastRotationResult: RotationState | null;
+    rotatedAt: string | null;
+    rotationIntervalDays: number | null;
+    nextRotationAt: string | null;
+    rotationOptOut: boolean | null;
+    heartbeatOptOut: boolean | null;
+    requireTokenApproval: boolean | null;
+  };
+};
+
+export type SecretRetireMutationVariables = Exact<{
+  id: string;
+}>;
+
+export type SecretRetireMutation = {
+  retireSecret: {
+    id: string;
+    name: string;
+    canRead: boolean | null;
+    folderId: string;
+    typeId: string;
+    targetId: string | null;
+    expiresAt: string | null;
+    lastHeartbeatResult: HeartbeatResult | null;
+    verifiedAt: string | null;
+    viewCount: number | null;
+    lastAccessedAt: string | null;
+    retired: boolean;
+    retiredAt: string;
+    lastRotationResult: RotationState | null;
+    rotatedAt: string | null;
+    rotationIntervalDays: number | null;
+    nextRotationAt: string | null;
+    rotationOptOut: boolean | null;
+    heartbeatOptOut: boolean | null;
+    requireTokenApproval: boolean | null;
+  };
+};
+
+export type SecretRestoreMutationVariables = Exact<{
+  id: string;
+}>;
+
+export type SecretRestoreMutation = {
+  restoreSecret: {
+    id: string;
+    name: string;
+    canRead: boolean | null;
+    folderId: string;
+    typeId: string;
+    targetId: string | null;
+    expiresAt: string | null;
+    lastHeartbeatResult: HeartbeatResult | null;
+    verifiedAt: string | null;
+    viewCount: number | null;
+    lastAccessedAt: string | null;
+    retired: boolean;
+    retiredAt: string;
+    lastRotationResult: RotationState | null;
+    rotatedAt: string | null;
+    rotationIntervalDays: number | null;
+    nextRotationAt: string | null;
+    rotationOptOut: boolean | null;
+    heartbeatOptOut: boolean | null;
+    requireTokenApproval: boolean | null;
+  };
+};
+
+export type SecretDeleteMutationVariables = Exact<{
+  id: string;
+}>;
+
+export type SecretDeleteMutation = { deleteSecret: boolean };
+
+export type SecretExportCertificateMutationVariables = Exact<{
+  secretId: string;
+  format: string;
+  newPassphrase?: string | null | undefined;
+}>;
+
+export type SecretExportCertificateMutation = {
+  exportCertificate: { fileBase64: string; filename: string; contentType: string };
+};
+
+export type SecretReplaceCertificateMutationVariables = Exact<{
+  secretId: string;
+  fileBase64: string;
+  passphrase?: string | null | undefined;
+  alias?: string | null | undefined;
+}>;
+
+export type SecretReplaceCertificateMutation = {
+  replaceCertificate: {
+    aliases: Array<string>;
+    secret: {
+      id: string;
+      name: string;
+      canRead: boolean | null;
+      folderId: string;
+      typeId: string;
+      targetId: string | null;
+      expiresAt: string | null;
+      lastHeartbeatResult: HeartbeatResult | null;
+      verifiedAt: string | null;
+      viewCount: number | null;
+      lastAccessedAt: string | null;
+      retired: boolean;
+      retiredAt: string;
+      lastRotationResult: RotationState | null;
+      rotatedAt: string | null;
+      rotationIntervalDays: number | null;
+      nextRotationAt: string | null;
+      rotationOptOut: boolean | null;
+      heartbeatOptOut: boolean | null;
+      requireTokenApproval: boolean | null;
+    } | null;
+    meta: {
+      subject: string;
+      issuer: string;
+      sans: Array<string>;
+      notBefore: string;
+      notAfter: string;
+      serialNumber: string;
+      fingerprintSha256: string;
+      keyAlgorithm: string;
+      keyBits: number;
+      isCA: boolean;
+      hasPrivateKey: boolean;
+    } | null;
+  };
+};
+
 export class TypedDocumentString<TResult, TVariables>
   extends String
   implements DocumentTypeDecoration<TResult, TVariables>
@@ -1180,6 +1516,51 @@ export const CheckoutsLeaseFieldsFragmentDoc = new TypedDocumentString(
     `,
   { fragmentName: "CheckoutsLeaseFields" },
 ) as unknown as TypedDocumentString<CheckoutsLeaseFieldsFragment, unknown>;
+export const SecretDetailFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment SecretDetailFields on Secret {
+  id
+  name
+  canRead
+  folderId
+  typeId
+  targetId
+  expiresAt
+  lastHeartbeatResult
+  verifiedAt
+  viewCount
+  lastAccessedAt
+  retired
+  retiredAt
+  lastRotationResult
+  rotatedAt
+  rotationIntervalDays
+  nextRotationAt
+  rotationOptOut
+  heartbeatOptOut
+  requireTokenApproval
+}
+    `,
+  { fragmentName: "SecretDetailFields" },
+) as unknown as TypedDocumentString<SecretDetailFieldsFragment, unknown>;
+export const SecretCertMetaFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment SecretCertMetaFields on CertMeta {
+  subject
+  issuer
+  sans
+  notBefore
+  notAfter
+  serialNumber
+  fingerprintSha256
+  keyAlgorithm
+  keyBits
+  isCA
+  hasPrivateKey
+}
+    `,
+  { fragmentName: "SecretCertMetaFields" },
+) as unknown as TypedDocumentString<SecretCertMetaFieldsFragment, unknown>;
 export const AdminSecretTypesDocument = new TypedDocumentString(`
     query AdminSecretTypes {
   secretTypes {
@@ -2155,4 +2536,324 @@ export const CheckoutsCheckinDocument = new TypedDocumentString(`
     `) as unknown as TypedDocumentString<
   CheckoutsCheckinMutation,
   CheckoutsCheckinMutationVariables
+>;
+export const SecretDetailDocument = new TypedDocumentString(`
+    query SecretDetail($id: ID!) {
+  secret(id: $id) {
+    ...SecretDetailFields
+  }
+  secretTypes {
+    id
+    name
+    origin
+    vendor
+    checkout
+    heartbeat
+    rotation
+    fields {
+      key
+      label
+      kind
+      options
+      sensitive
+      superSensitive
+      rotates
+    }
+  }
+  folders {
+    id
+    name
+    parentId
+    scope
+  }
+  targets {
+    id
+    name
+    hostname
+  }
+}
+    fragment SecretDetailFields on Secret {
+  id
+  name
+  canRead
+  folderId
+  typeId
+  targetId
+  expiresAt
+  lastHeartbeatResult
+  verifiedAt
+  viewCount
+  lastAccessedAt
+  retired
+  retiredAt
+  lastRotationResult
+  rotatedAt
+  rotationIntervalDays
+  nextRotationAt
+  rotationOptOut
+  heartbeatOptOut
+  requireTokenApproval
+}`) as unknown as TypedDocumentString<SecretDetailQuery, SecretDetailQueryVariables>;
+export const SecretAccessDocument = new TypedDocumentString(`
+    query SecretAccess($secretId: String!) {
+  mySecretAccess(secretId: $secretId) {
+    read
+    reveal
+    manage
+    approve
+    informed
+  }
+}
+    `) as unknown as TypedDocumentString<SecretAccessQuery, SecretAccessQueryVariables>;
+export const SecretFieldsDocument = new TypedDocumentString(`
+    query SecretFields($id: ID!) {
+  secretFields(id: $id) {
+    key
+    value
+  }
+}
+    `) as unknown as TypedDocumentString<SecretFieldsQuery, SecretFieldsQueryVariables>;
+export const SecretVersionsDocument = new TypedDocumentString(`
+    query SecretVersions($secretId: ID!) {
+  secretVersions(secretId: $secretId) {
+    versionNo
+    createdBy
+    createdByName
+    createdAt
+    active
+    fieldKeys
+    changedFieldKeys
+  }
+}
+    `) as unknown as TypedDocumentString<SecretVersionsQuery, SecretVersionsQueryVariables>;
+export const SecretRevealDocument = new TypedDocumentString(`
+    mutation SecretReveal($id: ID!, $fieldKey: String!) {
+  revealSecretField(id: $id, fieldKey: $fieldKey)
+}
+    `) as unknown as TypedDocumentString<SecretRevealMutation, SecretRevealMutationVariables>;
+export const SecretRevealVersionDocument = new TypedDocumentString(`
+    mutation SecretRevealVersion($secretId: ID!, $versionNo: Int!, $fieldKey: String!) {
+  revealSecretVersionField(
+    secretId: $secretId
+    versionNo: $versionNo
+    fieldKey: $fieldKey
+  )
+}
+    `) as unknown as TypedDocumentString<
+  SecretRevealVersionMutation,
+  SecretRevealVersionMutationVariables
+>;
+export const SecretBreakGlassDocument = new TypedDocumentString(`
+    mutation SecretBreakGlass($secretId: String!, $reason: String!, $code: String!) {
+  breakGlassSecret(secretId: $secretId, reason: $reason, code: $code) {
+    key
+    value
+  }
+}
+    `) as unknown as TypedDocumentString<
+  SecretBreakGlassMutation,
+  SecretBreakGlassMutationVariables
+>;
+export const SecretRotateDocument = new TypedDocumentString(`
+    mutation SecretRotate($secretId: String!) {
+  rotateSecret(secretId: $secretId)
+}
+    `) as unknown as TypedDocumentString<SecretRotateMutation, SecretRotateMutationVariables>;
+export const SecretSetAutomationDocument = new TypedDocumentString(`
+    mutation SecretSetAutomation($secretId: String!, $disableRotation: Boolean!, $disableHeartbeat: Boolean!) {
+  setSecretAutomation(
+    secretId: $secretId
+    disableRotation: $disableRotation
+    disableHeartbeat: $disableHeartbeat
+  ) {
+    ...SecretDetailFields
+  }
+}
+    fragment SecretDetailFields on Secret {
+  id
+  name
+  canRead
+  folderId
+  typeId
+  targetId
+  expiresAt
+  lastHeartbeatResult
+  verifiedAt
+  viewCount
+  lastAccessedAt
+  retired
+  retiredAt
+  lastRotationResult
+  rotatedAt
+  rotationIntervalDays
+  nextRotationAt
+  rotationOptOut
+  heartbeatOptOut
+  requireTokenApproval
+}`) as unknown as TypedDocumentString<
+  SecretSetAutomationMutation,
+  SecretSetAutomationMutationVariables
+>;
+export const SecretSetTokenApprovalDocument = new TypedDocumentString(`
+    mutation SecretSetTokenApproval($secretId: String!, $required: Boolean!) {
+  setSecretTokenApproval(secretId: $secretId, required: $required) {
+    ...SecretDetailFields
+  }
+}
+    fragment SecretDetailFields on Secret {
+  id
+  name
+  canRead
+  folderId
+  typeId
+  targetId
+  expiresAt
+  lastHeartbeatResult
+  verifiedAt
+  viewCount
+  lastAccessedAt
+  retired
+  retiredAt
+  lastRotationResult
+  rotatedAt
+  rotationIntervalDays
+  nextRotationAt
+  rotationOptOut
+  heartbeatOptOut
+  requireTokenApproval
+}`) as unknown as TypedDocumentString<
+  SecretSetTokenApprovalMutation,
+  SecretSetTokenApprovalMutationVariables
+>;
+export const SecretRetireDocument = new TypedDocumentString(`
+    mutation SecretRetire($id: String!) {
+  retireSecret(id: $id) {
+    ...SecretDetailFields
+  }
+}
+    fragment SecretDetailFields on Secret {
+  id
+  name
+  canRead
+  folderId
+  typeId
+  targetId
+  expiresAt
+  lastHeartbeatResult
+  verifiedAt
+  viewCount
+  lastAccessedAt
+  retired
+  retiredAt
+  lastRotationResult
+  rotatedAt
+  rotationIntervalDays
+  nextRotationAt
+  rotationOptOut
+  heartbeatOptOut
+  requireTokenApproval
+}`) as unknown as TypedDocumentString<SecretRetireMutation, SecretRetireMutationVariables>;
+export const SecretRestoreDocument = new TypedDocumentString(`
+    mutation SecretRestore($id: String!) {
+  restoreSecret(id: $id) {
+    ...SecretDetailFields
+  }
+}
+    fragment SecretDetailFields on Secret {
+  id
+  name
+  canRead
+  folderId
+  typeId
+  targetId
+  expiresAt
+  lastHeartbeatResult
+  verifiedAt
+  viewCount
+  lastAccessedAt
+  retired
+  retiredAt
+  lastRotationResult
+  rotatedAt
+  rotationIntervalDays
+  nextRotationAt
+  rotationOptOut
+  heartbeatOptOut
+  requireTokenApproval
+}`) as unknown as TypedDocumentString<SecretRestoreMutation, SecretRestoreMutationVariables>;
+export const SecretDeleteDocument = new TypedDocumentString(`
+    mutation SecretDelete($id: String!) {
+  deleteSecret(id: $id)
+}
+    `) as unknown as TypedDocumentString<SecretDeleteMutation, SecretDeleteMutationVariables>;
+export const SecretExportCertificateDocument = new TypedDocumentString(`
+    mutation SecretExportCertificate($secretId: String!, $format: String!, $newPassphrase: String) {
+  exportCertificate(
+    secretId: $secretId
+    format: $format
+    newPassphrase: $newPassphrase
+  ) {
+    fileBase64
+    filename
+    contentType
+  }
+}
+    `) as unknown as TypedDocumentString<
+  SecretExportCertificateMutation,
+  SecretExportCertificateMutationVariables
+>;
+export const SecretReplaceCertificateDocument = new TypedDocumentString(`
+    mutation SecretReplaceCertificate($secretId: String!, $fileBase64: String!, $passphrase: String, $alias: String) {
+  replaceCertificate(
+    secretId: $secretId
+    fileBase64: $fileBase64
+    passphrase: $passphrase
+    alias: $alias
+  ) {
+    secret {
+      ...SecretDetailFields
+    }
+    aliases
+    meta {
+      ...SecretCertMetaFields
+    }
+  }
+}
+    fragment SecretDetailFields on Secret {
+  id
+  name
+  canRead
+  folderId
+  typeId
+  targetId
+  expiresAt
+  lastHeartbeatResult
+  verifiedAt
+  viewCount
+  lastAccessedAt
+  retired
+  retiredAt
+  lastRotationResult
+  rotatedAt
+  rotationIntervalDays
+  nextRotationAt
+  rotationOptOut
+  heartbeatOptOut
+  requireTokenApproval
+}
+fragment SecretCertMetaFields on CertMeta {
+  subject
+  issuer
+  sans
+  notBefore
+  notAfter
+  serialNumber
+  fingerprintSha256
+  keyAlgorithm
+  keyBits
+  isCA
+  hasPrivateKey
+}`) as unknown as TypedDocumentString<
+  SecretReplaceCertificateMutation,
+  SecretReplaceCertificateMutationVariables
 >;
