@@ -1,0 +1,20 @@
+query AdminFolderSettings {
+  folders {
+    id
+    revealStepUp
+  }
+  securitySettings {
+    requireMfaForReveal
+  }
+  users {
+    id
+    name
+  }
+}
+
+mutation AdminSetFolderRevealStepUp($folderId: String!, $mode: StepUpMode!) {
+  setFolderRevealStepUp(folderId: $folderId, mode: $mode) {
+    id
+    revealStepUp
+  }
+}

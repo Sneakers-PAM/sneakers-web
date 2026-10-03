@@ -1,4 +1,5 @@
 import { auditHandlers } from "#mock/admin/audit";
+import { folderHandlers } from "#mock/admin/folders";
 import { serviceAccountHandlers } from "#mock/admin/serviceAccounts";
 import { settingsHandlers } from "#mock/admin/settings";
 import { targetHandlers } from "#mock/admin/targets";
@@ -13,4 +14,5 @@ export const adminHandlers = [
   ...targetHandlers,
   ...serviceAccountHandlers,
   ...auditHandlers,
+  ...folderHandlers,
 ];
