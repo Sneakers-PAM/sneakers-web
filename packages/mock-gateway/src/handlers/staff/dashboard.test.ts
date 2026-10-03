@@ -33,7 +33,7 @@ describe("the dashboard's mock answers", () => {
     const gw = await alice();
     const { secretStats } = await gw.gql(DashboardHomeDocument, { userId: "mock-user-alice" });
     // Shared folders plus Alice's own; the retired portal and Bob's laptop don't count.
-    expect(secretStats).toEqual({ drift: 2, expired: 1, expiringSoon: 2, total: 11 });
+    expect(secretStats).toEqual({ drift: 2, expired: 1, expiringSoon: 2, total: 10 });
   });
 
   it("follows the world as it changes", async () => {
@@ -55,10 +55,23 @@ describe("the dashboard's mock answers", () => {
     expect(await by("expired")).toEqual(["mock-secret-old-cert"]);
     expect(await by("drift")).toEqual(["mock-secret-db-admin", "mock-secret-edge-router"]);
     const all = await by("all");
-    expect(all).toHaveLength(11);
+    expect(all).toHaveLength(10);
     expect(all).toContain("mock-secret-alice-wifi");
     expect(all).not.toContain("mock-secret-legacy-portal");
     expect(all).not.toContain("mock-secret-bob-laptop");
+  });
+
+  it("leaves out a secret the caller can see but not read", async () => {
+    const gw = await alice();
+    const locked = "mock-secret-helpdesk";
+    expect(mockState.world.secrets.find((s) => s.id === locked)?.canRead).toBe(false);
+    const home = await gw.gql(DashboardHomeDocument, { limit: 50, userId: "mock-user-alice" });
+    expect(home.secretStats.total).toBe(10);
+    expect(ids(home.topAccessedSecrets)).not.toContain(locked);
+    for (const status of ["all", "expiring", "expired", "drift"]) {
+      const { secretsByStatus } = await gw.gql(DashboardSecretsByStatusDocument, { status });
+      expect(ids(secretsByStatus)).not.toContain(locked);
+    }
   });
 
   it("refuses a status it doesn't know", async () => {

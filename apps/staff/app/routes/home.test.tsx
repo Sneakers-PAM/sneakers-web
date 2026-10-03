@@ -29,7 +29,7 @@ describe("the dashboard", () => {
     renderRoute("/", route);
     expect(await screen.findByRole("heading", { level: 1, name: /, Alice$/ })).toBeInTheDocument();
     expect(screen.getByText(/^2 things need you\./)).toBeInTheDocument();
-    expect(tile(/Accessible 11 secrets you can see/)).toHaveAttribute(
+    expect(tile(/Accessible 10 secrets you can see/)).toHaveAttribute(
       "href",
       "/secrets?status=all",
     );
@@ -111,7 +111,7 @@ describe("the dashboard", () => {
     expect(await screen.findByText("Couldn't load your dashboard")).toBeInTheDocument();
     server.resetHandlers();
     await user.click(screen.getByRole("button", { name: "Retry" }));
-    expect(await screen.findByRole("link", { name: /Accessible 11/ })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /Accessible 10/ })).toBeInTheDocument();
   });
 
   it("says why when the gateway refuses, without a pointless Retry", async () => {

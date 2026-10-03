@@ -17,17 +17,17 @@ type Status = "all" | "drift" | "expired" | "expiring";
 const STATUSES = new Set<string>(["all", "drift", "expired", "expiring"]);
 
 /** Shared (group and role) folders, plus the caller's own personal folders. */
-const canRead = (folder: MockFolder | undefined, userId: string): boolean =>
+const folderVisible = (folder: MockFolder | undefined, userId: string): boolean =>
   !!folder && (folder.scope !== "personal" || folder.ownerUserId === userId);
 
 const readableFolders = (userId: string) =>
-  mockState.world.folders.filter((f) => canRead(f, userId));
+  mockState.world.folders.filter((f) => folderVisible(f, userId));
 
-/** The caller's live secrets: retired ones never count. */
+/** The caller's readable live secrets: retired and locked (canRead false) ones never count. */
 const readableSecrets = (userId: string): MockSecret[] => {
   const folders = new Map(mockState.world.folders.map((f) => [f.id, f]));
   return mockState.world.secrets.filter(
-    (s) => !s.retired && canRead(folders.get(s.folderId), userId),
+    (s) => !s.retired && s.canRead && folderVisible(folders.get(s.folderId), userId),
   );
 };
 
