@@ -16,6 +16,15 @@ export type ConnectionInput = {
   useTls?: boolean | null | undefined;
 };
 
+export type CreateSecretInput = {
+  expiresAt?: string | null | undefined;
+  fields: Array<KeyValueInput>;
+  folderId: string;
+  name: string;
+  targetId?: string | null | undefined;
+  typeId: string;
+};
+
 export type FactorInput = {
   code?: string | null | undefined;
   credentialJson?: string | null | undefined;
@@ -30,6 +39,11 @@ export type FolderScope = "group" | "personal" | "role";
 
 export type HeartbeatResult =
   "failed" | "hostKeyMismatch" | "hostKeyNotPinned" | "ok" | "unknown" | "unreachable";
+
+export type KeyValueInput = {
+  key: string;
+  value: string;
+};
 
 export type PasswordPolicyInput = {
   endLiteral?: string | null | undefined;
@@ -118,6 +132,14 @@ export type TargetInput = {
 };
 
 export type TypeOrigin = "custom" | "extension" | "system";
+
+export type UpdateSecretInput = {
+  expiresAt?: string | null | undefined;
+  fields?: Array<KeyValueInput> | null | undefined;
+  folderId?: string | null | undefined;
+  name?: string | null | undefined;
+  targetId?: string | null | undefined;
+};
 
 export type UseGrantInput = {
   allowReveal?: boolean | null | undefined;
@@ -1366,6 +1388,167 @@ export type DashboardSecretsByStatusQuery = {
   secretTypes: Array<{ id: string; name: string }>;
 };
 
+export type EditorsTypeFieldsFragment = {
+  id: string;
+  name: string;
+  origin: TypeOrigin;
+  vendor: string | null;
+  checkout: boolean | null;
+  heartbeat: boolean | null;
+  rotation: boolean | null;
+  fields: Array<{
+    key: string;
+    label: string;
+    kind: FieldKind;
+    options: Array<string> | null;
+    defaultValue: string | null;
+    required: boolean | null;
+    sensitive: boolean | null;
+    superSensitive: boolean | null;
+    rotates: boolean | null;
+    policyId: string | null;
+    policyEnforcement: PolicyEnforcement | null;
+    pattern: string | null;
+    maxLength: number | null;
+  }>;
+};
+
+export type EditorsPolicyFieldsFragment = {
+  id: string;
+  name: string;
+  minLength: number;
+  maxLength: number | null;
+  requireUpper: boolean;
+  requireLower: boolean;
+  requireDigit: boolean;
+  requireSymbol: boolean;
+  startClass: PwStartClass | null;
+  endLiteral: string | null;
+  excludeChars: string | null;
+  isDefault: boolean;
+};
+
+export type EditorsTargetFieldsFragment = {
+  id: string;
+  name: string;
+  hostname: string;
+  ownerUserId: string | null;
+};
+
+export type EditorsPickersQueryVariables = Exact<{ [key: string]: never }>;
+
+export type EditorsPickersQuery = {
+  secretTypes: Array<{
+    id: string;
+    name: string;
+    origin: TypeOrigin;
+    vendor: string | null;
+    checkout: boolean | null;
+    heartbeat: boolean | null;
+    rotation: boolean | null;
+    fields: Array<{
+      key: string;
+      label: string;
+      kind: FieldKind;
+      options: Array<string> | null;
+      defaultValue: string | null;
+      required: boolean | null;
+      sensitive: boolean | null;
+      superSensitive: boolean | null;
+      rotates: boolean | null;
+      policyId: string | null;
+      policyEnforcement: PolicyEnforcement | null;
+      pattern: string | null;
+      maxLength: number | null;
+    }>;
+  }>;
+  passwordPolicies: Array<{
+    id: string;
+    name: string;
+    minLength: number;
+    maxLength: number | null;
+    requireUpper: boolean;
+    requireLower: boolean;
+    requireDigit: boolean;
+    requireSymbol: boolean;
+    startClass: PwStartClass | null;
+    endLiteral: string | null;
+    excludeChars: string | null;
+    isDefault: boolean;
+  }>;
+  folders: Array<{
+    id: string;
+    name: string;
+    parentId: string | null;
+    scope: FolderScope;
+    canManage: boolean;
+  }>;
+  targets: Array<{ id: string; name: string; hostname: string; ownerUserId: string | null }>;
+  connections: Array<{ id: string; name: string; protocol: string; port: number | null }>;
+};
+
+export type EditorsSecretQueryVariables = Exact<{
+  id: string;
+}>;
+
+export type EditorsSecretQuery = {
+  secret: {
+    id: string;
+    name: string;
+    folderId: string;
+    typeId: string;
+    targetId: string | null;
+    expiresAt: string | null;
+  } | null;
+};
+
+export type EditorsSecretFieldsQueryVariables = Exact<{
+  id: string;
+}>;
+
+export type EditorsSecretFieldsQuery = { secretFields: Array<{ key: string; value: string }> };
+
+export type EditorsCreateSecretMutationVariables = Exact<{
+  input: CreateSecretInput;
+}>;
+
+export type EditorsCreateSecretMutation = { createSecret: { id: string } };
+
+export type EditorsUpdateSecretMutationVariables = Exact<{
+  id: string;
+  input: UpdateSecretInput;
+}>;
+
+export type EditorsUpdateSecretMutation = { updateSecret: { id: string } };
+
+export type EditorsGenerateKeyPairMutationVariables = Exact<{
+  format: string;
+}>;
+
+export type EditorsGenerateKeyPairMutation = {
+  generateKeyPair: { publicKey: string; privateKey: string };
+};
+
+export type EditorsImportCertificateMutationVariables = Exact<{
+  folderId: string;
+  name: string;
+  fileBase64: string;
+  passphrase?: string | null | undefined;
+  alias?: string | null | undefined;
+}>;
+
+export type EditorsImportCertificateMutation = {
+  importCertificate: { aliases: Array<string>; secret: { id: string } | null };
+};
+
+export type EditorsSaveTargetMutationVariables = Exact<{
+  input: TargetInput;
+}>;
+
+export type EditorsSaveTargetMutation = {
+  saveTarget: { id: string; name: string; hostname: string; ownerUserId: string | null };
+};
+
 export type RequestsRequestFieldsFragment = {
   id: string;
   kind: RequestKind;
@@ -2489,6 +2672,65 @@ export const BrowseFolderFieldsFragmentDoc = new TypedDocumentString(
     `,
   { fragmentName: "BrowseFolderFields" },
 ) as unknown as TypedDocumentString<BrowseFolderFieldsFragment, unknown>;
+export const EditorsTypeFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment EditorsTypeFields on SecretType {
+  id
+  name
+  origin
+  vendor
+  checkout
+  heartbeat
+  rotation
+  fields {
+    key
+    label
+    kind
+    options
+    defaultValue
+    required
+    sensitive
+    superSensitive
+    rotates
+    policyId
+    policyEnforcement
+    pattern
+    maxLength
+  }
+}
+    `,
+  { fragmentName: "EditorsTypeFields" },
+) as unknown as TypedDocumentString<EditorsTypeFieldsFragment, unknown>;
+export const EditorsPolicyFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment EditorsPolicyFields on PasswordPolicy {
+  id
+  name
+  minLength
+  maxLength
+  requireUpper
+  requireLower
+  requireDigit
+  requireSymbol
+  startClass
+  endLiteral
+  excludeChars
+  isDefault
+}
+    `,
+  { fragmentName: "EditorsPolicyFields" },
+) as unknown as TypedDocumentString<EditorsPolicyFieldsFragment, unknown>;
+export const EditorsTargetFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment EditorsTargetFields on Target {
+  id
+  name
+  hostname
+  ownerUserId
+}
+    `,
+  { fragmentName: "EditorsTargetFields" },
+) as unknown as TypedDocumentString<EditorsTargetFieldsFragment, unknown>;
 export const RequestsRequestFieldsFragmentDoc = new TypedDocumentString(
   `
     fragment RequestsRequestFields on ApprovalRequest {
@@ -3963,6 +4205,163 @@ export const DashboardSecretsByStatusDocument = new TypedDocumentString(`
     `) as unknown as TypedDocumentString<
   DashboardSecretsByStatusQuery,
   DashboardSecretsByStatusQueryVariables
+>;
+export const EditorsPickersDocument = new TypedDocumentString(`
+    query EditorsPickers {
+  secretTypes {
+    ...EditorsTypeFields
+  }
+  passwordPolicies {
+    ...EditorsPolicyFields
+  }
+  folders {
+    id
+    name
+    parentId
+    scope
+    canManage
+  }
+  targets {
+    ...EditorsTargetFields
+  }
+  connections {
+    id
+    name
+    protocol
+    port
+  }
+}
+    fragment EditorsTypeFields on SecretType {
+  id
+  name
+  origin
+  vendor
+  checkout
+  heartbeat
+  rotation
+  fields {
+    key
+    label
+    kind
+    options
+    defaultValue
+    required
+    sensitive
+    superSensitive
+    rotates
+    policyId
+    policyEnforcement
+    pattern
+    maxLength
+  }
+}
+fragment EditorsPolicyFields on PasswordPolicy {
+  id
+  name
+  minLength
+  maxLength
+  requireUpper
+  requireLower
+  requireDigit
+  requireSymbol
+  startClass
+  endLiteral
+  excludeChars
+  isDefault
+}
+fragment EditorsTargetFields on Target {
+  id
+  name
+  hostname
+  ownerUserId
+}`) as unknown as TypedDocumentString<EditorsPickersQuery, EditorsPickersQueryVariables>;
+export const EditorsSecretDocument = new TypedDocumentString(`
+    query EditorsSecret($id: ID!) {
+  secret(id: $id) {
+    id
+    name
+    folderId
+    typeId
+    targetId
+    expiresAt
+  }
+}
+    `) as unknown as TypedDocumentString<EditorsSecretQuery, EditorsSecretQueryVariables>;
+export const EditorsSecretFieldsDocument = new TypedDocumentString(`
+    query EditorsSecretFields($id: ID!) {
+  secretFields(id: $id) {
+    key
+    value
+  }
+}
+    `) as unknown as TypedDocumentString<
+  EditorsSecretFieldsQuery,
+  EditorsSecretFieldsQueryVariables
+>;
+export const EditorsCreateSecretDocument = new TypedDocumentString(`
+    mutation EditorsCreateSecret($input: CreateSecretInput!) {
+  createSecret(input: $input) {
+    id
+  }
+}
+    `) as unknown as TypedDocumentString<
+  EditorsCreateSecretMutation,
+  EditorsCreateSecretMutationVariables
+>;
+export const EditorsUpdateSecretDocument = new TypedDocumentString(`
+    mutation EditorsUpdateSecret($id: ID!, $input: UpdateSecretInput!) {
+  updateSecret(id: $id, input: $input) {
+    id
+  }
+}
+    `) as unknown as TypedDocumentString<
+  EditorsUpdateSecretMutation,
+  EditorsUpdateSecretMutationVariables
+>;
+export const EditorsGenerateKeyPairDocument = new TypedDocumentString(`
+    mutation EditorsGenerateKeyPair($format: String!) {
+  generateKeyPair(format: $format) {
+    publicKey
+    privateKey
+  }
+}
+    `) as unknown as TypedDocumentString<
+  EditorsGenerateKeyPairMutation,
+  EditorsGenerateKeyPairMutationVariables
+>;
+export const EditorsImportCertificateDocument = new TypedDocumentString(`
+    mutation EditorsImportCertificate($folderId: String!, $name: String!, $fileBase64: String!, $passphrase: String, $alias: String) {
+  importCertificate(
+    folderId: $folderId
+    name: $name
+    fileBase64: $fileBase64
+    passphrase: $passphrase
+    alias: $alias
+  ) {
+    secret {
+      id
+    }
+    aliases
+  }
+}
+    `) as unknown as TypedDocumentString<
+  EditorsImportCertificateMutation,
+  EditorsImportCertificateMutationVariables
+>;
+export const EditorsSaveTargetDocument = new TypedDocumentString(`
+    mutation EditorsSaveTarget($input: TargetInput!) {
+  saveTarget(input: $input) {
+    ...EditorsTargetFields
+  }
+}
+    fragment EditorsTargetFields on Target {
+  id
+  name
+  hostname
+  ownerUserId
+}`) as unknown as TypedDocumentString<
+  EditorsSaveTargetMutation,
+  EditorsSaveTargetMutationVariables
 >;
 export const RequestsListDocument = new TypedDocumentString(`
     query RequestsList {

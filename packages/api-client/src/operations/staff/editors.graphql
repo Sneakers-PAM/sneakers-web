@@ -1,0 +1,139 @@
+# The secret editors (U-05 new and edit, D-10 key import, D-12 inline target). The edit form
+# reads secretFields, which holds non-sensitive values only; a sensitive value is never
+# prefilled, and leaving it blank keeps the stored one.
+
+fragment EditorsTypeFields on SecretType {
+  id
+  name
+  origin
+  vendor
+  checkout
+  heartbeat
+  rotation
+  fields {
+    key
+    label
+    kind
+    options
+    defaultValue
+    required
+    sensitive
+    superSensitive
+    rotates
+    policyId
+    policyEnforcement
+    pattern
+    maxLength
+  }
+}
+
+fragment EditorsPolicyFields on PasswordPolicy {
+  id
+  name
+  minLength
+  maxLength
+  requireUpper
+  requireLower
+  requireDigit
+  requireSymbol
+  startClass
+  endLiteral
+  excludeChars
+  isDefault
+}
+
+fragment EditorsTargetFields on Target {
+  id
+  name
+  hostname
+  ownerUserId
+}
+
+query EditorsPickers {
+  secretTypes {
+    ...EditorsTypeFields
+  }
+  passwordPolicies {
+    ...EditorsPolicyFields
+  }
+  folders {
+    id
+    name
+    parentId
+    scope
+    canManage
+  }
+  targets {
+    ...EditorsTargetFields
+  }
+  connections {
+    id
+    name
+    protocol
+    port
+  }
+}
+
+query EditorsSecret($id: ID!) {
+  secret(id: $id) {
+    id
+    name
+    folderId
+    typeId
+    targetId
+    expiresAt
+  }
+}
+
+query EditorsSecretFields($id: ID!) {
+  secretFields(id: $id) {
+    key
+    value
+  }
+}
+
+mutation EditorsCreateSecret($input: CreateSecretInput!) {
+  createSecret(input: $input) {
+    id
+  }
+}
+
+mutation EditorsUpdateSecret($id: ID!, $input: UpdateSecretInput!) {
+  updateSecret(id: $id, input: $input) {
+    id
+  }
+}
+
+mutation EditorsGenerateKeyPair($format: String!) {
+  generateKeyPair(format: $format) {
+    publicKey
+    privateKey
+  }
+}
+
+mutation EditorsImportCertificate(
+  $folderId: String!
+  $name: String!
+  $fileBase64: String!
+  $passphrase: String
+  $alias: String
+) {
+  importCertificate(
+    folderId: $folderId
+    name: $name
+    fileBase64: $fileBase64
+    passphrase: $passphrase
+    alias: $alias
+  ) {
+    secret {
+      id
+    }
+    aliases
+  }
+}
+
+mutation EditorsSaveTarget($input: TargetInput!) {
+  saveTarget(input: $input) {
+    ...EditorsTargetFields
+  }
+}
