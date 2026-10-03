@@ -1,0 +1,83 @@
+# Staff targets (U-10, U-11) and the SSH terminal (U-12). Staff pick a connection; only admins
+# change connections. The terminal asks for non-sensitive fields only (the username); the key
+# stays in the vault and the broker reveals it itself when the browser redeems the ticket.
+
+fragment TargetsTargetFields on Target {
+  id
+  name
+  hostname
+  kind
+  domain
+  realm
+  connectionId
+  description
+  secretCount
+  ownerUserId
+  sshHostKeys
+}
+
+fragment TargetsConnectionFields on Connection {
+  id
+  name
+  protocol
+  port
+  description
+}
+
+query TargetsList {
+  targets {
+    ...TargetsTargetFields
+  }
+  connections {
+    ...TargetsConnectionFields
+  }
+}
+
+mutation TargetsSave($input: TargetInput!) {
+  saveTarget(input: $input) {
+    ...TargetsTargetFields
+  }
+}
+
+mutation TargetsDelete($id: ID!) {
+  deleteTarget(id: $id)
+}
+
+query TargetsTerminal($id: ID!) {
+  secret(id: $id) {
+    id
+    name
+    typeId
+    targetId
+    retired
+    canRead
+  }
+  targets {
+    id
+    name
+    hostname
+    connectionId
+    sshHostKeys
+  }
+  connections {
+    id
+    protocol
+    port
+  }
+}
+
+query TargetsTerminalFields($id: ID!) {
+  secretFields(id: $id) {
+    key
+    value
+  }
+}
+
+mutation TargetsOpenSshSession($secretId: ID!) {
+  openSshSession(secretId: $secretId) {
+    wsUrl
+    ticket
+    sessionId
+    expiresInSeconds
+  }
+}

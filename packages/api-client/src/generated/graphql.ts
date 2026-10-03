@@ -1677,6 +1677,116 @@ export type SecretReplaceCertificateMutation = {
   };
 };
 
+export type TargetsTargetFieldsFragment = {
+  id: string;
+  name: string;
+  hostname: string;
+  kind: string | null;
+  domain: string | null;
+  realm: string | null;
+  connectionId: string;
+  description: string | null;
+  secretCount: number;
+  ownerUserId: string | null;
+  sshHostKeys: Array<string>;
+};
+
+export type TargetsConnectionFieldsFragment = {
+  id: string;
+  name: string;
+  protocol: string;
+  port: number | null;
+  description: string | null;
+};
+
+export type TargetsListQueryVariables = Exact<{ [key: string]: never }>;
+
+export type TargetsListQuery = {
+  targets: Array<{
+    id: string;
+    name: string;
+    hostname: string;
+    kind: string | null;
+    domain: string | null;
+    realm: string | null;
+    connectionId: string;
+    description: string | null;
+    secretCount: number;
+    ownerUserId: string | null;
+    sshHostKeys: Array<string>;
+  }>;
+  connections: Array<{
+    id: string;
+    name: string;
+    protocol: string;
+    port: number | null;
+    description: string | null;
+  }>;
+};
+
+export type TargetsSaveMutationVariables = Exact<{
+  input: TargetInput;
+}>;
+
+export type TargetsSaveMutation = {
+  saveTarget: {
+    id: string;
+    name: string;
+    hostname: string;
+    kind: string | null;
+    domain: string | null;
+    realm: string | null;
+    connectionId: string;
+    description: string | null;
+    secretCount: number;
+    ownerUserId: string | null;
+    sshHostKeys: Array<string>;
+  };
+};
+
+export type TargetsDeleteMutationVariables = Exact<{
+  id: string;
+}>;
+
+export type TargetsDeleteMutation = { deleteTarget: boolean };
+
+export type TargetsTerminalQueryVariables = Exact<{
+  id: string;
+}>;
+
+export type TargetsTerminalQuery = {
+  secret: {
+    id: string;
+    name: string;
+    typeId: string;
+    targetId: string | null;
+    retired: boolean;
+    canRead: boolean | null;
+  } | null;
+  targets: Array<{
+    id: string;
+    name: string;
+    hostname: string;
+    connectionId: string;
+    sshHostKeys: Array<string>;
+  }>;
+  connections: Array<{ id: string; protocol: string; port: number | null }>;
+};
+
+export type TargetsTerminalFieldsQueryVariables = Exact<{
+  id: string;
+}>;
+
+export type TargetsTerminalFieldsQuery = { secretFields: Array<{ key: string; value: string }> };
+
+export type TargetsOpenSshSessionMutationVariables = Exact<{
+  secretId: string;
+}>;
+
+export type TargetsOpenSshSessionMutation = {
+  openSshSession: { wsUrl: string; ticket: string; sessionId: string; expiresInSeconds: number };
+};
+
 export class TypedDocumentString<TResult, TVariables>
   extends String
   implements DocumentTypeDecoration<TResult, TVariables>
@@ -1963,6 +2073,36 @@ export const SecretCertMetaFieldsFragmentDoc = new TypedDocumentString(
     `,
   { fragmentName: "SecretCertMetaFields" },
 ) as unknown as TypedDocumentString<SecretCertMetaFieldsFragment, unknown>;
+export const TargetsTargetFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment TargetsTargetFields on Target {
+  id
+  name
+  hostname
+  kind
+  domain
+  realm
+  connectionId
+  description
+  secretCount
+  ownerUserId
+  sshHostKeys
+}
+    `,
+  { fragmentName: "TargetsTargetFields" },
+) as unknown as TypedDocumentString<TargetsTargetFieldsFragment, unknown>;
+export const TargetsConnectionFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment TargetsConnectionFields on Connection {
+  id
+  name
+  protocol
+  port
+  description
+}
+    `,
+  { fragmentName: "TargetsConnectionFields" },
+) as unknown as TypedDocumentString<TargetsConnectionFieldsFragment, unknown>;
 export const AdminAuditDocument = new TypedDocumentString(`
     query AdminAudit($actorUserId: String, $subject: String, $excludeActions: [String!], $limit: Int) {
   auditRecords(
@@ -3561,4 +3701,105 @@ fragment SecretCertMetaFields on CertMeta {
 }`) as unknown as TypedDocumentString<
   SecretReplaceCertificateMutation,
   SecretReplaceCertificateMutationVariables
+>;
+export const TargetsListDocument = new TypedDocumentString(`
+    query TargetsList {
+  targets {
+    ...TargetsTargetFields
+  }
+  connections {
+    ...TargetsConnectionFields
+  }
+}
+    fragment TargetsTargetFields on Target {
+  id
+  name
+  hostname
+  kind
+  domain
+  realm
+  connectionId
+  description
+  secretCount
+  ownerUserId
+  sshHostKeys
+}
+fragment TargetsConnectionFields on Connection {
+  id
+  name
+  protocol
+  port
+  description
+}`) as unknown as TypedDocumentString<TargetsListQuery, TargetsListQueryVariables>;
+export const TargetsSaveDocument = new TypedDocumentString(`
+    mutation TargetsSave($input: TargetInput!) {
+  saveTarget(input: $input) {
+    ...TargetsTargetFields
+  }
+}
+    fragment TargetsTargetFields on Target {
+  id
+  name
+  hostname
+  kind
+  domain
+  realm
+  connectionId
+  description
+  secretCount
+  ownerUserId
+  sshHostKeys
+}`) as unknown as TypedDocumentString<TargetsSaveMutation, TargetsSaveMutationVariables>;
+export const TargetsDeleteDocument = new TypedDocumentString(`
+    mutation TargetsDelete($id: ID!) {
+  deleteTarget(id: $id)
+}
+    `) as unknown as TypedDocumentString<TargetsDeleteMutation, TargetsDeleteMutationVariables>;
+export const TargetsTerminalDocument = new TypedDocumentString(`
+    query TargetsTerminal($id: ID!) {
+  secret(id: $id) {
+    id
+    name
+    typeId
+    targetId
+    retired
+    canRead
+  }
+  targets {
+    id
+    name
+    hostname
+    connectionId
+    sshHostKeys
+  }
+  connections {
+    id
+    protocol
+    port
+  }
+}
+    `) as unknown as TypedDocumentString<TargetsTerminalQuery, TargetsTerminalQueryVariables>;
+export const TargetsTerminalFieldsDocument = new TypedDocumentString(`
+    query TargetsTerminalFields($id: ID!) {
+  secretFields(id: $id) {
+    key
+    value
+  }
+}
+    `) as unknown as TypedDocumentString<
+  TargetsTerminalFieldsQuery,
+  TargetsTerminalFieldsQueryVariables
+>;
+export const TargetsOpenSshSessionDocument = new TypedDocumentString(`
+    mutation TargetsOpenSshSession($secretId: ID!) {
+  openSshSession(secretId: $secretId) {
+    wsUrl
+    ticket
+    sessionId
+    expiresInSeconds
+  }
+}
+    `) as unknown as TypedDocumentString<
+  TargetsOpenSshSessionMutation,
+  TargetsOpenSshSessionMutationVariables
 >;
