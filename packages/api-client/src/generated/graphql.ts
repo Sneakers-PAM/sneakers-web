@@ -80,6 +80,8 @@ export type SecuritySettingsInput = {
   sessionTtlSeconds?: number | null | undefined;
 };
 
+export type StepUpMode = "inherit" | "off" | "require";
+
 export type TargetInput = {
   connectionId: string;
   description?: string | null | undefined;
@@ -135,6 +137,23 @@ export type AdminAuditQuery = {
   auditChain: { valid: boolean; brokenAtSeq: number; length: number };
   users: Array<{ id: string; name: string; username: string }>;
   groups: Array<{ id: string; name: string }>;
+};
+
+export type AdminFolderSettingsQueryVariables = Exact<{ [key: string]: never }>;
+
+export type AdminFolderSettingsQuery = {
+  folders: Array<{ id: string; revealStepUp: StepUpMode }>;
+  securitySettings: { requireMfaForReveal: boolean };
+  users: Array<{ id: string; name: string }>;
+};
+
+export type AdminSetFolderRevealStepUpMutationVariables = Exact<{
+  folderId: string;
+  mode: StepUpMode;
+}>;
+
+export type AdminSetFolderRevealStepUpMutation = {
+  setFolderRevealStepUp: { id: string; revealStepUp: StepUpMode };
 };
 
 export type ServiceAccountFieldsFragment = {
@@ -2006,6 +2025,35 @@ export const AdminAuditDocument = new TypedDocumentString(`
   prevHash
   hash
 }`) as unknown as TypedDocumentString<AdminAuditQuery, AdminAuditQueryVariables>;
+export const AdminFolderSettingsDocument = new TypedDocumentString(`
+    query AdminFolderSettings {
+  folders {
+    id
+    revealStepUp
+  }
+  securitySettings {
+    requireMfaForReveal
+  }
+  users {
+    id
+    name
+  }
+}
+    `) as unknown as TypedDocumentString<
+  AdminFolderSettingsQuery,
+  AdminFolderSettingsQueryVariables
+>;
+export const AdminSetFolderRevealStepUpDocument = new TypedDocumentString(`
+    mutation AdminSetFolderRevealStepUp($folderId: String!, $mode: StepUpMode!) {
+  setFolderRevealStepUp(folderId: $folderId, mode: $mode) {
+    id
+    revealStepUp
+  }
+}
+    `) as unknown as TypedDocumentString<
+  AdminSetFolderRevealStepUpMutation,
+  AdminSetFolderRevealStepUpMutationVariables
+>;
 export const AdminServiceAccountsDocument = new TypedDocumentString(`
     query AdminServiceAccounts {
   serviceAccounts {
