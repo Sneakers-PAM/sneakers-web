@@ -82,12 +82,13 @@ describe("secret detail in the mock gateway", () => {
     });
   });
 
-  it("lets anyone see a shared secret exists, but only its people read it", async () => {
+  it("lets anyone see a shared secret exists, but not read a locked one", async () => {
     const bob = await as(BOB);
-    expect(await bob.gql(SecretDetailDocument, { id: VPN }).then((r) => r.secret?.name)).toBe(
-      "Acme VPN",
+    const id = "mock-secret-helpdesk";
+    expect(await bob.gql(SecretDetailDocument, { id }).then((r) => r.secret?.name)).toBe(
+      "Helpdesk reset account",
     );
-    const access = await bob.gql(SecretAccessDocument, { secretId: VPN });
+    const access = await bob.gql(SecretAccessDocument, { secretId: id });
     expect(access.mySecretAccess).toEqual({
       approve: false,
       informed: true,
@@ -95,17 +96,49 @@ describe("secret detail in the mock gateway", () => {
       read: false,
       reveal: false,
     });
-    expect(await refusal(bob.gql(SecretFieldsDocument, { id: VPN })).then((r) => r.code)).toBe(
-      "PERMISSION_DENIED",
-    );
-    expect(
-      await refusal(bob.gql(SecretRevealDocument, { fieldKey: "password", id: VPN })).then(
-        (r) => r.code,
-      ),
-    ).toBe("PERMISSION_DENIED");
+    expect(await refusal(bob.gql(SecretFieldsDocument, { id }))).toMatchObject({
+      code: "PERMISSION_DENIED",
+    });
 
     const held = await bob.gql(SecretAccessDocument, { secretId: "mock-secret-build-ssh" });
     expect(held.mySecretAccess).toMatchObject({ manage: false, read: true, reveal: true });
+  });
+
+  it("reveals a checkout secret's values only to the person holding its lease", async () => {
+    const ssh = "mock-secret-build-ssh";
+    const alice = await as(ALICE);
+    const noLease = { code: "FAILED_PRECONDITION", reason: "CHECKOUT_REQUIRED" };
+    expect(
+      await refusal(alice.gql(SecretRevealDocument, { fieldKey: "passphrase", id: ssh })),
+    ).toEqual(noLease);
+    userById(ALICE)?.roles.push("recovery");
+    await stepUp(alice, { code: "123456", kind: "totp" });
+    expect(
+      await refusal(
+        alice.gql(SecretRevealVersionDocument, {
+          fieldKey: "passphrase",
+          secretId: ssh,
+          versionNo: 1,
+        }),
+      ),
+    ).toEqual(noLease);
+
+    const bob = await as(BOB);
+    const { revealSecretField } = await bob.gql(SecretRevealDocument, {
+      fieldKey: "passphrase",
+      id: ssh,
+    });
+    expect(revealSecretField).toBe(secret(ssh)?.fields.passphrase);
+
+    // Break glass is the way past a checkout lock.
+    const glass = await alice.gql(SecretBreakGlassDocument, {
+      code: "123456",
+      reason: "the holder is away",
+      secretId: ssh,
+    });
+    expect(glass.breakGlassSecret.find((f) => f.key === "passphrase")?.value).toBe(
+      secret(ssh)?.fields.passphrase,
+    );
   });
 
   it("gives only non-sensitive values, and a sensitive one only by reveal", async () => {
@@ -216,7 +249,11 @@ describe("secret detail in the mock gateway", () => {
     const bob = await as(BOB);
     expect(
       await refusal(
-        bob.gql(SecretBreakGlassDocument, { code: "123456", reason: "x", secretId: VPN }),
+        bob.gql(SecretBreakGlassDocument, {
+          code: "123456",
+          reason: "x",
+          secretId: "mock-secret-helpdesk",
+        }),
       ).then((r) => r.code),
     ).toBe("PERMISSION_DENIED");
   });

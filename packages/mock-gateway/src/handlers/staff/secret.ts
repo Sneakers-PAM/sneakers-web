@@ -22,9 +22,10 @@ import { createHash } from "node:crypto";
 
 import type { MockFolder, MockSecret, MockSecretType } from "#mock/fixtures/world";
 
-import { isSiteAdmin, refusal } from "#mock/admin/refuse";
+import { refusal } from "#mock/admin/refuse";
 import { userById, WRONG_CODE } from "#mock/fixtures/users";
 import { api, asUser } from "#mock/handlers/graphql";
+import { activeLease, canApprove, canRead, canSee, secretById } from "#mock/handlers/staff/access";
 import { freshMfa, stepUpRequired } from "#mock/handlers/stepUp";
 import { mockState } from "#mock/state";
 
@@ -34,54 +35,26 @@ const RECOVERY_ROLE = "recovery";
 const ok = (data: unknown): never => HttpResponse.json({ data } as never) as never;
 const world = () => mockState.world;
 
-const folderById = (id: string) => world().folders.find((f) => f.id === id);
-const secretById = (id: string) => world().secrets.find((s) => s.id === id);
 const typeOf = (s: MockSecret): MockSecretType | undefined =>
   world().secretTypes.find((t) => t.id === s.typeId);
 
-const chain = (folderId: string): MockFolder[] => {
-  const out: MockFolder[] = [];
-  let f = folderById(folderId);
-  while (f && !out.includes(f)) {
-    out.push(f);
-    f = f.parentId ? folderById(f.parentId) : undefined;
-  }
-  return out;
-};
-
-const inGroup = (userId: string, groupId: string) =>
-  world().groupMembers.some((m) => m.groupId === groupId && m.userId === userId);
-
-const leaseOf = (secretId: string) =>
-  world().leases.find((l) => l.secretId === secretId && !l.returned);
-
-/** RACI R and A: owners of the folder chain, and site admins (as the requests area has it). */
-const canManage = (userId: string, s: MockSecret) =>
-  isSiteAdmin(userId) || chain(s.folderId).some((f) => f.owners.includes(userId));
+/** The folders a person may see: shared ones, and their own personal ones. */
+const folderVisible = (userId: string, f: MockFolder) =>
+  f.scope !== "personal" || f.ownerUserId === userId;
 
 /**
- * RACI C: managers, the folder's people, and whoever holds a lease on it right now. A secret
- * the world marks unreadable stays locked for everyone.
+ * A checkout type's values are for whoever holds its lease. The gateway's docs name no reason
+ * for this refusal yet, so the mock uses its own.
  */
-const canRead = (userId: string, s: MockSecret) =>
-  s.canRead &&
-  (canManage(userId, s) ||
-    leaseOf(s.id)?.userId === userId ||
-    chain(s.folderId).some(
-      (f) =>
-        f.ownerUserId === userId ||
-        (f.groupId !== undefined && inGroup(userId, f.groupId)) ||
-        (f.role !== undefined && (userById(userId)?.roles.includes(f.role) ?? false)),
-    ));
+const leaseMissing = (userId: string, s: MockSecret) =>
+  !!typeOf(s)?.checkout && activeLease(s.id)?.userId !== userId;
 
-/** The vault shows a shared secret's metadata to anyone; a personal one only to its owner. */
-const folderVisible = (userId: string, f: MockFolder) =>
-  f.scope !== "personal" || !!f.isMasterPersonal || f.ownerUserId === userId;
-
-const visible = (userId: string, s: MockSecret) => {
-  const f = folderById(s.folderId);
-  return canRead(userId, s) || (!!f && folderVisible(userId, f));
-};
+const checkoutRequired = () =>
+  refusal(
+    "FAILED_PRECONDITION",
+    "check the secret out before revealing its values",
+    "CHECKOUT_REQUIRED",
+  );
 
 const isSensitive = (t: MockSecretType | undefined, key: string) => {
   const definition = t?.fields.find((f) => f.key === key);
@@ -162,7 +135,7 @@ const withSecret = (
 ): never =>
   asUser(request, (userId) => {
     const s = secretById(id);
-    if (!s || !visible(userId, s)) return notFound();
+    if (!s || !canSee(userId, s)) return notFound();
     return work(s, userId) as never;
   });
 
@@ -208,7 +181,7 @@ export const secretHandlers: RequestHandler[] = [
             parentId: parentId ?? null,
             scope,
           })),
-        secret: s && visible(userId, s) ? view(s, userId) : null,
+        secret: s && canSee(userId, s) ? view(s, userId) : null,
         secretTypes: world().secretTypes.map((t) => ({
           checkout: t.checkout ?? null,
           fields: t.fields.map((f) => ({
@@ -235,7 +208,7 @@ export const secretHandlers: RequestHandler[] = [
   api.query(SecretAccessDocument, ({ request, variables }) =>
     withSecret(request, variables.secretId, (s, userId) => {
       const read = canRead(userId, s);
-      const manage = canManage(userId, s);
+      const manage = canApprove(userId, s);
       return ok({
         mySecretAccess: { approve: manage, informed: true, manage, read, reveal: read },
       });
@@ -269,6 +242,7 @@ export const secretHandlers: RequestHandler[] = [
       if (!isSensitive(t, variables.fieldKey))
         return refusal("INVALID_ARGUMENT", "field is not sensitive");
       if (!canRead(userId, s)) return noRead("reveal");
+      if (leaseMissing(userId, s)) return checkoutRequired();
       if (isSuperSensitive(t, variables.fieldKey) && !freshMfa(request))
         return HttpResponse.json({ errors: [stepUpRequired()] }) as never;
       const value = s.fields[variables.fieldKey];
@@ -289,9 +263,10 @@ export const secretHandlers: RequestHandler[] = [
         );
       if (!freshMfa(request)) return HttpResponse.json({ errors: [stepUpRequired()] }) as never;
       const s = secretById(variables.secretId);
-      if (!s || !visible(userId, s)) return notFound();
+      if (!s || !canSee(userId, s)) return notFound();
       if (s.retired) return retired();
       if (!canRead(userId, s)) return noRead("reveal");
+      if (leaseMissing(userId, s)) return checkoutRequired();
       const v = s.versions.find((x) => x.versionNo === variables.versionNo);
       if (!v?.fieldKeys.includes(variables.fieldKey))
         return refusal("NOT_FOUND", "field not found");
@@ -308,7 +283,7 @@ export const secretHandlers: RequestHandler[] = [
       if (!/^\d{6}$/.test(variables.code) || variables.code === WRONG_CODE)
         return refusal("UNAUTHENTICATED", "invalid or missing MFA code");
       const s = secretById(variables.secretId);
-      if (!s || !visible(userId, s)) return notFound();
+      if (!s || !canSee(userId, s)) return notFound();
       if (s.retired) return retired();
       if (!canRead(userId, s)) return notAllowed("break glass on");
       s.viewCount += 1;
@@ -320,14 +295,14 @@ export const secretHandlers: RequestHandler[] = [
 
   api.mutation(SecretRotateDocument, ({ request, variables }) =>
     withSecret(request, variables.secretId, (s, userId) => {
-      const held = leaseOf(s.id);
+      const held = activeLease(s.id);
       if (held)
         return refusal(
           "FAILED_PRECONDITION",
           "cannot rotate while the secret is checked out",
           "CHECKOUT_LEASE_HELD",
         );
-      if (!canManage(userId, s)) return notAllowed("rotate");
+      if (!canApprove(userId, s)) return notAllowed("rotate");
       if (s.retired) return retired();
       const t = typeOf(s);
       if (!t?.rotation)
@@ -352,7 +327,7 @@ export const secretHandlers: RequestHandler[] = [
 
   api.mutation(SecretSetAutomationDocument, ({ request, variables }) =>
     withSecret(request, variables.secretId, (s, userId) => {
-      if (!canManage(userId, s)) return notAllowed("change");
+      if (!canApprove(userId, s)) return notAllowed("change");
       s.rotationOptOut = variables.disableRotation;
       s.heartbeatOptOut = variables.disableHeartbeat;
       return ok({ setSecretAutomation: view(s, userId) });
@@ -361,7 +336,7 @@ export const secretHandlers: RequestHandler[] = [
 
   api.mutation(SecretSetTokenApprovalDocument, ({ request, variables }) =>
     withSecret(request, variables.secretId, (s, userId) => {
-      if (!canManage(userId, s)) return notAllowed("change");
+      if (!canApprove(userId, s)) return notAllowed("change");
       s.requireTokenApproval = variables.required;
       return ok({ setSecretTokenApproval: view(s, userId) });
     }),
@@ -369,7 +344,7 @@ export const secretHandlers: RequestHandler[] = [
 
   api.mutation(SecretRetireDocument, ({ request, variables }) =>
     withSecret(request, variables.id, (s, userId) => {
-      if (!canManage(userId, s)) return notAllowed("retire");
+      if (!canApprove(userId, s)) return notAllowed("retire");
       s.retired = true;
       s.retiredAt = new Date().toISOString();
       return ok({ retireSecret: view(s, userId) });
@@ -378,7 +353,7 @@ export const secretHandlers: RequestHandler[] = [
 
   api.mutation(SecretRestoreDocument, ({ request, variables }) =>
     withSecret(request, variables.id, (s, userId) => {
-      if (!canManage(userId, s)) return notAllowed("restore");
+      if (!canApprove(userId, s)) return notAllowed("restore");
       s.retired = false;
       s.retiredAt = "";
       return ok({ restoreSecret: view(s, userId) });
@@ -387,7 +362,7 @@ export const secretHandlers: RequestHandler[] = [
 
   api.mutation(SecretDeleteDocument, ({ request, variables }) =>
     withSecret(request, variables.id, (s, userId) => {
-      if (!canManage(userId, s)) return notAllowed("delete");
+      if (!canApprove(userId, s)) return notAllowed("delete");
       world().secrets = world().secrets.filter((x) => x.id !== s.id);
       return ok({ deleteSecret: true });
     }),
@@ -418,7 +393,7 @@ export const secretHandlers: RequestHandler[] = [
 
   api.mutation(SecretReplaceCertificateDocument, ({ request, variables }) =>
     withSecret(request, variables.secretId, (s, userId) => {
-      if (!canManage(userId, s)) return notAllowed("replace");
+      if (!canApprove(userId, s)) return notAllowed("replace");
       if (s.retired) return retired();
       const text = Buffer.from(variables.fileBase64, "base64").toString();
       if (!text.trim()) return refusal("INVALID_ARGUMENT", "unrecognized format");

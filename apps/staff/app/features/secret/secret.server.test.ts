@@ -62,7 +62,7 @@ describe("loading a secret", () => {
   });
 
   it("shows someone without read the secret exists, with no fields and no history", async () => {
-    const d = await load(VPN, "mock-user-bob");
+    const d = await load("mock-secret-helpdesk", "mock-user-bob");
     if (!d.ok) throw new Error("expected the page");
     expect(d.access).toMatchObject({ informed: true, read: false });
     expect(d.fields).toEqual({});
@@ -92,6 +92,25 @@ describe("acting on a secret", () => {
     const r = await act(VPN, { fieldKey: "password", intent: "reveal" });
     expect(r).toMatchObject({ fieldKey: "password", intent: "reveal", ok: true });
     expect(r.ok && r.value).toBe("mock-Lace-Up-4417");
+  });
+
+  it("reveals a checkout secret only while the person holds its lease", async () => {
+    const reveal = { fieldKey: "password", intent: "reveal" };
+    expect(await act(VPN, reveal)).toMatchObject({ ok: true, value: "mock-Lace-Up-4417" });
+    expect(await act(VPN, { intent: "checkin" })).toMatchObject({ ok: true });
+    expect(await act(VPN, reveal)).toMatchObject({
+      ok: false,
+      refusal: { reason: "CHECKOUT_REQUIRED" },
+    });
+    expect(await act(VPN, { hours: "2", intent: "checkout" })).toMatchObject({ ok: true });
+    expect(await act(VPN, reveal)).toMatchObject({ ok: true, value: "mock-Lace-Up-4417" });
+  });
+
+  it("loads who holds the lease", async () => {
+    const d = await load("mock-secret-build-ssh");
+    if (!d.ok) throw new Error("expected the page");
+    expect(d.lease?.userId).toBe("mock-user-bob");
+    expect(d.viewerId).toBe("mock-user-alice");
   });
 
   it("passes a step-up refusal back to the page", async () => {

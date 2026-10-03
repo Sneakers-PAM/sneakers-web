@@ -103,13 +103,16 @@ describe("the secret detail page", () => {
   });
 
   it("shows someone without access that the secret exists, and where to ask for it", async () => {
-    open("mock-secret-acme-vpn", "mock-user-bob");
-    expect(await screen.findByRole("heading", { level: 1, name: /Acme VPN/ })).toBeInTheDocument();
+    open("mock-secret-helpdesk", "mock-user-bob");
+    expect(
+      await screen.findByRole("heading", { level: 1, name: /Helpdesk reset account/ }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Request access" })).toHaveAttribute(
       "href",
-      "/requests?new=mock-secret-acme-vpn",
+      "/requests?new=mock-secret-helpdesk",
     );
     expect(within(row("Password")).getByText("Request access to reveal")).toBeInTheDocument();
+    expect(within(row("Account Name")).queryByText("helpdesk-reset")).toBeNull();
     expect(screen.queryByRole("region", { name: "History" })).toBeNull();
   });
 
@@ -238,6 +241,39 @@ describe("the secret detail page", () => {
     expect(
       await within(history).findByText(/Prior values need the recovery role/),
     ).toBeInTheDocument();
+  });
+});
+
+describe("checking a secret out", () => {
+  it("checks in and out, and reveals only while the secret is held", async () => {
+    const user = userEvent.setup();
+    open("mock-secret-acme-vpn");
+    const checkout = await screen.findByRole("region", { name: "Checkout" });
+    expect(within(checkout).getByText("Checked out by you")).toBeInTheDocument();
+    expect(within(row("Password")).getByRole("button", { name: "Reveal Password" })).toBeEnabled();
+
+    await user.click(within(checkout).getByRole("button", { name: "Check in now" }));
+    expect(await within(row("Password")).findByText("Check out to reveal")).toBeInTheDocument();
+    expect(within(card("Checkout")).getByText("Available")).toBeInTheDocument();
+
+    await user.click(within(card("Checkout")).getByRole("radio", { name: "4h" }));
+    await user.click(
+      within(card("Checkout")).getByRole("button", { name: "Check out for 4 hours" }),
+    );
+    expect(await within(card("Checkout")).findByText("Checked out by you")).toBeInTheDocument();
+    await user.click(within(row("Password")).getByRole("button", { name: "Reveal Password" }));
+    expect(await within(row("Password")).findByText("mock-Lace-Up-4417")).toBeInTheDocument();
+  });
+
+  it("locks a secret someone else holds, and won't rotate it", async () => {
+    const user = userEvent.setup();
+    open("mock-secret-build-ssh");
+    const checkout = await screen.findByRole("region", { name: "Checkout" });
+    expect(within(checkout).getByText(/Someone else has it checked out/)).toBeInTheDocument();
+    expect(within(row("Passphrase")).getByText("Checked out by someone else")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Checked out" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Actions" }));
+    expect(await screen.findByRole("menuitem", { name: /Break glass/ })).toBeInTheDocument();
   });
 });
 

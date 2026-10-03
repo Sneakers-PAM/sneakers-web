@@ -25,7 +25,10 @@ import {
 } from "@sneakers-web/api-client";
 import { type Refusal, refusalMessage, refusalOf } from "@sneakers-web/shell";
 import { guard, isAdmin, requireUser, type SessionUser } from "@sneakers-web/shell/server";
+import { clockTime } from "@sneakers-web/ui";
 import { data, redirect } from "react-router";
+
+import { activeLeaseFor, checkIn, checkOut } from "@/features/requests/leases.server";
 
 const log = createLogger("staff.secret");
 
@@ -46,12 +49,16 @@ export interface SecretPage {
   /** Null when the person isn't shown the history (owners and site admins are). */
   history: null | SecretVersion[];
   isAdmin: boolean;
+  /** The secret's active lease, whoever holds it, for types that check out. */
+  lease: { expiresAt: string; id: string; userId: string } | null;
   /** When the server answered, so "expires in" and "next rotation" read the same on both sides. */
   now: number;
   ok: true;
   secret: SecretView;
   target: { hostname: string; id: string; name: string } | null;
   type: null | SecretType;
+  /** The signed-in user's id, to tell their own lease from someone else's. */
+  viewerId: string;
 }
 
 export type SecretType = SecretDetailQuery["secretTypes"][number];
@@ -84,11 +91,13 @@ const page = async (
   if (!secret) return null;
   const { mySecretAccess: access } = await gw.gql(SecretAccessDocument, { secretId: id });
   const admin = isAdmin(user);
-  const [fields, history] = await Promise.all([
+  const type = detail.secretTypes.find((t) => t.id === secret.typeId) ?? null;
+  const [fields, history, lease] = await Promise.all([
     access.read ? gw.gql(SecretFieldsDocument, { id }) : null,
     access.read && (access.manage || admin)
       ? gw.gql(SecretVersionsDocument, { secretId: id })
       : null,
+    type?.checkout ? activeLeaseFor(gw, id) : null,
   ]);
   return {
     access,
@@ -96,11 +105,13 @@ const page = async (
     folderPath: pathTo(detail.folders, secret.folderId),
     history: history?.secretVersions ?? null,
     isAdmin: admin,
+    lease: lease ? { expiresAt: lease.expiresAt, id: lease.id, userId: lease.userId } : null,
     now: Date.now(),
     ok: true,
     secret,
     target: detail.targets.find((t) => t.id === secret.targetId) ?? null,
-    type: detail.secretTypes.find((t) => t.id === secret.typeId) ?? null,
+    type,
+    viewerId: user.id,
   };
 };
 
@@ -303,6 +314,22 @@ export const secretAction = async (request: Request, id: string): Promise<Secret
     versionNo: f.has("versionNo") ? Number(text(f, "versionNo")) : undefined,
   };
   log.info("secret action", { fieldKey: echo.fieldKey, intent, secretId: id, userId: user.id });
+  if (intent === "checkout" || intent === "checkin") {
+    const r =
+      intent === "checkout"
+        ? await checkOut(request, id, text(f, "hours"))
+        : await checkIn(request, id);
+    if (!r.ok) return { ...echo, intent, ok: false, refusal: r.refusal };
+    return {
+      ...echo,
+      done:
+        intent === "checkout"
+          ? `Checked out until ${clockTime(r.done)}.`
+          : "Checked in. The password rotates to a new value.",
+      intent,
+      ok: true,
+    };
+  }
   return guard(request, async () => {
     try {
       const result = await run(gw, id, intent, f);

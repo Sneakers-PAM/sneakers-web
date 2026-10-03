@@ -1,4 +1,10 @@
-import { useRootData } from "@sneakers-web/shell";
+import {
+  needsStepUp,
+  refusalMessage,
+  StepUpDialog,
+  useRootData,
+  useStepUp,
+} from "@sneakers-web/shell";
 import {
   Alert,
   Badge,
@@ -11,9 +17,10 @@ import {
   PageHeader,
   Pill,
   shortDate,
+  toast,
 } from "@sneakers-web/ui";
 import { Ban, ChevronDown, ChevronLeft, Clock, ShieldCheck, TriangleAlert } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useRouteLoaderData } from "react-router";
 
 import type { SecretPage as Page } from "@/features/secret/secret.server";
@@ -23,6 +30,7 @@ import { BreakGlassCard, BreakGlassDialog } from "@/features/secret/BreakGlass";
 import { CERT_META_KEYS, certExpiry } from "@/features/secret/certificate";
 import { CertificateCard } from "@/features/secret/CertificateCard";
 import { ExportDialog, ReplaceDialog } from "@/features/secret/CertificateDialogs";
+import { CheckoutCard, type LeaseHours } from "@/features/secret/CheckoutCard";
 import { DeleteDialog, RotateDialog } from "@/features/secret/ConfirmDialogs";
 import { DetailsRows } from "@/features/secret/DetailsCard";
 import { FieldsCard } from "@/features/secret/FieldsCard";
@@ -71,10 +79,24 @@ const Banner = ({
 /** U-04: one secret, its fields behind reveals, its details, automation and history. */
 export const SecretPage = ({ page }: { page: Page }) => {
   const { access, fields, folderPath, history, isAdmin, secret, type } = page;
-  const me = useRouteLoaderData<typeof frameLoader>("routes/frame")?.user;
+  const viewer = useRouteLoaderData<typeof frameLoader>("routes/frame")?.user;
   const { config } = useRootData();
   const act = useSecretFetcher();
   const glass = useSecretFetcher({ quiet: true });
+  const leasing = useSecretFetcher({ quiet: true });
+  const stepUp = useStepUp();
+  const [hours, setHours] = useState<LeaseHours>("2");
+  const handledLease = useRef<unknown>(null);
+  const checkOut = () => void leasing.submit({ hours, intent: "checkout" }, { method: "post" });
+  const checkIn = () => void leasing.submit({ intent: "checkin" }, { method: "post" });
+  const leaseResult = leasing.data;
+  useEffect(() => {
+    if (!leaseResult || handledLease.current === leaseResult || leaseResult.ok) return;
+    handledLease.current = leaseResult;
+    // The workflow may want a fresh second factor before a check-out.
+    if (needsStepUp(leaseResult.refusal)) stepUp.ask(checkOut);
+    else toast.error(refusalMessage(leaseResult.refusal));
+  });
   const [dialog, setDialog] = useState<DialogName>(null);
   const [glassEnded, setGlassEnded] = useState<unknown>(null);
   // The answer that was there when the break-glass dialog opened; a newer success closes it.
@@ -93,10 +115,18 @@ export const SecretPage = ({ page }: { page: Page }) => {
   const manage = access.manage || isAdmin;
   const isCert = secret.typeId === CERT_TYPE;
   const production = config.appEnv === "prod";
+  const lease = page.lease;
+  const heldByMe = !!lease && lease.userId === page.viewerId;
+  const heldByOther = !!lease && !heldByMe;
+  const checksOut = !!type?.checkout;
   const lockedReason = secret.retired
     ? "Retired, restore to reveal"
     : read
-      ? undefined
+      ? checksOut && heldByOther
+        ? "Checked out by someone else"
+        : checksOut && !heldByMe
+          ? "Check out to reveal"
+          : undefined
       : "Request access to reveal";
   const path = folderPath.map((f) => f.name).join(" / ");
   const rotating = type?.fields.find((f) => f.rotates)?.label ?? "credential";
@@ -112,7 +142,19 @@ export const SecretPage = ({ page }: { page: Page }) => {
       </Button>
     )
   ) : read ? (
-    isCert ? (
+    checksOut ? (
+      heldByMe ? (
+        <Button loading={leasing.state !== "idle"} onClick={checkIn} variant="ink">
+          Check in
+        </Button>
+      ) : heldByOther ? (
+        <Button disabled>Checked out</Button>
+      ) : (
+        <Button loading={leasing.state !== "idle"} onClick={checkOut}>
+          Check out
+        </Button>
+      )
+    ) : isCert ? (
       <Button onClick={() => setDialog("export")}>Export…</Button>
     ) : null
   ) : (
@@ -158,8 +200,11 @@ export const SecretPage = ({ page }: { page: Page }) => {
                   </DropdownMenuItem>
                 )}
                 {manage && !secret.retired && type?.rotation && (
-                  <DropdownMenuItem onSelect={() => setDialog("rotate")}>
+                  <DropdownMenuItem disabled={!!lease} onSelect={() => setDialog("rotate")}>
                     Rotate now…
+                    {lease && (
+                      <span className="ml-auto text-[0.75rem] text-muted">check in first</span>
+                    )}
                   </DropdownMenuItem>
                 )}
                 {manage &&
@@ -276,7 +321,7 @@ export const SecretPage = ({ page }: { page: Page }) => {
           {glassFields && (
             <BreakGlassCard
               at={glassResult?.at ?? page.now}
-              by={me?.name ?? "you"}
+              by={viewer?.name ?? "you"}
               fields={glassFields}
               onEnd={() => setGlassEnded(glassResult)}
               type={type}
@@ -304,6 +349,16 @@ export const SecretPage = ({ page }: { page: Page }) => {
           {history && <HistoryCard locked={lockedReason} type={type} versions={history} />}
         </div>
         <div className="flex min-w-0 flex-col gap-6">
+          {checksOut && !secret.retired && (
+            <CheckoutCard
+              busy={leasing.state !== "idle"}
+              hours={hours}
+              onCheckIn={checkIn}
+              onCheckOut={checkOut}
+              onHours={setHours}
+              page={page}
+            />
+          )}
           <Panel title="Details">
             <DetailsRows page={page} />
           </Panel>
@@ -312,6 +367,10 @@ export const SecretPage = ({ page }: { page: Page }) => {
         </div>
       </div>
 
+      <StepUpDialog
+        {...stepUp.dialog}
+        description="Checking this secret out needs a fresh second factor."
+      />
       <BreakGlassDialog
         fetcher={glass}
         name={secret.name}
