@@ -1,6 +1,8 @@
 import { http, HttpResponse } from "msw";
 
+import { addFactor, addNeedsStepUp } from "#mock/fixtures/staff/settings";
 import { findUser, userById, WRONG_CODE } from "#mock/fixtures/users";
+import { freshMfa } from "#mock/handlers/stepUp";
 import {
   MOCK_GATEWAY_URL,
   MOCK_SESSION_COOKIE,
@@ -153,6 +155,7 @@ export const authHandlers = [
   http.post(at("/auth/mfa/enroll"), ({ request }) => {
     const s = authed(request);
     if (!s) return refuse(401, "no_session");
+    if (addNeedsStepUp(s.userId) && !freshMfa(request)) return refuse(403, "step_up_required");
     const secret = "JBSWY3DPEHPK3PXP";
     mockState.enrollments.set(s.userId, secret);
     const user = userById(s.userId);
@@ -168,17 +171,21 @@ export const authHandlers = [
     const { code } = await readBody<{ code?: string }>(request);
     if (!code || code === WRONG_CODE || !mockState.enrollments.has(s.userId))
       return refuse(400, "invalid_code");
+    addFactor(s.userId, "totp");
     Object.assign(s, {
       enrolled: true,
       enrollmentRequired: false,
       mfaVerified: true,
+      mfaVerifiedAt: Date.now(),
       setupRecommended: false,
     });
     return json({ ok: true });
   }),
 
   http.post(at("/auth/mfa/webauthn/register/begin"), ({ request }) => {
-    if (!authed(request)) return refuse(401, "no_session");
+    const s = authed(request);
+    if (!s) return refuse(401, "no_session");
+    if (addNeedsStepUp(s.userId) && !freshMfa(request)) return refuse(403, "step_up_required");
     return refuse(400, "no_passkey");
   }),
 
