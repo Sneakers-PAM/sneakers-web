@@ -16,7 +16,8 @@ const serve = (app: string, port: number, trustProxy?: string) => ({
     PORT: String(port),
     ...(trustProxy ? { TRUST_PROXY: trustProxy } : {}),
   },
-  reuseExistingServer: !process.env.CI,
+  // Never test a server something else started: a busy port fails the run straight away.
+  reuseExistingServer: false,
   timeout: 180_000,
   url: `http://127.0.0.1:${port}${app === "admin" ? "/admin" : ""}/healthz`,
 });

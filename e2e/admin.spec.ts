@@ -98,3 +98,19 @@ test("a site admin makes a service account and mints its first token", async ({ 
   await page.getByRole("button", { name: "Done, I've stored it" }).click();
   await expect(page.getByRole("row", { name: /^DB team/ })).toBeVisible();
 });
+
+test("a site admin filters the audit trail, opens a record and exports it", async ({ page }) => {
+  await signInAsAlice(page, "/admin/audit");
+  await expect(page.getByText(/Chain verified/)).toBeVisible();
+  await page.getByLabel("Actor").fill("Bob");
+  await page.getByLabel("Actor").press("Enter");
+  await expect(page).toHaveURL(/actor=Bob/);
+  await page.getByRole("link", { name: "Open record 1197" }).click();
+  await expect(page.getByRole("dialog")).toContainText("web-01 deploy key");
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Export" }).click();
+  const downloading = page.waitForEvent("download");
+  await page.getByRole("menuitem", { name: "CSV (spreadsheets)" }).click();
+  const download = await downloading;
+  expect(download.suggestedFilename()).toMatch(/^sneakers-audit-.*\.csv$/);
+});
