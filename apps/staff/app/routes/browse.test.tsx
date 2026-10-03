@@ -1,0 +1,344 @@
+import { MOCK_GATEWAY_URL, mockState } from "@sneakers-web/mock-gateway";
+import { server, withMockGateway } from "@sneakers-web/mock-gateway/testing";
+import { screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { HttpResponse } from "msw";
+import { graphql } from "msw/graphql";
+
+import * as browse from "@/routes/browse";
+import { renderRoute, type StubRoute } from "@/test/routeStub";
+
+withMockGateway();
+
+const page = {
+  action: browse.action,
+  Component: browse.default,
+  ErrorBoundary: browse.ErrorBoundary,
+  loader: browse.loader,
+};
+
+const ROUTES = [
+  { ...page, id: "routes/browse", path: "/browse" },
+  { ...page, id: "routes/browse-folder", path: "/browse/:folderId" },
+] as StubRoute[];
+
+const open = (url: string, user?: string) => renderRoute(url, ROUTES, { user });
+
+const folder = (id: string) => mockState.world.folders.find((f) => f.id === id);
+const nav = () => screen.getByRole("navigation", { name: "Folders" });
+
+const nothing = () => {};
+
+/** A promise the test resolves when it's ready, to hold a mock answer back. */
+const gated = () => {
+  const box = { release: nothing };
+  const gate = new Promise<void>((resolve) => {
+    box.release = resolve;
+  });
+  return { gate, release: () => box.release() };
+};
+
+const folderMenu = async (item: string) => {
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Folder actions" }));
+  await user.click(await screen.findByRole("menuitem", { name: item }));
+  return user;
+};
+
+describe("the browse page", () => {
+  it("lists a folder's secrets, linking each to its page", async () => {
+    open("/browse/mock-folder-databases");
+    expect(await screen.findByRole("heading", { name: "Databases" })).toBeInTheDocument();
+    expect(screen.getByText("Secret · Platform")).toBeInTheDocument();
+    expect(screen.getByText("2 secrets · shared folder")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "DB admin" })).toHaveAttribute(
+      "href",
+      "/secret/mock-secret-db-admin",
+    );
+    expect(screen.getByRole("link", { name: "Share" })).toHaveAttribute(
+      "href",
+      "/folder/mock-folder-databases/sharing",
+    );
+    const row = screen.getByRole("row", { name: /Reporting reader/ });
+    expect(within(row).getByText("Database Account")).toBeInTheDocument();
+    expect(within(row).getByText("Unknown")).toBeInTheDocument();
+  });
+
+  it("shows a secret the user can't read as locked, with a way to ask for it", async () => {
+    open("/browse/mock-folder-helpdesk", "mock-user-carol");
+    const row = await screen.findByRole("row", { name: /Helpdesk reset account/ });
+    expect(within(row).getByText("Locked")).toBeInTheDocument();
+    expect(within(row).queryByRole("link", { name: "Helpdesk reset account" })).toBeNull();
+    expect(within(row).getByRole("link", { name: "Request access" })).toHaveAttribute(
+      "href",
+      "/requests?new=mock-secret-helpdesk",
+    );
+  });
+
+  it("never treats an unknown read answer as readable", async () => {
+    const s = mockState.world.secrets.find((x) => x.id === "mock-secret-db-admin");
+    (s as { canRead: boolean | null }).canRead = null;
+    open("/browse/mock-folder-databases");
+    const row = await screen.findByRole("row", { name: /DB admin/ });
+    expect(within(row).getByText("Access unknown")).toBeInTheDocument();
+    expect(within(row).queryByRole("link", { name: "DB admin" })).toBeNull();
+  });
+
+  it("shows the folder tree: personal folders pinned, shared ones one level at a time", async () => {
+    open("/browse/mock-folder-databases");
+    await screen.findByRole("heading", { name: "Databases" });
+    expect(within(nav()).getByRole("link", { name: /My secrets/ })).toBeInTheDocument();
+    expect(within(nav()).getByRole("link", { name: /Lab/ })).toBeInTheDocument();
+    expect(within(nav()).getByRole("link", { current: "page", name: /Databases/ })).toBeVisible();
+    expect(within(nav()).getByRole("link", { name: /Network/ })).toBeInTheDocument();
+    expect(within(nav()).queryByRole("link", { name: /Finance/ })).not.toBeInTheDocument();
+
+    await userEvent.click(within(nav()).getByRole("button", { name: "Up from Platform" }));
+    expect(within(nav()).getByRole("link", { name: /Finance/ })).toBeInTheDocument();
+    expect(within(nav()).getByRole("link", { name: /Helpdesk/ })).toBeInTheDocument();
+  });
+
+  it("asks for a folder when none is open", async () => {
+    open("/browse");
+    expect(await screen.findByText("Pick a folder")).toBeInTheDocument();
+    expect(within(nav()).getByRole("link", { name: /Platform/ })).toHaveAttribute(
+      "href",
+      "/browse/mock-folder-platform",
+    );
+  });
+
+  it("says when there are no folders at all", async () => {
+    mockState.world.folders = [];
+    open("/browse");
+    expect(await screen.findByText("No folders yet")).toBeInTheDocument();
+  });
+
+  it("says when a folder holds no secrets", async () => {
+    open("/browse/mock-folder-alice");
+    expect(await screen.findByText("No secrets here yet")).toBeInTheDocument();
+    for (const link of screen.getAllByRole("link", { name: "New secret" })) {
+      expect(link).toHaveAttribute("href", "/secret/new?folderId=mock-folder-alice");
+    }
+  });
+
+  it("explains a folder the user can't open, naming its owner", async () => {
+    open("/browse/mock-folder-finance");
+    expect(await screen.findByText("You can't open this folder")).toBeInTheDocument();
+    expect(screen.getByText(/Bob owns it/)).toBeInTheDocument();
+    expect(screen.queryByText("Payroll portal")).not.toBeInTheDocument();
+  });
+
+  it("answers not found for someone else's personal folder", async () => {
+    open("/browse/mock-folder-bob");
+    expect(await screen.findByText("Folder not found")).toBeInTheDocument();
+  });
+
+  it("offers Retry when the gateway fails, and recovers", async () => {
+    server.use(
+      graphql
+        .link(`${MOCK_GATEWAY_URL}/graphql`)
+        .query("BrowseFolders", () => HttpResponse.json({}, { status: 500 }), { once: true }),
+    );
+    open("/browse/mock-folder-databases");
+    expect(await screen.findByText("This folder didn't load")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByRole("heading", { name: "Databases" })).toBeInTheDocument();
+  });
+
+  it("shows a skeleton while the next folder loads", async () => {
+    open("/browse/mock-folder-databases");
+    await screen.findByRole("heading", { name: "Databases" });
+    const { gate, release } = gated();
+    server.use(
+      graphql.link(`${MOCK_GATEWAY_URL}/graphql`).query(
+        "BrowseFolders",
+        async () => {
+          // Hold the answer, then fall through to the mock gateway's own handler.
+          await gate;
+        },
+        { once: true },
+      ),
+    );
+    await userEvent.click(within(nav()).getByRole("link", { name: /Network/ }));
+    expect(await screen.findByTestId("browse-skeleton")).toBeInTheDocument();
+    release();
+    expect(await screen.findByRole("heading", { name: "Network" })).toBeInTheDocument();
+  });
+
+  it("filters, shows retired secrets on request and restores one", async () => {
+    const user = userEvent.setup();
+    open("/browse/mock-folder-archive", "mock-user-bob");
+    expect(await screen.findByText("No secrets here yet")).toBeInTheDocument();
+    await user.click(screen.getByRole("switch", { name: "Show retired" }));
+    const row = await screen.findByRole("row", { name: /Legacy portal/ });
+    expect(within(row).getByText("Retired")).toBeInTheDocument();
+    await user.click(within(row).getByRole("button", { name: "Restore" }));
+    await waitFor(() =>
+      expect(
+        mockState.world.secrets.find((s) => s.id === "mock-secret-legacy-portal")?.retired,
+      ).toBe(false),
+    );
+  });
+
+  it("filters the list by name", async () => {
+    const user = userEvent.setup();
+    open("/browse/mock-folder-databases");
+    await screen.findByRole("heading", { name: "Databases" });
+    await user.type(screen.getByRole("searchbox", { name: "Filter secrets" }), "report");
+    expect(screen.queryByRole("link", { name: "DB admin" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Reporting reader" })).toBeInTheDocument();
+  });
+});
+
+describe("folder operations", () => {
+  it("creates a folder inside the open one", async () => {
+    open("/browse/mock-folder-platform");
+    const user = await folderMenu("New folder…");
+    const dialog = await screen.findByRole("dialog", { name: "New folder" });
+    expect(within(dialog).getByText("Platform")).toBeInTheDocument();
+    await user.type(within(dialog).getByLabelText("Name"), "Staging");
+    await user.click(within(dialog).getByRole("button", { name: "Create" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(mockState.world.folders.find((f) => f.name === "Staging")?.parentId).toBe(
+      "mock-folder-platform",
+    );
+    expect(await within(nav()).findByRole("link", { name: /Staging/ })).toBeInTheDocument();
+  });
+
+  it("shows the gateway's refusal in the dialog", async () => {
+    open("/browse/mock-folder-databases");
+    const user = await folderMenu("Rename…");
+    const dialog = await screen.findByRole("dialog", { name: "Rename folder" });
+    const name = within(dialog).getByLabelText("Name");
+    await user.clear(name);
+    await user.type(name, "Network");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(await within(dialog).findByText(/already exists/)).toBeInTheDocument();
+    expect(folder("mock-folder-databases")?.name).toBe("Databases");
+  });
+
+  it("hides folder changes from people who don't own the folder", async () => {
+    open("/browse/mock-folder-databases", "mock-user-bob");
+    expect(await screen.findByText("You can't open this folder")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Folder actions" })).not.toBeInTheDocument();
+  });
+
+  it("moves a folder to another one the user manages", async () => {
+    open("/browse/mock-folder-databases");
+    const user = await folderMenu("Move…");
+    const dialog = await screen.findByRole("dialog", { name: "Move Databases" });
+    expect(
+      within(dialog).getByRole("radio", { name: /Platform \/ Databases \(this folder\)/ }),
+    ).toBeDisabled();
+    expect(within(dialog).queryByRole("radio", { name: /Finance/ })).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("radio", { name: "Platform / Network" }));
+    await user.click(within(dialog).getByRole("button", { name: "Move here" }));
+    await waitFor(() =>
+      expect(folder("mock-folder-databases")?.parentId).toBe("mock-folder-network"),
+    );
+  });
+
+  it("confirms before a personal folder moves into a shared one", async () => {
+    open("/browse/mock-folder-alice-lab");
+    const user = await folderMenu("Move…");
+    await user.click(await screen.findByRole("radio", { name: "Platform / Network" }));
+    await user.click(screen.getByRole("button", { name: "Move here" }));
+    const confirm = await screen.findByRole("dialog", { name: "Share this folder?" });
+    expect(
+      within(confirm).getByText(/Once shared, the owner rules of Platform \/ Network apply/),
+    ).toBeInTheDocument();
+    await user.click(within(confirm).getByRole("button", { name: "Share & move" }));
+    await waitFor(() =>
+      expect(folder("mock-folder-alice-lab")).toMatchObject({
+        parentId: "mock-folder-network",
+        scope: "group",
+      }),
+    );
+  });
+
+  it("files a request when a shared folder moves into a personal one", async () => {
+    open("/browse/mock-folder-archive", "mock-user-bob");
+    const user = await folderMenu("Move…");
+    await user.click(await screen.findByRole("radio", { name: "Personal · My secrets" }));
+    await user.click(screen.getByRole("button", { name: "Move here" }));
+    const ask = await screen.findByRole("dialog", {
+      name: "Ask to move this to your personal folder",
+    });
+    const submit = within(ask).getByRole("button", { name: "Submit request" });
+    expect(submit).toBeDisabled();
+    await user.type(within(ask).getByLabelText(/Reason/), "Only my old logins.");
+    await user.click(submit);
+    await waitFor(() =>
+      expect(mockState.world.requests.at(-1)).toMatchObject({
+        folderId: "mock-folder-archive",
+        kind: "folder_move",
+        status: "pending",
+      }),
+    );
+    expect(folder("mock-folder-archive")?.parentId).toBe("mock-folder-finance");
+  });
+
+  it("deletes a folder that holds secrets by moving them first", async () => {
+    open("/browse/mock-folder-databases");
+    const user = await folderMenu("Delete…");
+    const dialog = await screen.findByRole("dialog", { name: "Delete Platform / Databases?" });
+    expect(within(dialog).getByText(/It still holds 2 secrets/)).toBeInTheDocument();
+    const go = within(dialog).getByRole("button", { name: "Move 2 & delete folder" });
+    expect(go).toBeDisabled();
+    await user.click(within(dialog).getByRole("combobox", { name: /Move contents to/ }));
+    await user.click(await screen.findByRole("option", { name: "Platform" }));
+    expect(within(dialog).getByText("Sharing changes for the moved secrets")).toBeInTheDocument();
+    await user.click(go);
+    expect(await screen.findByRole("heading", { name: "Platform" })).toBeInTheDocument();
+    expect(folder("mock-folder-databases")).toBeUndefined();
+    expect(screen.getByRole("link", { name: "DB admin" })).toBeInTheDocument();
+  });
+
+  it("reorders a folder among its siblings", async () => {
+    open("/browse/mock-folder-databases");
+    await folderMenu("Move down");
+    await waitFor(() => expect(folder("mock-folder-network")?.order).toBe(0));
+    expect(folder("mock-folder-databases")?.order).toBe(1);
+  });
+});
+
+describe("secret moves", () => {
+  it("moves selected secrets from the bulk bar", async () => {
+    const user = userEvent.setup();
+    open("/browse/mock-folder-databases");
+    await user.click(await screen.findByRole("checkbox", { name: "Select DB admin" }));
+    expect(screen.getByText("1 secret selected")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Move…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Move 1 secret" });
+    await user.click(within(dialog).getByRole("radio", { name: "Platform / Network" }));
+    await user.click(within(dialog).getByRole("button", { name: "Move here" }));
+    await waitFor(() =>
+      expect(mockState.world.secrets.find((s) => s.id === "mock-secret-db-admin")?.folderId).toBe(
+        "mock-folder-network",
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("link", { name: "DB admin" })).not.toBeInTheDocument(),
+    );
+  });
+
+  it("asks a site admin before a shared secret moves into a personal folder", async () => {
+    const user = userEvent.setup();
+    open("/browse/mock-folder-finance", "mock-user-bob");
+    await user.click(await screen.findByRole("checkbox", { name: "Select Payroll portal" }));
+    await user.click(screen.getByRole("button", { name: "Move…" }));
+    await user.click(await screen.findByRole("radio", { name: "Personal · My secrets" }));
+    await user.click(screen.getByRole("button", { name: "Move here" }));
+    const ask = await screen.findByRole("dialog", {
+      name: "Ask to move this to your personal folder",
+    });
+    await user.type(within(ask).getByLabelText(/Reason/), "Saved here by mistake.");
+    await user.click(within(ask).getByRole("button", { name: "Submit request" }));
+    await waitFor(() =>
+      expect(mockState.world.requests.at(-1)).toMatchObject({
+        kind: "secret_move",
+        secretId: "mock-secret-payroll",
+      }),
+    );
+  });
+});

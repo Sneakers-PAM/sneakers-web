@@ -67,6 +67,12 @@ a fixture user and puts the pages under the real frame loader. The staff app's t
 against the mock gateway through `apps/staff/vitest.config.ts`, so the build config has no test
 switch.
 
+Browse (U-03): the folder tree lives in the page (`features/browse/FolderNav`), not the frame
+sidebar. Moves follow the vault's gate (`moveKind` in `features/browse/tree.ts`): a personal folder
+going shared is confirmed first, and shared into someone's personal folder is a folder_move or
+secret_move request unless the user is a site admin. The mock's canManage comes from the owners of
+the folder or any folder above it, and read access from ownership, the folder's group or its role.
+
 Paths inside an app are base-free (`appPath("sign-in")` is `/sign-in` in both apps). React
 Router adds the `/admin/` basename to links and redirects; a redirect that leaves the app (single
 sign-on) uses an absolute URL.
