@@ -14,11 +14,19 @@ import {
 } from "@sneakers-web/api-client";
 import { HttpResponse } from "msw";
 
-import type { MockFolder, MockLease, MockRequest, MockSecret } from "#mock/fixtures/world";
+import type { MockLease, MockRequest } from "#mock/fixtures/world";
 
 import { isSiteAdmin, refusal } from "#mock/admin/refuse";
 import { userById, USERS } from "#mock/fixtures/users";
 import { api, asUser } from "#mock/handlers/graphql";
+import {
+  activeLease,
+  canApprove,
+  canRead,
+  canSee,
+  chain,
+  secretById,
+} from "#mock/handlers/staff/access";
 import { mockState, newToken } from "#mock/state";
 
 const HOUR = 3_600_000;
@@ -32,39 +40,11 @@ const ok = (data: unknown): never => HttpResponse.json({ data } as never) as nev
 const world = () => mockState.world;
 const nameOf = (userId: string) => userById(userId)?.name ?? userId;
 
-const chain = (folderId: string): MockFolder[] => {
-  const out: MockFolder[] = [];
-  let f = world().folders.find((x) => x.id === folderId);
-  while (f && !out.includes(f)) {
-    out.push(f);
-    f = f.parentId ? world().folders.find((x) => x.id === f?.parentId) : undefined;
-  }
-  return out;
-};
-
 const folderPath = (folderId: string) =>
   chain(folderId)
     .toReversed()
     .map((f) => f.name)
     .join(" / ");
-
-const activeLease = (secretId: string): MockLease | undefined =>
-  world().leases.find((l) => l.secretId === secretId && !l.returned);
-
-/** Someone else's personal folder hides a secret entirely: `secret` answers null for it. */
-const canSee = (userId: string, s: MockSecret) =>
-  !chain(s.folderId).some((f) => f.scope === "personal" && f.ownerUserId !== userId);
-
-/** RACI A: owners of the folder chain (and root). Being a site admin alone isn't enough. */
-const canApprove = (userId: string, s: MockSecret) =>
-  canSee(userId, s) &&
-  (!!userById(userId)?.isRoot || chain(s.folderId).some((f) => f.owners.includes(userId)));
-
-/** The world's one answer for everyone, plus the read an approved request's lease grants. */
-const canRead = (userId: string, s: MockSecret) =>
-  canSee(userId, s) && (s.canRead || activeLease(s.id)?.userId === userId);
-
-const secretById = (id: string) => world().secrets.find((s) => s.id === id);
 
 const isMove = (r: MockRequest) => r.kind !== "secret_access";
 
