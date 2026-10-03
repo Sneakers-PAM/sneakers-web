@@ -10,6 +10,8 @@ export type ApprovalStatus = "approved" | "denied" | "pending";
 export type FieldKind =
   "boolean" | "file" | "multiline" | "password" | "select" | "sensitive" | "text";
 
+export type FolderScope = "group" | "personal" | "role";
+
 export type HeartbeatResult =
   "failed" | "hostKeyMismatch" | "hostKeyNotPinned" | "ok" | "unknown" | "unreachable";
 
@@ -599,6 +601,166 @@ export type MarkAllNotificationsReadMutationVariables = Exact<{ [key: string]: n
 
 export type MarkAllNotificationsReadMutation = { markAllNotificationsRead: boolean };
 
+export type BrowseFolderFieldsFragment = {
+  id: string;
+  name: string;
+  parentId: string | null;
+  scope: FolderScope;
+  ownerUserId: string | null;
+  groupId: string | null;
+  role: string | null;
+  isMasterPersonal: boolean | null;
+  order: number | null;
+  subtreeSecretCount: number | null;
+  owners: Array<string> | null;
+  canManage: boolean;
+};
+
+export type BrowseFoldersQueryVariables = Exact<{ [key: string]: never }>;
+
+export type BrowseFoldersQuery = {
+  folders: Array<{
+    id: string;
+    name: string;
+    parentId: string | null;
+    scope: FolderScope;
+    ownerUserId: string | null;
+    groupId: string | null;
+    role: string | null;
+    isMasterPersonal: boolean | null;
+    order: number | null;
+    subtreeSecretCount: number | null;
+    owners: Array<string> | null;
+    canManage: boolean;
+  }>;
+};
+
+export type BrowseFolderAccessQueryVariables = Exact<{
+  folderId: string;
+  ownerIds: Array<string> | string;
+}>;
+
+export type BrowseFolderAccessQuery = {
+  myFolderAccess: {
+    read: boolean;
+    reveal: boolean;
+    manage: boolean;
+    approve: boolean;
+    informed: boolean;
+    manageRuleset: boolean;
+  };
+  resolveUserLabels: Array<{ id: string; name: string }>;
+};
+
+export type BrowseSecretsQueryVariables = Exact<{
+  folderId: string;
+  includeRetired?: boolean | null | undefined;
+}>;
+
+export type BrowseSecretsQuery = {
+  secretsInFolder: Array<{
+    id: string;
+    name: string;
+    folderId: string;
+    typeId: string;
+    targetId: string | null;
+    lastHeartbeatResult: HeartbeatResult | null;
+    retired: boolean;
+    retiredAt: string;
+    canRead: boolean | null;
+  }>;
+  secretTypes: Array<{ id: string; name: string }>;
+};
+
+export type BrowseCreateFolderMutationVariables = Exact<{
+  parentId?: string | null | undefined;
+  name: string;
+}>;
+
+export type BrowseCreateFolderMutation = {
+  createFolder: {
+    id: string;
+    name: string;
+    parentId: string | null;
+    scope: FolderScope;
+    ownerUserId: string | null;
+    groupId: string | null;
+    role: string | null;
+    isMasterPersonal: boolean | null;
+    order: number | null;
+    subtreeSecretCount: number | null;
+    owners: Array<string> | null;
+    canManage: boolean;
+  };
+};
+
+export type BrowseRenameFolderMutationVariables = Exact<{
+  id: string;
+  name: string;
+}>;
+
+export type BrowseRenameFolderMutation = { renameFolder: { id: string; name: string } };
+
+export type BrowseMoveFolderMutationVariables = Exact<{
+  id: string;
+  newParentId?: string | null | undefined;
+}>;
+
+export type BrowseMoveFolderMutation = {
+  moveFolder: { id: string; parentId: string | null; scope: FolderScope };
+};
+
+export type BrowseDeleteFolderMutationVariables = Exact<{
+  id: string;
+  reassignToId?: string | null | undefined;
+}>;
+
+export type BrowseDeleteFolderMutation = { deleteFolder: boolean };
+
+export type BrowseReorderFoldersMutationVariables = Exact<{
+  parentId?: string | null | undefined;
+  orderedIds: Array<string> | string;
+}>;
+
+export type BrowseReorderFoldersMutation = { reorderFolders: boolean };
+
+export type BrowseCreateFolderMoveRequestMutationVariables = Exact<{
+  folderId: string;
+  destParentId: string;
+  reason?: string | null | undefined;
+  folderName?: string | null | undefined;
+  destParentName?: string | null | undefined;
+}>;
+
+export type BrowseCreateFolderMoveRequestMutation = {
+  createFolderMoveRequest: { id: string; kind: RequestKind; status: ApprovalStatus };
+};
+
+export type BrowseCreateSecretMoveRequestMutationVariables = Exact<{
+  secretId: string;
+  destFolderId: string;
+  reason?: string | null | undefined;
+  secretName?: string | null | undefined;
+  destFolderName?: string | null | undefined;
+}>;
+
+export type BrowseCreateSecretMoveRequestMutation = {
+  createSecretMoveRequest: { id: string; kind: RequestKind; status: ApprovalStatus };
+};
+
+export type BrowseMoveSecretMutationVariables = Exact<{
+  id: string;
+  folderId: string;
+}>;
+
+export type BrowseMoveSecretMutation = { updateSecret: { id: string; folderId: string } };
+
+export type BrowseRestoreSecretMutationVariables = Exact<{
+  id: string;
+}>;
+
+export type BrowseRestoreSecretMutation = { restoreSecret: { id: string; retired: boolean } };
+
 export type DashboardHomeQueryVariables = Exact<{
   userId: string;
   limit?: number | null | undefined;
@@ -958,6 +1120,25 @@ export const UserFieldsFragmentDoc = new TypedDocumentString(
     `,
   { fragmentName: "UserFields" },
 ) as unknown as TypedDocumentString<UserFieldsFragment, unknown>;
+export const BrowseFolderFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment BrowseFolderFields on Folder {
+  id
+  name
+  parentId
+  scope
+  ownerUserId
+  groupId
+  role
+  isMasterPersonal
+  order
+  subtreeSecretCount
+  owners
+  canManage
+}
+    `,
+  { fragmentName: "BrowseFolderFields" },
+) as unknown as TypedDocumentString<BrowseFolderFieldsFragment, unknown>;
 export const RequestsRequestFieldsFragmentDoc = new TypedDocumentString(
   `
     fragment RequestsRequestFields on ApprovalRequest {
@@ -1539,6 +1720,181 @@ export const MarkAllNotificationsReadDocument = new TypedDocumentString(`
     `) as unknown as TypedDocumentString<
   MarkAllNotificationsReadMutation,
   MarkAllNotificationsReadMutationVariables
+>;
+export const BrowseFoldersDocument = new TypedDocumentString(`
+    query BrowseFolders {
+  folders {
+    ...BrowseFolderFields
+  }
+}
+    fragment BrowseFolderFields on Folder {
+  id
+  name
+  parentId
+  scope
+  ownerUserId
+  groupId
+  role
+  isMasterPersonal
+  order
+  subtreeSecretCount
+  owners
+  canManage
+}`) as unknown as TypedDocumentString<BrowseFoldersQuery, BrowseFoldersQueryVariables>;
+export const BrowseFolderAccessDocument = new TypedDocumentString(`
+    query BrowseFolderAccess($folderId: String!, $ownerIds: [String!]!) {
+  myFolderAccess(folderId: $folderId) {
+    read
+    reveal
+    manage
+    approve
+    informed
+    manageRuleset
+  }
+  resolveUserLabels(ids: $ownerIds) {
+    id
+    name
+  }
+}
+    `) as unknown as TypedDocumentString<BrowseFolderAccessQuery, BrowseFolderAccessQueryVariables>;
+export const BrowseSecretsDocument = new TypedDocumentString(`
+    query BrowseSecrets($folderId: String!, $includeRetired: Boolean) {
+  secretsInFolder(folderId: $folderId, includeRetired: $includeRetired) {
+    id
+    name
+    folderId
+    typeId
+    targetId
+    lastHeartbeatResult
+    retired
+    retiredAt
+    canRead
+  }
+  secretTypes {
+    id
+    name
+  }
+}
+    `) as unknown as TypedDocumentString<BrowseSecretsQuery, BrowseSecretsQueryVariables>;
+export const BrowseCreateFolderDocument = new TypedDocumentString(`
+    mutation BrowseCreateFolder($parentId: String, $name: String!) {
+  createFolder(parentId: $parentId, name: $name) {
+    ...BrowseFolderFields
+  }
+}
+    fragment BrowseFolderFields on Folder {
+  id
+  name
+  parentId
+  scope
+  ownerUserId
+  groupId
+  role
+  isMasterPersonal
+  order
+  subtreeSecretCount
+  owners
+  canManage
+}`) as unknown as TypedDocumentString<
+  BrowseCreateFolderMutation,
+  BrowseCreateFolderMutationVariables
+>;
+export const BrowseRenameFolderDocument = new TypedDocumentString(`
+    mutation BrowseRenameFolder($id: ID!, $name: String!) {
+  renameFolder(id: $id, name: $name) {
+    id
+    name
+  }
+}
+    `) as unknown as TypedDocumentString<
+  BrowseRenameFolderMutation,
+  BrowseRenameFolderMutationVariables
+>;
+export const BrowseMoveFolderDocument = new TypedDocumentString(`
+    mutation BrowseMoveFolder($id: ID!, $newParentId: String) {
+  moveFolder(id: $id, newParentId: $newParentId) {
+    id
+    parentId
+    scope
+  }
+}
+    `) as unknown as TypedDocumentString<
+  BrowseMoveFolderMutation,
+  BrowseMoveFolderMutationVariables
+>;
+export const BrowseDeleteFolderDocument = new TypedDocumentString(`
+    mutation BrowseDeleteFolder($id: ID!, $reassignToId: String) {
+  deleteFolder(id: $id, reassignToId: $reassignToId)
+}
+    `) as unknown as TypedDocumentString<
+  BrowseDeleteFolderMutation,
+  BrowseDeleteFolderMutationVariables
+>;
+export const BrowseReorderFoldersDocument = new TypedDocumentString(`
+    mutation BrowseReorderFolders($parentId: String, $orderedIds: [String!]!) {
+  reorderFolders(parentId: $parentId, orderedIds: $orderedIds)
+}
+    `) as unknown as TypedDocumentString<
+  BrowseReorderFoldersMutation,
+  BrowseReorderFoldersMutationVariables
+>;
+export const BrowseCreateFolderMoveRequestDocument = new TypedDocumentString(`
+    mutation BrowseCreateFolderMoveRequest($folderId: String!, $destParentId: String!, $reason: String, $folderName: String, $destParentName: String) {
+  createFolderMoveRequest(
+    folderId: $folderId
+    destParentId: $destParentId
+    reason: $reason
+    folderName: $folderName
+    destParentName: $destParentName
+  ) {
+    id
+    kind
+    status
+  }
+}
+    `) as unknown as TypedDocumentString<
+  BrowseCreateFolderMoveRequestMutation,
+  BrowseCreateFolderMoveRequestMutationVariables
+>;
+export const BrowseCreateSecretMoveRequestDocument = new TypedDocumentString(`
+    mutation BrowseCreateSecretMoveRequest($secretId: String!, $destFolderId: String!, $reason: String, $secretName: String, $destFolderName: String) {
+  createSecretMoveRequest(
+    secretId: $secretId
+    destFolderId: $destFolderId
+    reason: $reason
+    secretName: $secretName
+    destFolderName: $destFolderName
+  ) {
+    id
+    kind
+    status
+  }
+}
+    `) as unknown as TypedDocumentString<
+  BrowseCreateSecretMoveRequestMutation,
+  BrowseCreateSecretMoveRequestMutationVariables
+>;
+export const BrowseMoveSecretDocument = new TypedDocumentString(`
+    mutation BrowseMoveSecret($id: ID!, $folderId: String!) {
+  updateSecret(id: $id, input: { folderId: $folderId }) {
+    id
+    folderId
+  }
+}
+    `) as unknown as TypedDocumentString<
+  BrowseMoveSecretMutation,
+  BrowseMoveSecretMutationVariables
+>;
+export const BrowseRestoreSecretDocument = new TypedDocumentString(`
+    mutation BrowseRestoreSecret($id: String!) {
+  restoreSecret(id: $id) {
+    id
+    retired
+  }
+}
+    `) as unknown as TypedDocumentString<
+  BrowseRestoreSecretMutation,
+  BrowseRestoreSecretMutationVariables
 >;
 export const DashboardHomeDocument = new TypedDocumentString(`
     query DashboardHome($userId: String!, $limit: Int) {
