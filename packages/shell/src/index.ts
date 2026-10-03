@@ -36,3 +36,18 @@ export { useQuietRefresh } from "#shell/root/useQuietRefresh";
 export { useRootData } from "#shell/root/useRootData";
 export type { FrameData } from "#shell/server/frame.server";
 export type { RootData } from "#shell/server/root.server";
+export { fromRaciRule, toRaciRuleInput } from "#shell/sharing/mapping";
+export { RulesetEditor } from "#shell/sharing/RulesetEditor";
+export { RulesetSimulator } from "#shell/sharing/RulesetSimulator";
+export type {
+  InheritedOwner,
+  InheritedRule,
+  RaciActionKey,
+  RaciDecisionView,
+  RaciGrantValue,
+  RulesetDraft,
+  RulesetEditorProps,
+  RulesetRule,
+  RulesetSimulatorProps,
+  RulesetSubject,
+} from "#shell/sharing/types";
