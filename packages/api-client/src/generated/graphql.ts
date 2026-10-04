@@ -117,6 +117,8 @@ export type SecuritySettingsInput = {
   sessionTtlSeconds?: number | null | undefined;
 };
 
+export type StepUpMode = "inherit" | "off" | "require";
+
 export type SubjectKind = "everyone" | "group" | "user";
 
 export type TargetInput = {
@@ -198,6 +200,23 @@ export type AdminAuditQuery = {
   auditChain: { valid: boolean; brokenAtSeq: number; length: number };
   users: Array<{ id: string; name: string; username: string }>;
   groups: Array<{ id: string; name: string }>;
+};
+
+export type AdminFolderSettingsQueryVariables = Exact<{ [key: string]: never }>;
+
+export type AdminFolderSettingsQuery = {
+  folders: Array<{ id: string; revealStepUp: StepUpMode }>;
+  securitySettings: { requireMfaForReveal: boolean };
+  users: Array<{ id: string; name: string }>;
+};
+
+export type AdminSetFolderRevealStepUpMutationVariables = Exact<{
+  folderId: string;
+  mode: StepUpMode;
+}>;
+
+export type AdminSetFolderRevealStepUpMutation = {
+  setFolderRevealStepUp: { id: string; revealStepUp: StepUpMode };
 };
 
 export type ServiceAccountFieldsFragment = {
@@ -634,6 +653,54 @@ export type AdminUpdateSecuritySettingsMutation = {
     requireMfaForReveal: boolean;
   };
 };
+
+export type AdminRaciRuleFieldsFragment = {
+  id: string;
+  subjectKind: SubjectKind;
+  subjectName: string;
+  subjectId: string | null;
+  grants: Array<{ action: RaciAction; value: RaciGrant }>;
+};
+
+export type AdminFolderRulesetQueryVariables = Exact<{
+  folderId: string;
+}>;
+
+export type AdminFolderRulesetQuery = {
+  folderRuleset: {
+    folderId: string;
+    owners: Array<string>;
+    rules: Array<{
+      id: string;
+      subjectKind: SubjectKind;
+      subjectName: string;
+      subjectId: string | null;
+      grants: Array<{ action: RaciAction; value: RaciGrant }>;
+    }>;
+    inherited: Array<{
+      fromFolderId: string;
+      fromFolderName: string;
+      rule: {
+        id: string;
+        subjectKind: SubjectKind;
+        subjectName: string;
+        subjectId: string | null;
+        grants: Array<{ action: RaciAction; value: RaciGrant }>;
+      };
+    }>;
+    inheritedOwners: Array<{ userId: string; fromFolderId: string; fromFolderName: string }>;
+  };
+  groups: Array<{ id: string; name: string }>;
+  users: Array<{ id: string; name: string }>;
+};
+
+export type AdminSetFolderRulesetMutationVariables = Exact<{
+  folderId: string;
+  owners: Array<string> | string;
+  rules: Array<RaciRuleInput> | RaciRuleInput;
+}>;
+
+export type AdminSetFolderRulesetMutation = { setFolderRuleset: { folderId: string } };
 
 export type ConnectionFieldsFragment = {
   id: string;
@@ -2556,6 +2623,21 @@ export const SecuritySettingsFieldsFragmentDoc = new TypedDocumentString(
     `,
   { fragmentName: "SecuritySettingsFields" },
 ) as unknown as TypedDocumentString<SecuritySettingsFieldsFragment, unknown>;
+export const AdminRaciRuleFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment AdminRaciRuleFields on RaciRule {
+  id
+  subjectKind
+  subjectName
+  subjectId
+  grants {
+    action
+    value
+  }
+}
+    `,
+  { fragmentName: "AdminRaciRuleFields" },
+) as unknown as TypedDocumentString<AdminRaciRuleFieldsFragment, unknown>;
 export const ConnectionFieldsFragmentDoc = new TypedDocumentString(
   `
     fragment ConnectionFields on Connection {
@@ -2958,6 +3040,35 @@ export const AdminAuditDocument = new TypedDocumentString(`
   prevHash
   hash
 }`) as unknown as TypedDocumentString<AdminAuditQuery, AdminAuditQueryVariables>;
+export const AdminFolderSettingsDocument = new TypedDocumentString(`
+    query AdminFolderSettings {
+  folders {
+    id
+    revealStepUp
+  }
+  securitySettings {
+    requireMfaForReveal
+  }
+  users {
+    id
+    name
+  }
+}
+    `) as unknown as TypedDocumentString<
+  AdminFolderSettingsQuery,
+  AdminFolderSettingsQueryVariables
+>;
+export const AdminSetFolderRevealStepUpDocument = new TypedDocumentString(`
+    mutation AdminSetFolderRevealStepUp($folderId: String!, $mode: StepUpMode!) {
+  setFolderRevealStepUp(folderId: $folderId, mode: $mode) {
+    id
+    revealStepUp
+  }
+}
+    `) as unknown as TypedDocumentString<
+  AdminSetFolderRevealStepUpMutation,
+  AdminSetFolderRevealStepUpMutationVariables
+>;
 export const AdminServiceAccountsDocument = new TypedDocumentString(`
     query AdminServiceAccounts {
   serviceAccounts {
@@ -3386,6 +3497,56 @@ export const AdminUpdateSecuritySettingsDocument = new TypedDocumentString(`
 }`) as unknown as TypedDocumentString<
   AdminUpdateSecuritySettingsMutation,
   AdminUpdateSecuritySettingsMutationVariables
+>;
+export const AdminFolderRulesetDocument = new TypedDocumentString(`
+    query AdminFolderRuleset($folderId: String!) {
+  folderRuleset(folderId: $folderId) {
+    folderId
+    owners
+    rules {
+      ...AdminRaciRuleFields
+    }
+    inherited {
+      fromFolderId
+      fromFolderName
+      rule {
+        ...AdminRaciRuleFields
+      }
+    }
+    inheritedOwners {
+      userId
+      fromFolderId
+      fromFolderName
+    }
+  }
+  groups {
+    id
+    name
+  }
+  users {
+    id
+    name
+  }
+}
+    fragment AdminRaciRuleFields on RaciRule {
+  id
+  subjectKind
+  subjectName
+  subjectId
+  grants {
+    action
+    value
+  }
+}`) as unknown as TypedDocumentString<AdminFolderRulesetQuery, AdminFolderRulesetQueryVariables>;
+export const AdminSetFolderRulesetDocument = new TypedDocumentString(`
+    mutation AdminSetFolderRuleset($folderId: String!, $owners: [String!]!, $rules: [RaciRuleInput!]!) {
+  setFolderRuleset(folderId: $folderId, owners: $owners, rules: $rules) {
+    folderId
+  }
+}
+    `) as unknown as TypedDocumentString<
+  AdminSetFolderRulesetMutation,
+  AdminSetFolderRulesetMutationVariables
 >;
 export const AdminConnectionsDocument = new TypedDocumentString(`
     query AdminConnections {

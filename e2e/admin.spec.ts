@@ -114,3 +114,17 @@ test("a site admin filters the audit trail, opens a record and exports it", asyn
   const download = await downloading;
   expect(download.suggestedFilename()).toMatch(/^sneakers-audit-.*\.csv$/);
 });
+
+test("a site admin makes a shared folder and requires MFA before a reveal in it", async ({
+  page,
+}) => {
+  await signInAsAlice(page, "/admin/folders");
+  await page.getByRole("button", { name: "New shared folder" }).click();
+  await page.getByLabel(/Name/).fill("Security");
+  await page.getByRole("button", { name: "Create folder" }).click();
+  await expect(page.getByRole("heading", { name: "Security" })).toBeVisible();
+  await page.getByRole("radio", { name: "Require" }).click();
+  await expect(page.getByText(/A fresh second factor is required/)).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("radio", { name: "Require" })).toHaveAttribute("data-state", "on");
+});

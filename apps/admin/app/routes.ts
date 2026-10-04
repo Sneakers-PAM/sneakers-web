@@ -1,12 +1,11 @@
 import { index, layout, route, type RouteConfig } from "@react-router/dev/routes";
 
-const PAGES = ["folders"];
-
 export default [
   route("sign-in", "routes/sign-in.tsx"),
   route("sign-in/reset", "routes/sign-in.reset.tsx"),
   route("enroll", "routes/enroll.tsx"),
   route("sign-out", "routes/sign-out.tsx"),
+  route("setup", "routes/setup.tsx"),
   route("resources/display", "routes/resources.display.tsx"),
   route("resources/notifications", "routes/resources.notifications.tsx"),
   route("resources/step-up", "routes/resources.step-up.tsx"),
@@ -35,7 +34,8 @@ export default [
     route("service-accounts/:id", "routes/service-accounts.$id.tsx"),
     route("audit", "routes/audit.tsx"),
     route("audit/export", "routes/audit.export.tsx"),
-    ...PAGES.map((p) => route(p, "routes/coming-soon.tsx", { id: p })),
+    route("folders", "routes/folders.tsx"),
+    route("folders/:id", "routes/folders.tsx", { id: "routes/folders.$id" }),
   ]),
   route("*", "routes/not-found.tsx"),
 ] satisfies RouteConfig;

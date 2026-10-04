@@ -55,6 +55,8 @@ export interface MockFolder {
   owners: string[];
   ownerUserId?: string;
   parentId?: string;
+  /** Step-up MFA before a reveal here and below. Unset inherits from the folder above. */
+  revealStepUp?: "inherit" | "off" | "require";
   role?: string;
   scope: "group" | "personal" | "role";
 }
