@@ -70,7 +70,12 @@ export const shellHandlers = [
             status,
           })),
           pendingSecretUses: secretUses
-            .filter((u) => u.ownerUserId === userId && u.state === "pending")
+            .filter(
+              (u) =>
+                u.ownerUserId === userId &&
+                u.state === "pending" &&
+                u.expiresAtUnix > Math.floor(Date.now() / 1000),
+            )
             .map(({ id }) => ({ id })),
         },
       });

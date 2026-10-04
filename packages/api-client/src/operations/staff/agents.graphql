@@ -1,0 +1,115 @@
+fragment AgentsTokenFields on UserToken {
+  id
+  label
+  clientName
+  createdAtUnix
+  lastUsedAtUnix
+  expiresAtUnix
+  revokedAtUnix
+}
+
+fragment AgentsUseFields on SecretUse {
+  id
+  secretName
+  fieldKey
+  argv
+  clientLabel
+  state
+  expiresAtUnix
+  reveal
+}
+
+fragment AgentsGrantFields on UseGrant {
+  id
+  tokenId
+  secretIds
+  folderId
+  fieldKeys
+  programs {
+    program
+    argPattern
+  }
+  expiresAtUnix
+  maxUses
+  uses
+  revokedAtUnix
+  allowReveal
+}
+
+query AgentsTokens {
+  myTokens {
+    ...AgentsTokenFields
+  }
+}
+
+mutation AgentsRevokeToken($id: ID!) {
+  revokeMyToken(id: $id) {
+    ...AgentsTokenFields
+  }
+}
+
+query AgentsPendingUses {
+  pendingSecretUses {
+    ...AgentsUseFields
+  }
+}
+
+# Approving needs the factor; denying doesn't.
+mutation AgentsDecideUse($id: ID!, $approve: Boolean!, $factor: FactorInput) {
+  decideSecretUse(id: $id, approve: $approve, factor: $factor) {
+    ...AgentsUseFields
+  }
+}
+
+# The grants page: the grants, the tokens they can name, and what the form can pick from.
+query AgentsGrants {
+  useGrants {
+    ...AgentsGrantFields
+  }
+  myTokens {
+    ...AgentsTokenFields
+  }
+  folders {
+    id
+    name
+    parentId
+  }
+  secretsByStatus(status: "all") {
+    id
+    name
+    folderId
+    typeId
+  }
+  secretTypes {
+    id
+    fields {
+      key
+      label
+      sensitive
+    }
+  }
+}
+
+mutation AgentsCreateGrant($input: UseGrantInput!, $factor: FactorInput!) {
+  createUseGrant(input: $input, factor: $factor) {
+    ...AgentsGrantFields
+  }
+}
+
+mutation AgentsRevokeGrant($id: ID!) {
+  revokeUseGrant(id: $id) {
+    ...AgentsGrantFields
+  }
+}
+
+# Email a code for the factor an approval or a new grant carries.
+mutation AgentsSendFactorEmail {
+  sendMfaEmailCode
+}
+
+mutation AgentsBeginFactorPasskey {
+  beginMfaPasskey {
+    options
+    webauthnSessionId
+  }
+}
