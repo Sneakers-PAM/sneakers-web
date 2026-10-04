@@ -27,6 +27,7 @@ import {
   chain,
   secretById,
 } from "#mock/handlers/staff/access";
+import { recordMove } from "#mock/handlers/staff/moves";
 import { mockState, newToken } from "#mock/state";
 
 const HOUR = 3_600_000;
@@ -134,7 +135,8 @@ export const requestsHandlers: RequestHandler[] = [
         const f = world().folders.find((x) => x.id === r.folderId);
         if (f) f.parentId = r.destParentId;
       } else if (variables.approve && r.kind === "secret_move") {
-        if (s) s.folderId = r.destParentId;
+        if (s && r.destParentId && r.destParentId !== s.folderId)
+          recordMove(s, userId, r.destParentId);
       } else if (variables.approve && !held) {
         const asked = variables.grantHours ?? 0;
         const hours = Math.min(asked > 0 ? asked : GRANT_DEFAULT_HOURS, GRANT_MAX_HOURS);

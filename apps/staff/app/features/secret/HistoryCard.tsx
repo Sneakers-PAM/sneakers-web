@@ -1,8 +1,8 @@
 import { Pill, timeAgo } from "@sneakers-web/ui";
-import { Check, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
 
-import type { SecretType, SecretVersion } from "@/features/secret/secret.server";
+import type { SecretMove, SecretType, SecretVersion } from "@/features/secret/secret.server";
 
 import { isSecretField } from "@/features/secret/FieldsCard";
 import { Panel } from "@/features/secret/Panel";
@@ -107,18 +107,64 @@ const Version = ({
   );
 };
 
+const folderLabel = (names: Record<string, string>, id: string) =>
+  names[id] ?? "a folder you can't see";
+
+/** A folder move. It changes no value, so it never adds a version. */
+const Move = ({ folderNames, m }: { folderNames: Record<string, string>; m: SecretMove }) => (
+  <li className="relative flex gap-4 pb-4 last:pb-0">
+    <span
+      aria-hidden
+      className="mt-1 size-4 shrink-0 rounded-full border-[3px] border-border bg-surface"
+    />
+    <div className="flex min-w-0 flex-1 flex-col gap-2 border-b border-border pb-4">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <b>Moved</b>
+        <span className="text-small text-muted">
+          by {m.movedByName} · {timeAgo(m.movedAt)}
+        </span>
+      </div>
+      <span className="inline-flex flex-wrap items-center gap-1 text-small text-muted">
+        {m.fromFolderId || m.toFolderId ? (
+          <>
+            From {folderLabel(folderNames, m.fromFolderId)}
+            <ArrowRight aria-label="to" className="size-3.5" />
+            {folderLabel(folderNames, m.toFolderId)}
+          </>
+        ) : (
+          "Moved to another folder"
+        )}
+      </span>
+    </div>
+  </li>
+);
+
+type Entry =
+  { at: string; kind: "move"; m: SecretMove } | { at: string; kind: "version"; v: SecretVersion };
+
+/** Versions and moves on one timeline, newest first. */
+const timeline = (versions: SecretVersion[], moves: SecretMove[]): Entry[] =>
+  [
+    ...versions.map((v): Entry => ({ at: v.createdAt, kind: "version", v })),
+    ...moves.map((m): Entry => ({ at: m.movedAt, kind: "move", m })),
+  ].toSorted((a, b) => Date.parse(b.at) - Date.parse(a.at));
+
 /**
- * Every version, newest first: who changed what and when, for anyone who can read the secret.
+ * Every version and folder move, newest first: who changed what and when, for anyone who can read the secret.
  * Old values stay hidden until an audited reveal, and only the recovery role can restore one.
  */
 export const HistoryCard = ({
+  folderNames = {},
   locked,
+  moves = [],
   recovery,
   type,
   versions,
   viewerId,
 }: {
+  folderNames?: Record<string, string>;
   locked?: string;
+  moves?: SecretMove[];
   type: null | SecretType;
   versions: SecretVersion[];
 } & Viewer) => (
@@ -128,15 +174,23 @@ export const HistoryCard = ({
   >
     <div className="px-6 py-5">
       <ol className="m-0 flex list-none flex-col p-0">
-        {versions.map((v) => (
-          <Version
-            key={v.versionNo}
-            locked={locked}
-            type={type}
-            v={v}
-            viewer={{ recovery, viewerId }}
-          />
-        ))}
+        {timeline(versions, moves).map((entry) =>
+          entry.kind === "move" ? (
+            <Move
+              folderNames={folderNames}
+              key={`move-${entry.at}-${entry.m.toFolderId}`}
+              m={entry.m}
+            />
+          ) : (
+            <Version
+              key={entry.v.versionNo}
+              locked={locked}
+              type={type}
+              v={entry.v}
+              viewer={{ recovery, viewerId }}
+            />
+          ),
+        )}
       </ol>
       {versions.length <= 1 ? (
         <p className="m-0 mt-3 text-small text-muted">No earlier versions yet.</p>

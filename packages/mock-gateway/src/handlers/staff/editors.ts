@@ -20,6 +20,7 @@ import { settings } from "#mock/admin/settings";
 import { userById } from "#mock/fixtures/users";
 import { api, asUser } from "#mock/handlers/graphql";
 import { canApprove, canRead, canSee, chain, secretById } from "#mock/handlers/staff/access";
+import { recordMove } from "#mock/handlers/staff/moves";
 import { mockState, newToken } from "#mock/state";
 
 /*
@@ -180,6 +181,7 @@ const newSecret = (
   const s: MockSecret = {
     heartbeatOptOut: false,
     id: newToken("mock-secret"),
+    moves: [],
     requireTokenApproval: false,
     retired: false,
     retiredAt: "",
@@ -355,7 +357,7 @@ export const editorsHandlers: RequestHandler[] = [
         (k) => s.fields[k] !== merged[k],
       );
       if (input.name?.trim()) s.name = input.name.trim();
-      if (input.folderId) s.folderId = input.folderId;
+      if (input.folderId && input.folderId !== s.folderId) recordMove(s, userId, input.folderId);
       // The vault takes the target and expiry as given, so the editor always sends both.
       s.targetId = input.targetId || undefined;
       s.expiresAt = input.expiresAt || undefined;

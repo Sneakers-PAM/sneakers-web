@@ -13,6 +13,8 @@ import {
   type SecretDetailQuery,
   SecretExportCertificateDocument,
   SecretFieldsDocument,
+  SecretMovesDocument,
+  type SecretMovesQuery,
   SecretReplaceCertificateDocument,
   SecretRestoreDocument,
   SecretRestoreVersionDocument,
@@ -46,16 +48,22 @@ export interface LoadFailure {
 }
 export type SecretAccess = SecretAccessQuery["mySecretAccess"];
 export type SecretLoad = { failure: LoadFailure; ok: false } | SecretPage;
+export type SecretMove = SecretMovesQuery["secretMoves"][number];
+
 export interface SecretPage {
   access: SecretAccess;
   /** Non-sensitive field values only. Sensitive ones come back from a reveal action. */
   fields: Record<string, string>;
+  /** Folder names by id, for the folders this person can see (a move names its folders). */
+  folderNames: Record<string, string>;
   folderPath: { id: string; name: string }[];
   /** The change list, for anyone who can read the secret. Null for everyone else. */
   history: null | SecretVersion[];
   isAdmin: boolean;
   /** The secret's active lease, whoever holds it, for types that check out. */
   lease: { expiresAt: string; id: string; userId: string } | null;
+  /** Folder moves, newest first, for the same readers as `history`. */
+  moves: SecretMove[];
   /** When the server answered, so "expires in" and "next rotation" read the same on both sides. */
   now: number;
   ok: true;
@@ -99,18 +107,21 @@ const page = async (
   const { mySecretAccess: access } = await gw.gql(SecretAccessDocument, { secretId: id });
   const admin = isAdmin(user);
   const type = detail.secretTypes.find((t) => t.id === secret.typeId) ?? null;
-  const [fields, history, lease] = await Promise.all([
+  const [fields, history, moves, lease] = await Promise.all([
     access.read ? gw.gql(SecretFieldsDocument, { id }) : null,
     access.read ? gw.gql(SecretVersionsDocument, { secretId: id }) : null,
+    access.read ? gw.gql(SecretMovesDocument, { secretId: id }) : null,
     type?.checkout ? activeLeaseFor(gw, id) : null,
   ]);
   return {
     access,
     fields: Object.fromEntries((fields?.secretFields ?? []).map((f) => [f.key, f.value])),
+    folderNames: Object.fromEntries(detail.folders.map((f) => [f.id, f.name])),
     folderPath: pathTo(detail.folders, secret.folderId),
     history: history?.secretVersions ?? null,
     isAdmin: admin,
     lease: lease ? { expiresAt: lease.expiresAt, id: lease.id, userId: lease.userId } : null,
+    moves: moves?.secretMoves ?? [],
     now: Date.now(),
     ok: true,
     recovery: user.roles.includes(RECOVERY_ROLE),
