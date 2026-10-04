@@ -32,7 +32,7 @@ describe("users", () => {
     renderAdmin(ROUTES, "/users?q=car");
     expect(await screen.findByRole("link", { name: "Carol" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Alice" })).not.toBeInTheDocument();
-    expect(screen.getByText("Showing 1 of 5.")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1 of 6.")).toBeInTheDocument();
   });
 
   it("creates a user and goes on to verify their email", async () => {

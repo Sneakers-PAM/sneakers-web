@@ -98,3 +98,52 @@ describe("sign-in, through the gateway's routes", () => {
     expect(out.next).toBe("/");
   });
 });
+
+describe("the dev quick login", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("lists the fixture users only in a mock build", async () => {
+    vi.stubEnv("SNEAKERS_MOCK", "true");
+    const mock = await signInLoader({
+      context: {},
+      params: {},
+      request: appRequest("/sign-in"),
+    } as never);
+    expect(mock.quickLoginUsers.map((u) => u.id)).toContain("mock-user-alice");
+    vi.stubEnv("SNEAKERS_MOCK", "false");
+    const live = await signInLoader({
+      context: {},
+      params: {},
+      request: appRequest("/sign-in"),
+    } as never);
+    expect(live.quickLoginUsers).toEqual([]);
+  });
+
+  it("signs in as the chosen user and goes on, with a session that works", async () => {
+    vi.stubEnv("SNEAKERS_MOCK", "true");
+    const r = await catchResponse(
+      act({ intent: "mock-quick-login", next: "/secrets", userId: "mock-user-bob" }),
+    );
+    expect(r.status).toBe(302);
+    expect(r.headers.get("Location")).toBe("/secrets");
+    const cookie = cookieFrom(r.headers);
+    const { user } = await requireUser(appRequest("/", { cookie }));
+    expect(user.id).toBe("mock-user-bob");
+  });
+
+  it("sends a user who must enrol to enrolment", async () => {
+    vi.stubEnv("SNEAKERS_MOCK", "true");
+    const r = await catchResponse(act({ intent: "mock-quick-login", userId: "mock-user-dave" }));
+    expect(r.headers.get("Location")).toBe("/enroll");
+  });
+
+  it("signs no one in outside a mock build", async () => {
+    vi.stubEnv("SNEAKERS_MOCK", "false");
+    const outcome = await act({ intent: "mock-quick-login", userId: "mock-user-alice" }).catch(
+      (error: unknown) => error,
+    );
+    expect(outcome).not.toBeInstanceOf(Response);
+    const headers = new Headers((outcome as DataResult).init?.headers);
+    expect(headers.get("Set-Cookie")).toBeNull();
+  });
+});
