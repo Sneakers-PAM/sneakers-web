@@ -2,6 +2,7 @@ import { Button, Checkbox, cn, Field, Input, Textarea } from "@sneakers-web/ui";
 import { Eye, EyeOff, RefreshCw } from "lucide-react";
 import { useState } from "react";
 
+import { formatField } from "@/features/editors/format";
 import { PickOne } from "@/features/editors/PickOne";
 import { generatePassword, type Policy, policyChecks, policyFor } from "@/features/editors/policy";
 import { PolicyChips } from "@/features/editors/PolicyChips";
@@ -136,7 +137,12 @@ export const FieldControl = ({
   if (field.kind === "sensitive") {
     return (
       <Field error={error} hint={hint} label={field.label} required={required}>
-        <SecretInput editing={editing} field={field} onChange={onChange} value={value} />
+        <SecretInput
+          editing={editing}
+          field={field}
+          onChange={(raw) => onChange(formatField(field.key, raw))}
+          value={value}
+        />
       </Field>
     );
   }
@@ -190,7 +196,7 @@ export const FieldControl = ({
         {...noAutofill}
         className={cn(MONO_KEYS.has(field.key) && "font-mono")}
         maxLength={field.maxLength || undefined}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) => onChange(formatField(field.key, event.target.value))}
         value={value}
       />
     </Field>
