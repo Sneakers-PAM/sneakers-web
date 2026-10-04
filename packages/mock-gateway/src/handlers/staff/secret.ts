@@ -9,6 +9,7 @@ import {
   SecretFieldsDocument,
   SecretReplaceCertificateDocument,
   SecretRestoreDocument,
+  SecretRestoreVersionDocument,
   SecretRetireDocument,
   SecretRevealDocument,
   SecretRevealVersionDocument,
@@ -20,14 +21,14 @@ import {
 import { HttpResponse } from "msw";
 import { createHash } from "node:crypto";
 
-import type { MockFolder, MockSecret, MockSecretType } from "#mock/fixtures/world";
+import type { MockFolder, MockSecret, MockSecretType, MockVersion } from "#mock/fixtures/world";
 
 import { refusal } from "#mock/admin/refuse";
 import { userById, WRONG_CODE } from "#mock/fixtures/users";
 import { api, asUser } from "#mock/handlers/graphql";
 import { activeLease, canApprove, canRead, canSee, secretById } from "#mock/handlers/staff/access";
 import { freshMfa, stepUpRequired } from "#mock/handlers/stepUp";
-import { mockState } from "#mock/state";
+import { mockState, onMockReset } from "#mock/state";
 
 const DAY = 86_400_000;
 const RECOVERY_ROLE = "recovery";
@@ -137,6 +138,31 @@ const bumpVersion = (s: MockSecret, userId: string, changedFieldKeys: string[]) 
     fieldKeys: Object.keys(s.fields),
     versionNo,
   });
+};
+
+/**
+ * The values a version held when it was replaced, by secret and version number. The seeded
+ * history has no stored values, so a version without an entry gets invented ones.
+ */
+let held = new Map<string, Map<number, Record<string, string>>>();
+onMockReset(() => {
+  held = new Map();
+});
+
+/** Keep the active version's values before they change, so the history can give them back. */
+const remember = (s: MockSecret) => {
+  const active = s.versions.find((v) => v.active);
+  if (!active) return;
+  const bySecret = held.get(s.id) ?? new Map<number, Record<string, string>>();
+  bySecret.set(active.versionNo, { ...s.fields });
+  held.set(s.id, bySecret);
+};
+
+const valueAt = (s: MockSecret, v: MockVersion, key: string): string | undefined => {
+  if (v.active) return s.fields[key];
+  const kept = held.get(s.id)?.get(v.versionNo);
+  if (kept) return kept[key];
+  return `mock-v${v.versionNo}-${key}-${hex(`${s.id}:${v.versionNo}`, 3).replaceAll(":", "")}`;
 };
 
 const freshValue = () => `mock-Rotated-${Math.random().toString(36).slice(2, 10)}`;
@@ -254,10 +280,50 @@ export const secretHandlers: RequestHandler[] = [
       const v = s.versions.find((x) => x.versionNo === variables.versionNo);
       if (!v?.fieldKeys.includes(variables.fieldKey))
         return refusal("NOT_FOUND", "field not found");
-      const value = v.active
-        ? s.fields[variables.fieldKey]
-        : `mock-v${v.versionNo}-${variables.fieldKey}-${hex(`${s.id}:${v.versionNo}`, 3).replaceAll(":", "")}`;
-      return ok({ revealSecretVersionField: value ?? "" });
+      return ok({ revealSecretVersionField: valueAt(s, v, variables.fieldKey) ?? "" });
+    }),
+  ),
+
+  // The gateway refuses while a lease is held before it asks the vault, which then wants the
+  // recovery role, a fresh MFA, read access and no rotation under way.
+  api.mutation(SecretRestoreVersionDocument, ({ request, variables }) =>
+    withSecret(request, variables.secretId, (s, userId) => {
+      const lease = activeLease(s.id);
+      if (lease)
+        return refusal(
+          "FAILED_PRECONDITION",
+          "cannot restore a version while the secret is checked out",
+          "CHECKOUT_LEASE_HELD",
+          { holder_user_id: lease.userId },
+        );
+      if (!userById(userId)?.roles.includes(RECOVERY_ROLE))
+        return refusal(
+          "PERMISSION_DENIED",
+          "this needs the recovery role",
+          "RECOVERY_ROLE_REQUIRED",
+        );
+      if (!freshMfa(request)) return HttpResponse.json({ errors: [stepUpRequired()] }) as never;
+      if (s.retired) return retired();
+      if (!canRead(userId, s)) return noRead("restore");
+      if (s.lastRotationResult === "rotating")
+        return refusal(
+          "FAILED_PRECONDITION",
+          "a rotation of this secret is queued or running; try again once it finishes",
+          "ROTATION_IN_PROGRESS",
+        );
+      const v = s.versions.find((x) => x.versionNo === variables.versionNo);
+      if (!v) return refusal("NOT_FOUND", "secret version not found");
+      if (v.active)
+        return refusal("FAILED_PRECONDITION", "that version is already the current one");
+      const restored = Object.fromEntries(v.fieldKeys.map((k) => [k, valueAt(s, v, k) ?? ""]));
+      const changed = [...new Set([...Object.keys(s.fields), ...v.fieldKeys])].filter(
+        (k) => s.fields[k] !== restored[k],
+      );
+      remember(s);
+      s.fields = restored;
+      if (s.targetId) s.lastHeartbeatResult = "unknown";
+      bumpVersion(s, userId, changed);
+      return ok({ restoreSecretVersion: view(s, userId) });
     }),
   ),
 
@@ -298,6 +364,7 @@ export const secretHandlers: RequestHandler[] = [
           "ROTATION_OPTED_OUT",
         );
       const keys = t.fields.filter((f) => f.rotates).map((f) => f.key);
+      remember(s);
       for (const key of keys) s.fields[key] = freshValue();
       const now = Date.now();
       s.rotatedAt = new Date(now).toISOString();
@@ -383,6 +450,7 @@ export const secretHandlers: RequestHandler[] = [
       if (!text.trim()) return refusal("INVALID_ARGUMENT", "unrecognized format");
       const now = Date.now();
       const notAfter = new Date(now + 365 * DAY).toISOString();
+      remember(s);
       Object.assign(s.fields, {
         certificate: text,
         fingerprintSha256: hex(`${s.id}:${text}`, 32),
