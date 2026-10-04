@@ -3,6 +3,7 @@ import { auth, GatewayClient, ShellCountsDocument } from "@sneakers-web/api-clie
 
 import { initialInbox } from "#mock/fixtures/inbox";
 import { USERS } from "#mock/fixtures/users";
+import { canRead, canSee } from "#mock/handlers/staff/access";
 import { MOCK_GATEWAY_URL, MOCK_SESSION_COOKIE, mockState, resetMockState } from "#mock/state";
 import { sessionCookie, withMockGateway } from "#mock/testing";
 
@@ -81,14 +82,14 @@ describe("the mock world", () => {
     expect(world().secrets.some((s) => s.retired)).toBe(true);
   });
 
-  it("has a secret users can see but not read, so screens can show it locked", () => {
-    const locked = world().secrets.filter((s) => !s.canRead);
-    expect(locked.length).toBeGreaterThan(0);
+  it("has secrets a user can see but not read, so screens can show them locked", () => {
+    // Dave's own deny rule on Databases keeps him out of what he can still see there.
+    const dave = "mock-user-dave";
+    const locked = world().secrets.filter((s) => canSee(dave, s) && !canRead(dave, s));
+    expect(locked.map((s) => s.folderId)).toContain("mock-folder-databases");
     for (const s of locked) {
-      expect(world().leases.some((l) => l.secretId === s.id && !l.returned)).toBe(false);
-      expect(world().useGrants.some((g) => g.secretIds.includes(s.id))).toBe(false);
+      expect(world().leases.some((l) => l.secretId === s.id && l.userId === dave)).toBe(false);
     }
-    expect(world().secrets.filter((s) => s.canRead).length).toBeGreaterThan(locked.length);
   });
 
   it("starts fresh after a reset", () => {

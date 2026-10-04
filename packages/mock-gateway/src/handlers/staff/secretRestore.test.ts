@@ -162,13 +162,13 @@ describe("restoring a secret version in the mock gateway", () => {
     expect(
       await refused(gw.gql(SecretRestoreVersionDocument, { secretId: DB, versionNo: 9 })),
     ).toMatchObject({ code: "NOT_FOUND" });
-    expect(
-      await refused(
-        gw.gql(SecretRestoreVersionDocument, { secretId: "mock-secret-helpdesk", versionNo: 1 }),
-      ),
-    ).toMatchObject({ code: "PERMISSION_DENIED", reason: "NO_ACCESS" });
 
     const bob = await recovering(BOB);
+    expect(
+      await refused(
+        bob.gql(SecretRestoreVersionDocument, { secretId: "mock-secret-helpdesk", versionNo: 1 }),
+      ),
+    ).toMatchObject({ code: "PERMISSION_DENIED", reason: "NO_ACCESS" });
     expect(
       await refused(
         bob.gql(SecretRestoreVersionDocument, { secretId: "mock-secret-alice-wifi", versionNo: 1 }),

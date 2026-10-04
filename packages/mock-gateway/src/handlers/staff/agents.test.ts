@@ -15,6 +15,7 @@ import {
 } from "@sneakers-web/api-client";
 
 import { agentsState, MOCK_CONSENT_EXPIRED_ID, MOCK_CONSENT_ID } from "#mock/fixtures/staff/agents";
+import { canRead } from "#mock/handlers/staff/access";
 import { MOCK_GATEWAY_URL, MOCK_SESSION_COOKIE, mockState } from "#mock/state";
 import { sessionCookie, withMockGateway } from "#mock/testing";
 
@@ -170,7 +171,7 @@ describe("use grants", () => {
     expect(d.myTokens.map((t) => t.id)).toEqual(["mock-token-1", "mock-token-2"]);
     const readable = new Set(d.secretsByStatus.map((s) => s.id));
     expect(readable.has("mock-secret-db-admin")).toBe(true);
-    for (const s of world().secrets.filter((x) => !x.canRead || x.retired)) {
+    for (const s of world().secrets.filter((x) => !canRead(ALICE, x) || x.retired)) {
       expect(readable.has(s.id)).toBe(false);
     }
     const bob = await as(BOB).then((gw) => gw.gql(AgentsGrantsDocument));

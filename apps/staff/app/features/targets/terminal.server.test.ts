@@ -22,8 +22,8 @@ const open = (id: string, user = "mock-user-alice") =>
     method: "POST",
   });
 
-const sessionOf = async (id: string) => {
-  const d = await loadTerminal(get(id), id);
+const sessionOf = async (id: string, user?: string) => {
+  const d = await loadTerminal(get(id, user), id);
   return d.session;
 };
 
@@ -52,9 +52,10 @@ describe("the terminal loader", () => {
   });
 
   it("says when the key is locked or retired, without asking for its fields", async () => {
-    secret(KEY).canRead = false;
-    expect(await sessionOf(KEY)).toEqual({ kind: "locked" });
-    secret(KEY).canRead = true;
+    // Dave isn't in the Platform engineers group and holds no lease, so nothing lets him read it.
+    // A shared target, so the key's lock is all that stands in his way.
+    mockState.world.targets.find((t) => t.id === "mock-target-build1")!.ownerUserId = undefined;
+    expect(await sessionOf(KEY, "mock-user-dave")).toEqual({ kind: "locked" });
     secret(KEY).retired = true;
     expect(await sessionOf(KEY)).toEqual({ kind: "retired" });
   });
@@ -81,8 +82,7 @@ describe("the terminal action", () => {
   });
 
   it("hands back a refusal as data", async () => {
-    secret(KEY).canRead = false;
-    expect(await terminalAction(open(KEY), KEY)).toMatchObject({
+    expect(await terminalAction(open(KEY, "mock-user-dave"), KEY)).toMatchObject({
       ok: false,
       refusal: { code: "PERMISSION_DENIED", reason: "NO_ACCESS" },
     });
