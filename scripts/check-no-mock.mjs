@@ -10,7 +10,14 @@ const marker = /export const MOCK_MARKER = "([^"]+)"/.exec(
   readFileSync(path.join(root, "packages/mock-gateway/src/marker.ts"), "utf8"),
 )?.[1];
 if (!marker) throw new Error("MOCK_MARKER not found in packages/mock-gateway/src/marker.ts");
-const tells = [marker, "mock_sneakers_sid", "mock-gateway.example.invalid"];
+// The dev quick login's intent and label prove it never reaches a live build either.
+const tells = [
+  marker,
+  "mock_sneakers_sid",
+  "mock-gateway.example.invalid",
+  "mock-quick-login",
+  "Dev quick login",
+];
 
 const files = (directory) =>
   readdirSync(directory).flatMap((name) => {

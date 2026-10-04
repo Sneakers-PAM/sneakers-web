@@ -1,7 +1,7 @@
 import { getAssertion, passkeysSupported } from "@sneakers-web/api-client";
 import { Alert, Button, CodeInput, Field, Input, Segmented, SneakerLoader } from "@sneakers-web/ui";
 import { ChevronLeft, KeyRound, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import {
   Form,
   Link,
@@ -24,6 +24,12 @@ const WELCOME_MS = 1400;
  * second-factor step. Every step is a form posted to the route's action, so it works before
  * the page's scripts load; the gateway does the checks with Ory.
  */
+// Loaded only in a mock build: the flag is a literal after the build, so a live build drops
+// the branch that renders this, and with it the import and its chunk.
+const QuickLoginPicker = /* @__PURE__ */ lazy(() =>
+  import("#shell/auth/QuickLogin").then((m) => ({ default: m.QuickLogin })),
+);
+
 export const SignInPage = () => {
   const loaded = useLoaderData<SignInLoaderData>();
   const acted = useActionData<SignInState>();
@@ -37,6 +43,7 @@ export const SignInPage = () => {
         <LocalStep
           ended={loaded.ended && !loaded.sso}
           next={loaded.next}
+          quickLoginUsers={loaded.quickLoginUsers}
           sso={loaded.sso}
           state={state}
         />
@@ -123,11 +130,13 @@ const PROBLEMS = {
 const LocalStep = ({
   ended,
   next,
+  quickLoginUsers,
   sso,
   state,
 }: {
   ended: boolean;
   next: string;
+  quickLoginUsers: SignInLoaderData["quickLoginUsers"];
   sso: boolean;
   state: Extract<SignInState, { view: "local" }>;
 }) => {
@@ -151,6 +160,11 @@ const LocalStep = ({
           name="identifier"
         />
       </Field>
+      {import.meta.env.SNEAKERS_MOCK === "true" && quickLoginUsers.length > 0 && (
+        <Suspense fallback={null}>
+          <QuickLoginPicker next={next} users={quickLoginUsers} />
+        </Suspense>
+      )}
       <Field
         label="Password"
         labelAside={

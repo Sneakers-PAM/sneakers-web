@@ -73,6 +73,17 @@ export const USERS: MockUser[] = [
     roles: [],
     username: "erin",
   },
+  {
+    disabled: false,
+    email: "grace@example.org",
+    emailVerified: true,
+    factors: ["totp"],
+    id: "mock-user-grace",
+    isRoot: false,
+    name: "Grace",
+    roles: ["recovery"],
+    username: "grace",
+  },
 ];
 
 export const findUser = (identifier: string): MockUser | undefined => {

@@ -6,6 +6,7 @@ import {
   GatewayUnreachableError,
   MeDocument,
   publicConfigFrom,
+  type QuickLoginUser,
   type SecondFactor,
 } from "@sneakers-web/api-client";
 import { edge } from "@sneakers-web/edge.server";
@@ -22,6 +23,8 @@ export type CodeFactor = "email" | "totp";
 export interface SignInLoaderData {
   ended: boolean;
   next: string;
+  /** The dev quick login's users. Empty everywhere but a mock build. */
+  quickLoginUsers: QuickLoginUser[];
   sso: boolean;
   state: SignInState;
 }
@@ -49,6 +52,12 @@ export type SignInState =
   | { name: string; next: string; view: "done" };
 
 const ssoEnabled = () => publicConfigFrom(process.env, "").sso;
+
+// The build's mock flag is a literal after the build, so a live build drops the quick login.
+const mockBuild = () => import.meta.env.SNEAKERS_MOCK === "true";
+
+const developmentUsers = (): QuickLoginUser[] =>
+  mockBuild() ? (edge.quickLogin?.users() ?? []) : [];
 
 /** Where the screen starts: an SSO hand-back, the local form, or the SSO button. */
 export const signInLoader = async ({ request }: LoaderFunctionArgs): Promise<SignInLoaderData> => {
@@ -81,7 +90,13 @@ export const signInLoader = async ({ request }: LoaderFunctionArgs): Promise<Sig
       view: "code",
     };
   }
-  return { ended: url.searchParams.get("ended") === "1", next, sso: ssoEnabled(), state };
+  return {
+    ended: url.searchParams.get("ended") === "1",
+    next,
+    quickLoginUsers: developmentUsers(),
+    sso: ssoEnabled(),
+    state,
+  };
 };
 
 const opened = async (gw: GatewayClient, next: string) => {
@@ -99,6 +114,15 @@ export const signInAction = async ({ request }: ActionFunctionArgs) => {
   const form = await request.formData();
   const intent = field(form, "intent");
   const next = safeNext(form.get("next"));
+  // The flag check comes first so a live build drops this whole branch, intent included.
+  if (import.meta.env.SNEAKERS_MOCK === "true" && intent === "mock-quick-login") {
+    const signed = edge.quickLogin?.signIn(field(form, "userId"));
+    if (!signed) throw new Response("Not found", { status: 404 });
+    log.info("dev quick login", { enroll: signed.enroll, userId: field(form, "userId") });
+    throw redirect(signed.enroll ? appPath("enroll") : next, {
+      headers: { "Set-Cookie": signed.cookie },
+    });
+  }
   const gw = gatewayFor(request);
 
   if (intent === "sso") {

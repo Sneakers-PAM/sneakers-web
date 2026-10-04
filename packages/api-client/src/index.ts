@@ -14,7 +14,7 @@ export {
   type PublicConfig,
   publicConfigFrom,
 } from "#api/config";
-export type { Edge } from "#api/edge/types";
+export type { Edge, QuickLoginUser } from "#api/edge/types";
 export {
   ApiError,
   type ErrorExtensions,
