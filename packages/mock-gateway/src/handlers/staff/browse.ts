@@ -17,10 +17,11 @@ import { HttpResponse } from "msw";
 
 import type { MockFolder, MockRequest, MockSecret } from "#mock/fixtures/world";
 
-import { groupsOf } from "#mock/admin/directory";
 import { isSiteAdmin, refusal } from "#mock/admin/refuse";
 import { userById } from "#mock/fixtures/users";
 import { api, asUser } from "#mock/handlers/graphql";
+import { folderChain, hidden, ownsFolder, resolve } from "#mock/handlers/raci";
+import { canRead as canReadSecret } from "#mock/handlers/staff/access";
 import { mockState, newToken } from "#mock/state";
 
 /*
@@ -68,21 +69,12 @@ const subtree = (id: string): Set<string> => {
 const visible = (userId: string, f: MockFolder) =>
   f.scope !== "personal" || f.ownerUserId === userId;
 
-const ownsChain = (userId: string, f: MockFolder) =>
-  chain(f).some((c) => c.owners.includes(userId));
+/** The vault's isFolderOwner: a site admin or root manages every folder, owners their own. */
+const canManage = (userId: string, f: MockFolder) => ownsFolder(userId, f.id);
 
-/** As the vault's isFolderOwner: a site admin or root manages every folder, owners their own. */
-const canManage = (userId: string, f: MockFolder) => isSiteAdmin(userId) || ownsChain(userId, f);
-
-const canRead = (userId: string, f: MockFolder): boolean => {
-  if (f.scope === "personal") return f.ownerUserId === userId;
-  if (ownsChain(userId, f)) return true;
-  const groups = new Set(groupsOf(userId).map((g) => g.id));
-  const roles = new Set(userById(userId)?.roles);
-  return chain(f).some(
-    (c) => (c.groupId && groups.has(c.groupId)) || (c.role && roles.has(c.role)),
-  );
-};
+/** RACI C over the folder's chain, as the vault resolves it; another user's personal folder is hidden. */
+const canRead = (userId: string, f: MockFolder): boolean =>
+  !hidden(userId, f) && resolve(userId, folderChain(f.id)).read.allowed;
 
 /** The personal owner of the nearest personal folder at or above `f`, if there is one. */
 const personalOwner = (f: MockFolder | undefined): string | undefined =>
@@ -194,7 +186,7 @@ export const browseHandlers = [
         secretsInFolder: mockState.world.secrets
           .filter((s) => s.folderId === f.id && (variables.includeRetired || live(s)))
           .map((s) => ({
-            canRead: s.canRead,
+            canRead: canReadSecret(userId, s),
             folderId: s.folderId,
             id: s.id,
             lastHeartbeatResult: s.lastHeartbeatResult ?? null,

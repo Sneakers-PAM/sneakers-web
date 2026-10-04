@@ -191,8 +191,8 @@ describe("the SSH terminal in the mock", () => {
   });
 
   it("refuses without read access, with NO_ACCESS", async () => {
-    world().secrets.find((s) => s.id === BUILD_KEY)!.canRead = false;
-    const gw9 = await as(ALICE);
+    // Dave isn't in the Platform engineers group and holds no lease, so nothing lets him read it.
+    const gw9 = await as("mock-user-dave");
     expect(await refused(gw9.gql(TargetsOpenSshSessionDocument, { secretId: BUILD_KEY }))).toEqual({
       code: "PERMISSION_DENIED",
       reason: "NO_ACCESS",

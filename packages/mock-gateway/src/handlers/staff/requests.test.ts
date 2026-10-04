@@ -163,11 +163,11 @@ describe("requests in the mock gateway", () => {
   });
 
   it("refuses resolving a request that isn't pending", async () => {
-    const gw = await as(CAROL);
+    const gw = await as(ALICE);
     expect(
-      await refusal(gw.gql(RequestsResolveDocument, { approve: false, id: "mock-req-3" })),
+      await refusal(gw.gql(RequestsResolveDocument, { approve: false, id: "mock-req-4" })),
     ).toMatchObject({ code: "FAILED_PRECONDITION", reason: "REQUEST_NOT_PENDING" });
-    expect(requestById("mock-req-3")?.status).toBe("approved");
+    expect(requestById("mock-req-4")?.status).toBe("denied");
   });
 
   it("refuses approving while someone else holds the secret", async () => {
@@ -292,7 +292,7 @@ describe("checkouts in the mock gateway", () => {
   });
 
   it("refuses a locked secret with CHECKOUT_NO_ACCESS", async () => {
-    const gw = await as(CAROL);
+    const gw = await as(BOB);
     expect(
       await refusal(gw.gql(CheckoutsCheckoutDocument, { secretId: "mock-secret-helpdesk" })),
     ).toMatchObject({ code: "PERMISSION_DENIED", reason: "CHECKOUT_NO_ACCESS" });

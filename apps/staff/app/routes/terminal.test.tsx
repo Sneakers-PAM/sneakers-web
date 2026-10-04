@@ -156,10 +156,13 @@ describe("U-12 terminal", () => {
   });
 
   it("asks for access when the key is locked", async () => {
-    mockState.world.secrets.find((s) => s.id === KEY)!.canRead = false;
+    // Dave isn't in the Platform engineers group and holds no lease, so nothing lets him read it.
+    // A shared target, so the key's lock is all that stands in his way.
+    mockState.world.targets.find((t) => t.id === "mock-target-build1")!.ownerUserId = undefined;
     renderRoute(
       `/secret/${KEY}/terminal`,
       page({ connect: connectSession, createScreen: fakeScreens().create }),
+      { user: "mock-user-dave" },
     );
     expect(await screen.findByRole("link", { name: "Request access" })).toHaveAttribute(
       "href",

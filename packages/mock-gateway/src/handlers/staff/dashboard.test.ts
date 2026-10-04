@@ -8,6 +8,7 @@ import {
   GraphQLRequestError,
 } from "@sneakers-web/api-client";
 
+import { canRead, canSee } from "#mock/handlers/staff/access";
 import { MOCK_GATEWAY_URL, MOCK_SESSION_COOKIE, mockState } from "#mock/state";
 import { sessionCookie, withMockGateway } from "#mock/testing";
 
@@ -33,7 +34,7 @@ describe("the dashboard's mock answers", () => {
     const gw = await alice();
     const { secretStats } = await gw.gql(DashboardHomeDocument, { userId: "mock-user-alice" });
     // Shared folders plus Alice's own; the retired portal and Bob's laptop don't count.
-    expect(secretStats).toEqual({ drift: 2, expired: 1, expiringSoon: 2, total: 10 });
+    expect(secretStats).toEqual({ drift: 2, expired: 1, expiringSoon: 2, total: 11 });
   });
 
   it("follows the world as it changes", async () => {
@@ -55,18 +56,19 @@ describe("the dashboard's mock answers", () => {
     expect(await by("expired")).toEqual(["mock-secret-old-cert"]);
     expect(await by("drift")).toEqual(["mock-secret-db-admin", "mock-secret-edge-router"]);
     const all = await by("all");
-    expect(all).toHaveLength(10);
+    expect(all).toHaveLength(11);
     expect(all).toContain("mock-secret-alice-wifi");
     expect(all).not.toContain("mock-secret-legacy-portal");
     expect(all).not.toContain("mock-secret-bob-laptop");
   });
 
   it("leaves out a secret the caller can see but not read", async () => {
-    const gw = await alice();
-    const locked = "mock-secret-helpdesk";
-    expect(mockState.world.secrets.find((s) => s.id === locked)?.canRead).toBe(false);
-    const home = await gw.gql(DashboardHomeDocument, { limit: 50, userId: "mock-user-alice" });
-    expect(home.secretStats.total).toBe(10);
+    // Dave can see the Databases folder, but his own deny rule there keeps him from reading.
+    const gw = await client("mock-user-dave");
+    const locked = "mock-secret-db-admin";
+    const s = mockState.world.secrets.find((x) => x.id === locked);
+    expect(s && canSee("mock-user-dave", s) && !canRead("mock-user-dave", s)).toBe(true);
+    const home = await gw.gql(DashboardHomeDocument, { limit: 50, userId: "mock-user-dave" });
     expect(ids(home.topAccessedSecrets)).not.toContain(locked);
     for (const status of ["all", "expiring", "expired", "drift"]) {
       const { secretsByStatus } = await gw.gql(DashboardSecretsByStatusDocument, { status });

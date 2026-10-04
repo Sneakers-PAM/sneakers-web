@@ -1,11 +1,12 @@
 import type { MockFolder, MockLease, MockSecret } from "#mock/fixtures/world";
 
-import { userById } from "#mock/fixtures/users";
+import { hidden, resolve, secretChain } from "#mock/handlers/raci";
 import { mockState } from "#mock/state";
 
 /*
  * Who may see, read and approve a secret in the mock, shared by every staff area so the
- * screens agree with each other.
+ * screens agree with each other. Read and approve come from the shared RACI resolver, the way
+ * the vault decides them.
  */
 
 const world = () => mockState.world;
@@ -28,14 +29,16 @@ export const activeLease = (secretId: string): MockLease | undefined =>
   world().leases.find((l) => l.secretId === secretId && !l.returned);
 
 /** Someone else's personal folder hides a secret entirely: `secret` answers null for it. */
-export const canSee = (userId: string, s: MockSecret): boolean =>
-  !chain(s.folderId).some((f) => f.scope === "personal" && f.ownerUserId !== userId);
+export const canSee = (userId: string, s: MockSecret): boolean => {
+  const f = world().folders.find((x) => x.id === s.folderId);
+  return !!f && !hidden(userId, f);
+};
 
-/** RACI A: owners of the folder chain (and root). Being a site admin alone isn't enough. */
+/** RACI A over the secret's chain. */
 export const canApprove = (userId: string, s: MockSecret): boolean =>
-  canSee(userId, s) &&
-  (!!userById(userId)?.isRoot || chain(s.folderId).some((f) => f.owners.includes(userId)));
+  canSee(userId, s) && resolve(userId, secretChain(s)).approve.allowed;
 
-/** The world's one answer for everyone, plus the read an approved request's lease grants. */
+/** RACI C over the secret's chain, plus the read an approved request's lease grants. */
 export const canRead = (userId: string, s: MockSecret): boolean =>
-  canSee(userId, s) && (s.canRead || activeLease(s.id)?.userId === userId);
+  canSee(userId, s) &&
+  (resolve(userId, secretChain(s)).read.allowed || activeLease(s.id)?.userId === userId);

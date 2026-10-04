@@ -65,19 +65,40 @@ describe("the browse page", () => {
   });
 
   it("shows a secret the user can't read as locked, with a way to ask for it", async () => {
-    open("/browse/mock-folder-helpdesk", "mock-user-carol");
-    const row = await screen.findByRole("row", { name: /Helpdesk reset account/ });
+    open("/browse/mock-folder-databases", "mock-user-bob");
+    const row = await screen.findByRole("row", { name: /Reporting reader/ });
     expect(within(row).getByText("Locked")).toBeInTheDocument();
-    expect(within(row).queryByRole("link", { name: "Helpdesk reset account" })).toBeNull();
+    expect(within(row).queryByRole("link", { name: "Reporting reader" })).toBeNull();
     expect(within(row).getByRole("link", { name: "Request access" })).toHaveAttribute(
       "href",
-      "/requests?new=mock-secret-helpdesk",
+      "/requests?new=mock-secret-db-reporting",
     );
   });
 
   it("never treats an unknown read answer as readable", async () => {
-    const s = mockState.world.secrets.find((x) => x.id === "mock-secret-db-admin");
-    (s as { canRead: boolean | null }).canRead = null;
+    // The mock always knows the answer, so stand in for a gateway that doesn't.
+    server.use(
+      graphql.link(`${MOCK_GATEWAY_URL}/graphql`).query("BrowseSecrets", () =>
+        HttpResponse.json({
+          data: {
+            secretsInFolder: mockState.world.secrets
+              .filter((s) => s.folderId === "mock-folder-databases" && !s.retired)
+              .map((s) => ({
+                canRead: s.id === "mock-secret-db-admin" ? null : true,
+                folderId: s.folderId,
+                id: s.id,
+                lastHeartbeatResult: s.lastHeartbeatResult ?? null,
+                name: s.name,
+                retired: s.retired,
+                retiredAt: s.retiredAt ?? null,
+                targetId: s.targetId ?? null,
+                typeId: s.typeId,
+              })),
+            secretTypes: mockState.world.secretTypes.map(({ id, name }) => ({ id, name })),
+          },
+        }),
+      ),
+    );
     open("/browse/mock-folder-databases");
     const row = await screen.findByRole("row", { name: /DB admin/ });
     expect(within(row).getByText("Access unknown")).toBeInTheDocument();
@@ -122,7 +143,7 @@ describe("the browse page", () => {
   });
 
   it("explains a folder the user can't open, naming its owner", async () => {
-    open("/browse/mock-folder-finance");
+    open("/browse/mock-folder-finance", "mock-user-dave");
     expect(await screen.findByText("You can't open this folder")).toBeInTheDocument();
     expect(screen.getByText(/Bob owns it/)).toBeInTheDocument();
     expect(screen.queryByText("Payroll portal")).not.toBeInTheDocument();
@@ -218,7 +239,7 @@ describe("folder operations", () => {
   });
 
   it("hides folder changes from people who don't own the folder", async () => {
-    open("/browse/mock-folder-databases", "mock-user-bob");
+    open("/browse/mock-folder-databases", "mock-user-dave");
     expect(await screen.findByText("You can't open this folder")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Folder actions" })).not.toBeInTheDocument();
   });

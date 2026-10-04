@@ -178,7 +178,6 @@ const newSecret = (
   seed: Partial<MockSecret> & Pick<MockSecret, "fields" | "folderId" | "name" | "typeId">,
 ): MockSecret => {
   const s: MockSecret = {
-    canRead: true,
     heartbeatOptOut: false,
     id: newToken("mock-secret"),
     requireTokenApproval: false,

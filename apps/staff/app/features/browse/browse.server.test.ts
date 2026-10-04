@@ -74,14 +74,15 @@ describe("loading the browse page", () => {
   });
 
   it("passes on whether each secret is readable", async () => {
-    const data = await load("mock-user-carol", "mock-folder-helpdesk");
+    const data = await load(BOB, "mock-folder-databases");
     expect(data.current?.secrets?.map((s) => [s.name, s.canRead])).toEqual([
-      ["Helpdesk reset account", false],
+      ["DB admin", true],
+      ["Reporting reader", false],
     ]);
   });
 
   it("says who owns a folder the user can't read, without its secrets", async () => {
-    const data = await load(ALICE, "mock-folder-finance");
+    const data = await load("mock-user-dave", "mock-folder-finance");
     expect(data.current?.access.read).toBe(false);
     expect(data.current?.folder.subtreeSecretCount).toBeNull();
     expect(data.current?.secrets).toBeNull();
