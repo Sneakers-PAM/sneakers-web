@@ -9,6 +9,7 @@ import type { MockFolder, MockSecret } from "#mock/fixtures/world";
 
 import { refusal } from "#mock/admin/refuse";
 import { api, asUser } from "#mock/handlers/graphql";
+import { canRead } from "#mock/handlers/staff/access";
 import { mockState } from "#mock/state";
 
 const EXPIRING_WINDOW_MS = 30 * 86_400_000;
@@ -23,13 +24,9 @@ const folderVisible = (folder: MockFolder | undefined, userId: string): boolean 
 const readableFolders = (userId: string) =>
   mockState.world.folders.filter((f) => folderVisible(f, userId));
 
-/** The caller's readable live secrets: retired and locked (canRead false) ones never count. */
-const readableSecrets = (userId: string): MockSecret[] => {
-  const folders = new Map(mockState.world.folders.map((f) => [f.id, f]));
-  return mockState.world.secrets.filter(
-    (s) => !s.retired && s.canRead && folderVisible(folders.get(s.folderId), userId),
-  );
-};
+/** The caller's readable live secrets, by the shared RACI answer: retired ones never count. */
+const readableSecrets = (userId: string): MockSecret[] =>
+  mockState.world.secrets.filter((s) => !s.retired && canRead(userId, s));
 
 const matches = (s: MockSecret, status: Status, now: number): boolean => {
   const expires = s.expiresAt ? Date.parse(s.expiresAt) : Number.NaN;

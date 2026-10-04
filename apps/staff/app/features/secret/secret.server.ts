@@ -3,6 +3,7 @@ import {
   createLogger,
   type GatewayClient,
   GraphQLRequestError,
+  MeDocument,
   SecretAccessDocument,
   type SecretAccessQuery,
   SecretBreakGlassDocument,
@@ -14,6 +15,7 @@ import {
   SecretFieldsDocument,
   SecretReplaceCertificateDocument,
   SecretRestoreDocument,
+  SecretRestoreVersionDocument,
   SecretRetireDocument,
   SecretRevealDocument,
   SecretRevealVersionDocument,
@@ -32,6 +34,9 @@ import { activeLeaseFor, checkIn, checkOut } from "@/features/requests/leases.se
 
 const log = createLogger("staff.secret");
 
+/** The identity role for prior values and restores. Only a site admin can grant it. */
+const RECOVERY_ROLE = "recovery";
+
 /** Codes where the same call may well work a moment later, so the page offers Retry. */
 const TRANSIENT = new Set(["DEADLINE_EXCEEDED", "INTERNAL", "UNAVAILABLE", "UNKNOWN"]);
 
@@ -46,7 +51,7 @@ export interface SecretPage {
   /** Non-sensitive field values only. Sensitive ones come back from a reveal action. */
   fields: Record<string, string>;
   folderPath: { id: string; name: string }[];
-  /** Null when the person isn't shown the history (owners and site admins are). */
+  /** The change list, for anyone who can read the secret. Null for everyone else. */
   history: null | SecretVersion[];
   isAdmin: boolean;
   /** The secret's active lease, whoever holds it, for types that check out. */
@@ -54,6 +59,8 @@ export interface SecretPage {
   /** When the server answered, so "expires in" and "next rotation" read the same on both sides. */
   now: number;
   ok: true;
+  /** Whether the person holds the recovery role, so the history offers a restore. */
+  recovery: boolean;
   secret: SecretView;
   target: { hostname: string; id: string; name: string } | null;
   type: null | SecretType;
@@ -94,9 +101,7 @@ const page = async (
   const type = detail.secretTypes.find((t) => t.id === secret.typeId) ?? null;
   const [fields, history, lease] = await Promise.all([
     access.read ? gw.gql(SecretFieldsDocument, { id }) : null,
-    access.read && (access.manage || admin)
-      ? gw.gql(SecretVersionsDocument, { secretId: id })
-      : null,
+    access.read ? gw.gql(SecretVersionsDocument, { secretId: id }) : null,
     type?.checkout ? activeLeaseFor(gw, id) : null,
   ]);
   return {
@@ -108,6 +113,7 @@ const page = async (
     lease: lease ? { expiresAt: lease.expiresAt, id: lease.id, userId: lease.userId } : null,
     now: Date.now(),
     ok: true,
+    recovery: user.roles.includes(RECOVERY_ROLE),
     secret,
     target: detail.targets.find((t) => t.id === secret.targetId) ?? null,
     type,
@@ -269,6 +275,18 @@ const run = async (
       const r = await gw.gql(SecretRestoreDocument, { id });
       return { done: `${r.restoreSecret.name} restored.` };
     }
+    case "restore-version": {
+      const versionNo = Number(text(f, "versionNo"));
+      if (!Number.isInteger(versionNo) || versionNo < 1)
+        throw invalid("desc = pick the version to restore");
+      await gw.gql(SecretRestoreVersionDocument, { secretId: id, versionNo });
+      const { secretVersions } = await gw.gql(SecretVersionsDocument, { secretId: id });
+      const now = secretVersions.find((v) => v.active)?.versionNo;
+      return {
+        done: `Version ${versionNo}'s values are the current ones now${now ? `, as version ${now}` : ""}.`,
+        versionNo,
+      };
+    }
     case "retire": {
       const r = await gw.gql(SecretRetireDocument, { id });
       return { done: `${r.retireSecret.name} retired.` };
@@ -301,6 +319,27 @@ const run = async (
     }
   }
   throw invalid("desc = unknown action");
+};
+
+/**
+ * A check-out blocking a restore names its holder by id; look the name up so the page can say
+ * who to ask. A failed lookup leaves the refusal as it was.
+ */
+const withHolderName = async (
+  gw: GatewayClient,
+  refusal: Refusal,
+  secretId: string,
+): Promise<Refusal> => {
+  const holder = refusal.metadata.holder_user_id;
+  if (refusal.reason !== "CHECKOUT_LEASE_HELD" || !holder) return refusal;
+  try {
+    const { user } = await gw.gql(MeDocument, { id: holder });
+    if (!user) return refusal;
+    return { ...refusal, metadata: { ...refusal.metadata, holder_name: user.name } };
+  } catch {
+    log.warn("secret action: lease holder lookup failed", { holderId: holder, secretId });
+    return refusal;
+  }
 };
 
 /** One form on the page: a reveal, break glass, rotation, retirement, export and the rest. */
@@ -341,11 +380,12 @@ export const secretAction = async (request: Request, id: string): Promise<Secret
       return { ...echo, ...result, intent, ok: true as const };
     } catch (error) {
       if (error instanceof Response) throw error;
-      const refusal = refusalOf(error);
-      if (!refusal) {
+      const refused = refusalOf(error);
+      if (!refused) {
         log.error("secret action failed", { intent, secretId: id, userId: user.id });
         throw error;
       }
+      const refusal = await withHolderName(gw, refused, id);
       log.warn("secret action: refused", {
         code: refusal.code,
         intent,

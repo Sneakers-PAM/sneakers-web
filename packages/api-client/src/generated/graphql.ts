@@ -16,6 +16,22 @@ export type ConnectionInput = {
   useTls?: boolean | null | undefined;
 };
 
+export type CreateSecretInput = {
+  expiresAt?: string | null | undefined;
+  fields: Array<KeyValueInput>;
+  folderId: string;
+  name: string;
+  targetId?: string | null | undefined;
+  typeId: string;
+};
+
+export type FactorInput = {
+  code?: string | null | undefined;
+  credentialJson?: string | null | undefined;
+  kind: string;
+  webauthnSessionId?: string | null | undefined;
+};
+
 export type FieldKind =
   "boolean" | "file" | "multiline" | "password" | "select" | "sensitive" | "text";
 
@@ -23,6 +39,11 @@ export type FolderScope = "group" | "personal" | "role";
 
 export type HeartbeatResult =
   "failed" | "hostKeyMismatch" | "hostKeyNotPinned" | "ok" | "unknown" | "unreachable";
+
+export type KeyValueInput = {
+  key: string;
+  value: string;
+};
 
 export type PasswordPolicyInput = {
   endLiteral?: string | null | undefined;
@@ -113,6 +134,30 @@ export type TargetInput = {
 };
 
 export type TypeOrigin = "custom" | "extension" | "system";
+
+export type UpdateSecretInput = {
+  expiresAt?: string | null | undefined;
+  fields?: Array<KeyValueInput> | null | undefined;
+  folderId?: string | null | undefined;
+  name?: string | null | undefined;
+  targetId?: string | null | undefined;
+};
+
+export type UseGrantInput = {
+  allowReveal?: boolean | null | undefined;
+  expiresAtUnix: number;
+  fieldKeys?: Array<string> | null | undefined;
+  folderId?: string | null | undefined;
+  maxUses?: number | null | undefined;
+  programs: Array<UseGrantProgramInput>;
+  secretIds?: Array<string> | null | undefined;
+  tokenId: string;
+};
+
+export type UseGrantProgramInput = {
+  argPattern: string;
+  program: string;
+};
 
 export type AuditRecordFieldsFragment = {
   seq: number;
@@ -1006,6 +1051,189 @@ export type MarkAllNotificationsReadMutationVariables = Exact<{ [key: string]: n
 
 export type MarkAllNotificationsReadMutation = { markAllNotificationsRead: boolean };
 
+export type AgentsTokenFieldsFragment = {
+  id: string;
+  label: string;
+  clientName: string;
+  createdAtUnix: number;
+  lastUsedAtUnix: number;
+  expiresAtUnix: number;
+  revokedAtUnix: number;
+};
+
+export type AgentsUseFieldsFragment = {
+  id: string;
+  secretName: string;
+  fieldKey: string;
+  argv: Array<string>;
+  clientLabel: string;
+  state: string;
+  expiresAtUnix: number;
+  reveal: boolean;
+};
+
+export type AgentsGrantFieldsFragment = {
+  id: string;
+  tokenId: string;
+  secretIds: Array<string>;
+  folderId: string | null;
+  fieldKeys: Array<string>;
+  expiresAtUnix: number;
+  maxUses: number;
+  uses: number;
+  revokedAtUnix: number;
+  allowReveal: boolean;
+  programs: Array<{ program: string; argPattern: string }>;
+};
+
+export type AgentsTokensQueryVariables = Exact<{ [key: string]: never }>;
+
+export type AgentsTokensQuery = {
+  myTokens: Array<{
+    id: string;
+    label: string;
+    clientName: string;
+    createdAtUnix: number;
+    lastUsedAtUnix: number;
+    expiresAtUnix: number;
+    revokedAtUnix: number;
+  }>;
+};
+
+export type AgentsRevokeTokenMutationVariables = Exact<{
+  id: string;
+}>;
+
+export type AgentsRevokeTokenMutation = {
+  revokeMyToken: {
+    id: string;
+    label: string;
+    clientName: string;
+    createdAtUnix: number;
+    lastUsedAtUnix: number;
+    expiresAtUnix: number;
+    revokedAtUnix: number;
+  };
+};
+
+export type AgentsPendingUsesQueryVariables = Exact<{ [key: string]: never }>;
+
+export type AgentsPendingUsesQuery = {
+  pendingSecretUses: Array<{
+    id: string;
+    secretName: string;
+    fieldKey: string;
+    argv: Array<string>;
+    clientLabel: string;
+    state: string;
+    expiresAtUnix: number;
+    reveal: boolean;
+  }>;
+};
+
+export type AgentsDecideUseMutationVariables = Exact<{
+  id: string;
+  approve: boolean;
+  factor?: FactorInput | null | undefined;
+}>;
+
+export type AgentsDecideUseMutation = {
+  decideSecretUse: {
+    id: string;
+    secretName: string;
+    fieldKey: string;
+    argv: Array<string>;
+    clientLabel: string;
+    state: string;
+    expiresAtUnix: number;
+    reveal: boolean;
+  };
+};
+
+export type AgentsGrantsQueryVariables = Exact<{ [key: string]: never }>;
+
+export type AgentsGrantsQuery = {
+  useGrants: Array<{
+    id: string;
+    tokenId: string;
+    secretIds: Array<string>;
+    folderId: string | null;
+    fieldKeys: Array<string>;
+    expiresAtUnix: number;
+    maxUses: number;
+    uses: number;
+    revokedAtUnix: number;
+    allowReveal: boolean;
+    programs: Array<{ program: string; argPattern: string }>;
+  }>;
+  myTokens: Array<{
+    id: string;
+    label: string;
+    clientName: string;
+    createdAtUnix: number;
+    lastUsedAtUnix: number;
+    expiresAtUnix: number;
+    revokedAtUnix: number;
+  }>;
+  folders: Array<{ id: string; name: string; parentId: string | null }>;
+  secretsByStatus: Array<{ id: string; name: string; folderId: string; typeId: string }>;
+  secretTypes: Array<{
+    id: string;
+    fields: Array<{ key: string; label: string; sensitive: boolean | null }>;
+  }>;
+};
+
+export type AgentsCreateGrantMutationVariables = Exact<{
+  input: UseGrantInput;
+  factor: FactorInput;
+}>;
+
+export type AgentsCreateGrantMutation = {
+  createUseGrant: {
+    id: string;
+    tokenId: string;
+    secretIds: Array<string>;
+    folderId: string | null;
+    fieldKeys: Array<string>;
+    expiresAtUnix: number;
+    maxUses: number;
+    uses: number;
+    revokedAtUnix: number;
+    allowReveal: boolean;
+    programs: Array<{ program: string; argPattern: string }>;
+  };
+};
+
+export type AgentsRevokeGrantMutationVariables = Exact<{
+  id: string;
+}>;
+
+export type AgentsRevokeGrantMutation = {
+  revokeUseGrant: {
+    id: string;
+    tokenId: string;
+    secretIds: Array<string>;
+    folderId: string | null;
+    fieldKeys: Array<string>;
+    expiresAtUnix: number;
+    maxUses: number;
+    uses: number;
+    revokedAtUnix: number;
+    allowReveal: boolean;
+    programs: Array<{ program: string; argPattern: string }>;
+  };
+};
+
+export type AgentsSendFactorEmailMutationVariables = Exact<{ [key: string]: never }>;
+
+export type AgentsSendFactorEmailMutation = { sendMfaEmailCode: boolean };
+
+export type AgentsBeginFactorPasskeyMutationVariables = Exact<{ [key: string]: never }>;
+
+export type AgentsBeginFactorPasskeyMutation = {
+  beginMfaPasskey: { options: string; webauthnSessionId: string };
+};
+
 export type BrowseFolderFieldsFragment = {
   id: string;
   name: string;
@@ -1225,6 +1453,167 @@ export type DashboardSecretsByStatusQuery = {
   }>;
   folders: Array<{ id: string; name: string; parentId: string | null }>;
   secretTypes: Array<{ id: string; name: string }>;
+};
+
+export type EditorsTypeFieldsFragment = {
+  id: string;
+  name: string;
+  origin: TypeOrigin;
+  vendor: string | null;
+  checkout: boolean | null;
+  heartbeat: boolean | null;
+  rotation: boolean | null;
+  fields: Array<{
+    key: string;
+    label: string;
+    kind: FieldKind;
+    options: Array<string> | null;
+    defaultValue: string | null;
+    required: boolean | null;
+    sensitive: boolean | null;
+    superSensitive: boolean | null;
+    rotates: boolean | null;
+    policyId: string | null;
+    policyEnforcement: PolicyEnforcement | null;
+    pattern: string | null;
+    maxLength: number | null;
+  }>;
+};
+
+export type EditorsPolicyFieldsFragment = {
+  id: string;
+  name: string;
+  minLength: number;
+  maxLength: number | null;
+  requireUpper: boolean;
+  requireLower: boolean;
+  requireDigit: boolean;
+  requireSymbol: boolean;
+  startClass: PwStartClass | null;
+  endLiteral: string | null;
+  excludeChars: string | null;
+  isDefault: boolean;
+};
+
+export type EditorsTargetFieldsFragment = {
+  id: string;
+  name: string;
+  hostname: string;
+  ownerUserId: string | null;
+};
+
+export type EditorsPickersQueryVariables = Exact<{ [key: string]: never }>;
+
+export type EditorsPickersQuery = {
+  secretTypes: Array<{
+    id: string;
+    name: string;
+    origin: TypeOrigin;
+    vendor: string | null;
+    checkout: boolean | null;
+    heartbeat: boolean | null;
+    rotation: boolean | null;
+    fields: Array<{
+      key: string;
+      label: string;
+      kind: FieldKind;
+      options: Array<string> | null;
+      defaultValue: string | null;
+      required: boolean | null;
+      sensitive: boolean | null;
+      superSensitive: boolean | null;
+      rotates: boolean | null;
+      policyId: string | null;
+      policyEnforcement: PolicyEnforcement | null;
+      pattern: string | null;
+      maxLength: number | null;
+    }>;
+  }>;
+  passwordPolicies: Array<{
+    id: string;
+    name: string;
+    minLength: number;
+    maxLength: number | null;
+    requireUpper: boolean;
+    requireLower: boolean;
+    requireDigit: boolean;
+    requireSymbol: boolean;
+    startClass: PwStartClass | null;
+    endLiteral: string | null;
+    excludeChars: string | null;
+    isDefault: boolean;
+  }>;
+  folders: Array<{
+    id: string;
+    name: string;
+    parentId: string | null;
+    scope: FolderScope;
+    canManage: boolean;
+  }>;
+  targets: Array<{ id: string; name: string; hostname: string; ownerUserId: string | null }>;
+  connections: Array<{ id: string; name: string; protocol: string; port: number | null }>;
+};
+
+export type EditorsSecretQueryVariables = Exact<{
+  id: string;
+}>;
+
+export type EditorsSecretQuery = {
+  secret: {
+    id: string;
+    name: string;
+    folderId: string;
+    typeId: string;
+    targetId: string | null;
+    expiresAt: string | null;
+  } | null;
+};
+
+export type EditorsSecretFieldsQueryVariables = Exact<{
+  id: string;
+}>;
+
+export type EditorsSecretFieldsQuery = { secretFields: Array<{ key: string; value: string }> };
+
+export type EditorsCreateSecretMutationVariables = Exact<{
+  input: CreateSecretInput;
+}>;
+
+export type EditorsCreateSecretMutation = { createSecret: { id: string } };
+
+export type EditorsUpdateSecretMutationVariables = Exact<{
+  id: string;
+  input: UpdateSecretInput;
+}>;
+
+export type EditorsUpdateSecretMutation = { updateSecret: { id: string } };
+
+export type EditorsGenerateKeyPairMutationVariables = Exact<{
+  format: string;
+}>;
+
+export type EditorsGenerateKeyPairMutation = {
+  generateKeyPair: { publicKey: string; privateKey: string };
+};
+
+export type EditorsImportCertificateMutationVariables = Exact<{
+  folderId: string;
+  name: string;
+  fileBase64: string;
+  passphrase?: string | null | undefined;
+  alias?: string | null | undefined;
+}>;
+
+export type EditorsImportCertificateMutation = {
+  importCertificate: { aliases: Array<string>; secret: { id: string } | null };
+};
+
+export type EditorsSaveTargetMutationVariables = Exact<{
+  input: TargetInput;
+}>;
+
+export type EditorsSaveTargetMutation = {
+  saveTarget: { id: string; name: string; hostname: string; ownerUserId: string | null };
 };
 
 export type RequestsRequestFieldsFragment = {
@@ -1565,6 +1954,36 @@ export type SecretRevealVersionMutationVariables = Exact<{
 
 export type SecretRevealVersionMutation = { revealSecretVersionField: string };
 
+export type SecretRestoreVersionMutationVariables = Exact<{
+  secretId: string;
+  versionNo: number;
+}>;
+
+export type SecretRestoreVersionMutation = {
+  restoreSecretVersion: {
+    id: string;
+    name: string;
+    canRead: boolean | null;
+    folderId: string;
+    typeId: string;
+    targetId: string | null;
+    expiresAt: string | null;
+    lastHeartbeatResult: HeartbeatResult | null;
+    verifiedAt: string | null;
+    viewCount: number | null;
+    lastAccessedAt: string | null;
+    retired: boolean;
+    retiredAt: string;
+    lastRotationResult: RotationState | null;
+    rotatedAt: string | null;
+    rotationIntervalDays: number | null;
+    nextRotationAt: string | null;
+    rotationOptOut: boolean | null;
+    heartbeatOptOut: boolean | null;
+    requireTokenApproval: boolean | null;
+  };
+};
+
 export type SecretBreakGlassMutationVariables = Exact<{
   secretId: string;
   reason: string;
@@ -1760,6 +2179,344 @@ export type SecretReplaceCertificateMutation = {
       hasPrivateKey: boolean;
     } | null;
   };
+};
+
+export type SharingRuleFieldsFragment = {
+  id: string;
+  order: number;
+  subjectKind: SubjectKind;
+  subjectName: string;
+  subjectId: string | null;
+  grants: Array<{ action: RaciAction; value: RaciGrant }>;
+};
+
+export type SharingInheritedRuleFieldsFragment = {
+  fromFolderId: string;
+  fromFolderName: string;
+  rule: {
+    id: string;
+    order: number;
+    subjectKind: SubjectKind;
+    subjectName: string;
+    subjectId: string | null;
+    grants: Array<{ action: RaciAction; value: RaciGrant }>;
+  };
+};
+
+export type SharingAccessFieldsFragment = {
+  read: boolean;
+  reveal: boolean;
+  manage: boolean;
+  approve: boolean;
+  informed: boolean;
+  manageRuleset: boolean;
+};
+
+export type SharingDecisionFieldsFragment = {
+  read: boolean;
+  readReason: string;
+  reveal: boolean;
+  revealReason: string;
+  manage: boolean;
+  manageReason: string;
+  approve: boolean;
+  approveReason: string;
+  informed: boolean;
+  informedReason: string;
+};
+
+export type SharingFoldersQueryVariables = Exact<{ [key: string]: never }>;
+
+export type SharingFoldersQuery = {
+  folders: Array<{
+    id: string;
+    name: string;
+    parentId: string | null;
+    owners: Array<string> | null;
+    subtreeSecretCount: number | null;
+  }>;
+};
+
+export type SharingFolderAccessQueryVariables = Exact<{
+  folderId: string;
+}>;
+
+export type SharingFolderAccessQuery = {
+  myFolderAccess: {
+    read: boolean;
+    reveal: boolean;
+    manage: boolean;
+    approve: boolean;
+    informed: boolean;
+    manageRuleset: boolean;
+  };
+};
+
+export type SharingFolderRulesetQueryVariables = Exact<{
+  folderId: string;
+}>;
+
+export type SharingFolderRulesetQuery = {
+  folderRuleset: {
+    folderId: string;
+    owners: Array<string>;
+    rules: Array<{
+      id: string;
+      order: number;
+      subjectKind: SubjectKind;
+      subjectName: string;
+      subjectId: string | null;
+      grants: Array<{ action: RaciAction; value: RaciGrant }>;
+    }>;
+    inherited: Array<{
+      fromFolderId: string;
+      fromFolderName: string;
+      rule: {
+        id: string;
+        order: number;
+        subjectKind: SubjectKind;
+        subjectName: string;
+        subjectId: string | null;
+        grants: Array<{ action: RaciAction; value: RaciGrant }>;
+      };
+    }>;
+    inheritedOwners: Array<{ userId: string; fromFolderId: string; fromFolderName: string }>;
+  };
+  groups: Array<{ id: string; name: string }>;
+};
+
+export type SharingSecretQueryVariables = Exact<{
+  secretId: string;
+}>;
+
+export type SharingSecretQuery = { secret: { id: string; name: string; folderId: string } | null };
+
+export type SharingSecretAccessQueryVariables = Exact<{
+  secretId: string;
+}>;
+
+export type SharingSecretAccessQuery = {
+  mySecretAccess: {
+    read: boolean;
+    reveal: boolean;
+    manage: boolean;
+    approve: boolean;
+    informed: boolean;
+    manageRuleset: boolean;
+  };
+};
+
+export type SharingSecretRulesetQueryVariables = Exact<{
+  secretId: string;
+}>;
+
+export type SharingSecretRulesetQuery = {
+  secretRuleset: {
+    secretId: string;
+    rules: Array<{
+      id: string;
+      order: number;
+      subjectKind: SubjectKind;
+      subjectName: string;
+      subjectId: string | null;
+      grants: Array<{ action: RaciAction; value: RaciGrant }>;
+    }>;
+    inherited: Array<{
+      fromFolderId: string;
+      fromFolderName: string;
+      rule: {
+        id: string;
+        order: number;
+        subjectKind: SubjectKind;
+        subjectName: string;
+        subjectId: string | null;
+        grants: Array<{ action: RaciAction; value: RaciGrant }>;
+      };
+    }>;
+  };
+  groups: Array<{ id: string; name: string }>;
+};
+
+export type SharingUserLabelsQueryVariables = Exact<{
+  ids: Array<string> | string;
+}>;
+
+export type SharingUserLabelsQuery = { resolveUserLabels: Array<{ id: string; name: string }> };
+
+export type SharingSearchUsersQueryVariables = Exact<{
+  query: string;
+  limit?: number | null | undefined;
+}>;
+
+export type SharingSearchUsersQuery = {
+  searchUsers: Array<{ id: string; name: string; email: string }>;
+};
+
+export type SharingSimulateFolderQueryVariables = Exact<{
+  folderId: string;
+  userId: string;
+  draftRules: Array<RaciRuleInput> | RaciRuleInput;
+}>;
+
+export type SharingSimulateFolderQuery = {
+  simulateFolder: {
+    read: boolean;
+    readReason: string;
+    reveal: boolean;
+    revealReason: string;
+    manage: boolean;
+    manageReason: string;
+    approve: boolean;
+    approveReason: string;
+    informed: boolean;
+    informedReason: string;
+  };
+};
+
+export type SharingSimulateSecretQueryVariables = Exact<{
+  secretId: string;
+  userId: string;
+  draftRules: Array<RaciRuleInput> | RaciRuleInput;
+}>;
+
+export type SharingSimulateSecretQuery = {
+  simulateSecret: {
+    read: boolean;
+    readReason: string;
+    reveal: boolean;
+    revealReason: string;
+    manage: boolean;
+    manageReason: string;
+    approve: boolean;
+    approveReason: string;
+    informed: boolean;
+    informedReason: string;
+  };
+};
+
+export type SharingSetFolderRulesetMutationVariables = Exact<{
+  folderId: string;
+  owners: Array<string> | string;
+  rules: Array<RaciRuleInput> | RaciRuleInput;
+}>;
+
+export type SharingSetFolderRulesetMutation = { setFolderRuleset: { folderId: string } };
+
+export type SharingSetSecretRulesetMutationVariables = Exact<{
+  secretId: string;
+  rules: Array<RaciRuleInput> | RaciRuleInput;
+}>;
+
+export type SharingSetSecretRulesetMutation = { setSecretRuleset: { secretId: string } };
+
+export type TargetsTargetFieldsFragment = {
+  id: string;
+  name: string;
+  hostname: string;
+  kind: string | null;
+  domain: string | null;
+  realm: string | null;
+  connectionId: string;
+  description: string | null;
+  secretCount: number;
+  ownerUserId: string | null;
+  sshHostKeys: Array<string>;
+};
+
+export type TargetsConnectionFieldsFragment = {
+  id: string;
+  name: string;
+  protocol: string;
+  port: number | null;
+  description: string | null;
+};
+
+export type TargetsListQueryVariables = Exact<{ [key: string]: never }>;
+
+export type TargetsListQuery = {
+  targets: Array<{
+    id: string;
+    name: string;
+    hostname: string;
+    kind: string | null;
+    domain: string | null;
+    realm: string | null;
+    connectionId: string;
+    description: string | null;
+    secretCount: number;
+    ownerUserId: string | null;
+    sshHostKeys: Array<string>;
+  }>;
+  connections: Array<{
+    id: string;
+    name: string;
+    protocol: string;
+    port: number | null;
+    description: string | null;
+  }>;
+};
+
+export type TargetsSaveMutationVariables = Exact<{
+  input: TargetInput;
+}>;
+
+export type TargetsSaveMutation = {
+  saveTarget: {
+    id: string;
+    name: string;
+    hostname: string;
+    kind: string | null;
+    domain: string | null;
+    realm: string | null;
+    connectionId: string;
+    description: string | null;
+    secretCount: number;
+    ownerUserId: string | null;
+    sshHostKeys: Array<string>;
+  };
+};
+
+export type TargetsDeleteMutationVariables = Exact<{
+  id: string;
+}>;
+
+export type TargetsDeleteMutation = { deleteTarget: boolean };
+
+export type TargetsTerminalQueryVariables = Exact<{
+  id: string;
+}>;
+
+export type TargetsTerminalQuery = {
+  secret: {
+    id: string;
+    name: string;
+    typeId: string;
+    targetId: string | null;
+    retired: boolean;
+    canRead: boolean | null;
+  } | null;
+  targets: Array<{
+    id: string;
+    name: string;
+    hostname: string;
+    connectionId: string;
+    sshHostKeys: Array<string>;
+  }>;
+  connections: Array<{ id: string; protocol: string; port: number | null }>;
+};
+
+export type TargetsTerminalFieldsQueryVariables = Exact<{
+  id: string;
+}>;
+
+export type TargetsTerminalFieldsQuery = { secretFields: Array<{ key: string; value: string }> };
+
+export type TargetsOpenSshSessionMutationVariables = Exact<{
+  secretId: string;
+}>;
+
+export type TargetsOpenSshSessionMutation = {
+  openSshSession: { wsUrl: string; ticket: string; sessionId: string; expiresInSeconds: number };
 };
 
 export class TypedDocumentString<TResult, TVariables>
@@ -1958,6 +2715,56 @@ export const UserFieldsFragmentDoc = new TypedDocumentString(
     `,
   { fragmentName: "UserFields" },
 ) as unknown as TypedDocumentString<UserFieldsFragment, unknown>;
+export const AgentsTokenFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment AgentsTokenFields on UserToken {
+  id
+  label
+  clientName
+  createdAtUnix
+  lastUsedAtUnix
+  expiresAtUnix
+  revokedAtUnix
+}
+    `,
+  { fragmentName: "AgentsTokenFields" },
+) as unknown as TypedDocumentString<AgentsTokenFieldsFragment, unknown>;
+export const AgentsUseFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment AgentsUseFields on SecretUse {
+  id
+  secretName
+  fieldKey
+  argv
+  clientLabel
+  state
+  expiresAtUnix
+  reveal
+}
+    `,
+  { fragmentName: "AgentsUseFields" },
+) as unknown as TypedDocumentString<AgentsUseFieldsFragment, unknown>;
+export const AgentsGrantFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment AgentsGrantFields on UseGrant {
+  id
+  tokenId
+  secretIds
+  folderId
+  fieldKeys
+  programs {
+    program
+    argPattern
+  }
+  expiresAtUnix
+  maxUses
+  uses
+  revokedAtUnix
+  allowReveal
+}
+    `,
+  { fragmentName: "AgentsGrantFields" },
+) as unknown as TypedDocumentString<AgentsGrantFieldsFragment, unknown>;
 export const BrowseFolderFieldsFragmentDoc = new TypedDocumentString(
   `
     fragment BrowseFolderFields on Folder {
@@ -1977,6 +2784,65 @@ export const BrowseFolderFieldsFragmentDoc = new TypedDocumentString(
     `,
   { fragmentName: "BrowseFolderFields" },
 ) as unknown as TypedDocumentString<BrowseFolderFieldsFragment, unknown>;
+export const EditorsTypeFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment EditorsTypeFields on SecretType {
+  id
+  name
+  origin
+  vendor
+  checkout
+  heartbeat
+  rotation
+  fields {
+    key
+    label
+    kind
+    options
+    defaultValue
+    required
+    sensitive
+    superSensitive
+    rotates
+    policyId
+    policyEnforcement
+    pattern
+    maxLength
+  }
+}
+    `,
+  { fragmentName: "EditorsTypeFields" },
+) as unknown as TypedDocumentString<EditorsTypeFieldsFragment, unknown>;
+export const EditorsPolicyFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment EditorsPolicyFields on PasswordPolicy {
+  id
+  name
+  minLength
+  maxLength
+  requireUpper
+  requireLower
+  requireDigit
+  requireSymbol
+  startClass
+  endLiteral
+  excludeChars
+  isDefault
+}
+    `,
+  { fragmentName: "EditorsPolicyFields" },
+) as unknown as TypedDocumentString<EditorsPolicyFieldsFragment, unknown>;
+export const EditorsTargetFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment EditorsTargetFields on Target {
+  id
+  name
+  hostname
+  ownerUserId
+}
+    `,
+  { fragmentName: "EditorsTargetFields" },
+) as unknown as TypedDocumentString<EditorsTargetFieldsFragment, unknown>;
 export const RequestsRequestFieldsFragmentDoc = new TypedDocumentString(
   `
     fragment RequestsRequestFields on ApprovalRequest {
@@ -2063,6 +2929,104 @@ export const SecretCertMetaFieldsFragmentDoc = new TypedDocumentString(
     `,
   { fragmentName: "SecretCertMetaFields" },
 ) as unknown as TypedDocumentString<SecretCertMetaFieldsFragment, unknown>;
+export const SharingRuleFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment SharingRuleFields on RaciRule {
+  id
+  order
+  subjectKind
+  subjectName
+  subjectId
+  grants {
+    action
+    value
+  }
+}
+    `,
+  { fragmentName: "SharingRuleFields" },
+) as unknown as TypedDocumentString<SharingRuleFieldsFragment, unknown>;
+export const SharingInheritedRuleFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment SharingInheritedRuleFields on InheritedRaciRule {
+  fromFolderId
+  fromFolderName
+  rule {
+    ...SharingRuleFields
+  }
+}
+    fragment SharingRuleFields on RaciRule {
+  id
+  order
+  subjectKind
+  subjectName
+  subjectId
+  grants {
+    action
+    value
+  }
+}`,
+  { fragmentName: "SharingInheritedRuleFields" },
+) as unknown as TypedDocumentString<SharingInheritedRuleFieldsFragment, unknown>;
+export const SharingAccessFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment SharingAccessFields on FolderAccess {
+  read
+  reveal
+  manage
+  approve
+  informed
+  manageRuleset
+}
+    `,
+  { fragmentName: "SharingAccessFields" },
+) as unknown as TypedDocumentString<SharingAccessFieldsFragment, unknown>;
+export const SharingDecisionFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment SharingDecisionFields on RaciDecision {
+  read
+  readReason
+  reveal
+  revealReason
+  manage
+  manageReason
+  approve
+  approveReason
+  informed
+  informedReason
+}
+    `,
+  { fragmentName: "SharingDecisionFields" },
+) as unknown as TypedDocumentString<SharingDecisionFieldsFragment, unknown>;
+export const TargetsTargetFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment TargetsTargetFields on Target {
+  id
+  name
+  hostname
+  kind
+  domain
+  realm
+  connectionId
+  description
+  secretCount
+  ownerUserId
+  sshHostKeys
+}
+    `,
+  { fragmentName: "TargetsTargetFields" },
+) as unknown as TypedDocumentString<TargetsTargetFieldsFragment, unknown>;
+export const TargetsConnectionFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment TargetsConnectionFields on Connection {
+  id
+  name
+  protocol
+  port
+  description
+}
+    `,
+  { fragmentName: "TargetsConnectionFields" },
+) as unknown as TypedDocumentString<TargetsConnectionFieldsFragment, unknown>;
 export const AdminAuditDocument = new TypedDocumentString(`
     query AdminAudit($actorUserId: String, $subject: String, $excludeActions: [String!], $limit: Int) {
   auditRecords(
@@ -2986,6 +3950,193 @@ export const MarkAllNotificationsReadDocument = new TypedDocumentString(`
   MarkAllNotificationsReadMutation,
   MarkAllNotificationsReadMutationVariables
 >;
+export const AgentsTokensDocument = new TypedDocumentString(`
+    query AgentsTokens {
+  myTokens {
+    ...AgentsTokenFields
+  }
+}
+    fragment AgentsTokenFields on UserToken {
+  id
+  label
+  clientName
+  createdAtUnix
+  lastUsedAtUnix
+  expiresAtUnix
+  revokedAtUnix
+}`) as unknown as TypedDocumentString<AgentsTokensQuery, AgentsTokensQueryVariables>;
+export const AgentsRevokeTokenDocument = new TypedDocumentString(`
+    mutation AgentsRevokeToken($id: ID!) {
+  revokeMyToken(id: $id) {
+    ...AgentsTokenFields
+  }
+}
+    fragment AgentsTokenFields on UserToken {
+  id
+  label
+  clientName
+  createdAtUnix
+  lastUsedAtUnix
+  expiresAtUnix
+  revokedAtUnix
+}`) as unknown as TypedDocumentString<
+  AgentsRevokeTokenMutation,
+  AgentsRevokeTokenMutationVariables
+>;
+export const AgentsPendingUsesDocument = new TypedDocumentString(`
+    query AgentsPendingUses {
+  pendingSecretUses {
+    ...AgentsUseFields
+  }
+}
+    fragment AgentsUseFields on SecretUse {
+  id
+  secretName
+  fieldKey
+  argv
+  clientLabel
+  state
+  expiresAtUnix
+  reveal
+}`) as unknown as TypedDocumentString<AgentsPendingUsesQuery, AgentsPendingUsesQueryVariables>;
+export const AgentsDecideUseDocument = new TypedDocumentString(`
+    mutation AgentsDecideUse($id: ID!, $approve: Boolean!, $factor: FactorInput) {
+  decideSecretUse(id: $id, approve: $approve, factor: $factor) {
+    ...AgentsUseFields
+  }
+}
+    fragment AgentsUseFields on SecretUse {
+  id
+  secretName
+  fieldKey
+  argv
+  clientLabel
+  state
+  expiresAtUnix
+  reveal
+}`) as unknown as TypedDocumentString<AgentsDecideUseMutation, AgentsDecideUseMutationVariables>;
+export const AgentsGrantsDocument = new TypedDocumentString(`
+    query AgentsGrants {
+  useGrants {
+    ...AgentsGrantFields
+  }
+  myTokens {
+    ...AgentsTokenFields
+  }
+  folders {
+    id
+    name
+    parentId
+  }
+  secretsByStatus(status: "all") {
+    id
+    name
+    folderId
+    typeId
+  }
+  secretTypes {
+    id
+    fields {
+      key
+      label
+      sensitive
+    }
+  }
+}
+    fragment AgentsTokenFields on UserToken {
+  id
+  label
+  clientName
+  createdAtUnix
+  lastUsedAtUnix
+  expiresAtUnix
+  revokedAtUnix
+}
+fragment AgentsGrantFields on UseGrant {
+  id
+  tokenId
+  secretIds
+  folderId
+  fieldKeys
+  programs {
+    program
+    argPattern
+  }
+  expiresAtUnix
+  maxUses
+  uses
+  revokedAtUnix
+  allowReveal
+}`) as unknown as TypedDocumentString<AgentsGrantsQuery, AgentsGrantsQueryVariables>;
+export const AgentsCreateGrantDocument = new TypedDocumentString(`
+    mutation AgentsCreateGrant($input: UseGrantInput!, $factor: FactorInput!) {
+  createUseGrant(input: $input, factor: $factor) {
+    ...AgentsGrantFields
+  }
+}
+    fragment AgentsGrantFields on UseGrant {
+  id
+  tokenId
+  secretIds
+  folderId
+  fieldKeys
+  programs {
+    program
+    argPattern
+  }
+  expiresAtUnix
+  maxUses
+  uses
+  revokedAtUnix
+  allowReveal
+}`) as unknown as TypedDocumentString<
+  AgentsCreateGrantMutation,
+  AgentsCreateGrantMutationVariables
+>;
+export const AgentsRevokeGrantDocument = new TypedDocumentString(`
+    mutation AgentsRevokeGrant($id: ID!) {
+  revokeUseGrant(id: $id) {
+    ...AgentsGrantFields
+  }
+}
+    fragment AgentsGrantFields on UseGrant {
+  id
+  tokenId
+  secretIds
+  folderId
+  fieldKeys
+  programs {
+    program
+    argPattern
+  }
+  expiresAtUnix
+  maxUses
+  uses
+  revokedAtUnix
+  allowReveal
+}`) as unknown as TypedDocumentString<
+  AgentsRevokeGrantMutation,
+  AgentsRevokeGrantMutationVariables
+>;
+export const AgentsSendFactorEmailDocument = new TypedDocumentString(`
+    mutation AgentsSendFactorEmail {
+  sendMfaEmailCode
+}
+    `) as unknown as TypedDocumentString<
+  AgentsSendFactorEmailMutation,
+  AgentsSendFactorEmailMutationVariables
+>;
+export const AgentsBeginFactorPasskeyDocument = new TypedDocumentString(`
+    mutation AgentsBeginFactorPasskey {
+  beginMfaPasskey {
+    options
+    webauthnSessionId
+  }
+}
+    `) as unknown as TypedDocumentString<
+  AgentsBeginFactorPasskeyMutation,
+  AgentsBeginFactorPasskeyMutationVariables
+>;
 export const BrowseFoldersDocument = new TypedDocumentString(`
     query BrowseFolders {
   folders {
@@ -3245,6 +4396,163 @@ export const DashboardSecretsByStatusDocument = new TypedDocumentString(`
     `) as unknown as TypedDocumentString<
   DashboardSecretsByStatusQuery,
   DashboardSecretsByStatusQueryVariables
+>;
+export const EditorsPickersDocument = new TypedDocumentString(`
+    query EditorsPickers {
+  secretTypes {
+    ...EditorsTypeFields
+  }
+  passwordPolicies {
+    ...EditorsPolicyFields
+  }
+  folders {
+    id
+    name
+    parentId
+    scope
+    canManage
+  }
+  targets {
+    ...EditorsTargetFields
+  }
+  connections {
+    id
+    name
+    protocol
+    port
+  }
+}
+    fragment EditorsTypeFields on SecretType {
+  id
+  name
+  origin
+  vendor
+  checkout
+  heartbeat
+  rotation
+  fields {
+    key
+    label
+    kind
+    options
+    defaultValue
+    required
+    sensitive
+    superSensitive
+    rotates
+    policyId
+    policyEnforcement
+    pattern
+    maxLength
+  }
+}
+fragment EditorsPolicyFields on PasswordPolicy {
+  id
+  name
+  minLength
+  maxLength
+  requireUpper
+  requireLower
+  requireDigit
+  requireSymbol
+  startClass
+  endLiteral
+  excludeChars
+  isDefault
+}
+fragment EditorsTargetFields on Target {
+  id
+  name
+  hostname
+  ownerUserId
+}`) as unknown as TypedDocumentString<EditorsPickersQuery, EditorsPickersQueryVariables>;
+export const EditorsSecretDocument = new TypedDocumentString(`
+    query EditorsSecret($id: ID!) {
+  secret(id: $id) {
+    id
+    name
+    folderId
+    typeId
+    targetId
+    expiresAt
+  }
+}
+    `) as unknown as TypedDocumentString<EditorsSecretQuery, EditorsSecretQueryVariables>;
+export const EditorsSecretFieldsDocument = new TypedDocumentString(`
+    query EditorsSecretFields($id: ID!) {
+  secretFields(id: $id) {
+    key
+    value
+  }
+}
+    `) as unknown as TypedDocumentString<
+  EditorsSecretFieldsQuery,
+  EditorsSecretFieldsQueryVariables
+>;
+export const EditorsCreateSecretDocument = new TypedDocumentString(`
+    mutation EditorsCreateSecret($input: CreateSecretInput!) {
+  createSecret(input: $input) {
+    id
+  }
+}
+    `) as unknown as TypedDocumentString<
+  EditorsCreateSecretMutation,
+  EditorsCreateSecretMutationVariables
+>;
+export const EditorsUpdateSecretDocument = new TypedDocumentString(`
+    mutation EditorsUpdateSecret($id: ID!, $input: UpdateSecretInput!) {
+  updateSecret(id: $id, input: $input) {
+    id
+  }
+}
+    `) as unknown as TypedDocumentString<
+  EditorsUpdateSecretMutation,
+  EditorsUpdateSecretMutationVariables
+>;
+export const EditorsGenerateKeyPairDocument = new TypedDocumentString(`
+    mutation EditorsGenerateKeyPair($format: String!) {
+  generateKeyPair(format: $format) {
+    publicKey
+    privateKey
+  }
+}
+    `) as unknown as TypedDocumentString<
+  EditorsGenerateKeyPairMutation,
+  EditorsGenerateKeyPairMutationVariables
+>;
+export const EditorsImportCertificateDocument = new TypedDocumentString(`
+    mutation EditorsImportCertificate($folderId: String!, $name: String!, $fileBase64: String!, $passphrase: String, $alias: String) {
+  importCertificate(
+    folderId: $folderId
+    name: $name
+    fileBase64: $fileBase64
+    passphrase: $passphrase
+    alias: $alias
+  ) {
+    secret {
+      id
+    }
+    aliases
+  }
+}
+    `) as unknown as TypedDocumentString<
+  EditorsImportCertificateMutation,
+  EditorsImportCertificateMutationVariables
+>;
+export const EditorsSaveTargetDocument = new TypedDocumentString(`
+    mutation EditorsSaveTarget($input: TargetInput!) {
+  saveTarget(input: $input) {
+    ...EditorsTargetFields
+  }
+}
+    fragment EditorsTargetFields on Target {
+  id
+  name
+  hostname
+  ownerUserId
+}`) as unknown as TypedDocumentString<
+  EditorsSaveTargetMutation,
+  EditorsSaveTargetMutationVariables
 >;
 export const RequestsListDocument = new TypedDocumentString(`
     query RequestsList {
@@ -3527,6 +4835,37 @@ export const SecretRevealVersionDocument = new TypedDocumentString(`
   SecretRevealVersionMutation,
   SecretRevealVersionMutationVariables
 >;
+export const SecretRestoreVersionDocument = new TypedDocumentString(`
+    mutation SecretRestoreVersion($secretId: ID!, $versionNo: Int!) {
+  restoreSecretVersion(secretId: $secretId, versionNo: $versionNo) {
+    ...SecretDetailFields
+  }
+}
+    fragment SecretDetailFields on Secret {
+  id
+  name
+  canRead
+  folderId
+  typeId
+  targetId
+  expiresAt
+  lastHeartbeatResult
+  verifiedAt
+  viewCount
+  lastAccessedAt
+  retired
+  retiredAt
+  lastRotationResult
+  rotatedAt
+  rotationIntervalDays
+  nextRotationAt
+  rotationOptOut
+  heartbeatOptOut
+  requireTokenApproval
+}`) as unknown as TypedDocumentString<
+  SecretRestoreVersionMutation,
+  SecretRestoreVersionMutationVariables
+>;
 export const SecretBreakGlassDocument = new TypedDocumentString(`
     mutation SecretBreakGlass($secretId: String!, $reason: String!, $code: String!) {
   breakGlassSecret(secretId: $secretId, reason: $reason, code: $code) {
@@ -3740,4 +5079,312 @@ fragment SecretCertMetaFields on CertMeta {
 }`) as unknown as TypedDocumentString<
   SecretReplaceCertificateMutation,
   SecretReplaceCertificateMutationVariables
+>;
+export const SharingFoldersDocument = new TypedDocumentString(`
+    query SharingFolders {
+  folders {
+    id
+    name
+    parentId
+    owners
+    subtreeSecretCount
+  }
+}
+    `) as unknown as TypedDocumentString<SharingFoldersQuery, SharingFoldersQueryVariables>;
+export const SharingFolderAccessDocument = new TypedDocumentString(`
+    query SharingFolderAccess($folderId: String!) {
+  myFolderAccess(folderId: $folderId) {
+    ...SharingAccessFields
+  }
+}
+    fragment SharingAccessFields on FolderAccess {
+  read
+  reveal
+  manage
+  approve
+  informed
+  manageRuleset
+}`) as unknown as TypedDocumentString<SharingFolderAccessQuery, SharingFolderAccessQueryVariables>;
+export const SharingFolderRulesetDocument = new TypedDocumentString(`
+    query SharingFolderRuleset($folderId: String!) {
+  folderRuleset(folderId: $folderId) {
+    folderId
+    owners
+    rules {
+      ...SharingRuleFields
+    }
+    inherited {
+      ...SharingInheritedRuleFields
+    }
+    inheritedOwners {
+      userId
+      fromFolderId
+      fromFolderName
+    }
+  }
+  groups {
+    id
+    name
+  }
+}
+    fragment SharingRuleFields on RaciRule {
+  id
+  order
+  subjectKind
+  subjectName
+  subjectId
+  grants {
+    action
+    value
+  }
+}
+fragment SharingInheritedRuleFields on InheritedRaciRule {
+  fromFolderId
+  fromFolderName
+  rule {
+    ...SharingRuleFields
+  }
+}`) as unknown as TypedDocumentString<
+  SharingFolderRulesetQuery,
+  SharingFolderRulesetQueryVariables
+>;
+export const SharingSecretDocument = new TypedDocumentString(`
+    query SharingSecret($secretId: ID!) {
+  secret(id: $secretId) {
+    id
+    name
+    folderId
+  }
+}
+    `) as unknown as TypedDocumentString<SharingSecretQuery, SharingSecretQueryVariables>;
+export const SharingSecretAccessDocument = new TypedDocumentString(`
+    query SharingSecretAccess($secretId: String!) {
+  mySecretAccess(secretId: $secretId) {
+    ...SharingAccessFields
+  }
+}
+    fragment SharingAccessFields on FolderAccess {
+  read
+  reveal
+  manage
+  approve
+  informed
+  manageRuleset
+}`) as unknown as TypedDocumentString<SharingSecretAccessQuery, SharingSecretAccessQueryVariables>;
+export const SharingSecretRulesetDocument = new TypedDocumentString(`
+    query SharingSecretRuleset($secretId: String!) {
+  secretRuleset(secretId: $secretId) {
+    secretId
+    rules {
+      ...SharingRuleFields
+    }
+    inherited {
+      ...SharingInheritedRuleFields
+    }
+  }
+  groups {
+    id
+    name
+  }
+}
+    fragment SharingRuleFields on RaciRule {
+  id
+  order
+  subjectKind
+  subjectName
+  subjectId
+  grants {
+    action
+    value
+  }
+}
+fragment SharingInheritedRuleFields on InheritedRaciRule {
+  fromFolderId
+  fromFolderName
+  rule {
+    ...SharingRuleFields
+  }
+}`) as unknown as TypedDocumentString<
+  SharingSecretRulesetQuery,
+  SharingSecretRulesetQueryVariables
+>;
+export const SharingUserLabelsDocument = new TypedDocumentString(`
+    query SharingUserLabels($ids: [String!]!) {
+  resolveUserLabels(ids: $ids) {
+    id
+    name
+  }
+}
+    `) as unknown as TypedDocumentString<SharingUserLabelsQuery, SharingUserLabelsQueryVariables>;
+export const SharingSearchUsersDocument = new TypedDocumentString(`
+    query SharingSearchUsers($query: String!, $limit: Int) {
+  searchUsers(query: $query, limit: $limit) {
+    id
+    name
+    email
+  }
+}
+    `) as unknown as TypedDocumentString<SharingSearchUsersQuery, SharingSearchUsersQueryVariables>;
+export const SharingSimulateFolderDocument = new TypedDocumentString(`
+    query SharingSimulateFolder($folderId: String!, $userId: String!, $draftRules: [RaciRuleInput!]!) {
+  simulateFolder(folderId: $folderId, userId: $userId, draftRules: $draftRules) {
+    ...SharingDecisionFields
+  }
+}
+    fragment SharingDecisionFields on RaciDecision {
+  read
+  readReason
+  reveal
+  revealReason
+  manage
+  manageReason
+  approve
+  approveReason
+  informed
+  informedReason
+}`) as unknown as TypedDocumentString<
+  SharingSimulateFolderQuery,
+  SharingSimulateFolderQueryVariables
+>;
+export const SharingSimulateSecretDocument = new TypedDocumentString(`
+    query SharingSimulateSecret($secretId: String!, $userId: String!, $draftRules: [RaciRuleInput!]!) {
+  simulateSecret(secretId: $secretId, userId: $userId, draftRules: $draftRules) {
+    ...SharingDecisionFields
+  }
+}
+    fragment SharingDecisionFields on RaciDecision {
+  read
+  readReason
+  reveal
+  revealReason
+  manage
+  manageReason
+  approve
+  approveReason
+  informed
+  informedReason
+}`) as unknown as TypedDocumentString<
+  SharingSimulateSecretQuery,
+  SharingSimulateSecretQueryVariables
+>;
+export const SharingSetFolderRulesetDocument = new TypedDocumentString(`
+    mutation SharingSetFolderRuleset($folderId: String!, $owners: [String!]!, $rules: [RaciRuleInput!]!) {
+  setFolderRuleset(folderId: $folderId, owners: $owners, rules: $rules) {
+    folderId
+  }
+}
+    `) as unknown as TypedDocumentString<
+  SharingSetFolderRulesetMutation,
+  SharingSetFolderRulesetMutationVariables
+>;
+export const SharingSetSecretRulesetDocument = new TypedDocumentString(`
+    mutation SharingSetSecretRuleset($secretId: String!, $rules: [RaciRuleInput!]!) {
+  setSecretRuleset(secretId: $secretId, rules: $rules) {
+    secretId
+  }
+}
+    `) as unknown as TypedDocumentString<
+  SharingSetSecretRulesetMutation,
+  SharingSetSecretRulesetMutationVariables
+>;
+export const TargetsListDocument = new TypedDocumentString(`
+    query TargetsList {
+  targets {
+    ...TargetsTargetFields
+  }
+  connections {
+    ...TargetsConnectionFields
+  }
+}
+    fragment TargetsTargetFields on Target {
+  id
+  name
+  hostname
+  kind
+  domain
+  realm
+  connectionId
+  description
+  secretCount
+  ownerUserId
+  sshHostKeys
+}
+fragment TargetsConnectionFields on Connection {
+  id
+  name
+  protocol
+  port
+  description
+}`) as unknown as TypedDocumentString<TargetsListQuery, TargetsListQueryVariables>;
+export const TargetsSaveDocument = new TypedDocumentString(`
+    mutation TargetsSave($input: TargetInput!) {
+  saveTarget(input: $input) {
+    ...TargetsTargetFields
+  }
+}
+    fragment TargetsTargetFields on Target {
+  id
+  name
+  hostname
+  kind
+  domain
+  realm
+  connectionId
+  description
+  secretCount
+  ownerUserId
+  sshHostKeys
+}`) as unknown as TypedDocumentString<TargetsSaveMutation, TargetsSaveMutationVariables>;
+export const TargetsDeleteDocument = new TypedDocumentString(`
+    mutation TargetsDelete($id: ID!) {
+  deleteTarget(id: $id)
+}
+    `) as unknown as TypedDocumentString<TargetsDeleteMutation, TargetsDeleteMutationVariables>;
+export const TargetsTerminalDocument = new TypedDocumentString(`
+    query TargetsTerminal($id: ID!) {
+  secret(id: $id) {
+    id
+    name
+    typeId
+    targetId
+    retired
+    canRead
+  }
+  targets {
+    id
+    name
+    hostname
+    connectionId
+    sshHostKeys
+  }
+  connections {
+    id
+    protocol
+    port
+  }
+}
+    `) as unknown as TypedDocumentString<TargetsTerminalQuery, TargetsTerminalQueryVariables>;
+export const TargetsTerminalFieldsDocument = new TypedDocumentString(`
+    query TargetsTerminalFields($id: ID!) {
+  secretFields(id: $id) {
+    key
+    value
+  }
+}
+    `) as unknown as TypedDocumentString<
+  TargetsTerminalFieldsQuery,
+  TargetsTerminalFieldsQueryVariables
+>;
+export const TargetsOpenSshSessionDocument = new TypedDocumentString(`
+    mutation TargetsOpenSshSession($secretId: ID!) {
+  openSshSession(secretId: $secretId) {
+    wsUrl
+    ticket
+    sessionId
+    expiresInSeconds
+  }
+}
+    `) as unknown as TypedDocumentString<
+  TargetsOpenSshSessionMutation,
+  TargetsOpenSshSessionMutationVariables
 >;

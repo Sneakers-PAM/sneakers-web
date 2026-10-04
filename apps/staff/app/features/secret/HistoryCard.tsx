@@ -6,16 +6,25 @@ import type { SecretType, SecretVersion } from "@/features/secret/secret.server"
 
 import { isSecretField } from "@/features/secret/FieldsCard";
 import { Panel } from "@/features/secret/Panel";
+import { RestoreVersion } from "@/features/secret/RestoreVersion";
 import { SensitiveValue } from "@/features/secret/SensitiveValue";
+
+interface Viewer {
+  /** Holds the recovery role, so a prior version can be restored. */
+  recovery: boolean;
+  viewerId: string;
+}
 
 const Version = ({
   locked,
   type,
   v,
+  viewer,
 }: {
   locked?: string;
   type: null | SecretType;
   v: SecretVersion;
+  viewer: Viewer;
 }) => {
   const [open, setOpen] = useState(false);
   const definition = (key: string) => type?.fields.find((f) => f.key === key);
@@ -88,6 +97,9 @@ const Version = ({
                 />
               </div>
             ))}
+            {viewer.recovery && (
+              <RestoreVersion versionNo={v.versionNo} viewerId={viewer.viewerId} />
+            )}
           </div>
         )}
       </div>
@@ -95,28 +107,46 @@ const Version = ({
   );
 };
 
-/** Every version, newest first. Old values stay hidden until an audited reveal. */
+/**
+ * Every version, newest first: who changed what and when, for anyone who can read the secret.
+ * Old values stay hidden until an audited reveal, and only the recovery role can restore one.
+ */
 export const HistoryCard = ({
   locked,
+  recovery,
   type,
   versions,
+  viewerId,
 }: {
   locked?: string;
   type: null | SecretType;
   versions: SecretVersion[];
-}) => (
+} & Viewer) => (
   <Panel
-    subtitle="Visible to owners and admins. Values are never shown here until you reveal them."
+    subtitle="Everyone who can read this secret sees what changed. Values stay hidden until a recovery reveal."
     title="History"
   >
     <div className="px-6 py-5">
       <ol className="m-0 flex list-none flex-col p-0">
         {versions.map((v) => (
-          <Version key={v.versionNo} locked={locked} type={type} v={v} />
+          <Version
+            key={v.versionNo}
+            locked={locked}
+            type={type}
+            v={v}
+            viewer={{ recovery, viewerId }}
+          />
         ))}
       </ol>
-      {versions.length <= 1 && (
+      {versions.length <= 1 ? (
         <p className="m-0 mt-3 text-small text-muted">No earlier versions yet.</p>
+      ) : (
+        !recovery && (
+          <p className="m-0 mt-3 text-small text-muted">
+            Earlier values and restores need the recovery role, which a site admin grants. It lets a
+            person reveal an earlier version and bring it back after a change by mistake.
+          </p>
+        )
       )}
     </div>
   </Panel>

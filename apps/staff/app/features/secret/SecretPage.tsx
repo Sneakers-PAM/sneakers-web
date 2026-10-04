@@ -347,7 +347,15 @@ export const SecretPage = ({ page }: { page: Page }) => {
               />
             )
           )}
-          {history && <HistoryCard locked={lockedReason} type={type} versions={history} />}
+          {history && (
+            <HistoryCard
+              locked={lockedReason}
+              recovery={page.recovery}
+              type={type}
+              versions={history}
+              viewerId={page.viewerId}
+            />
+          )}
         </div>
         <div className="flex min-w-0 flex-col gap-6">
           {checksOut && !secret.retired && (

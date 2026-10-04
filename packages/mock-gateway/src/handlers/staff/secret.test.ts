@@ -192,7 +192,7 @@ describe("secret detail in the mock gateway", () => {
   });
 
   it("shows a locked secret as unreadable and refuses its values with NO_ACCESS", async () => {
-    const gw = await as(ALICE);
+    const gw = await as(BOB);
     const id = "mock-secret-helpdesk";
     expect(await gw.gql(SecretDetailDocument, { id }).then((r) => r.secret?.canRead)).toBe(false);
     expect(
@@ -203,7 +203,7 @@ describe("secret detail in the mock gateway", () => {
     expect(await refusal(gw.gql(SecretRevealDocument, { fieldKey: "password", id }))).toEqual(
       locked,
     );
-    expect(await gw.gql(SecretDetailDocument, { id: VPN }).then((r) => r.secret?.canRead)).toBe(
+    expect(await gw.gql(SecretDetailDocument, { id: DB }).then((r) => r.secret?.canRead)).toBe(
       true,
     );
   });
@@ -343,8 +343,8 @@ describe("secret detail in the mock gateway", () => {
   });
 
   it("refuses an old value of a locked secret even to the recovery role with a fresh MFA", async () => {
-    const gw = await as(ALICE);
-    userById(ALICE)?.roles.push("recovery");
+    const gw = await as(BOB);
+    userById(BOB)?.roles.push("recovery");
     await stepUp(gw, { code: "123456", kind: "totp" });
     expect(
       await refusal(
@@ -377,11 +377,11 @@ describe("secret detail in the mock gateway", () => {
     const { revealSecretField } = await bob.gql(SecretRevealDocument, { fieldKey: "password", id });
     expect(revealSecretField).toBe(secret(id)?.fields.password);
 
-    const alice = await as(ALICE);
-    expect(await alice.gql(SecretAccessDocument, { secretId: id })).toMatchObject({
+    const dave = await as("mock-user-dave");
+    expect(await dave.gql(SecretAccessDocument, { secretId: id })).toMatchObject({
       mySecretAccess: { read: false },
     });
-    expect(await refusal(alice.gql(SecretRevealDocument, { fieldKey: "password", id }))).toEqual({
+    expect(await refusal(dave.gql(SecretRevealDocument, { fieldKey: "password", id }))).toEqual({
       code: "PERMISSION_DENIED",
       reason: "NO_ACCESS",
     });

@@ -31,6 +31,8 @@ const BY_REASON: Record<string, string> = {
   CHECKOUT_NO_ACCESS: "You can't check this secret out. Ask for access first.",
   CHECKOUT_TYPE_DISABLED: "This kind of secret can't be checked out.",
   GROUP_ID_REQUIRED: "A group rule needs the group itself. Pick the group from the list again.",
+  MFA_LAST_FACTOR:
+    "Your administrator requires a second factor. Add another one before removing this one.",
   NOT_APPROVER: "Only an approver for this secret can decide this request.",
   NOT_FOLDER_OWNER: "Only an owner of this folder can do that.",
   NOT_SITE_ADMIN: "Only a site admin can do that.",

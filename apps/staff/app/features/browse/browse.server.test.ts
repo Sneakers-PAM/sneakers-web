@@ -45,12 +45,23 @@ describe("loading the browse page", () => {
   });
 
   it("takes who can manage a folder from its owners, inherited down the tree", async () => {
-    const { folders } = await load(ALICE);
+    // Bob owns Finance and isn't a site admin, so ownership alone decides for him.
+    const { folders } = await load(BOB);
     const manage = Object.fromEntries(folders.map((f) => [f.id, f.canManage]));
-    expect(manage["mock-folder-platform"]).toBe(true);
-    expect(manage["mock-folder-network"]).toBe(true);
-    expect(manage["mock-folder-finance"]).toBe(false);
+    expect(manage["mock-folder-finance"]).toBe(true);
+    expect(manage["mock-folder-archive"]).toBe(true);
+    expect(manage["mock-folder-platform"]).toBe(false);
     expect(manage["mock-folder-helpdesk"]).toBe(false);
+  });
+
+  it("lets a site admin manage every shared folder, as the vault does", async () => {
+    // The vault's isFolderOwner answers yes for a human site admin or root before ownership.
+    const asAlice = await load(ALICE);
+    const finance = asAlice.folders.find((f) => f.id === "mock-folder-finance");
+    expect(finance?.owners).not.toContain(ALICE);
+    expect(finance?.canManage).toBe(true);
+    const asDave = await load("mock-user-dave");
+    expect(asDave.folders.find((f) => f.id === "mock-folder-finance")?.canManage).toBe(false);
   });
 
   it("opens a readable folder with its secrets and no field values", async () => {
@@ -63,14 +74,15 @@ describe("loading the browse page", () => {
   });
 
   it("passes on whether each secret is readable", async () => {
-    const data = await load("mock-user-carol", "mock-folder-helpdesk");
+    const data = await load(BOB, "mock-folder-databases");
     expect(data.current?.secrets?.map((s) => [s.name, s.canRead])).toEqual([
-      ["Helpdesk reset account", false],
+      ["DB admin", true],
+      ["Reporting reader", false],
     ]);
   });
 
   it("says who owns a folder the user can't read, without its secrets", async () => {
-    const data = await load(ALICE, "mock-folder-finance");
+    const data = await load("mock-user-dave", "mock-folder-finance");
     expect(data.current?.access.read).toBe(false);
     expect(data.current?.folder.subtreeSecretCount).toBeNull();
     expect(data.current?.secrets).toBeNull();
@@ -113,9 +125,9 @@ describe("folder changes", () => {
   });
 
   it("refuses to change a folder the user doesn't own", async () => {
-    const r = await act(ALICE, { id: "mock-folder-finance", intent: "rename", name: "Money" });
+    const r = await act(BOB, { id: "mock-folder-platform", intent: "rename", name: "Money" });
     expect(r).toMatchObject({ ok: false, refusal: { reason: "NOT_FOLDER_OWNER" } });
-    expect(folder("mock-folder-finance")?.name).toBe("Finance");
+    expect(folder("mock-folder-platform")?.name).toBe("Platform");
   });
 
   it("refuses a name a sibling already has", async () => {

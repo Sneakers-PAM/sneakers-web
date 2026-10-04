@@ -79,3 +79,35 @@ describe("workflow refusals for requests, check-outs and check-ins", () => {
     expect(refusalMessage(r!)).toBe(text);
   });
 });
+
+describe("sign-in method refusals", () => {
+  it("says why the last second factor can't go when MFA is required", () => {
+    const r = refusalOf(refused("MFA_LAST_FACTOR", "FAILED_PRECONDITION", "x"));
+    expect(refusalMessage(r!)).toBe(
+      "Your administrator requires a second factor. Add another one before removing this one.",
+    );
+  });
+});
+
+describe("refusals of a version restore", () => {
+  it.each([
+    [
+      "CHECKOUT_LEASE_HELD",
+      "FAILED_PRECONDITION",
+      "Someone has this secret checked out. Try again after it's checked in.",
+    ],
+    [
+      "ROTATION_IN_PROGRESS",
+      "FAILED_PRECONDITION",
+      "The secret is being rotated. Try again when the rotation finishes.",
+    ],
+    [
+      "RECOVERY_ROLE_REQUIRED",
+      "PERMISSION_DENIED",
+      "Prior values need the recovery role. A site admin can grant it on your user page.",
+    ],
+  ])("explains %s", (reason, code, text) => {
+    const r = refusalOf(refused(reason, code, "rpc error: code = X desc = backend words"));
+    expect(refusalMessage(r!)).toBe(text);
+  });
+});
