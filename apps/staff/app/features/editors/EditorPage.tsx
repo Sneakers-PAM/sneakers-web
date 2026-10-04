@@ -14,6 +14,7 @@ import {
 import { FieldControl, isWide } from "@/features/editors/FieldControl";
 import { FormCard } from "@/features/editors/FormCard";
 import { KeyPairCard, keyPairKeys } from "@/features/editors/KeyPairCard";
+import { RequestMoveDialog, ShareMoveDialog } from "@/features/editors/MoveDialogs";
 import { NewTargetDialog } from "@/features/editors/NewTargetDialog";
 import { PickOne } from "@/features/editors/PickOne";
 import { generatePassword, policyFor } from "@/features/editors/policy";
@@ -73,6 +74,7 @@ export const EditorPage = ({ page }: { page: EditorData }) => {
   const [targets, setTargets] = useState<Target[]>(page.targets);
   const [targetOpen, setTargetOpen] = useState(false);
   const [attempted, setAttempted] = useState(false);
+  const [asking, setAsking] = useState<"request" | "share" | null>(null);
 
   const type = page.types.find((t) => t.id === typeId);
   const certCreate = !editing && !!type && isCertificateType(type);
@@ -109,6 +111,21 @@ export const EditorPage = ({ page }: { page: EditorData }) => {
     setTargetOpen(false);
   }, []);
 
+  const send = (moveReason = "") => {
+    const form: Record<string, string> = {
+      expires,
+      folderId,
+      intent: "save",
+      moveReason,
+      name,
+      targetId,
+      typeId,
+    };
+    for (const f of type?.fields ?? []) form[`f:${f.key}`] = values[f.key] ?? "";
+    void saver.submit(form, { method: "post" });
+    setAttempted(false);
+  };
+
   const submit = () => {
     setAttempted(true);
     if (problemCount(live) > 0) return;
@@ -128,17 +145,13 @@ export const EditorPage = ({ page }: { page: EditorData }) => {
       setAttempted(false);
       return;
     }
-    const form: Record<string, string> = {
-      expires,
-      folderId,
-      intent: "save",
-      name,
-      targetId,
-      typeId,
-    };
-    for (const f of type?.fields ?? []) form[`f:${f.key}`] = values[f.key] ?? "";
-    void saver.submit(form, { method: "post" });
-    setAttempted(false);
+    // On edit a move goes through browse's gate: shared is confirmed, private is requested.
+    const move = editing && folderId !== page.draft.folderId ? page.moves?.[folderId] : undefined;
+    if (move === "share" || move === "request") {
+      setAsking(move);
+      return;
+    }
+    send();
   };
 
   const hidden = type && keyPair ? keyPairKeys(type) : new Set<string>();
@@ -207,14 +220,8 @@ export const EditorPage = ({ page }: { page: EditorData }) => {
               value={name}
             />
           </Field>
-          <Field
-            error={problems.basics.folderId?.message}
-            hint={editing ? "Move it from Browse." : undefined}
-            label="Folder"
-            required={!editing}
-          >
+          <Field error={problems.basics.folderId?.message} label="Folder" required>
             <PickOne
-              disabled={editing}
               onChange={setFolderId}
               options={page.folders.map((f) => ({ label: f.path, value: f.id }))}
               placeholder="Pick a folder"
@@ -316,6 +323,23 @@ export const EditorPage = ({ page }: { page: EditorData }) => {
           </div>
         </FormCard>
       )}
+
+      <ShareMoveDialog
+        onCancel={() => setAsking(null)}
+        onConfirm={() => {
+          setAsking(null);
+          send();
+        }}
+        open={asking === "share"}
+      />
+      <RequestMoveDialog
+        onCancel={() => setAsking(null)}
+        onSend={(reason) => {
+          setAsking(null);
+          send(reason);
+        }}
+        open={asking === "request"}
+      />
 
       <NewTargetDialog
         connections={page.connections}

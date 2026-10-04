@@ -75,7 +75,14 @@ export const KeyPairCard = ({
     }
   }, [result, onChange]);
 
-  const pickFormat = (f: string) => (typeFormat ? onChange({ keyFormat: f }) : setOwnFormat(f));
+  const generate = (f: string) =>
+    void fetcher.submit({ format: f, intent: "generate-key" }, { method: "post" });
+  // Once there's a key pair, a new format makes a new one in that format.
+  const pickFormat = (f: string) => {
+    if (typeFormat) onChange({ keyFormat: f });
+    else setOwnFormat(f);
+    if (values.publicKey) generate(f);
+  };
   const imported = (k: ImportedKey) => {
     onChange({ passphrase: k.passphrase, privateKey: k.privateKey, publicKey: k.publicKey });
     setSource("imported");
@@ -99,9 +106,7 @@ export const KeyPairCard = ({
         <Button
           loading={fetcher.state !== "idle"}
           loadingLabel="Generating…"
-          onClick={() =>
-            void fetcher.submit({ format, intent: "generate-key" }, { method: "post" })
-          }
+          onClick={() => generate(format)}
           type="button"
         >
           Generate key pair
