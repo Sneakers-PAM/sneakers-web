@@ -1,14 +1,18 @@
 import {
   HeartbeatPill,
   type HeartbeatStatus,
+  Pill,
   RotationPill,
   type RotationStatus,
   shortDate,
   timeAgo,
 } from "@sneakers-web/ui";
+import { CircleSlash } from "lucide-react";
 import { type ReactNode } from "react";
 
 import type { SecretPage } from "@/features/secret/secret.server";
+
+import { notRotating, notRotatingDetail } from "@/features/secret/rotation";
 
 const DAY = 86_400_000;
 
@@ -38,6 +42,7 @@ export const DetailsRows = ({ page }: { page: SecretPage }) => {
   const { secret, target, type } = page;
   const expires = secret.expiresAt ? Date.parse(secret.expiresAt) : Number.NaN;
   const days = Math.floor((expires - page.now) / DAY);
+  const stopped = notRotating(page);
   return (
     <>
       <Line label="Type">
@@ -63,8 +68,19 @@ export const DetailsRows = ({ page }: { page: SecretPage }) => {
       )}
       {type?.rotation && (
         <Line label="Rotation">
-          <RotationPill status={rotationStatus(secret.lastRotationResult)} />
-          {secret.nextRotationAt && (
+          {stopped ? (
+            <>
+              <Pill icon={<CircleSlash aria-hidden />} tone="warn">
+                Not rotating
+              </Pill>
+              <span className="text-small text-muted">
+                {notRotatingDetail(stopped, target?.name)}
+              </span>
+            </>
+          ) : (
+            <RotationPill status={rotationStatus(secret.lastRotationResult)} />
+          )}
+          {!stopped && secret.nextRotationAt && (
             <span className="text-small text-muted">
               Next rotation in{" "}
               {Math.max(0, Math.ceil((Date.parse(secret.nextRotationAt) - page.now) / DAY))} days

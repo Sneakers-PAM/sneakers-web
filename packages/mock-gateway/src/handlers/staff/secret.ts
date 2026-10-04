@@ -212,7 +212,12 @@ export const secretHandlers: RequestHandler[] = [
           rotation: t.rotation ?? null,
           vendor: t.vendor ?? null,
         })),
-        targets: world().targets.map(({ hostname, id, name }) => ({ hostname, id, name })),
+        targets: world().targets.map(({ connectionId, hostname, id, name }) => ({
+          connectionId,
+          hostname,
+          id,
+          name,
+        })),
       });
     }),
   ),

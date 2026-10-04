@@ -152,3 +152,8 @@ Follow the logging rules in `CLAUDE.md`. In short:
 - A check-out isn't a control on reveal: the gateway reveals to anyone with read access, checked
   out or not, so the mock does too. The secret page asks for a check-out first as a workflow aid
   (others see it's in use, and check-in rotates where the type rotates).
+- Rotation on the secret page follows the vault's rule: it schedules rotation only for a secret
+  whose target has a connection. `notRotating` (`features/secret/rotation.ts`) gives the reason a
+  rotation-capable secret won't rotate (turned off, no target, or a target with no connection);
+  the Details card shows "Not rotating" with that reason and no next-rotation date, and the
+  Automation card says it needs a target with a connection.
