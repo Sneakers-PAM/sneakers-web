@@ -90,4 +90,37 @@ describe("folders", () => {
     await user.click(screen.getByRole("button", { name: "Create folder" }));
     expect(await screen.findByRole("heading", { name: "Security" })).toBeInTheDocument();
   });
+
+  it("shows a folder's own rules and what it inherits, and saves a change", async () => {
+    const user = userEvent.setup();
+    renderAdmin(ROUTES, "/folders/mock-folder-databases", CAROL);
+    const sharing = await screen.findByRole("heading", { name: "Sharing" });
+    expect(sharing).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "DB team: Reveal" })).toBeChecked();
+    expect(screen.getByRole("region", { name: "Inherited from Platform" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save sharing" })).toBeDisabled();
+
+    await user.click(screen.getByRole("checkbox", { name: "DB team: Approve" }));
+    await user.click(screen.getByRole("button", { name: "Save sharing" }));
+    expect(await screen.findByText("Saved · sharing.")).toBeInTheDocument();
+    await vi.waitFor(() =>
+      expect(screen.getByRole("checkbox", { name: "DB team: Approve" })).toBeChecked(),
+    );
+    expect(await screen.findByRole("button", { name: "Save sharing" })).toBeDisabled();
+  });
+
+  it("puts the saved rules back on Discard", async () => {
+    const user = userEvent.setup();
+    renderAdmin(ROUTES, "/folders/mock-folder-databases", CAROL);
+    await user.click(await screen.findByRole("checkbox", { name: "DB team: Approve" }));
+    expect(screen.getByRole("checkbox", { name: "DB team: Approve" })).toBeChecked();
+    await user.click(screen.getByRole("button", { name: "Discard" }));
+    expect(screen.getByRole("checkbox", { name: "DB team: Approve" })).not.toBeChecked();
+  });
+
+  it("refuses the page to someone who isn't a site admin", async () => {
+    // The console is for site admins; Bob isn't one.
+    renderAdmin(ROUTES, "/folders/mock-folder-databases", "mock-user-bob");
+    expect(await screen.findByText("Only a site admin can do that.")).toBeInTheDocument();
+  });
 });
