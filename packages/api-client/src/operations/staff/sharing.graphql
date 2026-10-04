@@ -1,0 +1,152 @@
+fragment SharingRuleFields on RaciRule {
+  id
+  order
+  subjectKind
+  subjectName
+  subjectId
+  grants {
+    action
+    value
+  }
+}
+
+fragment SharingInheritedRuleFields on InheritedRaciRule {
+  fromFolderId
+  fromFolderName
+  rule {
+    ...SharingRuleFields
+  }
+}
+
+fragment SharingAccessFields on FolderAccess {
+  read
+  reveal
+  manage
+  approve
+  informed
+  manageRuleset
+}
+
+fragment SharingDecisionFields on RaciDecision {
+  read
+  readReason
+  reveal
+  revealReason
+  manage
+  manageReason
+  approve
+  approveReason
+  informed
+  informedReason
+}
+
+query SharingFolders {
+  folders {
+    id
+    name
+    parentId
+    owners
+    subtreeSecretCount
+  }
+}
+
+query SharingFolderAccess($folderId: String!) {
+  myFolderAccess(folderId: $folderId) {
+    ...SharingAccessFields
+  }
+}
+
+query SharingFolderRuleset($folderId: String!) {
+  folderRuleset(folderId: $folderId) {
+    folderId
+    owners
+    rules {
+      ...SharingRuleFields
+    }
+    inherited {
+      ...SharingInheritedRuleFields
+    }
+    inheritedOwners {
+      userId
+      fromFolderId
+      fromFolderName
+    }
+  }
+  groups {
+    id
+    name
+  }
+}
+
+query SharingSecret($secretId: ID!) {
+  secret(id: $secretId) {
+    id
+    name
+    folderId
+  }
+}
+
+query SharingSecretAccess($secretId: String!) {
+  mySecretAccess(secretId: $secretId) {
+    ...SharingAccessFields
+  }
+}
+
+query SharingSecretRuleset($secretId: String!) {
+  secretRuleset(secretId: $secretId) {
+    secretId
+    rules {
+      ...SharingRuleFields
+    }
+    inherited {
+      ...SharingInheritedRuleFields
+    }
+  }
+  groups {
+    id
+    name
+  }
+}
+
+query SharingUserLabels($ids: [String!]!) {
+  resolveUserLabels(ids: $ids) {
+    id
+    name
+  }
+}
+
+query SharingSearchUsers($query: String!, $limit: Int) {
+  searchUsers(query: $query, limit: $limit) {
+    id
+    name
+    email
+  }
+}
+
+query SharingSimulateFolder($folderId: String!, $userId: String!, $draftRules: [RaciRuleInput!]!) {
+  simulateFolder(folderId: $folderId, userId: $userId, draftRules: $draftRules) {
+    ...SharingDecisionFields
+  }
+}
+
+query SharingSimulateSecret($secretId: String!, $userId: String!, $draftRules: [RaciRuleInput!]!) {
+  simulateSecret(secretId: $secretId, userId: $userId, draftRules: $draftRules) {
+    ...SharingDecisionFields
+  }
+}
+
+mutation SharingSetFolderRuleset(
+  $folderId: String!
+  $owners: [String!]!
+  $rules: [RaciRuleInput!]!
+) {
+  setFolderRuleset(folderId: $folderId, owners: $owners, rules: $rules) {
+    folderId
+  }
+}
+
+mutation SharingSetSecretRuleset($secretId: String!, $rules: [RaciRuleInput!]!) {
+  setSecretRuleset(secretId: $secretId, rules: $rules) {
+    secretId
+  }
+}

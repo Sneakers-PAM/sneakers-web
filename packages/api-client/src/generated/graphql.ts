@@ -50,6 +50,22 @@ export type PolicyEnforcement = "lax" | "strict";
 
 export type PwStartClass = "any" | "digit" | "letter" | "symbol";
 
+export type RaciAction = "A" | "C" | "I" | "R";
+
+export type RaciGrant = "allow" | "deny";
+
+export type RaciRuleGrantInput = {
+  action: RaciAction;
+  value: RaciGrant;
+};
+
+export type RaciRuleInput = {
+  grants: Array<RaciRuleGrantInput>;
+  subjectId?: string | null | undefined;
+  subjectKind: SubjectKind;
+  subjectName: string;
+};
+
 export type RequestKind = "folder_move" | "secret_access" | "secret_move";
 
 export type RotationState = "degraded" | "failed" | "ok" | "rotating" | "unknown";
@@ -86,6 +102,8 @@ export type SecuritySettingsInput = {
   requireMfaForSensitiveCheckout?: boolean | null | undefined;
   sessionTtlSeconds?: number | null | undefined;
 };
+
+export type SubjectKind = "everyone" | "group" | "user";
 
 export type TargetInput = {
   connectionId: string;
@@ -1883,6 +1901,234 @@ export type SecretReplaceCertificateMutation = {
   };
 };
 
+export type SharingRuleFieldsFragment = {
+  id: string;
+  order: number;
+  subjectKind: SubjectKind;
+  subjectName: string;
+  subjectId: string | null;
+  grants: Array<{ action: RaciAction; value: RaciGrant }>;
+};
+
+export type SharingInheritedRuleFieldsFragment = {
+  fromFolderId: string;
+  fromFolderName: string;
+  rule: {
+    id: string;
+    order: number;
+    subjectKind: SubjectKind;
+    subjectName: string;
+    subjectId: string | null;
+    grants: Array<{ action: RaciAction; value: RaciGrant }>;
+  };
+};
+
+export type SharingAccessFieldsFragment = {
+  read: boolean;
+  reveal: boolean;
+  manage: boolean;
+  approve: boolean;
+  informed: boolean;
+  manageRuleset: boolean;
+};
+
+export type SharingDecisionFieldsFragment = {
+  read: boolean;
+  readReason: string;
+  reveal: boolean;
+  revealReason: string;
+  manage: boolean;
+  manageReason: string;
+  approve: boolean;
+  approveReason: string;
+  informed: boolean;
+  informedReason: string;
+};
+
+export type SharingFoldersQueryVariables = Exact<{ [key: string]: never }>;
+
+export type SharingFoldersQuery = {
+  folders: Array<{
+    id: string;
+    name: string;
+    parentId: string | null;
+    owners: Array<string> | null;
+    subtreeSecretCount: number | null;
+  }>;
+};
+
+export type SharingFolderAccessQueryVariables = Exact<{
+  folderId: string;
+}>;
+
+export type SharingFolderAccessQuery = {
+  myFolderAccess: {
+    read: boolean;
+    reveal: boolean;
+    manage: boolean;
+    approve: boolean;
+    informed: boolean;
+    manageRuleset: boolean;
+  };
+};
+
+export type SharingFolderRulesetQueryVariables = Exact<{
+  folderId: string;
+}>;
+
+export type SharingFolderRulesetQuery = {
+  folderRuleset: {
+    folderId: string;
+    owners: Array<string>;
+    rules: Array<{
+      id: string;
+      order: number;
+      subjectKind: SubjectKind;
+      subjectName: string;
+      subjectId: string | null;
+      grants: Array<{ action: RaciAction; value: RaciGrant }>;
+    }>;
+    inherited: Array<{
+      fromFolderId: string;
+      fromFolderName: string;
+      rule: {
+        id: string;
+        order: number;
+        subjectKind: SubjectKind;
+        subjectName: string;
+        subjectId: string | null;
+        grants: Array<{ action: RaciAction; value: RaciGrant }>;
+      };
+    }>;
+    inheritedOwners: Array<{ userId: string; fromFolderId: string; fromFolderName: string }>;
+  };
+  groups: Array<{ id: string; name: string }>;
+};
+
+export type SharingSecretQueryVariables = Exact<{
+  secretId: string;
+}>;
+
+export type SharingSecretQuery = { secret: { id: string; name: string; folderId: string } | null };
+
+export type SharingSecretAccessQueryVariables = Exact<{
+  secretId: string;
+}>;
+
+export type SharingSecretAccessQuery = {
+  mySecretAccess: {
+    read: boolean;
+    reveal: boolean;
+    manage: boolean;
+    approve: boolean;
+    informed: boolean;
+    manageRuleset: boolean;
+  };
+};
+
+export type SharingSecretRulesetQueryVariables = Exact<{
+  secretId: string;
+}>;
+
+export type SharingSecretRulesetQuery = {
+  secretRuleset: {
+    secretId: string;
+    rules: Array<{
+      id: string;
+      order: number;
+      subjectKind: SubjectKind;
+      subjectName: string;
+      subjectId: string | null;
+      grants: Array<{ action: RaciAction; value: RaciGrant }>;
+    }>;
+    inherited: Array<{
+      fromFolderId: string;
+      fromFolderName: string;
+      rule: {
+        id: string;
+        order: number;
+        subjectKind: SubjectKind;
+        subjectName: string;
+        subjectId: string | null;
+        grants: Array<{ action: RaciAction; value: RaciGrant }>;
+      };
+    }>;
+  };
+  groups: Array<{ id: string; name: string }>;
+};
+
+export type SharingUserLabelsQueryVariables = Exact<{
+  ids: Array<string> | string;
+}>;
+
+export type SharingUserLabelsQuery = { resolveUserLabels: Array<{ id: string; name: string }> };
+
+export type SharingSearchUsersQueryVariables = Exact<{
+  query: string;
+  limit?: number | null | undefined;
+}>;
+
+export type SharingSearchUsersQuery = {
+  searchUsers: Array<{ id: string; name: string; email: string }>;
+};
+
+export type SharingSimulateFolderQueryVariables = Exact<{
+  folderId: string;
+  userId: string;
+  draftRules: Array<RaciRuleInput> | RaciRuleInput;
+}>;
+
+export type SharingSimulateFolderQuery = {
+  simulateFolder: {
+    read: boolean;
+    readReason: string;
+    reveal: boolean;
+    revealReason: string;
+    manage: boolean;
+    manageReason: string;
+    approve: boolean;
+    approveReason: string;
+    informed: boolean;
+    informedReason: string;
+  };
+};
+
+export type SharingSimulateSecretQueryVariables = Exact<{
+  secretId: string;
+  userId: string;
+  draftRules: Array<RaciRuleInput> | RaciRuleInput;
+}>;
+
+export type SharingSimulateSecretQuery = {
+  simulateSecret: {
+    read: boolean;
+    readReason: string;
+    reveal: boolean;
+    revealReason: string;
+    manage: boolean;
+    manageReason: string;
+    approve: boolean;
+    approveReason: string;
+    informed: boolean;
+    informedReason: string;
+  };
+};
+
+export type SharingSetFolderRulesetMutationVariables = Exact<{
+  folderId: string;
+  owners: Array<string> | string;
+  rules: Array<RaciRuleInput> | RaciRuleInput;
+}>;
+
+export type SharingSetFolderRulesetMutation = { setFolderRuleset: { folderId: string } };
+
+export type SharingSetSecretRulesetMutationVariables = Exact<{
+  secretId: string;
+  rules: Array<RaciRuleInput> | RaciRuleInput;
+}>;
+
+export type SharingSetSecretRulesetMutation = { setSecretRuleset: { secretId: string } };
+
 export type TargetsTargetFieldsFragment = {
   id: string;
   name: string;
@@ -2329,6 +2575,74 @@ export const SecretCertMetaFieldsFragmentDoc = new TypedDocumentString(
     `,
   { fragmentName: "SecretCertMetaFields" },
 ) as unknown as TypedDocumentString<SecretCertMetaFieldsFragment, unknown>;
+export const SharingRuleFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment SharingRuleFields on RaciRule {
+  id
+  order
+  subjectKind
+  subjectName
+  subjectId
+  grants {
+    action
+    value
+  }
+}
+    `,
+  { fragmentName: "SharingRuleFields" },
+) as unknown as TypedDocumentString<SharingRuleFieldsFragment, unknown>;
+export const SharingInheritedRuleFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment SharingInheritedRuleFields on InheritedRaciRule {
+  fromFolderId
+  fromFolderName
+  rule {
+    ...SharingRuleFields
+  }
+}
+    fragment SharingRuleFields on RaciRule {
+  id
+  order
+  subjectKind
+  subjectName
+  subjectId
+  grants {
+    action
+    value
+  }
+}`,
+  { fragmentName: "SharingInheritedRuleFields" },
+) as unknown as TypedDocumentString<SharingInheritedRuleFieldsFragment, unknown>;
+export const SharingAccessFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment SharingAccessFields on FolderAccess {
+  read
+  reveal
+  manage
+  approve
+  informed
+  manageRuleset
+}
+    `,
+  { fragmentName: "SharingAccessFields" },
+) as unknown as TypedDocumentString<SharingAccessFieldsFragment, unknown>;
+export const SharingDecisionFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment SharingDecisionFields on RaciDecision {
+  read
+  readReason
+  reveal
+  revealReason
+  manage
+  manageReason
+  approve
+  approveReason
+  informed
+  informedReason
+}
+    `,
+  { fragmentName: "SharingDecisionFields" },
+) as unknown as TypedDocumentString<SharingDecisionFieldsFragment, unknown>;
 export const TargetsTargetFieldsFragmentDoc = new TypedDocumentString(
   `
     fragment TargetsTargetFields on Target {
@@ -4144,6 +4458,213 @@ fragment SecretCertMetaFields on CertMeta {
 }`) as unknown as TypedDocumentString<
   SecretReplaceCertificateMutation,
   SecretReplaceCertificateMutationVariables
+>;
+export const SharingFoldersDocument = new TypedDocumentString(`
+    query SharingFolders {
+  folders {
+    id
+    name
+    parentId
+    owners
+    subtreeSecretCount
+  }
+}
+    `) as unknown as TypedDocumentString<SharingFoldersQuery, SharingFoldersQueryVariables>;
+export const SharingFolderAccessDocument = new TypedDocumentString(`
+    query SharingFolderAccess($folderId: String!) {
+  myFolderAccess(folderId: $folderId) {
+    ...SharingAccessFields
+  }
+}
+    fragment SharingAccessFields on FolderAccess {
+  read
+  reveal
+  manage
+  approve
+  informed
+  manageRuleset
+}`) as unknown as TypedDocumentString<SharingFolderAccessQuery, SharingFolderAccessQueryVariables>;
+export const SharingFolderRulesetDocument = new TypedDocumentString(`
+    query SharingFolderRuleset($folderId: String!) {
+  folderRuleset(folderId: $folderId) {
+    folderId
+    owners
+    rules {
+      ...SharingRuleFields
+    }
+    inherited {
+      ...SharingInheritedRuleFields
+    }
+    inheritedOwners {
+      userId
+      fromFolderId
+      fromFolderName
+    }
+  }
+  groups {
+    id
+    name
+  }
+}
+    fragment SharingRuleFields on RaciRule {
+  id
+  order
+  subjectKind
+  subjectName
+  subjectId
+  grants {
+    action
+    value
+  }
+}
+fragment SharingInheritedRuleFields on InheritedRaciRule {
+  fromFolderId
+  fromFolderName
+  rule {
+    ...SharingRuleFields
+  }
+}`) as unknown as TypedDocumentString<
+  SharingFolderRulesetQuery,
+  SharingFolderRulesetQueryVariables
+>;
+export const SharingSecretDocument = new TypedDocumentString(`
+    query SharingSecret($secretId: ID!) {
+  secret(id: $secretId) {
+    id
+    name
+    folderId
+  }
+}
+    `) as unknown as TypedDocumentString<SharingSecretQuery, SharingSecretQueryVariables>;
+export const SharingSecretAccessDocument = new TypedDocumentString(`
+    query SharingSecretAccess($secretId: String!) {
+  mySecretAccess(secretId: $secretId) {
+    ...SharingAccessFields
+  }
+}
+    fragment SharingAccessFields on FolderAccess {
+  read
+  reveal
+  manage
+  approve
+  informed
+  manageRuleset
+}`) as unknown as TypedDocumentString<SharingSecretAccessQuery, SharingSecretAccessQueryVariables>;
+export const SharingSecretRulesetDocument = new TypedDocumentString(`
+    query SharingSecretRuleset($secretId: String!) {
+  secretRuleset(secretId: $secretId) {
+    secretId
+    rules {
+      ...SharingRuleFields
+    }
+    inherited {
+      ...SharingInheritedRuleFields
+    }
+  }
+  groups {
+    id
+    name
+  }
+}
+    fragment SharingRuleFields on RaciRule {
+  id
+  order
+  subjectKind
+  subjectName
+  subjectId
+  grants {
+    action
+    value
+  }
+}
+fragment SharingInheritedRuleFields on InheritedRaciRule {
+  fromFolderId
+  fromFolderName
+  rule {
+    ...SharingRuleFields
+  }
+}`) as unknown as TypedDocumentString<
+  SharingSecretRulesetQuery,
+  SharingSecretRulesetQueryVariables
+>;
+export const SharingUserLabelsDocument = new TypedDocumentString(`
+    query SharingUserLabels($ids: [String!]!) {
+  resolveUserLabels(ids: $ids) {
+    id
+    name
+  }
+}
+    `) as unknown as TypedDocumentString<SharingUserLabelsQuery, SharingUserLabelsQueryVariables>;
+export const SharingSearchUsersDocument = new TypedDocumentString(`
+    query SharingSearchUsers($query: String!, $limit: Int) {
+  searchUsers(query: $query, limit: $limit) {
+    id
+    name
+    email
+  }
+}
+    `) as unknown as TypedDocumentString<SharingSearchUsersQuery, SharingSearchUsersQueryVariables>;
+export const SharingSimulateFolderDocument = new TypedDocumentString(`
+    query SharingSimulateFolder($folderId: String!, $userId: String!, $draftRules: [RaciRuleInput!]!) {
+  simulateFolder(folderId: $folderId, userId: $userId, draftRules: $draftRules) {
+    ...SharingDecisionFields
+  }
+}
+    fragment SharingDecisionFields on RaciDecision {
+  read
+  readReason
+  reveal
+  revealReason
+  manage
+  manageReason
+  approve
+  approveReason
+  informed
+  informedReason
+}`) as unknown as TypedDocumentString<
+  SharingSimulateFolderQuery,
+  SharingSimulateFolderQueryVariables
+>;
+export const SharingSimulateSecretDocument = new TypedDocumentString(`
+    query SharingSimulateSecret($secretId: String!, $userId: String!, $draftRules: [RaciRuleInput!]!) {
+  simulateSecret(secretId: $secretId, userId: $userId, draftRules: $draftRules) {
+    ...SharingDecisionFields
+  }
+}
+    fragment SharingDecisionFields on RaciDecision {
+  read
+  readReason
+  reveal
+  revealReason
+  manage
+  manageReason
+  approve
+  approveReason
+  informed
+  informedReason
+}`) as unknown as TypedDocumentString<
+  SharingSimulateSecretQuery,
+  SharingSimulateSecretQueryVariables
+>;
+export const SharingSetFolderRulesetDocument = new TypedDocumentString(`
+    mutation SharingSetFolderRuleset($folderId: String!, $owners: [String!]!, $rules: [RaciRuleInput!]!) {
+  setFolderRuleset(folderId: $folderId, owners: $owners, rules: $rules) {
+    folderId
+  }
+}
+    `) as unknown as TypedDocumentString<
+  SharingSetFolderRulesetMutation,
+  SharingSetFolderRulesetMutationVariables
+>;
+export const SharingSetSecretRulesetDocument = new TypedDocumentString(`
+    mutation SharingSetSecretRuleset($secretId: String!, $rules: [RaciRuleInput!]!) {
+  setSecretRuleset(secretId: $secretId, rules: $rules) {
+    secretId
+  }
+}
+    `) as unknown as TypedDocumentString<
+  SharingSetSecretRulesetMutation,
+  SharingSetSecretRulesetMutationVariables
 >;
 export const TargetsListDocument = new TypedDocumentString(`
     query TargetsList {
