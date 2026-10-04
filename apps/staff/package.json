@@ -19,6 +19,8 @@
     "@sneakers-web/api-client": "*",
     "@sneakers-web/shell": "*",
     "@sneakers-web/ui": "*",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
     "compression": "^1.8.2",
     "express": "^4.22.3",
     "isbot": "^5.2.2",
