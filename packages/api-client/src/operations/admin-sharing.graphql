@@ -1,0 +1,46 @@
+fragment AdminRaciRuleFields on RaciRule {
+  id
+  subjectKind
+  subjectName
+  subjectId
+  grants {
+    action
+    value
+  }
+}
+
+query AdminFolderRuleset($folderId: String!) {
+  folderRuleset(folderId: $folderId) {
+    folderId
+    owners
+    rules {
+      ...AdminRaciRuleFields
+    }
+    inherited {
+      fromFolderId
+      fromFolderName
+      rule {
+        ...AdminRaciRuleFields
+      }
+    }
+    inheritedOwners {
+      userId
+      fromFolderId
+      fromFolderName
+    }
+  }
+  groups {
+    id
+    name
+  }
+  users {
+    id
+    name
+  }
+}
+
+mutation AdminSetFolderRuleset($folderId: String!, $owners: [String!]!, $rules: [RaciRuleInput!]!) {
+  setFolderRuleset(folderId: $folderId, owners: $owners, rules: $rules) {
+    folderId
+  }
+}

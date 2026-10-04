@@ -1,15 +1,22 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 
 import {
+  AdminFolderRulesetDocument,
   AdminFolderSettingsDocument,
   AdminSetFolderRevealStepUpDocument,
+  AdminSetFolderRulesetDocument,
   BrowseCreateFolderDocument,
   BrowseDeleteFolderDocument,
   BrowseFoldersDocument,
   BrowseRenameFolderDocument,
   type StepUpMode,
 } from "@sneakers-web/api-client";
-import { refusalMessage } from "@sneakers-web/shell";
+import {
+  fromRaciRule,
+  refusalMessage,
+  type RulesetDraft,
+  toRaciRuleInput,
+} from "@sneakers-web/shell";
 import {
   Alert,
   AlertDialog,
@@ -39,10 +46,38 @@ import { useState } from "react";
 import { Link, redirect, useFetcher, useLoaderData, useParams } from "react-router";
 
 import { Choice, Panel, SettingRow, useResultToast } from "@/components/Admin";
+import { FolderSharing } from "@/components/FolderSharing";
 import { PageError } from "@/components/PageError";
 import { adminAct, adminLoad, text } from "@/lib/admin.server";
 
-export const loader = ({ request }: LoaderFunctionArgs) =>
+/** The selected folder's sharing: its own rules and owners, what it inherits, and the names. */
+const sharingOf = async (gw: Parameters<Parameters<typeof adminLoad>[1]>[0], folderId: string) => {
+  const d = await gw.gql(AdminFolderRulesetDocument, { folderId });
+  const labels: Record<string, string> = Object.fromEntries([
+    ...d.users.map((u) => [u.id, u.name]),
+    ...d.groups.map((g) => [g.id, g.name]),
+  ]);
+  const r = d.folderRuleset;
+  return {
+    inherited: r.inherited.map((index) => ({
+      ...fromRaciRule(index.rule, labels),
+      fromFolderId: index.fromFolderId,
+      fromFolderName: index.fromFolderName,
+    })),
+    inheritedOwners: r.inheritedOwners.map((o) => ({ ...o, name: labels[o.userId] ?? o.userId })),
+    labels,
+    saved: {
+      owners: r.owners,
+      rules: r.rules.map((rule) => fromRaciRule(rule, labels)),
+    } as RulesetDraft,
+    subjectOptions: [
+      ...d.groups.map((g) => ({ id: g.id, kind: "group" as const, name: g.name })),
+      ...d.users.map((u) => ({ id: u.id, kind: "user" as const, name: u.name })),
+    ],
+  };
+};
+
+export const loader = ({ params, request }: LoaderFunctionArgs) =>
   adminLoad(request, async (gw) => {
     const [tree, extra] = await Promise.all([
       gw.gql(BrowseFoldersDocument),
@@ -59,7 +94,9 @@ export const loader = ({ request }: LoaderFunctionArgs) =>
         revealStepUp: stepUp[f.id] ?? ("inherit" as StepUpMode),
       }))
       .toSorted((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.name.localeCompare(b.name));
-    return { folders, globalStepUp: extra.securitySettings.requireMfaForReveal, names };
+    const selected = folders.find((f) => f.id === params.id);
+    const sharing = selected ? await sharingOf(gw, selected.id) : null;
+    return { folders, globalStepUp: extra.securitySettings.requireMfaForReveal, names, sharing };
   });
 
 /** Creating a folder opens it; deleting one opens the folder above. */
@@ -89,6 +126,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           name: text(form, "name"),
         });
         return `Renamed to ${r.renameFolder.name}.`;
+      }
+      case "ruleset": {
+        const draft = JSON.parse(text(form, "draft") || "{}") as RulesetDraft;
+        await gw.gql(AdminSetFolderRulesetDocument, {
+          folderId: text(form, "id"),
+          owners: draft.owners ?? [],
+          rules: draft.rules.map((rule) => toRaciRuleInput(rule)),
+        });
+        return "Saved · sharing.";
       }
       case "step-up": {
         await gw.gql(AdminSetFolderRevealStepUpDocument, {
@@ -203,11 +249,13 @@ const Detail = ({
   folders,
   globalStepUp,
   names,
+  sharing,
 }: {
   folder: FolderRow;
   folders: FolderRow[];
   globalStepUp: boolean;
   names: Record<string, string>;
+  sharing: Awaited<ReturnType<typeof loader>>["sharing"];
 }) => {
   const fetcher = useFetcher<typeof action>();
   const result = fetcher.data;
@@ -324,6 +372,11 @@ const Detail = ({
         </dl>
         {refusal && <Alert tone="danger">{refusalMessage(refusal)}</Alert>}
       </Card>
+
+      {sharing && (
+        // Keyed on the saved ruleset, so the editor starts again from it after a save.
+        <FolderSharing folderId={folder.id} key={JSON.stringify(sharing.saved)} {...sharing} />
+      )}
 
       <Panel title="Reveal step-up">
         <SettingRow
@@ -473,7 +526,7 @@ const NewTopFolder = () => {
 };
 
 const Folders = () => {
-  const { folders, globalStepUp, names } = useLoaderData<typeof loader>();
+  const { folders, globalStepUp, names, sharing } = useLoaderData<typeof loader>();
   const { id } = useParams();
   const selected = folders.find((f) => f.id === id);
   return (
@@ -501,6 +554,7 @@ const Folders = () => {
             globalStepUp={globalStepUp}
             key={`${selected.id}:${selected.name}`}
             names={names}
+            sharing={sharing}
           />
         ) : (
           <EmptyState
