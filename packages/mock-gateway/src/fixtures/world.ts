@@ -76,6 +76,19 @@ export interface MockLease {
   userId: string;
 }
 
+/**
+ * One ordered RACI rule row, stored the way the vault stores it: a user rule names the user id in
+ * `subjectName`, a group rule carries the directory group id in `subjectId` (and its display name
+ * in `subjectName`), and an everyone rule has an empty name. A missing action falls through.
+ */
+export interface MockRaciRule {
+  grants: Partial<Record<"A" | "C" | "I" | "R", "allow" | "deny">>;
+  id: string;
+  subjectId?: string;
+  subjectKind: "everyone" | "group" | "user";
+  subjectName: string;
+}
+
 export interface MockRequest {
   comments: MockComment[];
   destParentId: string;
@@ -201,12 +214,16 @@ export interface MockVersion {
 
 export interface MockWorld {
   connections: MockConnection[];
+  /** Each folder's own RACI rules, in order (array order within a folder). */
+  folderRules: ({ folderId: string } & MockRaciRule)[];
   folders: MockFolder[];
   /** Who is in which group. */
   groupMembers: { groupId: string; userId: string }[];
   groups: MockGroup[];
   leases: MockLease[];
   requests: MockRequest[];
+  /** Each secret's own RACI rules, in order; checked before its folder chain's. */
+  secretRules: ({ secretId: string } & MockRaciRule)[];
   secrets: MockSecret[];
   secretTypes: MockSecretType[];
   secretUses: MockSecretUse[];
@@ -894,10 +911,69 @@ const requests = (now: number): MockRequest[] => [
   },
 ];
 
+/*
+ * The sharing rules. Platform engineers can reveal on Platform and everyone is informed; on
+ * Databases, Dave's own deny comes before the DB team's allow, so he is informed but can't
+ * reveal (it denies manage too, since manage would imply read); the DB admin secret takes manage
+ * back from the DB team.
+ */
+const FOLDER_RULES: MockWorld["folderRules"] = [
+  {
+    folderId: "mock-folder-platform",
+    grants: { C: "allow", I: "allow" },
+    id: "mock-rule-platform-1",
+    subjectId: "mock-group-platform",
+    subjectKind: "group",
+    subjectName: "Platform engineers",
+  },
+  {
+    folderId: "mock-folder-platform",
+    grants: { I: "allow" },
+    id: "mock-rule-platform-2",
+    subjectKind: "everyone",
+    subjectName: "",
+  },
+  {
+    folderId: "mock-folder-databases",
+    grants: { C: "deny", R: "deny" },
+    id: "mock-rule-databases-1",
+    subjectKind: "user",
+    subjectName: DAVE,
+  },
+  {
+    folderId: "mock-folder-databases",
+    grants: { C: "allow", I: "allow", R: "allow" },
+    id: "mock-rule-databases-2",
+    subjectId: "mock-group-db",
+    subjectKind: "group",
+    subjectName: "DB team",
+  },
+  {
+    folderId: "mock-folder-finance",
+    grants: { C: "allow", I: "allow" },
+    id: "mock-rule-finance-1",
+    subjectId: "mock-group-finance",
+    subjectKind: "group",
+    subjectName: "Finance",
+  },
+];
+
+const SECRET_RULES: MockWorld["secretRules"] = [
+  {
+    grants: { R: "deny" },
+    id: "mock-rule-db-admin-1",
+    secretId: "mock-secret-db-admin",
+    subjectId: "mock-group-db",
+    subjectKind: "group",
+    subjectName: "DB team",
+  },
+];
+
 /** Build a fresh world, with times relative to `now`. */
 export const initialWorld = (now = Date.now()): MockWorld => {
   return {
     connections: structuredClone(CONNECTIONS),
+    folderRules: structuredClone(FOLDER_RULES),
     folders: structuredClone(FOLDERS),
     groupMembers: structuredClone(GROUP_MEMBERS),
     groups: structuredClone(GROUPS),
@@ -928,6 +1004,7 @@ export const initialWorld = (now = Date.now()): MockWorld => {
       },
     ],
     requests: requests(now),
+    secretRules: structuredClone(SECRET_RULES),
     secrets: secrets(now),
     secretTypes: structuredClone(SECRET_TYPES),
     secretUses: [
