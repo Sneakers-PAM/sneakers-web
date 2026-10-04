@@ -146,3 +146,38 @@ describe("the history on the secret page", () => {
     expect(database().versions).toHaveLength(3);
   });
 });
+
+describe("folder moves on the secret page", () => {
+  it("shows a move as a move, with both folders, and no new version", async () => {
+    const s = database();
+    s.moves.unshift({
+      fromFolderId: "mock-folder-databases",
+      movedAt: new Date().toISOString(),
+      movedBy: "mock-user-alice",
+      movedByName: "Alice",
+      toFolderId: "mock-folder-network",
+    });
+    s.folderId = "mock-folder-network";
+    open();
+    const card = await history();
+    expect(within(card).getByText("Moved")).toBeInTheDocument();
+    expect(within(card).getByText(/From Databases/)).toHaveTextContent("From DatabasesNetwork");
+    expect(within(card).getByLabelText("to")).toBeInTheDocument();
+    expect(within(card).queryByText("Version 4")).toBeNull();
+    expect(within(card).getAllByText("Changed: username")).toHaveLength(2);
+  });
+
+  it("names a folder the reader can't see without revealing it", async () => {
+    const s = database();
+    s.moves.unshift({
+      fromFolderId: "mock-folder-bob",
+      movedAt: new Date().toISOString(),
+      movedBy: "mock-user-bob",
+      movedByName: "Bob",
+      toFolderId: "mock-folder-databases",
+    });
+    open();
+    const card = await history();
+    expect(within(card).getByText(/From a folder you can't see/)).toBeInTheDocument();
+  });
+});

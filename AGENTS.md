@@ -152,3 +152,8 @@ Follow the logging rules in `CLAUDE.md`. In short:
 - A check-out isn't a control on reveal: the gateway reveals to anyone with read access, checked
   out or not, so the mock does too. The secret page asks for a check-out first as a workflow aid
   (others see it's in use, and check-in rotates where the type rotates).
+- The secret page's History shows versions and folder moves on one timeline. Moves come from
+  `secretMoves` (the gateway reads them from the audit trail, behind the same check as
+  `secretVersions`); a move never adds a version. A folder the reader can't see is named "a folder
+  you can't see", never by id. The mock records a move wherever it changes a secret's folder
+  (`recordMove` in `handlers/staff/moves.ts`).

@@ -76,6 +76,15 @@ export interface MockLease {
   userId: string;
 }
 
+/** One folder move in a secret's history, as the gateway reads it from the audit trail. */
+export interface MockMove {
+  fromFolderId: string;
+  movedAt: string;
+  movedBy: string;
+  movedByName: string;
+  toFolderId: string;
+}
+
 /**
  * One ordered RACI rule row, stored the way the vault stores it: a user rule names the user id in
  * `subjectName`, a group rule carries the directory group id in `subjectId` (and its display name
@@ -117,6 +126,8 @@ export interface MockSecret {
   lastAccessedAt?: string;
   lastHeartbeatResult?: "failed" | "ok" | "unknown" | "unreachable";
   lastRotationResult?: "degraded" | "failed" | "ok" | "rotating" | "unknown";
+  /** Folder moves, newest first. */
+  moves: MockMove[];
   name: string;
   nextRotationAt?: string;
   requireTokenApproval: boolean;
@@ -614,6 +625,7 @@ interface SecretSeed extends Partial<MockSecret> {
 
 const secret = (now: number, seed: SecretSeed, versions = 1): MockSecret => ({
   heartbeatOptOut: false,
+  moves: [],
   requireTokenApproval: false,
   retired: false,
   retiredAt: "",

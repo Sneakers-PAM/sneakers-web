@@ -8,6 +8,7 @@ import {
   withMockGateway,
 } from "@sneakers-web/mock-gateway/testing";
 
+import { browseAction } from "@/features/browse/browse.server";
 import { loadSecret, secretAction, type SecretLoad } from "@/features/secret/secret.server";
 
 withMockGateway();
@@ -109,5 +110,45 @@ describe("restoring a version", () => {
     expect(
       await actWith(sessionCookie(ALICE), DB, { intent: "restore-version", versionNo: "" }),
     ).toMatchObject({ ok: false, refusal: { code: "INVALID_ARGUMENT" } });
+  });
+});
+
+const moveToNetwork = () =>
+  browseAction(
+    appRequest("/browse/mock-folder-databases", {
+      body: form({
+        dest: "mock-folder-network",
+        intent: "move-secrets",
+        secrets: JSON.stringify([{ id: DB, name: "DB admin" }]),
+      }),
+      cookie: sessionCookie(ALICE),
+      method: "POST",
+    }),
+    "mock-folder-databases",
+  );
+
+describe("folder moves in the history", () => {
+  it("lists a move with its folders and adds no version", async () => {
+    const before = await load(DB);
+    if (!before.ok) throw new Error("expected the page");
+    expect(before.moves).toEqual([]);
+
+    expect(await moveToNetwork()).toMatchObject({ ok: true });
+
+    const d = await load(DB);
+    if (!d.ok) throw new Error("expected the page");
+    expect(d.history?.map((v) => v.versionNo)).toEqual(before.history?.map((v) => v.versionNo));
+    expect(d.moves).toMatchObject([
+      {
+        fromFolderId: "mock-folder-databases",
+        movedBy: ALICE,
+        movedByName: "Alice",
+        toFolderId: "mock-folder-network",
+      },
+    ]);
+    expect(d.folderNames).toMatchObject({
+      "mock-folder-databases": "Databases",
+      "mock-folder-network": "Network",
+    });
   });
 });
