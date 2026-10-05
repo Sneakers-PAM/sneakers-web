@@ -1,3 +1,5 @@
+import type { SecretUseRefusal } from "@sneakers-web/api-client";
+
 import { type Refusal, refusalMessage } from "@sneakers-web/shell";
 
 const sentence = (text: string): string => {
@@ -13,3 +15,12 @@ const sentence = (text: string): string => {
  */
 export const agentRefusalMessage = (r: Refusal): string =>
   !r.code && !r.reason ? sentence(r.detail) : refusalMessage(r);
+
+/** Why one use in a batch wasn't decided, as a sentence about that use. */
+export const RUN_REFUSAL: Record<SecretUseRefusal, string> = {
+  ALREADY_DECIDED: "It was already decided.",
+  EXPIRED: "It expired before you decided. The agent can ask again.",
+  NOT_FOUND: "It no longer exists.",
+  NOT_PERMITTED: "It isn't yours to decide.",
+  UNAVAILABLE: "It couldn't be decided just now. Try again.",
+};

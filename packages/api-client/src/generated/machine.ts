@@ -121,7 +121,9 @@ export type MutationPrepareSecretUseArgs = {
   argv?: InputMaybe<Array<Scalars["String"]["input"]>>;
   clientLabel?: InputMaybe<Scalars["String"]["input"]>;
   fieldKey: Scalars["String"]["input"];
+  purpose?: InputMaybe<Scalars["String"]["input"]>;
   reveal?: InputMaybe<Scalars["Boolean"]["input"]>;
+  runId?: InputMaybe<Scalars["String"]["input"]>;
   secretId: Scalars["ID"]["input"];
 };
 
@@ -185,6 +187,7 @@ export type Query = {
   secretCheckStatus: SecretCheckStatus;
   secretTypes: Array<SecretTypeSummary>;
   secretUse: SecretUse;
+  secretUseRun: Array<SecretUse>;
   targetsForPrincipal: Array<MachineTarget>;
 };
 
@@ -205,6 +208,10 @@ export type QuerySecretCheckStatusArgs = {
 
 export type QuerySecretUseArgs = {
   id: Scalars["ID"]["input"];
+};
+
+export type QuerySecretUseRunArgs = {
+  runId: Scalars["String"]["input"];
 };
 
 export type QueryTargetsForPrincipalArgs = {
@@ -260,6 +267,7 @@ export type SecretUse = {
   fieldKey: Scalars["String"]["output"];
   id: Scalars["ID"]["output"];
   reveal: Scalars["Boolean"]["output"];
+  runId?: Maybe<Scalars["String"]["output"]>;
   secretId: Scalars["ID"]["output"];
   secretName: Scalars["String"]["output"];
   state: Scalars["String"]["output"];
