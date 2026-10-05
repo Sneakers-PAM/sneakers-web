@@ -88,6 +88,21 @@ describe("the secret detail page", () => {
     expect(within(password).queryByRole("list")).toBeNull();
   });
 
+  it("asks for a fresh second factor before a copy where the folder requires one", async () => {
+    const databases = mockState.world.folders.find((f) => f.id === "mock-folder-databases");
+    if (databases) databases.revealStepUp = "require";
+    const user = userEvent.setup();
+    open("mock-secret-db-admin");
+    const password = await screen.findByRole("group", { name: "Password" });
+    await user.click(within(password).getByRole("button", { name: "Copy Password" }));
+    const dialog = await screen.findByRole("dialog", { name: "Confirm it's you" });
+    expect(dialog).toHaveTextContent("Revealing Password needs a fresh second factor.");
+    await user.type(within(dialog).getByLabelText("6-digit code"), "123456");
+    await vi.waitFor(async () =>
+      expect(await navigator.clipboard.readText()).toBe("mock-Tongue-Eyelet-91"),
+    );
+  });
+
   it("asks for a fresh second factor before a super-sensitive reveal", async () => {
     const user = userEvent.setup();
     open("mock-secret-portal-cert");
@@ -354,6 +369,25 @@ describe("checking a secret out", () => {
     expect(await within(card("Checkout")).findByText("Checked out by you")).toBeInTheDocument();
     await user.click(within(row("Password")).getByRole("button", { name: "Reveal Password" }));
     expect(await within(row("Password")).findByText("mock-Lace-Up-4417")).toBeInTheDocument();
+  });
+
+  it("asks for a fresh second factor before checking out a sensitive type", async () => {
+    const ad = mockState.world.secretTypes.find((t) => t.id === "type-active-directory");
+    if (ad)
+      ad.fields = ad.fields.map((f) => (f.key === "password" ? { ...f, superSensitive: true } : f));
+    const user = userEvent.setup();
+    open("mock-secret-acme-vpn");
+    const checkout = await screen.findByRole("region", { name: "Checkout" });
+    await user.click(within(checkout).getByRole("button", { name: "Check in now" }));
+    expect(
+      await within(row("Password")).findByText("Check out first, so others know it's in use"),
+    ).toBeInTheDocument();
+    await user.click(within(card("Checkout")).getByRole("button", { name: /^Check out for/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Confirm it's you" });
+    expect(dialog).toHaveTextContent("Checking this secret out needs a fresh second factor.");
+    await user.type(within(dialog).getByLabelText("6-digit code"), "123456");
+    await vi.waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(await within(card("Checkout")).findByText("Checked out by you")).toBeInTheDocument();
   });
 
   it("locks a secret someone else holds, and won't rotate it", async () => {

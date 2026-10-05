@@ -92,6 +92,12 @@ sign-on) uses an absolute URL.
   to sign in.
 - The mock gateway counts a step-up as fresh for five minutes (`freshMfa`), and a session that
   never stepped up as stale, so the prompt shows the first time in mock mode.
+- Where a reveal or copy asks for one follows the vault: the nearest folder (this one, then up the
+  tree) whose reveal step-up is `require` or `off` wins, else the global "MFA before a reveal"
+  security setting (`revealStepUpRequired` in the mock). Site admins set a folder's override on the
+  admin console's folder page. In the fixtures the Certificates folder requires it, so a private
+  key reveal prompts. A check-out of a type with a super-sensitive field asks for one while "MFA
+  for sensitive checkout" is on (the default).
 
 ## Copy diagnostics
 

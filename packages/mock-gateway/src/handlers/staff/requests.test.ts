@@ -14,8 +14,10 @@ import {
   RequestsResolveDocument,
   RequestsSecretDocument,
   ShellCountsDocument,
+  stepUp,
 } from "@sneakers-web/api-client";
 
+import { settings } from "#mock/admin/settings";
 import { MOCK_GATEWAY_URL, MOCK_SESSION_COOKIE, mockState } from "#mock/state";
 import { sessionCookie, withMockGateway } from "#mock/testing";
 
@@ -304,5 +306,47 @@ describe("checkouts in the mock gateway", () => {
       await refusal(gw.gql(CheckoutsCheckinDocument, { secretId: "mock-secret-build-ssh" })),
     ).toMatchObject({ code: "PERMISSION_DENIED", reason: "CHECKIN_NOT_HOLDER" });
     expect(world().leases.find((l) => l.id === "mock-lease-2")?.returned).toBe(false);
+  });
+});
+
+// The workflow asks for a fresh MFA before checking out a type with a super-sensitive field.
+const sensitiveAd = () => {
+  const t = world().secretTypes.find((x) => x.id === "type-active-directory")!;
+  t.fields = t.fields.map((f) => (f.key === "password" ? { ...f, superSensitive: true } : f));
+};
+
+describe("sensitive check-out in the mock gateway", () => {
+  const VPN = "mock-secret-acme-vpn";
+  const free = async (gw: GatewayClient) => {
+    await gw.gql(CheckoutsCheckinDocument, { secretId: VPN });
+    return gw;
+  };
+
+  it("asks for a step-up before checking out a sensitive type, and issues no lease", async () => {
+    sensitiveAd();
+    const gw = await free(await as(ALICE));
+    expect(await refusal(gw.gql(CheckoutsCheckoutDocument, { secretId: VPN }))).toMatchObject({
+      code: "FAILED_PRECONDITION",
+      reason: "STEP_UP_REQUIRED",
+    });
+    const { activeLease } = await gw.gql(CheckoutsActiveLeaseDocument, { secretId: VPN });
+    expect(activeLease).toBeNull();
+    expect(await stepUp(gw, { code: "123456", kind: "totp" })).toBe("ok");
+    const { checkoutSecret } = await gw.gql(CheckoutsCheckoutDocument, { secretId: VPN });
+    expect(checkoutSecret).toMatchObject({ secretId: VPN, userId: ALICE });
+  });
+
+  it("checks a sensitive type out without a step-up when the setting is off", async () => {
+    sensitiveAd();
+    settings.security.requireMfaForSensitiveCheckout = false;
+    const gw = await free(await as(ALICE));
+    const { checkoutSecret } = await gw.gql(CheckoutsCheckoutDocument, { secretId: VPN });
+    expect(checkoutSecret.secretId).toBe(VPN);
+  });
+
+  it("needs no step-up for an ordinary type", async () => {
+    const gw = await free(await as(ALICE));
+    const { checkoutSecret } = await gw.gql(CheckoutsCheckoutDocument, { secretId: VPN });
+    expect(checkoutSecret.secretId).toBe(VPN);
   });
 });

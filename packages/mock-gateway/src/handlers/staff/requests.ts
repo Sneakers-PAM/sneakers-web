@@ -17,6 +17,7 @@ import { HttpResponse } from "msw";
 import type { MockLease, MockRequest } from "#mock/fixtures/world";
 
 import { isSiteAdmin, refusal } from "#mock/admin/refuse";
+import { settings } from "#mock/admin/settings";
 import { userById, USERS } from "#mock/fixtures/users";
 import { api, asUser } from "#mock/handlers/graphql";
 import {
@@ -27,6 +28,7 @@ import {
   chain,
   secretById,
 } from "#mock/handlers/staff/access";
+import { freshMfa, stepUpRequired } from "#mock/handlers/stepUp";
 import { mockState, newToken } from "#mock/state";
 
 const HOUR = 3_600_000;
@@ -234,6 +236,13 @@ export const requestsHandlers: RequestHandler[] = [
           "CHECKOUT_LEASE_HELD",
           { holder_user_id: held.userId },
         );
+      // The workflow wants a fresh MFA before a type with a super-sensitive field goes out.
+      if (
+        settings.security.requireMfaForSensitiveCheckout &&
+        type.fields.some((f) => f.superSensitive) &&
+        !freshMfa(request)
+      )
+        return HttpResponse.json({ errors: [stepUpRequired()] }) as never;
       const now = Date.now();
       const asked = variables.hours ?? 0;
       const lease: MockLease = {

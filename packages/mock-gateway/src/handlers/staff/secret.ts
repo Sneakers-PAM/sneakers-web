@@ -26,6 +26,7 @@ import type { MockFolder, MockSecret, MockSecretType, MockVersion } from "#mock/
 import { refusal } from "#mock/admin/refuse";
 import { userById, WRONG_CODE } from "#mock/fixtures/users";
 import { api, asUser } from "#mock/handlers/graphql";
+import { revealStepUpRequired } from "#mock/handlers/revealStepUp";
 import { activeLease, canApprove, canRead, canSee, secretById } from "#mock/handlers/staff/access";
 import { freshMfa, stepUpRequired } from "#mock/handlers/stepUp";
 import { mockState, onMockReset } from "#mock/state";
@@ -50,9 +51,6 @@ const isSensitive = (t: MockSecretType | undefined, key: string) => {
     (definition.kind === "password" || !!definition.sensitive || !!definition.superSensitive)
   );
 };
-
-const isSuperSensitive = (t: MockSecretType | undefined, key: string) =>
-  !!t?.fields.find((f) => f.key === key)?.superSensitive;
 
 const hex = (text: string, bytes: number) =>
   createHash("sha256")
@@ -254,7 +252,7 @@ export const secretHandlers: RequestHandler[] = [
       if (!isSensitive(t, variables.fieldKey))
         return refusal("INVALID_ARGUMENT", "field is not sensitive");
       if (!canRead(userId, s)) return noRead("reveal");
-      if (isSuperSensitive(t, variables.fieldKey) && !freshMfa(request))
+      if (revealStepUpRequired(s.folderId) && !freshMfa(request))
         return HttpResponse.json({ errors: [stepUpRequired()] }) as never;
       const value = s.fields[variables.fieldKey];
       if (value === undefined) return refusal("NOT_FOUND", "field not found");
