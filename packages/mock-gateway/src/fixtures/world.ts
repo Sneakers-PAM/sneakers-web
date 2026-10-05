@@ -472,6 +472,8 @@ const FOLDERS: MockFolder[] = [
     order: 2,
     owners: [CAROL],
     parentId: "mock-folder-platform",
+    // A reveal of a private key here asks for a fresh second factor.
+    revealStepUp: "require",
     scope: "group",
   },
   {

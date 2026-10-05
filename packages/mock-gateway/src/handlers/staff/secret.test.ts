@@ -1,5 +1,6 @@
 // @vitest-environment node
 import {
+  AdminSetFolderRevealStepUpDocument,
   auth,
   GatewayClient,
   GraphQLRequestError,
@@ -21,6 +22,7 @@ import {
   stepUp,
 } from "@sneakers-web/api-client";
 
+import { settings } from "#mock/admin/settings";
 import { userById } from "#mock/fixtures/users";
 import { MOCK_GATEWAY_URL, MOCK_SESSION_COOKIE, mockState } from "#mock/state";
 import { sessionCookie, withMockGateway } from "#mock/testing";
@@ -385,5 +387,78 @@ describe("secret detail in the mock gateway", () => {
       code: "PERMISSION_DENIED",
       reason: "NO_ACCESS",
     });
+  });
+});
+
+const stepUpFolder = (id: string) => world().folders.find((f) => f.id === id)!;
+const revealPassword = (gw: GatewayClient) =>
+  gw.gql(SecretRevealDocument, { fieldKey: "password", id: DB });
+const STEP_UP = { code: "FAILED_PRECONDITION", reason: "STEP_UP_REQUIRED" };
+const revealedPassword = async (gw: GatewayClient) => {
+  const { revealSecretField } = await revealPassword(gw);
+  return revealSecretField;
+};
+
+// The vault's rule: the nearest folder that sets require or off wins, else the global setting.
+describe("reveal step-up in the mock gateway", () => {
+  it("reveals without a step-up while neither the setting nor a folder asks for one", async () => {
+    const gw = await as(ALICE);
+    expect(await revealedPassword(gw)).toBe("mock-Tongue-Eyelet-91");
+  });
+
+  it("asks for a step-up everywhere when the global setting is on", async () => {
+    settings.security.requireMfaForReveal = true;
+    const gw = await as(ALICE);
+    expect(await refusal(revealPassword(gw))).toEqual(STEP_UP);
+    expect(await stepUp(gw, { code: "123456", kind: "totp" })).toBe("ok");
+    expect(await revealedPassword(gw)).toBe("mock-Tongue-Eyelet-91");
+  });
+
+  it("lets a folder above turn the global setting off, inherited down the tree", async () => {
+    settings.security.requireMfaForReveal = true;
+    stepUpFolder("mock-folder-platform").revealStepUp = "off";
+    const gw = await as(ALICE);
+    expect(await revealedPassword(gw)).toBe("mock-Tongue-Eyelet-91");
+  });
+
+  it("lets a folder above require it while the global setting is off", async () => {
+    stepUpFolder("mock-folder-platform").revealStepUp = "require";
+    const gw = await as(ALICE);
+    expect(await refusal(revealPassword(gw))).toEqual(STEP_UP);
+  });
+
+  it("applies a site admin's folder toggle to the next reveal, and refuses anyone else's", async () => {
+    const bob = await as(BOB);
+    expect(
+      await refusal(
+        bob.gql(AdminSetFolderRevealStepUpDocument, {
+          folderId: "mock-folder-databases",
+          mode: "require",
+        }),
+      ),
+    ).toMatchObject({ code: "PERMISSION_DENIED" });
+    const carol = await as("mock-user-carol");
+    await carol.gql(AdminSetFolderRevealStepUpDocument, {
+      folderId: "mock-folder-databases",
+      mode: "require",
+    });
+    expect(await refusal(revealPassword(await as(ALICE)))).toEqual(STEP_UP);
+  });
+
+  it("takes the nearest folder that sets one", async () => {
+    stepUpFolder("mock-folder-platform").revealStepUp = "require";
+    stepUpFolder("mock-folder-databases").revealStepUp = "off";
+    const gw = await as(ALICE);
+    expect(await revealedPassword(gw)).toBe("mock-Tongue-Eyelet-91");
+  });
+
+  it("reveals a super-sensitive field without a step-up where none applies", async () => {
+    stepUpFolder("mock-folder-certificates").revealStepUp = undefined;
+    const gw = await as(ALICE);
+    const { revealSecretField } = await gw.gql(SecretRevealDocument, {
+      fieldKey: "privateKey",
+      id: CERT,
+    });
+    expect(revealSecretField).toBe(secret(CERT)?.fields.privateKey);
   });
 });
