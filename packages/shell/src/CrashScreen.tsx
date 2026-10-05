@@ -3,6 +3,7 @@ import { Button } from "@sneakers-web/ui";
 import { ChevronDown, Copy, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { CopyDiagnostics } from "#shell/diagnostics/CopyDiagnostics";
 import { CenteredFrame } from "#shell/gate/Frames";
 
 const log = createLogger("crash");
@@ -64,6 +65,7 @@ export const CrashScreen = ({ error }: { error: Error }) => {
         <Button onClick={() => globalThis.history.back()} variant="secondary">
           Go back
         </Button>
+        <CopyDiagnostics problem={{ message: `Page crashed: ${error.name}` }} size="md" />
       </div>
     </CenteredFrame>
   );

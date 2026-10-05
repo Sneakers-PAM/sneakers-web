@@ -39,3 +39,40 @@ mutation MarkNotificationRead($id: ID!) {
 mutation MarkAllNotificationsRead {
   markAllNotificationsRead
 }
+
+query Diagnostics {
+  diagnostics {
+    generatedAt
+    traceId
+    publicUrl
+    appliance
+    actor {
+      id
+      username
+      roles
+    }
+    gateway {
+      ...ComponentVersionFields
+    }
+    services {
+      ...ComponentVersionFields
+    }
+    thirdParty {
+      ...ComponentVersionFields
+    }
+  }
+}
+
+fragment ComponentVersionFields on ComponentVersion {
+  name
+  version
+  commit
+  status
+  dependencies {
+    name
+    state
+    required
+    error
+    version
+  }
+}

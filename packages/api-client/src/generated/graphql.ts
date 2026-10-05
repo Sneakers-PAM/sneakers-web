@@ -7,6 +7,8 @@ export type Incremental<T> =
 import type { DocumentTypeDecoration } from "@graphql-typed-document-node/core";
 export type ApprovalStatus = "approved" | "denied" | "pending";
 
+export type ComponentStatus = "NOT_CONFIGURED" | "OK" | "UNAVAILABLE";
+
 export type ConnectionInput = {
   description?: string | null | undefined;
   id?: string | null | undefined;
@@ -24,6 +26,8 @@ export type CreateSecretInput = {
   targetId?: string | null | undefined;
   typeId: string;
 };
+
+export type DependencyHealth = "DEGRADED" | "DOWN" | "OK";
 
 export type FactorInput = {
   code?: string | null | undefined;
@@ -1050,6 +1054,71 @@ export type MarkNotificationReadMutation = { markNotificationRead: boolean };
 export type MarkAllNotificationsReadMutationVariables = Exact<{ [key: string]: never }>;
 
 export type MarkAllNotificationsReadMutation = { markAllNotificationsRead: boolean };
+
+export type DiagnosticsQueryVariables = Exact<{ [key: string]: never }>;
+
+export type DiagnosticsQuery = {
+  diagnostics: {
+    generatedAt: string;
+    traceId: string;
+    publicUrl: string;
+    appliance: string | null;
+    actor: { id: string; username: string; roles: Array<string> };
+    gateway: {
+      name: string;
+      version: string | null;
+      commit: string | null;
+      status: ComponentStatus;
+      dependencies: Array<{
+        name: string;
+        state: DependencyHealth;
+        required: boolean;
+        error: string | null;
+        version: string | null;
+      }> | null;
+    };
+    services: Array<{
+      name: string;
+      version: string | null;
+      commit: string | null;
+      status: ComponentStatus;
+      dependencies: Array<{
+        name: string;
+        state: DependencyHealth;
+        required: boolean;
+        error: string | null;
+        version: string | null;
+      }> | null;
+    }>;
+    thirdParty: Array<{
+      name: string;
+      version: string | null;
+      commit: string | null;
+      status: ComponentStatus;
+      dependencies: Array<{
+        name: string;
+        state: DependencyHealth;
+        required: boolean;
+        error: string | null;
+        version: string | null;
+      }> | null;
+    }>;
+  };
+};
+
+export type ComponentVersionFieldsFragment = {
+  name: string;
+  version: string | null;
+  commit: string | null;
+  status: ComponentStatus;
+  dependencies: Array<{
+    name: string;
+    state: DependencyHealth;
+    required: boolean;
+    error: string | null;
+    version: string | null;
+  }> | null;
+};
 
 export type AgentsTokenFieldsFragment = {
   id: string;
@@ -2715,6 +2784,24 @@ export const UserFieldsFragmentDoc = new TypedDocumentString(
     `,
   { fragmentName: "UserFields" },
 ) as unknown as TypedDocumentString<UserFieldsFragment, unknown>;
+export const ComponentVersionFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment ComponentVersionFields on ComponentVersion {
+  name
+  version
+  commit
+  status
+  dependencies {
+    name
+    state
+    required
+    error
+    version
+  }
+}
+    `,
+  { fragmentName: "ComponentVersionFields" },
+) as unknown as TypedDocumentString<ComponentVersionFieldsFragment, unknown>;
 export const AgentsTokenFieldsFragmentDoc = new TypedDocumentString(
   `
     fragment AgentsTokenFields on UserToken {
@@ -3950,6 +4037,42 @@ export const MarkAllNotificationsReadDocument = new TypedDocumentString(`
   MarkAllNotificationsReadMutation,
   MarkAllNotificationsReadMutationVariables
 >;
+export const DiagnosticsDocument = new TypedDocumentString(`
+    query Diagnostics {
+  diagnostics {
+    generatedAt
+    traceId
+    publicUrl
+    appliance
+    actor {
+      id
+      username
+      roles
+    }
+    gateway {
+      ...ComponentVersionFields
+    }
+    services {
+      ...ComponentVersionFields
+    }
+    thirdParty {
+      ...ComponentVersionFields
+    }
+  }
+}
+    fragment ComponentVersionFields on ComponentVersion {
+  name
+  version
+  commit
+  status
+  dependencies {
+    name
+    state
+    required
+    error
+    version
+  }
+}`) as unknown as TypedDocumentString<DiagnosticsQuery, DiagnosticsQueryVariables>;
 export const AgentsTokensDocument = new TypedDocumentString(`
     query AgentsTokens {
   myTokens {

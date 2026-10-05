@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Toaster as Sonner, toast as sonnerToast } from "sonner";
 
+import { toastProblemAction } from "#ui/components/ProblemAction";
+
 /** The toast stack: dark ink toasts in the bottom right, above dialogs. */
 export const Toaster = () => {
   return (
@@ -39,9 +41,18 @@ export const toast = Object.assign(
   },
   {
     dismiss: sonnerToast.dismiss,
+    /** An error toast. It offers the problem action (Copy diagnostics) unless it has its own. */
     error: (message: string, options?: Parameters<typeof sonnerToast.error>[1]) => {
       announce(message);
-      return sonnerToast.error(message, options);
+      const problem = toastProblemAction();
+      const withAction =
+        problem && !options?.action
+          ? {
+              ...options,
+              action: { label: problem.label, onClick: () => void problem.run(message) },
+            }
+          : options;
+      return sonnerToast.error(message, withAction);
     },
   },
 );

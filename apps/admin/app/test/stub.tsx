@@ -1,4 +1,5 @@
 import { sessionCookie, withCookie } from "@sneakers-web/mock-gateway/testing";
+import { ProblemActions } from "@sneakers-web/shell";
 import { Toaster, TooltipProvider } from "@sneakers-web/ui";
 import { configure, render } from "@testing-library/react";
 import { createRoutesStub, Outlet } from "react-router";
@@ -39,7 +40,12 @@ export const renderAdmin = (
         loader: wrap(module.loader),
         path,
       })),
-      Component: () => <Outlet />,
+      // Like AppRoot: problem treatments under it offer Copy diagnostics.
+      Component: () => (
+        <ProblemActions>
+          <Outlet />
+        </ProblemActions>
+      ),
       HydrateFallback: () => null,
       id: "routes/frame",
       loader: wrap(frameLoader),

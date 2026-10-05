@@ -2,6 +2,7 @@ import { Button, clockTime, SneakerLoader, Spinner } from "@sneakers-web/ui";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 
+import { CopyDiagnostics } from "#shell/diagnostics/CopyDiagnostics";
 import { CenteredFrame, FrameTitle } from "#shell/gate/Frames";
 import { EdgeBanner } from "#shell/layout/EdgeBanner";
 
@@ -59,6 +60,7 @@ export const OfflineScreen = () => {
         >
           Retry
         </Button>
+        <CopyDiagnostics problem={{ message: "Can't reach the server" }} size="lg" />
       </div>
       <span aria-live="polite" className="text-small leading-[1.4] text-muted">
         Tried at {clockTime(triedAt)}.{" "}
@@ -86,10 +88,11 @@ export const NotFoundScreen = () => (
       body="That page doesn't exist, or it moved. Check the address, or start from the top."
       title="Nothing here"
     />
-    <div>
+    <div className="flex flex-wrap gap-2.5">
       <Button asChild>
         <Link to="/">Go to the start</Link>
       </Button>
+      <CopyDiagnostics problem={{ message: "Page not found" }} size="md" />
     </div>
   </CenteredFrame>
 );

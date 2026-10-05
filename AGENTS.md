@@ -93,6 +93,27 @@ sign-on) uses an absolute URL.
 - The mock gateway counts a step-up as fresh for five minutes (`freshMfa`), and a session that
   never stepped up as stale, so the prompt shows the first time in mock mode.
 
+## Copy diagnostics
+
+- `CopyDiagnostics` (`packages/shell/src/diagnostics/`) copies a support report as plain text
+  plus a JSON block: the time (UTC and the browser's zone), the path and route, the problem
+  (message, operation, code, reason, domain, trace id), the user (id, username, roles), the app's
+  build, the appliance, every service's and third party's version with its dependency states, and
+  the user agent. `buildReport` copies named fields only and runs every string through `scrub`, so
+  no token, cookie, session id or field value can reach the clipboard; the URL is cut to its path.
+- The data comes from each app's `resources/diagnostics` route (`diagnosticsLoader`): the app's
+  build (`__APP_VERSION__`, `__APP_COMMIT__`, stamped from `APP_VERSION` and `APP_COMMIT` at build
+  time) and, for a signed-in user, the gateway's `diagnostics` query. Signed out or with the
+  gateway down, the gateway part is null and the report still has the page and the app.
+- Problem treatments get it without per-screen code. `AppRoot` (and the route stubs) mount
+  `ProblemActions`, so every `Alert` with tone `danger` or `warn` shows the button, and every
+  `toast.error` without its own action offers it. `refusalMessage` remembers which refusal each
+  sentence stood for, so the report names the operation and trace behind the message the screen
+  showed. The crash, offline and not-found screens show the button themselves.
+- The account menu of both apps has About and diagnostics (`AboutDialog`): every version and the
+  copy button.
+- The mock gateway answers `diagnostics` with `mock-` versions.
+
 ## Build, test, lint
 
 - Build: `npm run build` (live, to `apps/*/build`) and `npm run build:mock` (to

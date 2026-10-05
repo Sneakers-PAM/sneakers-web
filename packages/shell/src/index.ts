@@ -9,6 +9,9 @@ export {
   useStepUp,
 } from "#shell/auth/StepUpDialog";
 export { CrashScreen } from "#shell/CrashScreen";
+export { AboutDialog } from "#shell/diagnostics/AboutDialog";
+export { CopyDiagnostics } from "#shell/diagnostics/CopyDiagnostics";
+export type { DiagnosticsData, Problem } from "#shell/diagnostics/report";
 export {
   CenteredFrame,
   EnvironmentBadge,
@@ -30,7 +33,7 @@ export { MfaBanner } from "#shell/layout/MfaBanner";
 export { NavGroup, NavItem, type NavItemProps, NavList } from "#shell/layout/Nav";
 export { NotificationBell, type NotificationItem } from "#shell/layout/Notifications";
 export { needsStepUp, type Refusal, refusalMessage, refusalOf } from "#shell/refusal";
-export { AppRoot, Document } from "#shell/root/Document";
+export { AppRoot, Document, ProblemActions } from "#shell/root/Document";
 export { RouteError } from "#shell/root/RouteError";
 export { useQuietRefresh } from "#shell/root/useQuietRefresh";
 export { useRootData } from "#shell/root/useRootData";

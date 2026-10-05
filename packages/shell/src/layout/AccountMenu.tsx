@@ -9,7 +9,9 @@ import {
   DropdownMenuTrigger,
 } from "@sneakers-web/ui";
 import { ChevronDown } from "lucide-react";
-import { type ReactNode } from "react";
+import { type ReactNode, useState } from "react";
+
+import { AboutDialog } from "#shell/diagnostics/AboutDialog";
 
 export interface AccountMenuItem {
   label: string;
@@ -17,7 +19,10 @@ export interface AccountMenuItem {
   onSelect: () => void;
 }
 
-/** The account chip in the header, and its menu with Sign out at the bottom. */
+/**
+ * The account chip in the header, and its menu: the app's items, About and diagnostics, then
+ * Sign out at the bottom.
+ */
 export const AccountMenu = ({
   compact,
   email,
@@ -33,47 +38,54 @@ export const AccountMenu = ({
   name: string;
   onSignOut: () => void;
 }) => {
+  const [about, setAbout] = useState(false);
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label={`Account: ${name}`}
-        className={cn(
-          "flex items-center gap-2.5 rounded-lg border-[1.5px] py-1 pr-2.5 pl-1 text-[0.875rem] font-bold",
-          inverted
-            ? "border-bg text-bg hover:bg-bg/10"
-            : "border-border-strong bg-surface text-ink hover:bg-sunken",
-        )}
-      >
-        <Avatar name={name} tone={inverted ? "ok" : "primary"} />
-        {!compact && <span>{name}</span>}
-        {!compact && (
-          <ChevronDown
-            aria-hidden
-            className={cn("size-3.5", inverted ? "text-bg" : "text-muted")}
-          />
-        )}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-65">
-        <DropdownMenuLabel>
-          <b className="text-body leading-none">{name}</b>
-          {email && <span className="text-small leading-none font-normal text-muted">{email}</span>}
-        </DropdownMenuLabel>
-        {items.map((it) => (
-          <DropdownMenuItem key={it.label} onSelect={it.onSelect}>
-            {it.label}
-            {it.meta && (
-              <span className="ml-auto font-mono text-[0.75rem] font-bold text-muted">
-                {it.meta}
-              </span>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          aria-label={`Account: ${name}`}
+          className={cn(
+            "flex items-center gap-2.5 rounded-lg border-[1.5px] py-1 pr-2.5 pl-1 text-[0.875rem] font-bold",
+            inverted
+              ? "border-bg text-bg hover:bg-bg/10"
+              : "border-border-strong bg-surface text-ink hover:bg-sunken",
+          )}
+        >
+          <Avatar name={name} tone={inverted ? "ok" : "primary"} />
+          {!compact && <span>{name}</span>}
+          {!compact && (
+            <ChevronDown
+              aria-hidden
+              className={cn("size-3.5", inverted ? "text-bg" : "text-muted")}
+            />
+          )}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-65">
+          <DropdownMenuLabel>
+            <b className="text-body leading-none">{name}</b>
+            {email && (
+              <span className="text-small leading-none font-normal text-muted">{email}</span>
             )}
+          </DropdownMenuLabel>
+          {items.map((it) => (
+            <DropdownMenuItem key={it.label} onSelect={it.onSelect}>
+              {it.label}
+              {it.meta && (
+                <span className="ml-auto font-mono text-[0.75rem] font-bold text-muted">
+                  {it.meta}
+                </span>
+              )}
+            </DropdownMenuItem>
+          ))}
+          <DropdownMenuItem onSelect={() => setAbout(true)}>About and diagnostics</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={onSignOut} tone="strong">
+            Sign out
           </DropdownMenuItem>
-        ))}
-        {items.length > 0 && <DropdownMenuSeparator />}
-        <DropdownMenuItem onSelect={onSignOut} tone="strong">
-          Sign out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <AboutDialog onOpenChange={setAbout} open={about} />
+    </>
   );
 };
 

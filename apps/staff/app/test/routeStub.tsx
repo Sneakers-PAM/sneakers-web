@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 
 import { sessionCookie, withCookie } from "@sneakers-web/mock-gateway/testing";
+import { ProblemActions } from "@sneakers-web/shell";
 import { render } from "@testing-library/react";
 import {
   type ActionFunctionArgs,
@@ -44,7 +45,12 @@ export const renderRoute = (
   const Stub = createRoutesStub([
     signed(cookie, {
       children: [routes].flat(),
-      Component: Outlet,
+      // Like AppRoot: problem treatments under it offer Copy diagnostics.
+      Component: () => (
+        <ProblemActions>
+          <Outlet />
+        </ProblemActions>
+      ),
       id: "routes/frame",
       loader: frameLoader,
     }) as never,

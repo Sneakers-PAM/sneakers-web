@@ -1,4 +1,7 @@
 import {
+  type ComponentStatus,
+  type ComponentVersionFieldsFragment,
+  DiagnosticsDocument,
   MarkAllNotificationsReadDocument,
   MarkNotificationReadDocument,
   MeDocument,
@@ -33,7 +36,70 @@ export const asUser = <T>(request: Request, run: (userId: string) => T): T => {
 
 const unread = () => mockState.inbox.filter((n) => !n.read).length;
 
+type MockDependency = NonNullable<ComponentVersionFieldsFragment["dependencies"]>[number];
+
+const mockDependency = (name: string, required = true): MockDependency => ({
+  error: null,
+  name,
+  required,
+  state: "OK",
+  version: name === "postgres" ? "mock-postgres-17" : null,
+});
+
+const MOCK_DEPENDENCIES: Record<string, MockDependency[]> = {
+  audit: [mockDependency("postgres")],
+  identity: [mockDependency("postgres"), mockDependency("kratos"), mockDependency("audit", false)],
+  notify: [mockDependency("valkey")],
+  vault: [mockDependency("postgres"), mockDependency("valkey"), mockDependency("audit", false)],
+  workflow: [mockDependency("postgres"), mockDependency("vault", false)],
+};
+
+const mockComponent = (
+  name: string,
+  status: ComponentStatus = "OK",
+): ComponentVersionFieldsFragment =>
+  status === "OK"
+    ? {
+        commit: `mock-${name}-commit`,
+        dependencies: MOCK_DEPENDENCIES[name] ?? null,
+        name,
+        status,
+        version: `mock-${name}-1.0.0`,
+      }
+    : { commit: null, dependencies: null, name, status, version: null };
+
 export const shellHandlers = [
+  api.query(DiagnosticsDocument, ({ request }) =>
+    asUser(request, (userId) => {
+      const u = userById(userId);
+      return HttpResponse.json({
+        data: {
+          diagnostics: {
+            actor: { id: userId, roles: u?.roles ?? [], username: u?.username ?? userId },
+            appliance: "mock-appliance-1.0.0",
+            gateway: mockComponent("gateway"),
+            generatedAt: new Date().toISOString(),
+            publicUrl: "https://mock-gateway.example.invalid",
+            services: [
+              ...["identity", "vault", "workflow", "audit", "notify", "sshbroker"].map((n) =>
+                mockComponent(n),
+              ),
+              mockComponent("connector", "NOT_CONFIGURED"),
+              mockComponent("mcp", "UNAVAILABLE"),
+            ],
+            thirdParty: [
+              ...["kratos", "hydra", "polis", "valkey", "postgres", "kubernetes"].map((n) =>
+                mockComponent(n),
+              ),
+              mockComponent("rabbitmq", "NOT_CONFIGURED"),
+            ],
+            traceId: "mock-trace-0000000000000000",
+          },
+        },
+      });
+    }),
+  ),
+
   api.query(MeDocument, ({ request, variables }) =>
     asUser(request, () => {
       const u = userById(variables.id);

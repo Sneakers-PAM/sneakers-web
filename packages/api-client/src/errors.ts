@@ -1,12 +1,15 @@
 /**
  * What the gateway attaches to a refused operation: the canonical gRPC code name
  * (FAILED_PRECONDITION), and when the service gave one, a stable reason
- * (CHECKOUT_LEASE_HELD) with its metadata.
+ * (CHECKOUT_LEASE_HELD) with its domain (sneakers.workflow) and metadata. `traceId` is the
+ * request's trace, on every error while tracing is on.
  */
 export interface ErrorExtensions {
   code?: string;
+  domain?: string;
   metadata?: Record<string, string>;
   reason?: string;
+  traceId?: string;
 }
 
 export interface GraphQLErrorItem {
@@ -37,16 +40,23 @@ export class GatewayUnreachableError extends Error {
 /** A GraphQL operation came back with errors. Match on `code` and `reason`, never on the text. */
 export class GraphQLRequestError extends Error {
   readonly code: string | undefined;
+  readonly domain: string | undefined;
   readonly errors: GraphQLErrorItem[];
   readonly metadata: Record<string, string>;
+  /** The GraphQL operation that was refused, when the caller named it. */
+  readonly operation: string | undefined;
   readonly reason: string | undefined;
-  constructor(errors: GraphQLErrorItem[]) {
+  readonly traceId: string | undefined;
+  constructor(errors: GraphQLErrorItem[], operation?: string) {
     super(errors[0]?.message ?? "The request failed.");
     this.name = "GraphQLRequestError";
     this.errors = errors;
+    this.operation = operation;
     const first = errors[0]?.extensions ?? {};
     this.code = first.code ?? legacyCode(errors[0]?.message ?? "");
     this.reason = first.reason;
+    this.domain = first.domain;
+    this.traceId = first.traceId;
     this.metadata = first.metadata ?? {};
   }
 }
