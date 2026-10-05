@@ -220,6 +220,16 @@ describe("the secret detail page", () => {
     expect(await screen.findByText("Agent reveal needs approval")).toBeInTheDocument();
   });
 
+  it("says the approval switch covers personal tokens, not service accounts", async () => {
+    open("mock-secret-db-admin");
+    const agent = await screen.findByRole("switch", {
+      name: "Require my approval for each personal-token reveal",
+    });
+    expect(agent).toHaveAccessibleDescription(
+      /Service accounts are never held for approval.*Allow API access to sensitive secrets/,
+    );
+  });
+
   it("reveals an old version's value to the recovery role after a step-up", async () => {
     USERS.find((u) => u.id === "mock-user-alice")?.roles.push("recovery");
     const user = userEvent.setup();
