@@ -35,6 +35,10 @@ The server listens on `PORT` (3000) and answers `GET /healthz`. Runtime settings
 `TRUST_PROXY`, `APP_ENV`, `LOG_LEVEL`, `LOG_FORMAT`, `SSO_ENABLED`, `STAFF_URL`, `ADMIN_URL`. More in
 [AGENTS.md](AGENTS.md).
 
+## 🙏 Acknowledgements
+
+Sneakers-PAM was originally written by [@Bugs5382](https://github.com/Bugs5382).
+
 ## ⚖️ License
 
 Apache-2.0 (c) 2026 The Sneakers-PAM Authors
