@@ -24,9 +24,12 @@ const Setting = ({
     <div className="flex items-start gap-4">
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <b id={id}>{title}</b>
-        <span className="text-small text-muted">{body}</span>
+        <span className="text-small text-muted" id={`${id}-body`}>
+          {body}
+        </span>
       </div>
       <Switch
+        aria-describedby={`${id}-body`}
         aria-labelledby={id}
         checked={checked}
         disabled={disabled}
@@ -98,7 +101,7 @@ export const AgentAccessCard = ({ page }: { page: SecretPage }) => {
     <Panel title="Agent access">
       <div className="flex flex-col gap-3 px-6 py-5">
         <Setting
-          body=""
+          body="A personal token's reveal of a sensitive field waits until you approve it in Approvals. Service accounts are never held for approval: their access rules and the Allow API access to sensitive secrets setting decide what they can reveal."
           checked={required}
           disabled={page.secret.retired}
           onChange={(on) =>
@@ -107,7 +110,7 @@ export const AgentAccessCard = ({ page }: { page: SecretPage }) => {
               { method: "post" },
             )
           }
-          title="Require my approval for agent (token) reveals"
+          title="Require my approval for each personal-token reveal"
         />
         <p className="m-0 text-small text-muted">
           Agents using your token can still ask to use this secret in a command. You approve each
