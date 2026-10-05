@@ -120,6 +120,28 @@ sign-on) uses an absolute URL.
   copy button.
 - The mock gateway answers `diagnostics` with `mock-` versions.
 
+## Agent approvals
+
+- `/approvals` lists every pending secret use; each one is approved with its own factor
+  (`decideSecretUse`).
+- `/approvals/run/<runId>` (`routes/approvals.run.tsx`, `features/agents/RunApproval.tsx`) is the
+  page an agent's approval link opens for one run: every pending use the run raised, all ticked,
+  decided together with `decideSecretUses`. It sits outside the frame, full-screen on a phone and
+  a centred card on wider screens.
+- The factor is proved once, through `POST /auth/mfa/step-up` (`runAction` steps up, then decides
+  the batch with no factor of its own), so the session's `MFA_MAX_AGE` window also covers a
+  follow-up batch. While `secretUseRun.mfaFreshUntilUnix` is in the future the page shows no factor
+  input. If the window closes before the click, the gateway answers `STEP_UP_REQUIRED` and the
+  page asks for the code again, keeping the ticks.
+- A refused item comes back with its reason (`EXPIRED`, `ALREADY_DECIDED`, `NOT_FOUND`,
+  `NOT_PERMITTED`, `UNAVAILABLE`), shown as a fixed sentence (`RUN_REFUSAL` in
+  `features/agents/messages.ts`); the rest of the batch is still decided.
+- The agent's `purpose` is shown as plain text, labelled "Agent says", never as product copy.
+- The mock gateway answers both operations (`handlers/staff/agentRuns.ts`) with the gateway's
+  rules: 1 to 20 distinct ids (`BATCH_SIZE_INVALID`), an approval needs the step-up window or a
+  factor (`STEP_UP_REQUIRED`, `FACTOR_NOT_ACCEPTED`), and each id is checked on its own. The
+  fixture run is `run_mock_build1`.
+
 ## Build, test, lint
 
 - Build: `npm run build` (live, to `apps/*/build`) and `npm run build:mock` (to

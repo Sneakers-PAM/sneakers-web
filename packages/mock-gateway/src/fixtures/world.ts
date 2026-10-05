@@ -151,10 +151,16 @@ export interface MockSecretUse {
   fieldKey: string;
   id: string;
   ownerUserId: string;
+  /** The agent's own words for its task; empty when it gave none. */
+  purpose?: string;
   reveal: boolean;
+  /** The agent run that raised it, grouping the uses one approval page decides. */
+  runId?: string;
   secretId: string;
   secretName: string;
   state: "approved" | "denied" | "expired" | "pending";
+  /** The personal token that asked, whose name the approval page shows. */
+  tokenId?: string;
 }
 
 export interface MockTarget {
@@ -1017,10 +1023,13 @@ export const initialWorld = (now = Date.now()): MockWorld => {
         fieldKey: "password",
         id: "mock-use-1",
         ownerUserId: ALICE,
+        purpose: "Check that last night's database backup restored cleanly",
         reveal: false,
+        runId: "run_mock_build1",
         secretId: "mock-secret-db-admin",
         secretName: "DB admin",
         state: "pending",
+        tokenId: "mock-token-1",
       },
       {
         argv: [],
@@ -1030,9 +1039,11 @@ export const initialWorld = (now = Date.now()): MockWorld => {
         id: "mock-use-2",
         ownerUserId: ALICE,
         reveal: true,
+        runId: "run_mock_build1",
         secretId: "mock-secret-status-api",
         secretName: "Status page API",
         state: "approved",
+        tokenId: "mock-token-1",
       },
     ],
     targets: structuredClone(TARGETS),

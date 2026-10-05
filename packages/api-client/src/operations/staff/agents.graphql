@@ -113,3 +113,35 @@ mutation AgentsBeginFactorPasskey {
     webauthnSessionId
   }
 }
+
+fragment AgentsRunUseFields on SecretUse {
+  ...AgentsUseFields
+  runId
+  purpose
+  requester
+}
+
+# The run page: every pending use one agent run raised, and how long the session's factor covers an approval.
+query AgentsUseRun($runId: ID!) {
+  secretUseRun(runId: $runId) {
+    runId
+    mfaFreshUntilUnix
+    uses {
+      ...AgentsRunUseFields
+    }
+  }
+}
+
+# Decide the ticked uses of a run together. The page proves the factor through the session step-up first.
+mutation AgentsDecideUses($ids: [ID!]!, $decision: SecretUseDecision!, $factor: FactorInput) {
+  decideSecretUses(ids: $ids, decision: $decision, factor: $factor) {
+    outcomes {
+      id
+      decided
+      reason
+      use {
+        ...AgentsRunUseFields
+      }
+    }
+  }
+}

@@ -1,3 +1,4 @@
+import { agentRunsHandlers } from "#mock/handlers/staff/agentRuns";
 import { agentsHandlers } from "#mock/handlers/staff/agents";
 import { browseHandlers } from "#mock/handlers/staff/browse";
 import { dashboardHandlers } from "#mock/handlers/staff/dashboard";
@@ -15,6 +16,7 @@ export const staffHandlers = [
   ...secretHandlers,
   ...requestsHandlers,
   ...agentsHandlers,
+  ...agentRunsHandlers,
   ...editorsHandlers,
   ...targetsHandlers,
   ...sharingHandlers,

@@ -112,6 +112,11 @@ export type SecretTypeInput = {
   rotation?: boolean | null | undefined;
 };
 
+export type SecretUseDecision = "APPROVE" | "DENY";
+
+export type SecretUseRefusal =
+  "ALREADY_DECIDED" | "EXPIRED" | "NOT_FOUND" | "NOT_PERMITTED" | "UNAVAILABLE";
+
 export type SecuritySettingsInput = {
   allowApiForSensitive?: boolean | null | undefined;
   defaultPasswordPolicyId?: string | null | undefined;
@@ -1301,6 +1306,73 @@ export type AgentsBeginFactorPasskeyMutationVariables = Exact<{ [key: string]: n
 
 export type AgentsBeginFactorPasskeyMutation = {
   beginMfaPasskey: { options: string; webauthnSessionId: string };
+};
+
+export type AgentsRunUseFieldsFragment = {
+  runId: string | null;
+  purpose: string;
+  requester: string;
+  id: string;
+  secretName: string;
+  fieldKey: string;
+  argv: Array<string>;
+  clientLabel: string;
+  state: string;
+  expiresAtUnix: number;
+  reveal: boolean;
+};
+
+export type AgentsUseRunQueryVariables = Exact<{
+  runId: string;
+}>;
+
+export type AgentsUseRunQuery = {
+  secretUseRun: {
+    runId: string;
+    mfaFreshUntilUnix: number;
+    uses: Array<{
+      runId: string | null;
+      purpose: string;
+      requester: string;
+      id: string;
+      secretName: string;
+      fieldKey: string;
+      argv: Array<string>;
+      clientLabel: string;
+      state: string;
+      expiresAtUnix: number;
+      reveal: boolean;
+    }>;
+  };
+};
+
+export type AgentsDecideUsesMutationVariables = Exact<{
+  ids: Array<string> | string;
+  decision: SecretUseDecision;
+  factor?: FactorInput | null | undefined;
+}>;
+
+export type AgentsDecideUsesMutation = {
+  decideSecretUses: {
+    outcomes: Array<{
+      id: string;
+      decided: boolean;
+      reason: SecretUseRefusal | null;
+      use: {
+        runId: string | null;
+        purpose: string;
+        requester: string;
+        id: string;
+        secretName: string;
+        fieldKey: string;
+        argv: Array<string>;
+        clientLabel: string;
+        state: string;
+        expiresAtUnix: number;
+        reveal: boolean;
+      } | null;
+    }>;
+  };
 };
 
 export type BrowseFolderFieldsFragment = {
@@ -2816,21 +2888,6 @@ export const AgentsTokenFieldsFragmentDoc = new TypedDocumentString(
     `,
   { fragmentName: "AgentsTokenFields" },
 ) as unknown as TypedDocumentString<AgentsTokenFieldsFragment, unknown>;
-export const AgentsUseFieldsFragmentDoc = new TypedDocumentString(
-  `
-    fragment AgentsUseFields on SecretUse {
-  id
-  secretName
-  fieldKey
-  argv
-  clientLabel
-  state
-  expiresAtUnix
-  reveal
-}
-    `,
-  { fragmentName: "AgentsUseFields" },
-) as unknown as TypedDocumentString<AgentsUseFieldsFragment, unknown>;
 export const AgentsGrantFieldsFragmentDoc = new TypedDocumentString(
   `
     fragment AgentsGrantFields on UseGrant {
@@ -2852,6 +2909,41 @@ export const AgentsGrantFieldsFragmentDoc = new TypedDocumentString(
     `,
   { fragmentName: "AgentsGrantFields" },
 ) as unknown as TypedDocumentString<AgentsGrantFieldsFragment, unknown>;
+export const AgentsUseFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment AgentsUseFields on SecretUse {
+  id
+  secretName
+  fieldKey
+  argv
+  clientLabel
+  state
+  expiresAtUnix
+  reveal
+}
+    `,
+  { fragmentName: "AgentsUseFields" },
+) as unknown as TypedDocumentString<AgentsUseFieldsFragment, unknown>;
+export const AgentsRunUseFieldsFragmentDoc = new TypedDocumentString(
+  `
+    fragment AgentsRunUseFields on SecretUse {
+  ...AgentsUseFields
+  runId
+  purpose
+  requester
+}
+    fragment AgentsUseFields on SecretUse {
+  id
+  secretName
+  fieldKey
+  argv
+  clientLabel
+  state
+  expiresAtUnix
+  reveal
+}`,
+  { fragmentName: "AgentsRunUseFields" },
+) as unknown as TypedDocumentString<AgentsRunUseFieldsFragment, unknown>;
 export const BrowseFolderFieldsFragmentDoc = new TypedDocumentString(
   `
     fragment BrowseFolderFields on Folder {
@@ -4260,6 +4352,61 @@ export const AgentsBeginFactorPasskeyDocument = new TypedDocumentString(`
   AgentsBeginFactorPasskeyMutation,
   AgentsBeginFactorPasskeyMutationVariables
 >;
+export const AgentsUseRunDocument = new TypedDocumentString(`
+    query AgentsUseRun($runId: ID!) {
+  secretUseRun(runId: $runId) {
+    runId
+    mfaFreshUntilUnix
+    uses {
+      ...AgentsRunUseFields
+    }
+  }
+}
+    fragment AgentsUseFields on SecretUse {
+  id
+  secretName
+  fieldKey
+  argv
+  clientLabel
+  state
+  expiresAtUnix
+  reveal
+}
+fragment AgentsRunUseFields on SecretUse {
+  ...AgentsUseFields
+  runId
+  purpose
+  requester
+}`) as unknown as TypedDocumentString<AgentsUseRunQuery, AgentsUseRunQueryVariables>;
+export const AgentsDecideUsesDocument = new TypedDocumentString(`
+    mutation AgentsDecideUses($ids: [ID!]!, $decision: SecretUseDecision!, $factor: FactorInput) {
+  decideSecretUses(ids: $ids, decision: $decision, factor: $factor) {
+    outcomes {
+      id
+      decided
+      reason
+      use {
+        ...AgentsRunUseFields
+      }
+    }
+  }
+}
+    fragment AgentsUseFields on SecretUse {
+  id
+  secretName
+  fieldKey
+  argv
+  clientLabel
+  state
+  expiresAtUnix
+  reveal
+}
+fragment AgentsRunUseFields on SecretUse {
+  ...AgentsUseFields
+  runId
+  purpose
+  requester
+}`) as unknown as TypedDocumentString<AgentsDecideUsesMutation, AgentsDecideUsesMutationVariables>;
 export const BrowseFoldersDocument = new TypedDocumentString(`
     query BrowseFolders {
   folders {
