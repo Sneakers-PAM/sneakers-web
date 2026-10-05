@@ -1,6 +1,26 @@
 import { GraphQLRequestError, isRefusal, legacyCode } from "#api/errors";
 
 describe("GraphQLRequestError", () => {
+  it("keeps the reason's domain, the trace id and the operation for diagnostics", () => {
+    const error = new GraphQLRequestError(
+      [
+        {
+          extensions: {
+            code: "FAILED_PRECONDITION",
+            domain: "sneakers.workflow",
+            reason: "CHECKOUT_LEASE_HELD",
+            traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
+          },
+          message: "held",
+        },
+      ],
+      "CheckOut",
+    );
+    expect(error.domain).toBe("sneakers.workflow");
+    expect(error.traceId).toBe("4bf92f3577b34da6a3ce929d0e0e4736");
+    expect(error.operation).toBe("CheckOut");
+  });
+
   it("takes the stable code, reason and metadata from the gateway's extensions", () => {
     const error = new GraphQLRequestError([
       {

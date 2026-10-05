@@ -3,13 +3,27 @@ import {
   displayClassName,
   type DisplaySettings,
   LiveRegion,
+  type ProblemAction,
+  ProblemActionProvider,
+  setToastProblemAction,
   ThemeProvider,
   Toaster,
   TooltipProvider,
 } from "@sneakers-web/ui";
-import { type ReactNode, useCallback, useEffect } from "react";
-import { Links, Meta, Outlet, Scripts, ScrollRestoration, useFetcher } from "react-router";
+import { type ReactNode, useCallback, useEffect, useMemo } from "react";
+import {
+  Links,
+  Meta,
+  Outlet,
+  Scripts,
+  ScrollRestoration,
+  useFetcher,
+  useHref,
+  useMatches,
+} from "react-router";
 
+import { copyWithNotice, DIAGNOSTICS_ROUTE } from "#shell/diagnostics/copy";
+import { problemFor, setCurrentRoute } from "#shell/diagnostics/problems";
 import { NotSetUpScreen } from "#shell/gate/Screens";
 import { useRootData } from "#shell/root/useRootData";
 
@@ -42,8 +56,36 @@ export const Document = ({ children }: { children: ReactNode }) => {
 };
 
 /**
- * Providers for the whole app: display settings (saved through the server), tooltips and
- * toasts. An install with no administrator yet shows `whenNotSetUp` instead of any page.
+ * Copy diagnostics on every problem treatment: danger and warning alerts (through the
+ * provider) and error toasts (registered once in the browser).
+ */
+const useProblemAction = (): ProblemAction => {
+  const url = useHref(DIAGNOSTICS_ROUTE);
+  const route = useMatches().at(-1)?.id;
+  useEffect(() => setCurrentRoute(route), [route]);
+  const action = useMemo<ProblemAction>(
+    () => ({
+      label: "Copy diagnostics",
+      run: (message?: string) => copyWithNotice({ problem: problemFor(message), url }),
+    }),
+    [url],
+  );
+  useEffect(() => {
+    setToastProblemAction(action);
+    return () => setToastProblemAction(null);
+  }, [action]);
+  return action;
+};
+
+/** Copy diagnostics for the problem treatments below it. AppRoot mounts it; so do the route stubs. */
+export const ProblemActions = ({ children }: { children: ReactNode }) => (
+  <ProblemActionProvider value={useProblemAction()}>{children}</ProblemActionProvider>
+);
+
+/**
+ * Providers for the whole app: display settings (saved through the server), tooltips,
+ * toasts and Copy diagnostics. An install with no administrator yet shows `whenNotSetUp`
+ * instead of any page.
  */
 export const AppRoot = ({ whenNotSetUp }: { whenNotSetUp?: ReactNode }) => {
   const { config, display, needsSetup } = useRootData();
@@ -62,7 +104,9 @@ export const AppRoot = ({ whenNotSetUp }: { whenNotSetUp?: ReactNode }) => {
   return (
     <ThemeProvider initial={display} onChange={save}>
       <TooltipProvider>
-        {needsSetup ? (whenNotSetUp ?? <NotSetUpScreen />) : <Outlet />}
+        <ProblemActions>
+          {needsSetup ? (whenNotSetUp ?? <NotSetUpScreen />) : <Outlet />}
+        </ProblemActions>
         <Toaster />
         <LiveRegion />
       </TooltipProvider>

@@ -22,6 +22,28 @@ describe("refusals", () => {
     });
   });
 
+  it("carries the domain, trace id and operation for Copy diagnostics", () => {
+    const error = new GraphQLRequestError(
+      [
+        {
+          extensions: {
+            code: "UNAVAILABLE",
+            domain: "sneakers.vault",
+            reason: "X",
+            traceId: "abc123",
+          },
+          message: "down",
+        },
+      ],
+      "RevealField",
+    );
+    expect(refusalOf(error)).toMatchObject({
+      domain: "sneakers.vault",
+      operation: "RevealField",
+      traceId: "abc123",
+    });
+  });
+
   it("is null for anything that isn't a GraphQL refusal", () => {
     expect(refusalOf(new Error("boom"))).toBeNull();
   });

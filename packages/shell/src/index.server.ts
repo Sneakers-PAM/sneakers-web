@@ -1,3 +1,4 @@
+export { diagnosticsLoader } from "#shell/server/diagnostics.server";
 export {
   enrollAction,
   enrollLoader,

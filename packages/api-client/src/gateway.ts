@@ -83,7 +83,7 @@ export class GatewayClient {
       csrf: true,
     });
     if (body.errors?.length) {
-      const error = new GraphQLRequestError(body.errors);
+      const error = new GraphQLRequestError(body.errors, name);
       log.info("operation refused", { code: error.code, operation: name, reason: error.reason });
       throw error;
     }

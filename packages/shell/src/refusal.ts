@@ -1,5 +1,7 @@
 import { GraphQLRequestError } from "@sneakers-web/api-client";
 
+import { noteProblem } from "#shell/diagnostics/problems";
+
 /**
  * A gateway refusal in a form a loader or action can hand to the page: the canonical code,
  * the stable reason and its metadata, and the backend's own explanation (the text after
@@ -8,15 +10,29 @@ import { GraphQLRequestError } from "@sneakers-web/api-client";
 export interface Refusal {
   code?: string;
   detail: string;
+  /** The reason's domain (sneakers.vault), for Copy diagnostics. */
+  domain?: string;
   metadata: Record<string, string>;
+  /** The GraphQL operation that was refused, for Copy diagnostics. */
+  operation?: string;
   reason?: string;
+  /** The gateway request's trace id, for Copy diagnostics. */
+  traceId?: string;
 }
 
 /** The refusal behind an error from `gw.gql`, or null when the error is something else. */
 export const refusalOf = (error: unknown): null | Refusal => {
   if (!(error instanceof GraphQLRequestError)) return null;
   const detail = /desc = ([\s\S]*)$/.exec(error.message)?.[1]?.trim() ?? error.message;
-  return { code: error.code, detail, metadata: error.metadata, reason: error.reason };
+  return {
+    code: error.code,
+    detail,
+    domain: error.domain,
+    metadata: error.metadata,
+    operation: error.operation,
+    reason: error.reason,
+    traceId: error.traceId,
+  };
 };
 
 /** Whether a refusal asks for a fresh second factor (the step-up prompt, then a retry). */
@@ -50,11 +66,21 @@ const BY_CODE: Record<string, string> = {
   UNIMPLEMENTED: "This server doesn't support that yet.",
 };
 
-/** One plain sentence for a refusal: the reason first, then the code, then the backend's text. */
-export const refusalMessage = (r: Refusal): string => {
+const sentence = (r: Refusal): string => {
   if (r.reason && BY_REASON[r.reason]) return BY_REASON[r.reason] as string;
   if (r.code && ["ALREADY_EXISTS", "FAILED_PRECONDITION", "INVALID_ARGUMENT"].includes(r.code)) {
     return r.detail ? r.detail.charAt(0).toUpperCase() + r.detail.slice(1) : "That didn't work.";
   }
   return (r.code && BY_CODE[r.code]) || r.detail || "That didn't work. Try again.";
+};
+
+/**
+ * One plain sentence for a refusal: the reason first, then the code, then the backend's text.
+ * In the browser it also remembers which refusal the sentence stood for, so the Copy
+ * diagnostics button on the toast or alert that shows it can name the operation and trace.
+ */
+export const refusalMessage = (r: Refusal): string => {
+  const message = sentence(r);
+  noteProblem(r, message);
+  return message;
 };

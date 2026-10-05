@@ -78,6 +78,12 @@ export {
   Tooltip,
   TooltipProvider,
 } from "#ui/components/Popover";
+export {
+  type ProblemAction,
+  ProblemActionProvider,
+  setToastProblemAction,
+  useProblemAction,
+} from "#ui/components/ProblemAction";
 export { QrBlock } from "#ui/components/QrBlock";
 export {
   Segmented,

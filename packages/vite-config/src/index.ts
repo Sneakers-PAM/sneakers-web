@@ -60,12 +60,21 @@ export const sharedAliases = (edgeModule: string): Record<string, string> => ({
   "#ui": source("ui"),
 });
 
-const version = (
-  JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")) as { version: string }
-).version;
+// The image build stamps APP_VERSION and APP_COMMIT (its VERSION and COMMIT build arguments);
+// a local build falls back to the package version and "unknown".
+const version =
+  process.env.APP_VERSION ||
+  (JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")) as { version: string })
+    .version;
+const commit = process.env.APP_COMMIT || "unknown";
+
+const buildDefines = {
+  __APP_COMMIT__: JSON.stringify(commit),
+  __APP_VERSION__: JSON.stringify(version),
+};
 
 const defines = (mock: boolean) => ({
-  __APP_VERSION__: JSON.stringify(version),
+  ...buildDefines,
   "import.meta.env.SNEAKERS_MOCK": JSON.stringify(mock ? "true" : "false"),
 });
 
@@ -95,7 +104,7 @@ export const appConfig = ({ base, directory, mode, port }: AppOptions): UserConf
   return {
     base,
     build: { sourcemap: false },
-    define: testing ? { __APP_VERSION__: JSON.stringify(version) } : defines(edge.mock),
+    define: testing ? buildDefines : defines(edge.mock),
     plugins,
     preview: { port, strictPort: true },
     resolve: { alias: { "@": path.join(directory, "app"), ...sharedAliases(edge.module) } },
@@ -129,7 +138,7 @@ export const testConfig = (directory: string) => ({
 export const packageConfig = (
   directory: string,
 ): { test: ReturnType<typeof testConfig> } & UserConfig => ({
-  define: { __APP_VERSION__: JSON.stringify(version) },
+  define: buildDefines,
   plugins: [react()],
   resolve: { alias: sharedAliases(chooseEdge("test", {}).module) },
   test: testConfig(directory),
@@ -139,7 +148,7 @@ export const packageConfig = (
 export const mockPackageConfig = (
   directory: string,
 ): { test: ReturnType<typeof testConfig> } & UserConfig => ({
-  define: { __APP_VERSION__: JSON.stringify(version) },
+  define: buildDefines,
   plugins: [react()],
   resolve: { alias: sharedAliases(chooseEdge(MOCK_MODE, {}).module) },
   test: testConfig(directory),

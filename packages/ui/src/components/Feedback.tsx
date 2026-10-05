@@ -2,6 +2,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { AlertTriangle, Check, Info, X } from "lucide-react";
 import { type ReactNode } from "react";
 
+import { useProblemAction } from "#ui/components/ProblemAction";
 import { cn } from "#ui/lib/cn";
 
 const alertVariants = cva(
@@ -37,8 +38,13 @@ export interface AlertProps extends VariantProps<typeof alertVariants> {
   title?: ReactNode;
 }
 
+const textOf = (node: ReactNode): string | undefined =>
+  typeof node === "string" || typeof node === "number" ? String(node) : undefined;
+
 export const Alert = ({ action, children, className, role, title, tone }: AlertProps) => {
   const t = tone ?? "info";
+  const problem = useProblemAction();
+  const offer = problem && (t === "danger" || t === "warn");
   return (
     <div
       className={cn(alertVariants({ tone: t }), className)}
@@ -49,7 +55,20 @@ export const Alert = ({ action, children, className, role, title, tone }: AlertP
         {title && <b className="text-body leading-[1.3]">{title}</b>}
         {children && <div>{children}</div>}
       </div>
-      {action && <div className="ml-2 self-center">{action}</div>}
+      {(action || offer) && (
+        <div className="ml-2 flex items-center gap-3 self-center">
+          {action}
+          {offer && (
+            <button
+              className="text-small font-bold whitespace-nowrap text-primary underline-offset-2 hover:underline"
+              onClick={() => void problem.run(textOf(children) ?? textOf(title))}
+              type="button"
+            >
+              {problem.label}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };

@@ -25,6 +25,7 @@ kept in sync with them.
   instead of silently at startup on `main`.
 
 <!-- layout:begin vite/app -->
+
 ## Project layout
 
 The `vite/app` baseline layout.
@@ -89,6 +90,7 @@ A React single-page app built with Vite.
 - Mock data and fixtures go in `src/test/` (or `__fixtures__/` beside the feature that uses them).
 - Generated API clients and types go in `src/generated/`, are committed and rebuilt by a script;
   never edit them by hand. `dist/` is gitignored.
+
 <!-- layout:end -->
 
 ## CI and Actions minutes
@@ -139,10 +141,10 @@ fast during a wave of PRs. The shipped workflows are shaped around that:
   not sufficient.
 - One concern per branch/PR, even tiny ones — it keeps reviews and the drafted changelog clean.
 - When PRs interact, state an explicit merge ORDER rather than opening them and walking away:
-  anything a *tag* triggers needs its inputs on `main` first; a new *gate* (check) needs the
+  anything a _tag_ triggers needs its inputs on `main` first; a new _gate_ (check) needs the
   violations it catches fixed first; a workflow that builds from committed content needs that
   content merged first.
-- Semver framing: `breaking` only means breaking against a *released* version; removing something
+- Semver framing: `breaking` only means breaking against a _released_ version; removing something
   that was never shipped is not a breaking change.
 - Cross-repo reconciliation goes through a neutral drop-zone outside both repos — never a repo
   inside a repo, and no accidental gitlinks/submodules.
@@ -236,7 +238,6 @@ them after `npm run build`; CI runs them on every PR.
 - Before a release, also build locally, read `npm pack --dry-run` output, and run
   `npm run check:pack:growth` and `npm run check:install`. They are the CI versions of the
   compare-with-`npm view` and install-the-tarball release checks.
-
 
 **GitHub Action repos release differently** — a composite/JS action has no package manifest and is
 **not** published to a registry. The maintainer manually tags `vX.Y.Z`, publishes the GitHub

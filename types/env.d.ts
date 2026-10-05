@@ -7,3 +7,5 @@ interface ImportMetaEnv {
 
 /** The release version, from the root package.json at build time. */
 declare const __APP_VERSION__: string;
+/** The commit the app was built from (APP_COMMIT at build time), or "unknown". */
+declare const __APP_COMMIT__: string;

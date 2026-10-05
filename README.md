@@ -26,7 +26,10 @@ One image per app and edge, built from the repo root:
 ```bash
 docker build --build-arg APP=staff -t sneakers-web-staff .
 docker build --build-arg APP=admin --build-arg EDGE=mock -t sneakers-web-admin-mock .
+docker build --build-arg APP=staff --build-arg VERSION=v0.1.0 --build-arg COMMIT="$(git rev-parse HEAD)" .
 ```
+
+`VERSION` and `COMMIT` stamp the build shown under About and diagnostics.
 
 The server listens on `PORT` (3000) and answers `GET /healthz`. Runtime settings: `GATEWAY_URL`,
 `TRUST_PROXY`, `APP_ENV`, `LOG_LEVEL`, `LOG_FORMAT`, `SSO_ENABLED`, `STAFF_URL`, `ADMIN_URL`. More in

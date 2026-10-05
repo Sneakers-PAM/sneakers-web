@@ -3,11 +3,15 @@
 # The edge is fixed when the image is built; a running container can't be switched to mock.
 #   docker build --build-arg APP=staff -t sneakers-web-staff .
 #   docker build --build-arg APP=staff --build-arg EDGE=mock -t sneakers-web-staff-mock .
+# VERSION and COMMIT stamp the build that About and diagnostics shows (the package version and
+# "unknown" when unset).
 ARG NODE_IMAGE=node:24-alpine
 
 FROM ${NODE_IMAGE} AS build
 ARG APP
 ARG EDGE=live
+ARG VERSION=""
+ARG COMMIT=""
 RUN test "$APP" = staff || test "$APP" = admin || { echo "APP must be staff or admin" >&2; exit 1; }
 RUN test "$EDGE" = live || test "$EDGE" = mock || { echo "EDGE must be live or mock" >&2; exit 1; }
 WORKDIR /src
@@ -24,7 +28,7 @@ COPY packages/vite-config/package.json packages/vite-config/
 RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts --no-audit --no-fund
 COPY . .
 RUN cd "apps/$APP" && if [ "$EDGE" = mock ]; then MODE=mock; else MODE=production; fi \
-    && APP_BUILD_DIR=build npx react-router build --mode "$MODE"
+    && APP_VERSION="$VERSION" APP_COMMIT="$COMMIT" APP_BUILD_DIR=build npx react-router build --mode "$MODE"
 
 # Production dependencies only. A live image never gets the mock gateway or msw; a mock image
 # adds them, because its server answers gateway calls in-process.
