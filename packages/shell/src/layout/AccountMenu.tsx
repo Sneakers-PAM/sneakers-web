@@ -12,6 +12,7 @@ import { ChevronDown } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
 import { AboutDialog } from "#shell/diagnostics/AboutDialog";
+import { IssueCopyMenuItem } from "#shell/issueCopy/IssueCopyMenuItem";
 
 export interface AccountMenuItem {
   label: string;
@@ -20,23 +21,30 @@ export interface AccountMenuItem {
 }
 
 /**
- * The account chip in the header, and its menu: the app's items, About and diagnostics, then
- * Sign out at the bottom.
+ * The account chip in the header, and its menu: the app's items, the dev-only UI issue copy
+ * item and About and diagnostics, then Sign out at the bottom.
  */
 export const AccountMenu = ({
+  app,
   compact,
+  developmentUiIssueCopy = false,
   email,
   inverted,
   items = [],
   name,
   onSignOut,
+  role = "",
 }: {
+  app: string;
   compact?: boolean;
+  /** The server's half of the dev-only UI issue copy item's gate. */
+  developmentUiIssueCopy?: boolean;
   email: string;
   inverted?: boolean;
   items?: AccountMenuItem[];
   name: string;
   onSignOut: () => void;
+  role?: string;
 }) => {
   const [about, setAbout] = useState(false);
   return (
@@ -77,6 +85,11 @@ export const AccountMenu = ({
               )}
             </DropdownMenuItem>
           ))}
+          <IssueCopyMenuItem
+            app={app}
+            developmentUiIssueCopy={developmentUiIssueCopy}
+            role={role}
+          />
           <DropdownMenuItem onSelect={() => setAbout(true)}>About and diagnostics</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={onSignOut} tone="strong">

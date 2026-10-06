@@ -18,10 +18,21 @@ if (process.env.LOG_LEVEL) setLogLevel(process.env.LOG_LEVEL as PublicConfig["lo
 /** The cookie the display settings live in. Mock builds use their own name. */
 export const displayCookie = (): string => `${edge.cookiePrefix}sneakers_display`;
 
+/**
+ * Whether the dev-only UI issue copy item is on: the build flag is a literal, so a release
+ * build drops this whole check (and the server variable's name with it), the same way the
+ * dev quick login's build does.
+ */
+const developmentUiIssueCopy = (): boolean =>
+  import.meta.env.SNEAKERS_DEV_UI_ISSUE_COPY_BUILD === "true" &&
+  process.env.SNEAKERS_DEV_UI_ISSUE_COPY === "true";
+
 export interface RootData {
   /** The persistent banner (mock builds), or null. */
   banner: null | string;
   config: PublicConfig;
+  /** The dev-only UI issue copy item's gate; see `developmentUiIssueCopy` above. */
+  developmentUiIssueCopy: boolean;
   display: DisplaySettings;
   needsSetup: boolean;
   storagePrefix: string;
@@ -31,6 +42,7 @@ export interface RootData {
 export const rootLoader = async ({ request }: LoaderFunctionArgs): Promise<RootData> => ({
   banner: edge.banner,
   config: publicConfigFrom(process.env, __APP_VERSION__),
+  developmentUiIssueCopy: developmentUiIssueCopy(),
   display: parseDisplay(readCookie(request.headers.get("Cookie"), displayCookie())),
   needsSetup: await needsSetup(request),
   storagePrefix: edge.storagePrefix,

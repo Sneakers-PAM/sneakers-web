@@ -2,8 +2,9 @@
 // Proves no mock code shipped: every live build (apps/*/build) must be free of the mock
 // gateway's marker and its session cookie, and every mock build (apps/*/build-mock) must carry
 // the marker, so the check can't pass by looking at the wrong folder. Run after both builds.
-// It also proves a release can't turn on the dev quick login: the live build carries none of
-// its code or variable names, and the Dockerfile's DEV_QUICK_LOGIN build argument is off.
+// It also proves a release can't turn on the dev quick login or the dev-only "Copy for UI
+// issue" button: the live build carries none of their code or variable names, and the
+// Dockerfile's DEV_QUICK_LOGIN and DEV_UI_ISSUE_COPY build arguments are off.
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
@@ -13,7 +14,8 @@ const marker = /export const MOCK_MARKER = "([^"]+)"/.exec(
 )?.[1];
 if (!marker) throw new Error("MOCK_MARKER not found in packages/mock-gateway/src/marker.ts");
 // The dev quick login's intents, label and server variables prove it never reaches a live
-// build either, so setting SNEAKERS_DEV_QUICK_LOGIN on a release image does nothing.
+// build either, so setting SNEAKERS_DEV_QUICK_LOGIN on a release image does nothing. Same for
+// the dev-only "Copy for UI issue" button and SNEAKERS_DEV_UI_ISSUE_COPY.
 const tells = [
   marker,
   "mock_sneakers_sid",
@@ -22,6 +24,8 @@ const tells = [
   "dev-quick-login",
   "Dev quick login",
   "SNEAKERS_DEV_QUICK_LOGIN",
+  "Copy for UI issue",
+  "SNEAKERS_DEV_UI_ISSUE_COPY",
 ];
 
 const files = (directory) =>
@@ -43,6 +47,11 @@ const dockerfile = readFileSync(path.join(root, "Dockerfile"), "utf8");
 const allowance = [...dockerfile.matchAll(/^ARG DEV_QUICK_LOGIN(?:=(\S*))?\s*$/gm)];
 if (allowance.length === 0 || allowance.some(([, value]) => value !== "false")) {
   console.error("Dockerfile: every ARG DEV_QUICK_LOGIN must default to false");
+  failed = true;
+}
+const issueCopyAllowance = [...dockerfile.matchAll(/^ARG DEV_UI_ISSUE_COPY(?:=(\S*))?\s*$/gm)];
+if (issueCopyAllowance.length === 0 || issueCopyAllowance.some(([, value]) => value !== "false")) {
+  console.error("Dockerfile: every ARG DEV_UI_ISSUE_COPY must default to false");
   failed = true;
 }
 
@@ -68,4 +77,4 @@ if (live === 0) {
   failed = true;
 }
 if (failed) process.exit(1);
-console.log(`check:no-mock: ${live} live builds, no mock code or dev quick login`);
+console.log(`check:no-mock: ${live} live builds, no mock code, dev quick login or UI issue copy`);

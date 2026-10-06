@@ -25,6 +25,7 @@ export {
   NotSetUpScreen,
   OfflineScreen,
 } from "#shell/gate/Screens";
+export { primaryRole } from "#shell/issueCopy/role";
 export { AccountMenu, type AccountMenuItem, HeaderButton } from "#shell/layout/AccountMenu";
 export { ApplianceBanners, MaintenanceBanner, McpOffNotice } from "#shell/layout/ApplianceBanners";
 export { AppShell, type AppShellProps } from "#shell/layout/AppShell";

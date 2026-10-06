@@ -37,7 +37,10 @@ The server listens on `PORT` (3000) and answers `GET /healthz`. Runtime settings
 
 For a local stack, `--build-arg DEV_QUICK_LOGIN=true` plus `SNEAKERS_DEV_QUICK_LOGIN=true` and
 `SNEAKERS_DEV_QUICK_LOGIN_USERS` (a local file of seeded dev accounts) add a dev quick login to
-the sign-in page. Release images never set them; see "Dev quick login" in [AGENTS.md](AGENTS.md).
+the sign-in page. The same way, `--build-arg DEV_UI_ISSUE_COPY=true` plus
+`SNEAKERS_DEV_UI_ISSUE_COPY=true` add a "Copy for UI issue" item to the account menu. Release
+images never set any of them; see "Dev quick login" and "Dev UI issue copy" in
+[AGENTS.md](AGENTS.md).
 
 ## 🙏 Acknowledgements
 
