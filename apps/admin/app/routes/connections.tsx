@@ -16,8 +16,9 @@ import {
   PageHeader,
   plural,
   Switch,
+  Tooltip,
 } from "@sneakers-web/ui";
-import { Plus } from "lucide-react";
+import { Info, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useFetcher, useLoaderData } from "react-router";
 
@@ -78,6 +79,9 @@ const draftOf = (c?: Connection): Draft => ({
   useTls: !!c?.useTls,
 });
 
+const usageText = (usedBy: string[]): string =>
+  usedBy.length > 0 ? `Used by ${plural(usedBy.length, "target")}` : "Not used by any target";
+
 const ConnectionCard = ({
   connection,
   onBlocked,
@@ -116,7 +120,7 @@ const ConnectionCard = ({
         <input name="intent" type="hidden" value="save" />
         {connection && <input name="id" type="hidden" value={connection.id} />}
         <Field
-          className="min-w-44 flex-[1.4]"
+          className="min-w-44 flex-1"
           error={connection || d.name ? problem : undefined}
           label="Name"
         >
@@ -127,7 +131,7 @@ const ConnectionCard = ({
             value={d.name}
           />
         </Field>
-        <Field className="w-44" label="Protocol">
+        <Field className="min-w-44 flex-1" label="Protocol">
           <Choice
             name="protocol"
             onChange={(protocol) => {
@@ -138,7 +142,7 @@ const ConnectionCard = ({
             value={d.protocol}
           />
         </Field>
-        <Field className="w-24" error={portProblem} label="Port">
+        <Field className="min-w-24 flex-1" error={portProblem} label="Port">
           <Input
             mono
             name="port"
@@ -159,7 +163,7 @@ const ConnectionCard = ({
             onCheckedChange={(useTls) => set({ useTls })}
           />
         </div>
-        <Field className="min-w-52 flex-[1.8]" label="Description">
+        <Field className="min-w-52 flex-1" label="Description">
           <Input
             name="description"
             onChange={(event) => set({ description: event.target.value })}
@@ -168,13 +172,17 @@ const ConnectionCard = ({
           />
         </Field>
         <div className="ml-auto flex flex-col items-end gap-2">
-          <span className="text-small text-muted">
-            {usedBy.length > 0
-              ? `Used by ${plural(usedBy.length, "target")}`
-              : connection
-                ? "Not used by any target"
-                : "New"}
-          </span>
+          {connection && (
+            <Tooltip content={usageText(usedBy)}>
+              <button
+                aria-label={usageText(usedBy)}
+                className="inline-flex size-7 items-center justify-center rounded-full text-muted hover:bg-sunken hover:text-ink"
+                type="button"
+              >
+                <Info aria-hidden className="size-4" />
+              </button>
+            </Tooltip>
+          )}
           <span className="flex gap-2">
             {dirty && (
               <Button

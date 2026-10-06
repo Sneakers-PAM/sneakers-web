@@ -10,11 +10,15 @@ withMockGateway();
 const ROUTES = [{ module: connections, path: "/connections" }];
 
 describe("connections", () => {
-  it("shows each connection with how many targets use it", async () => {
+  it("shows each connection's usage as a tooltip, not inline text", async () => {
+    const user = userEvent.setup();
     renderAdmin(ROUTES, "/connections");
     const ssh = await screen.findByRole("form", { name: "Connection SSH" });
-    expect(within(ssh).getByText("Used by 2 targets")).toBeInTheDocument();
+    expect(within(ssh).queryByText("Used by 2 targets")).not.toBeInTheDocument();
+    const usage = within(ssh).getByRole("button", { name: "Used by 2 targets" });
     expect(within(ssh).getByLabelText("Port")).toHaveValue(22);
+    await user.hover(usage);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Used by 2 targets");
   });
 
   it("blocks deleting a connection in use and names the targets", async () => {
@@ -46,7 +50,9 @@ describe("connections", () => {
     await user.type(within(card).getByLabelText("Name"), "Kerberos KDC");
     await user.click(within(card).getByRole("button", { name: "Save the new connection" }));
     const saved = await screen.findByRole("form", { name: "Connection Kerberos KDC" });
-    expect(within(saved).getByText("Not used by any target")).toBeInTheDocument();
+    expect(
+      within(saved).getByRole("button", { name: "Not used by any target" }),
+    ).toBeInTheDocument();
     await user.click(within(saved).getByRole("button", { name: "Delete Kerberos KDC" }));
     expect(await screen.findByText("Deleted Kerberos KDC.")).toBeInTheDocument();
   });

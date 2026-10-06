@@ -66,7 +66,9 @@ export const SelectTrigger = ({
       )}
       {...props}
     >
-      {children}
+      <span className="min-w-0 truncate" data-testid="select-value">
+        {children}
+      </span>
       <SelectPrimitive.Icon asChild>
         <ChevronDown aria-hidden className="size-4 text-muted" />
       </SelectPrimitive.Icon>
