@@ -1,4 +1,4 @@
-import { Brand, cn, DisplayPanel, useBreakpoint } from "@sneakers-web/ui";
+import { Brand, cn, DisplayPanel, useBreakpoint, useMediaQuery } from "@sneakers-web/ui";
 import { Menu, X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { type ReactNode, useState } from "react";
@@ -40,6 +40,9 @@ export const AppShell = ({
   variant = "staff",
 }: AppShellProps) => {
   const bp = useBreakpoint();
+  // A fixed rail needs real desktop width: an iPad Pro 13 (1024 or 1366 wide) still reads as
+  // "desktop" from useBreakpoint, but has no room for a permanent sidebar next to the content.
+  const wide = useMediaQuery("(min-width: 1440px)");
   const { pathname } = useLocation();
   // A sidebar toggle holds for the breakpoint it was made at; the drawer for the page it
   // was opened on, so it closes itself after a navigation.
@@ -52,7 +55,9 @@ export const AppShell = ({
   const setDrawer = (open: boolean) => setDrawerOn(open ? pathname : null);
   const admin = variant === "admin";
   const phone = bp === "phone";
-  const railOpen = expanded && !phone;
+  // Below the wide threshold, the sidebar is a drawer (same as on a phone), not a fixed rail.
+  const narrow = !wide;
+  const railOpen = expanded && !narrow;
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-bg text-ink">
@@ -63,15 +68,15 @@ export const AppShell = ({
           admin ? "bg-ink text-bg" : "border-b border-border bg-surface",
         )}
       >
-        {!admin || phone ? (
+        {!admin || narrow ? (
           <button
-            aria-expanded={phone ? drawer : railOpen}
-            aria-label={phone ? "Open menu" : railOpen ? "Collapse sidebar" : "Expand sidebar"}
+            aria-expanded={narrow ? drawer : railOpen}
+            aria-label={narrow ? "Open menu" : railOpen ? "Collapse sidebar" : "Expand sidebar"}
             className={cn(
               "inline-flex size-10 shrink-0 items-center justify-center rounded-md",
               admin ? "hover:bg-bg/10" : "hover:bg-sunken",
             )}
-            onClick={() => (phone ? setDrawer(true) : setExpanded((v) => !v))}
+            onClick={() => (narrow ? setDrawer(true) : setExpanded((v) => !v))}
             type="button"
           >
             <Menu aria-hidden className="size-5" />
@@ -93,7 +98,7 @@ export const AppShell = ({
           </span>
         )}
         <EnvironmentBadge className={admin ? "border-bg" : undefined} />
-        {search && !phone && <div className="ml-6 max-w-110 flex-1">{search}</div>}
+        {search && !narrow && <div className="ml-6 max-w-110 flex-1">{search}</div>}
         <div className="ml-auto flex items-center gap-2 tablet:gap-2.5">
           {actions}
           {account}
@@ -101,7 +106,7 @@ export const AppShell = ({
       </header>
       {banners}
       <div className="flex min-h-0 flex-1">
-        {!phone && (
+        {!narrow && (
           <aside
             aria-label="Sidebar"
             className={cn(
@@ -113,7 +118,7 @@ export const AppShell = ({
           </aside>
         )}
         <main
-          className="flex min-w-0 flex-1 flex-col gap-6 overflow-y-auto px-4 py-6 tablet:px-10 tablet:py-8"
+          className="flex min-w-0 flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto px-4 py-6 tablet:px-10 tablet:py-8"
           id="main"
         >
           {children}
@@ -122,7 +127,7 @@ export const AppShell = ({
       <div className="fixed right-4 bottom-4 z-(--z-a11y) tablet:right-5 tablet:bottom-5">
         <DisplayPanel />
       </div>
-      {phone && (
+      {narrow && (
         <DialogPrimitive.Root onOpenChange={setDrawer} open={drawer}>
           <DialogPrimitive.Portal>
             <DialogPrimitive.Overlay className="fixed inset-0 z-(--z-sheet) bg-[rgb(12_14_20/0.35)]" />

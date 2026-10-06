@@ -144,7 +144,10 @@ loading states: the connecting screen and the hand-off after sign-in.
   `app/test/stub.tsx`, as a chosen fixture user.
 - `packages/shell/src/`: the shared pages (sign-in, reset, enrolment), the frame pieces and error
   screens; `server/` holds the server-only loaders and actions (`*.server.ts`, exported from
-  `@sneakers-web/shell/server`).
+  `@sneakers-web/shell/server`). `layout/AppShell.tsx` is the frame both apps render into: a
+  fixed sidebar rail only from a genuinely wide desktop (`min-width: 1440px`); everything
+  narrower, including an iPad Pro 13 (1024 or 1366 wide, which `useBreakpoint` itself still calls
+  "desktop"), gets the same drawer a phone does.
 - `packages/api-client/src/`: the gateway client, auth routes, errors, logger, public config and
   the generated GraphQL documents (`generated/`, rebuilt by `npm run schema:generate`).
 - `packages/mock-gateway/src/`: fixtures, MSW handlers and the mock edge. `fixtures/world.ts` is
