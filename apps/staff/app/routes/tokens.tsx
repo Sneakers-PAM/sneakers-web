@@ -5,6 +5,7 @@ import { useLoaderData, useLocation, useNavigation } from "react-router";
 
 import { loadTokens, tokensAction } from "@/features/agents/agents.server";
 import { AgentTabs } from "@/features/agents/AgentTabs";
+import { ApprovalMatrix } from "@/features/agents/ApprovalMatrix";
 import { ConnectAgent } from "@/features/agents/ConnectAgent";
 import { ListSkeleton, PageFailure } from "@/features/agents/PageStates";
 import { TokensTable } from "@/features/agents/TokensTable";
@@ -54,6 +55,7 @@ const Tokens = () => {
         )}
         <ConnectAgent mcpUrl={mcpUrl} />
       </div>
+      <ApprovalMatrix />
     </div>
   );
 };
