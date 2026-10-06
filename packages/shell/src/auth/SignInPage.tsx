@@ -24,8 +24,8 @@ const WELCOME_MS = 1400;
  * second-factor step. Every step is a form posted to the route's action, so it works before
  * the page's scripts load; the gateway does the checks with Ory.
  */
-// Loaded only in a mock build: the flag is a literal after the build, so a live build drops
-// the branch that renders this, and with it the import and its chunk.
+// Loaded only in a mock build or a live dev build: the flags are literals after the build, so
+// a release build drops the branch that renders this, and with it the import and its chunk.
 const QuickLoginPicker = /* @__PURE__ */ lazy(() =>
   import("#shell/auth/QuickLogin").then((m) => ({ default: m.QuickLogin })),
 );
@@ -160,11 +160,19 @@ const LocalStep = ({
           name="identifier"
         />
       </Field>
-      {import.meta.env.SNEAKERS_MOCK === "true" && quickLoginUsers.length > 0 && (
-        <Suspense fallback={null}>
-          <QuickLoginPicker next={next} users={quickLoginUsers} />
-        </Suspense>
-      )}
+      {(import.meta.env.SNEAKERS_MOCK === "true" ||
+        import.meta.env.SNEAKERS_DEV_QUICK_LOGIN_BUILD === "true") &&
+        quickLoginUsers.length > 0 && (
+          <Suspense fallback={null}>
+            <QuickLoginPicker
+              intent={
+                import.meta.env.SNEAKERS_MOCK === "true" ? "mock-quick-login" : "dev-quick-login"
+              }
+              next={next}
+              users={quickLoginUsers}
+            />
+          </Suspense>
+        )}
       <Field
         label="Password"
         labelAside={

@@ -31,7 +31,37 @@ Before changing anything, know two things:
   cookie prefix (`mock_`) and storage prefix (`mock:`).
 - Every mock screen shows the "MOCK DATA, not a real server" banner.
 - `npm run check:no-mock` fails if a live build (`apps/*/build`) contains the mock marker, and
-  also if a mock build (`apps/*/build-mock`) lacks it. A live image installs no msw.
+  also if a mock build (`apps/*/build-mock`) lacks it. A live image installs no msw. CI runs it
+  in the Test workflow's build job.
+
+## Dev quick login
+
+A "Dev quick login" dropdown (DEV badge) under the username field signs in as a test user in
+one pick. It never ships in a release.
+
+- Mock builds offer the mock world's fixture users (`edge.quickLogin`, intent
+  `mock-quick-login`).
+- A live build offers it only with two switches on. At build time: the dev server
+  (`npm run dev`) always has it, and a production build only with
+  `SNEAKERS_DEV_QUICK_LOGIN_BUILD=true` (the image's `DEV_QUICK_LOGIN=true` build argument, for
+  a local stack). At run time: the server needs `SNEAKERS_DEV_QUICK_LOGIN=true` and
+  `SNEAKERS_DEV_QUICK_LOGIN_USERS`, the path of a local JSON file listing the seeded dev
+  accounts: `[{ "username": "alice", "password": "...", "label": "Alice", "note": "site admin" }]`
+  (`label` and `note` optional). The file is read on the server
+  (`packages/shell/src/server/developmentQuickLogin.server.ts`); the page gets only each username, label
+  and note. Picking one posts intent `dev-quick-login`, and the action signs that account in
+  with its password through the gateway's login, the same step as the password form, second
+  factor included. Keep the file out of the repo.
+- Release builds can't turn it on: the build flag is a literal, so a release build drops the
+  code, and `check:no-mock` fails if a live build (`apps/*/build`) has its intents, label or
+  variable names, or if the Dockerfile's `DEV_QUICK_LOGIN` argument defaults to anything but
+  `false`. The chart sets none of it.
+
+## Brand mark
+
+The brand mark is the still `Mark` everywhere it stands for the brand (the sign-in panel, empty
+states, the no-access cards, the setup "all set" screen). The animated `SneakerLoader` is only for
+loading states: the connecting screen and the hand-off after sign-in.
 
 ## Layout
 
@@ -162,7 +192,8 @@ sign-on) uses an absolute URL.
 
 - Build: `npm run build` (live, to `apps/*/build`) and `npm run build:mock` (to
   `apps/*/build-mock`). Run one locally with `npm run start -w @sneakers-web/staff`.
-- Image: `docker build --build-arg APP=<staff|admin> [--build-arg EDGE=mock] .`
+- Image: `docker build --build-arg APP=<staff|admin> [--build-arg EDGE=mock] .` Add
+  `--build-arg DEV_QUICK_LOGIN=true` only for a local stack image (see Dev quick login).
 - Test: `npm test`. Server tests run in Node against the mock gateway, with the helpers in
   `@sneakers-web/mock-gateway/testing`: `withMockGateway()` for the file, `sessionCookie(userId)`
   for a signed-in fixture user, and `withCookie(cookie, loader)` to send it with a route's
@@ -186,7 +217,8 @@ sign-on) uses an absolute URL.
   could claim any host.
 - Runtime settings (server environment): `GATEWAY_URL`, `PORT`, `APP_ENV` (dev, qa, prod),
   `LOG_LEVEL`, `LOG_FORMAT` (`console` locally, JSON otherwise), `SSO_ENABLED`, `STAFF_URL`,
-  `ADMIN_URL`. Only the public subset reaches the browser, through the root loader.
+  `ADMIN_URL`. Only the public subset reaches the browser, through the root loader. Local dev
+  only: `SNEAKERS_DEV_QUICK_LOGIN` and `SNEAKERS_DEV_QUICK_LOGIN_USERS` (see Dev quick login).
 
 ## Logging
 

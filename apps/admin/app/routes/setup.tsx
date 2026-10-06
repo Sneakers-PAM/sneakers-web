@@ -10,7 +10,7 @@ import {
 } from "@sneakers-web/api-client";
 import { CenteredFrame } from "@sneakers-web/shell";
 import { gatewayFor, needsSetup } from "@sneakers-web/shell/server";
-import { Alert, Button, cn, CodeInput, Field, Input, SneakerLoader } from "@sneakers-web/ui";
+import { Alert, Button, cn, CodeInput, Field, Input, Mark } from "@sneakers-web/ui";
 import { Check, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { data, Form, Link, redirect, useActionData, useNavigation, useSubmit } from "react-router";
@@ -374,7 +374,7 @@ const Verify = ({ state }: { state: Extract<SetupState, { view: "verify" }> }) =
 
 const Ready = ({ state }: { state: Extract<SetupState, { view: "ready" }> }) => (
   <div className="flex flex-col items-center gap-4 text-center">
-    <SneakerLoader hole="var(--color-surface)" size={96} />
+    <Mark hole="var(--color-surface)" size={96} />
     <h1 className="m-0 font-display text-[1.5rem] font-bold">You&apos;re all set</h1>
     <p className="m-0 text-muted">
       Sign in as <b className="text-ink">{state.username}</b> to open the admin console. Then add

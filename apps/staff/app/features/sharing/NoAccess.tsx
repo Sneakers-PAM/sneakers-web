@@ -1,4 +1,4 @@
-import { Button, Card, SneakerLoader } from "@sneakers-web/ui";
+import { Button, Card, Mark } from "@sneakers-web/ui";
 import { Link } from "react-router";
 
 import type { NoAccessData } from "@/features/sharing/types";
@@ -14,7 +14,7 @@ export const NoAccess = ({ data, id }: { data: NoAccessData; id: string }) => {
   const who = either(data.ownerNames);
   return (
     <Card className="flex flex-col items-start gap-6 p-7 tablet:flex-row tablet:items-center tablet:gap-7 tablet:p-10">
-      <SneakerLoader className="shrink-0" hole="var(--color-surface)" size={120} />
+      <Mark className="shrink-0" hole="var(--color-surface)" size={120} />
       <div className="flex max-w-[35rem] flex-col gap-2.5">
         <h2 className="m-0 font-display text-[1.625rem] leading-[1.15] font-bold">
           You don&apos;t have access to manage this {thing}

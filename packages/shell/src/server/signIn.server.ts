@@ -12,6 +12,10 @@ import {
 import { edge } from "@sneakers-web/edge.server";
 import { type ActionFunctionArgs, data, type LoaderFunctionArgs, redirect } from "react-router";
 
+import {
+  developmentQuickLoginAccounts,
+  developmentQuickLoginUser,
+} from "#shell/server/developmentQuickLogin.server";
 import { gatewayFor, relayCookies } from "#shell/server/gateway.server";
 import { appBase, appPath, safeNext } from "#shell/server/paths.server";
 import { sessionFor } from "#shell/server/session.server";
@@ -23,7 +27,10 @@ export type CodeFactor = "email" | "totp";
 export interface SignInLoaderData {
   ended: boolean;
   next: string;
-  /** The dev quick login's users. Empty everywhere but a mock build. */
+  /**
+   * The dev quick login's users. Empty everywhere but a mock build, or a live build with the
+   * dev allowance whose server turns it on.
+   */
   quickLoginUsers: QuickLoginUser[];
   sso: boolean;
   state: SignInState;
@@ -53,11 +60,13 @@ export type SignInState =
 
 const ssoEnabled = () => publicConfigFrom(process.env, "").sso;
 
-// The build's mock flag is a literal after the build, so a live build drops the quick login.
-const mockBuild = () => import.meta.env.SNEAKERS_MOCK === "true";
-
-const developmentUsers = (): QuickLoginUser[] =>
-  mockBuild() ? (edge.quickLogin?.users() ?? []) : [];
+// Both build flags are literals after the build, so a release build drops the quick login.
+const developmentUsers = (): QuickLoginUser[] => {
+  if (import.meta.env.SNEAKERS_MOCK === "true") return edge.quickLogin?.users() ?? [];
+  if (import.meta.env.SNEAKERS_DEV_QUICK_LOGIN_BUILD === "true")
+    return developmentQuickLoginAccounts().map((a) => developmentQuickLoginUser(a));
+  return [];
+};
 
 /** Where the screen starts: an SSO hand-back, the local form, or the SSO button. */
 export const signInLoader = async ({ request }: LoaderFunctionArgs): Promise<SignInLoaderData> => {
@@ -109,6 +118,34 @@ const opened = async (gw: GatewayClient, next: string) => {
 
 const field = (form: FormData, key: string) => String(form.get(key) ?? "").trim();
 
+/** The password step at the gateway: opened, a second factor to ask for, or a refusal. */
+const passwordStep = async (
+  gw: GatewayClient,
+  identifier: string,
+  password: string,
+  next: string,
+) => {
+  try {
+    const r = await auth.login(gw, identifier, password);
+    if (r.kind === "rejected")
+      return data<SignInState>({ identifier, problem: r.reason, view: "local" });
+    if (r.kind === "challenge") {
+      return data<SignInState>({
+        factor: r.factors.includes("totp") || !r.factors.includes("email") ? "totp" : "email",
+        factors: r.factors,
+        identifier,
+        pendingId: r.pendingId,
+        view: "code",
+      });
+    }
+    return await opened(gw, next);
+  } catch (error) {
+    if (error instanceof Response) throw error;
+    log.warn("password step failed", { error: error instanceof Error ? error.name : "unknown" });
+    return data<SignInState>({ identifier, problem: "offline", view: "local" });
+  }
+};
+
 /** One step of signing in: start SSO, the password, a code, an emailed code or a passkey. */
 export const signInAction = async ({ request }: ActionFunctionArgs) => {
   const form = await request.formData();
@@ -131,30 +168,23 @@ export const signInAction = async ({ request }: ActionFunctionArgs) => {
     throw redirect(edge.ssoStart(new URL(request.url).origin, appBase()));
   }
 
+  // A live dev build signs the picked local account in with its password from the users
+  // file, through the same gateway login as the form. The build flag comes first so a release
+  // build drops this branch.
+  if (import.meta.env.SNEAKERS_DEV_QUICK_LOGIN_BUILD === "true" && intent === "dev-quick-login") {
+    const username = field(form, "userId");
+    const account = developmentQuickLoginAccounts().find((a) => a.username === username);
+    if (!account) throw new Response("Not found", { status: 404 });
+    log.info("dev quick login", { username });
+    return passwordStep(gw, account.username, account.password, next);
+  }
+
   if (intent === "login") {
     const identifier = field(form, "identifier");
     const password = String(form.get("password") ?? "");
     if (!identifier || !password)
       return data<SignInState>({ identifier, problem: "missing", view: "local" });
-    try {
-      const r = await auth.login(gw, identifier, password);
-      if (r.kind === "rejected")
-        return data<SignInState>({ identifier, problem: r.reason, view: "local" });
-      if (r.kind === "challenge") {
-        return data<SignInState>({
-          factor: r.factors.includes("totp") || !r.factors.includes("email") ? "totp" : "email",
-          factors: r.factors,
-          identifier,
-          pendingId: r.pendingId,
-          view: "code",
-        });
-      }
-      return await opened(gw, next);
-    } catch (error) {
-      if (error instanceof Response) throw error;
-      log.warn("password step failed", { error: error instanceof Error ? error.name : "unknown" });
-      return data<SignInState>({ identifier, problem: "offline", view: "local" });
-    }
+    return passwordStep(gw, identifier, password, next);
   }
 
   const pendingId = field(form, "pendingId");

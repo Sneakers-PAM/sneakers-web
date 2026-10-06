@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
 
-import { SneakerLoader } from "#ui/brand/SneakerLoader";
+import { Mark } from "#ui/brand/Mark";
 import { cn } from "#ui/lib/cn";
 
 /** A square initial tile used for people in menus, lists and notifications. */
@@ -50,6 +50,7 @@ export const EmptyState = ({
   action?: ReactNode;
   body?: ReactNode;
   className?: string;
+  /** Show the still brand mark above the title; on by default. */
   loader?: boolean;
   title: ReactNode;
 }) => {
@@ -60,7 +61,7 @@ export const EmptyState = ({
         className,
       )}
     >
-      {loader && <SneakerLoader hole="var(--color-surface)" size={56} />}
+      {loader && <Mark hole="var(--color-surface)" size={56} />}
       <b className="font-display text-[1.0625rem] leading-[1.2] font-bold">{title}</b>
       {body && <span className="max-w-md text-[0.875rem] leading-[1.45] text-muted">{body}</span>}
       {action && <div className="mt-2">{action}</div>}

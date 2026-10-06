@@ -2,6 +2,8 @@
 // Proves no mock code shipped: every live build (apps/*/build) must be free of the mock
 // gateway's marker and its session cookie, and every mock build (apps/*/build-mock) must carry
 // the marker, so the check can't pass by looking at the wrong folder. Run after both builds.
+// It also proves a release can't turn on the dev quick login: the live build carries none of
+// its code or variable names, and the Dockerfile's DEV_QUICK_LOGIN build argument is off.
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
@@ -10,13 +12,16 @@ const marker = /export const MOCK_MARKER = "([^"]+)"/.exec(
   readFileSync(path.join(root, "packages/mock-gateway/src/marker.ts"), "utf8"),
 )?.[1];
 if (!marker) throw new Error("MOCK_MARKER not found in packages/mock-gateway/src/marker.ts");
-// The dev quick login's intent and label prove it never reaches a live build either.
+// The dev quick login's intents, label and server variables prove it never reaches a live
+// build either, so setting SNEAKERS_DEV_QUICK_LOGIN on a release image does nothing.
 const tells = [
   marker,
   "mock_sneakers_sid",
   "mock-gateway.example.invalid",
   "mock-quick-login",
+  "dev-quick-login",
   "Dev quick login",
+  "SNEAKERS_DEV_QUICK_LOGIN",
 ];
 
 const files = (directory) =>
@@ -33,6 +38,14 @@ const hits = (directory) =>
 
 let failed = false;
 let live = 0;
+
+const dockerfile = readFileSync(path.join(root, "Dockerfile"), "utf8");
+const allowance = [...dockerfile.matchAll(/^ARG DEV_QUICK_LOGIN(?:=(\S*))?\s*$/gm)];
+if (allowance.length === 0 || allowance.some(([, value]) => value !== "false")) {
+  console.error("Dockerfile: every ARG DEV_QUICK_LOGIN must default to false");
+  failed = true;
+}
+
 for (const app of readdirSync(path.join(root, "apps"))) {
   const build = path.join(root, "apps", app, "build");
   const mock = path.join(root, "apps", app, "build-mock");
@@ -55,4 +68,4 @@ if (live === 0) {
   failed = true;
 }
 if (failed) process.exit(1);
-console.log(`check:no-mock: ${live} live builds, no mock code`);
+console.log(`check:no-mock: ${live} live builds, no mock code or dev quick login`);

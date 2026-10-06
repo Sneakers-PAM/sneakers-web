@@ -50,6 +50,7 @@ describe("first-run setup", () => {
     expect(await screen.findByText(/That code is wrong/)).toBeInTheDocument();
     await user.type(screen.getByLabelText("6-digit code"), "481027");
     expect(await screen.findByRole("heading", { name: "You're all set" })).toBeInTheDocument();
+    expect(screen.queryByTitle("Replay")).not.toBeInTheDocument();
     expect(frank?.emailVerified).toBe(true);
     expect(screen.getByRole("link", { name: "Continue to sign-in" })).toHaveAttribute(
       "href",

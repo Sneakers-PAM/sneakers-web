@@ -24,6 +24,12 @@ const open = async (url = "/sign-in?view=local") => {
 };
 
 describe("SignInPage", () => {
+  it("shows the still logo in the brand panel, not the loading animation", async () => {
+    await open();
+    expect(screen.queryByTitle("Replay")).not.toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /Loading Sneakers-PAM/ })).not.toBeInTheDocument();
+  });
+
   it("offers single sign-on first, with a way to the local form", async () => {
     await open("/sign-in");
     expect(screen.getByRole("button", { name: "Sign in with SSO" })).toBeInTheDocument();
