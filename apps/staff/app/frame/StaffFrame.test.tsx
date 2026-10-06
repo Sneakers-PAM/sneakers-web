@@ -219,6 +219,54 @@ describe("the folder tree in the frame sidebar", () => {
   });
 });
 
+/** Simulate a screen of `widthPx`: every `min-width` media query answers for that width. */
+const atWidth = (widthPx: number): (() => void) => {
+  const original = globalThis.matchMedia;
+  globalThis.matchMedia = ((query: string) => {
+    const min = /min-width:\s*(\d+)px/.exec(query);
+    return {
+      addEventListener: () => {},
+      addListener: () => {},
+      dispatchEvent: () => false,
+      matches: min ? widthPx >= Number(min[1]) : false,
+      media: query,
+      onchange: null,
+      removeEventListener: () => {},
+      removeListener: () => {},
+    };
+  }) as typeof globalThis.matchMedia;
+  return () => {
+    globalThis.matchMedia = original;
+  };
+};
+
+describe("browse at an iPad Pro 13 width", () => {
+  it.each([
+    ["in portrait", 1024],
+    ["in landscape", 1366],
+  ])("uses the drawer nav, not a fixed rail, %s (%dpx)", async (_label, widthPx) => {
+    const restore = atWidth(widthPx);
+    open("/browse/mock-folder-databases");
+    expect(await screen.findByRole("heading", { name: "Databases" })).toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: "Sidebar" })).toBeNull();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Open menu" }));
+    expect(within(nav()).getByRole("link", { name: /Platform/ })).toBeInTheDocument();
+    restore();
+  });
+
+  it.each([
+    ["in portrait", 1024],
+    ["in landscape", 1366],
+  ])("never lets the page itself scroll sideways, %s (%dpx)", async (_label, widthPx) => {
+    const restore = atWidth(widthPx);
+    open("/browse/mock-folder-databases");
+    await screen.findByRole("heading", { name: "Databases" });
+    expect(screen.getByRole("main")).toHaveClass("overflow-x-hidden");
+    restore();
+  });
+});
+
 describe("StaffFrame break-glass", () => {
   onDesktop();
   const frameAs = (user: string) => {
