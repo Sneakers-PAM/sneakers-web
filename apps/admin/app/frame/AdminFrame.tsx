@@ -7,6 +7,7 @@ import {
   MfaBanner,
   NavGroup,
   NavItem,
+  primaryRole,
   useRootData,
 } from "@sneakers-web/shell";
 import { Button, EmptyState, useBreakpoint } from "@sneakers-web/ui";
@@ -30,14 +31,16 @@ import type { loader } from "@/routes/frame";
 export const AdminFrame = () => {
   const { breakGlass, isAdmin, maintenance, maintenanceReason, mcpOff, mfaSetupRecommended, user } =
     useLoaderData<typeof loader>();
-  const { config } = useRootData();
+  const { config, developmentUiIssueCopy } = useRootData();
   const submit = useSubmit();
   const phone = useBreakpoint() === "phone";
   return (
     <AppShell
       account={
         <AccountMenu
+          app="admin"
           compact={phone}
+          developmentUiIssueCopy={developmentUiIssueCopy}
           email={user.email}
           inverted
           items={
@@ -47,6 +50,7 @@ export const AdminFrame = () => {
           }
           name={user.name}
           onSignOut={() => void submit(null, { action: "/sign-out", method: "post" })}
+          role={primaryRole(user)}
         />
       }
       actions={

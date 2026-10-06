@@ -72,6 +72,60 @@ build's `ssoStart` already does the equivalent with a fixture user, so this only
 live build. Nothing new to turn on: the same `check:no-mock` run that proves the dev quick
 login never ships proves this doesn't either (`packages/shell/src/server/signIn.server.ts`).
 
+## Dev UI issue copy
+
+A "Copy for UI issue" item (DEV badge) in the account menu of both apps copies a compact,
+machine-readable bundle describing the current screen, for pasting into an issue or a chat
+when reporting a UI problem. It is smaller than About and diagnostics' report and is meant to
+be read by tools, not people. It never ships in a release.
+
+- Same two switches as the dev quick login. At build time: the dev server (`npm run dev`)
+  always has it, and a production build only with `SNEAKERS_DEV_UI_ISSUE_COPY_BUILD=true` (the
+  image's `DEV_UI_ISSUE_COPY=true` build argument, for a local stack). At run time: the server
+  also needs `SNEAKERS_DEV_UI_ISSUE_COPY=true`. Both switches gate the button in
+  `packages/shell/src/issueCopy/IssueCopyMenuItem.tsx`; the root loader checks both and hands
+  the result to the browser as `developmentUiIssueCopy` (`RootData`,
+  `packages/shell/src/server/root.server.ts`) -- kept out of `PublicConfig` so the server
+  variable's name never appears unconditionally in a live build.
+- Release builds can't turn it on: the build flag is a literal, so a release build drops the
+  code, and `check:no-mock` fails if a live build (`apps/*/build`) has the button's text or the
+  `SNEAKERS_DEV_UI_ISSUE_COPY` variable name, or if the Dockerfile's `DEV_UI_ISSUE_COPY`
+  argument defaults to anything but `false`. The chart sets none of it.
+- A ring buffer (`packages/shell/src/issueCopy/errorBuffer.ts`) keeps the last render, fetch,
+  window and unhandled-rejection error, capped at 5, and the last clicked element (its
+  `data-testid`, or otherwise a short CSS selector -- never its text). It's only installed
+  while both switches are on (`AppRoot`, `packages/shell/src/root/Document.tsx`); a render
+  error is recorded from the shared error boundary (`RouteError.tsx`).
+- `packages/shell/src/issueCopy/bundle.ts` builds the bundle and copies it as one minified
+  line of JSON. Every string goes through the same redaction as the logger (`scrub`,
+  `packages/shell/src/diagnostics/report.ts`), and a key with nothing to say is left out,
+  never set to null.
+
+### Bundle format (schema v1)
+
+The shared reference for every product's web repo: keep the keys and their order identical.
+
+| Key | Type | Meaning |
+|---|---|---|
+| `v` | int | Schema version, `1`. |
+| `product` | string | `"sneakers"`. |
+| `app` | string | The app name (`staff` or `admin`). |
+| `sha` | string | The short commit the build came from (`__APP_COMMIT__`). |
+| `route` | string | The router route id (`useMatches().at(-1)?.id`). |
+| `path` | string | The route pattern, not the concrete URL (e.g. `/secret/:id`). |
+| `params` | object | Route params (`useParams()`). Opaque ids only. |
+| `role` | string | The signed-in user's role (`"root"` or the first of `roles`). No username, display name or email. |
+| `vw` / `vh` / `dpr` | int / int / number | Viewport width and height in CSS px, and the device pixel ratio. |
+| `ua` | string | `navigator.userAgent`. |
+| `t` | string | The copy time as ISO 8601 with the US Eastern offset. |
+| `theme` / `locale` | string | The active theme (`useDisplay().settings.theme`) and locale (`navigator.language`). |
+| `clicked` | string | The last clicked element: its `data-testid` when it has one, otherwise a short CSS selector. Never its text content. |
+| `lastErr` | object | The most recent client-side error: `m` (message, at most 200 chars), `src` (`render`, `fetch`, `window` or `promise`) and `at` (ET time). |
+| `recentErrors` | array | Up to 4 earlier errors in the same shape, newest first (the ring buffer holds 5 in total; `lastErr` is the newest). |
+
+Never included: secret values, tokens, cookies, headers, query strings, form contents,
+usernames, display names or emails.
+
 ## Brand mark
 
 The brand mark is the still `Mark` everywhere it stands for the brand (the sign-in panel, empty
@@ -276,7 +330,8 @@ nobody else can decide, the requester confirms the task once with their second f
 - Build: `npm run build` (live, to `apps/*/build`) and `npm run build:mock` (to
   `apps/*/build-mock`). Run one locally with `npm run start -w @sneakers-web/staff`.
 - Image: `docker build --build-arg APP=<staff|admin> [--build-arg EDGE=mock] .` Add
-  `--build-arg DEV_QUICK_LOGIN=true` only for a local stack image (see Dev quick login).
+  `--build-arg DEV_QUICK_LOGIN=true` and `--build-arg DEV_UI_ISSUE_COPY=true` only for a local
+  stack image (see Dev quick login and Dev UI issue copy).
 - Test: `npm test`. Server tests run in Node against the mock gateway, with the helpers in
   `@sneakers-web/mock-gateway/testing`: `withMockGateway()` for the file, `sessionCookie(userId)`
   for a signed-in fixture user, and `withCookie(cookie, loader)` to send it with a route's
@@ -301,7 +356,8 @@ nobody else can decide, the requester confirms the task once with their second f
 - Runtime settings (server environment): `GATEWAY_URL`, `PORT`, `APP_ENV` (dev, qa, prod),
   `LOG_LEVEL`, `LOG_FORMAT` (`console` locally, JSON otherwise), `SSO_ENABLED`, `STAFF_URL`,
   `ADMIN_URL`. Only the public subset reaches the browser, through the root loader. Local dev
-  only: `SNEAKERS_DEV_QUICK_LOGIN` and `SNEAKERS_DEV_QUICK_LOGIN_USERS` (see Dev quick login).
+  only: `SNEAKERS_DEV_QUICK_LOGIN` and `SNEAKERS_DEV_QUICK_LOGIN_USERS` (see Dev quick login),
+  and `SNEAKERS_DEV_UI_ISSUE_COPY` (see Dev UI issue copy).
 
 ## Logging
 

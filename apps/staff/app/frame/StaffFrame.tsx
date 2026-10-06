@@ -9,6 +9,7 @@ import {
   NavItem,
   NavList,
   NotificationBell,
+  primaryRole,
   useQuietRefresh,
   useRootData,
 } from "@sneakers-web/shell";
@@ -43,7 +44,7 @@ export const StaffFrame = () => {
     unread,
     user,
   } = useLoaderData<typeof loader>();
-  const { config } = useRootData();
+  const { config, developmentUiIssueCopy } = useRootData();
   const navigate = useNavigate();
   const submit = useSubmit();
   const phone = useBreakpoint() === "phone";
@@ -53,7 +54,9 @@ export const StaffFrame = () => {
     <AppShell
       account={
         <AccountMenu
+          app="staff"
           compact={phone}
+          developmentUiIssueCopy={developmentUiIssueCopy}
           email={user.email}
           items={[
             { label: "Security", onSelect: () => void navigate("/security") },
@@ -70,6 +73,7 @@ export const StaffFrame = () => {
           ]}
           name={user.name}
           onSignOut={() => void submit(null, { action: "/sign-out", method: "post" })}
+          role={primaryRole(user)}
         />
       }
       actions={

@@ -31,6 +31,7 @@ const withShell = () =>
           staffUrl: "/",
           version: "0",
         },
+        developmentUiIssueCopy: false,
         display: DEFAULT_DISPLAY,
         needsSetup: false,
         storagePrefix: "",

@@ -25,6 +25,7 @@ import {
 import { copyWithNotice, DIAGNOSTICS_ROUTE } from "#shell/diagnostics/copy";
 import { problemFor, setCurrentRoute } from "#shell/diagnostics/problems";
 import { NotSetUpScreen } from "#shell/gate/Screens";
+import { installIssueCopyCapture } from "#shell/issueCopy/errorBuffer";
 import { useRootData } from "#shell/root/useRootData";
 
 /**
@@ -88,9 +89,14 @@ export const ProblemActions = ({ children }: { children: ReactNode }) => (
  * instead of any page.
  */
 export const AppRoot = ({ whenNotSetUp }: { whenNotSetUp?: ReactNode }) => {
-  const { config, display, needsSetup } = useRootData();
+  const { config, developmentUiIssueCopy, display, needsSetup } = useRootData();
   const fetcher = useFetcher();
   useEffect(() => setLogLevel(config.logLevel), [config.logLevel]);
+  useEffect(() => {
+    if (import.meta.env.SNEAKERS_DEV_UI_ISSUE_COPY_BUILD === "true" && developmentUiIssueCopy) {
+      return installIssueCopyCapture();
+    }
+  }, [developmentUiIssueCopy]);
   const save = useCallback(
     (settings: DisplaySettings) =>
       fetcher.submit(

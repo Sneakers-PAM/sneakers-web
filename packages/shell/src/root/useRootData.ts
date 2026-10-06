@@ -13,6 +13,7 @@ const FALLBACK: RootData = {
     staffUrl: "/",
     version: "",
   },
+  developmentUiIssueCopy: false,
   display: DEFAULT_DISPLAY,
   needsSetup: false,
   storagePrefix: "",

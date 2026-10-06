@@ -6,6 +6,12 @@ interface ImportMetaEnv {
    * SNEAKERS_DEV_QUICK_LOGIN_BUILD=true), "false" otherwise. Set at build time only.
    */
   readonly SNEAKERS_DEV_QUICK_LOGIN_BUILD: "false" | "true";
+  /**
+   * "true" in a live build that carries the dev-only "Copy for UI issue" button (the dev
+   * server, or a build with SNEAKERS_DEV_UI_ISSUE_COPY_BUILD=true), "false" otherwise. Set at
+   * build time only.
+   */
+  readonly SNEAKERS_DEV_UI_ISSUE_COPY_BUILD: "false" | "true";
   /** "true" in a build made with `--mode mock`, "false" otherwise. Set at build time only. */
   readonly SNEAKERS_MOCK: "false" | "true";
 }
