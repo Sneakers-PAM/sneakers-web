@@ -32,6 +32,38 @@ const page = (): StubRoute => ({
 const gateway = graphql.link(`${MOCK_GATEWAY_URL}/graphql`);
 
 describe("U-13 my tokens", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("shows the administrator fallback with no MCP_URL set", async () => {
+    vi.stubEnv("MCP_URL", "");
+    renderRoute("/tokens", page());
+    expect(await screen.findByRole("heading", { name: "Connect an agent" })).toBeInTheDocument();
+    expect(
+      screen.getByText("Your administrator has the Sneakers-PAM MCP server address."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Claude's CLI" })).not.toBeInTheDocument();
+  });
+
+  it("fills the server URL into each client's setup, with a copy button, and links the approvals matrix", async () => {
+    vi.stubEnv("MCP_URL", "https://mcp.sneakers.example.org");
+    const user = userEvent.setup();
+    renderRoute("/tokens", page());
+    expect(
+      await screen.findByRole("tab", { name: "Claude's CLI", selected: true }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("claude mcp add --transport http sneakers https://mcp.sneakers.example.org"),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "VS Code" }));
+    expect(screen.getByText(/"url": "https:\/\/mcp\.sneakers\.example\.org"/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Copy the VS Code setup/ }));
+    expect(await navigator.clipboard.readText()).toContain("https://mcp.sneakers.example.org");
+    expect(screen.getByRole("link", { name: /approvals matrix/ })).toHaveAttribute(
+      "href",
+      "#how-approvals-work",
+    );
+  });
+
   it("lists the user's tokens with their state, and how to connect an agent", async () => {
     renderRoute("/tokens", page());
     const active = await screen.findByRole("row", { name: /build1 agent/ });
