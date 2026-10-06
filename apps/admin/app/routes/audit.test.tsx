@@ -42,6 +42,29 @@ describe("the audit trail", () => {
     expect(within(systemRow).queryByRole("link", { name: "system" })).not.toBeInTheDocument();
   });
 
+  it("links the subject to its user or service-account record, but not a secret or folder", async () => {
+    renderAdmin(ROUTES, "/audit?show=all");
+    await screen.findByText(/Chain verified/);
+    const rows = screen.getAllByRole("row").slice(1);
+    const userRow = rows.find((r) => r.textContent?.includes("#1180")) as HTMLElement;
+    expect(within(userRow).getByRole("link", { name: "Dave" })).toHaveAttribute(
+      "href",
+      "/users/mock-user-dave",
+    );
+    const saRow = rows.find((r) => r.textContent?.includes("#1187")) as HTMLElement;
+    expect(within(saRow).getByRole("link", { name: "CI Pipeline" })).toHaveAttribute(
+      "href",
+      "/service-accounts/mock-sa-ci",
+    );
+    const secretRow = rows.find((r) => r.textContent?.includes("#1182")) as HTMLElement;
+    expect(within(secretRow).queryByRole("link", { name: "DB admin" })).not.toBeInTheDocument();
+    expect(within(secretRow).getByText("DB admin")).toBeInTheDocument();
+    const folderRow = rows.find((r) => r.textContent?.includes("#1184")) as HTMLElement;
+    expect(
+      within(folderRow).queryByRole("link", { name: "Platform / Databases" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("filters by actor name", async () => {
     renderAdmin(ROUTES, "/audit?actor=Bob&show=all");
     expect(await screen.findByText(/Showing 5 of 26/)).toBeInTheDocument();

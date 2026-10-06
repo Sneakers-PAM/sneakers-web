@@ -121,6 +121,27 @@ const ActionName = ({ action }: { action: string }) => {
   );
 };
 
+/** Where a subject's kind has a detail page to link to, admin-side. A secret or folder has no
+ * per-record admin route, so those (and an unknown kind) show as plain text. */
+const SUBJECT_ROUTES: Partial<Record<string, string>> = {
+  service_account: "/service-accounts",
+  target: "/targets",
+  user: "/users",
+};
+
+const Subject = ({ row }: { row: AuditRow }) => {
+  if (!row.subject) return <span className="text-muted">—</span>;
+  const base = row.subjectName ? SUBJECT_ROUTES[row.subjectKind] : undefined;
+  const label = row.subjectName ?? row.subjectId;
+  return base ? (
+    <Link className="font-bold text-inherit" to={`${base}/${row.subjectId}`}>
+      {label}
+    </Link>
+  ) : (
+    <span className={row.subjectName ? "font-bold" : "font-mono text-muted"}>{label}</span>
+  );
+};
+
 const Actor = ({ row, userIds }: { row: AuditRow; userIds: Set<string> }) => {
   const name = <span className="font-bold">{row.actorName}</span>;
   // The system actor and a service account have no /users/:id record to link to.
@@ -189,7 +210,7 @@ const RecordSheet = ({
   );
   const facts: [string, React.ReactNode][] = [
     ["Actor", row.actorName],
-    ["Subject", row.subject || "—"],
+    ["Subject", <Subject key="subject" row={row} />],
     ...(row.groupId
       ? ([["Group", groups.find((g) => g.id === row.groupId)?.name ?? row.groupId]] as [
           string,
@@ -582,7 +603,9 @@ const Audit = () => {
                     <TableCell>
                       <ActionName action={r.action} />
                     </TableCell>
-                    <TableCell>{r.subject}</TableCell>
+                    <TableCell>
+                      <Subject row={r} />
+                    </TableCell>
                     <TableCell>
                       <TierBadge tier={r.tier} />
                     </TableCell>

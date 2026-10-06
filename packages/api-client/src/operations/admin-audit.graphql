@@ -5,6 +5,9 @@ fragment AuditRecordFields on AuditRecord {
   actorUserId
   actorName
   subject
+  subjectKind
+  subjectId
+  subjectName
   groupId
   sensitive
   attributes {
