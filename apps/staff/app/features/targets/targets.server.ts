@@ -11,6 +11,7 @@ import { data, redirect } from "react-router";
 
 import type {
   ConnectionChoice,
+  ConnectionEntry,
   TargetDraft,
   TargetRow,
   TargetsResult,
@@ -94,6 +95,16 @@ export interface TargetEditorData {
 const connectionLabel = (c: TargetsListQuery["connections"][number]) =>
   [c.name, c.protocol, c.port ? String(c.port) : ""].filter(Boolean).join(" · ");
 
+/** Form fields for the connections list: a `connectionId` per row, in order, and the
+ * `defaultConnectionId` of whichever row is the default. Falls back to the first row when none
+ * is named (a lone connection has no radio to check). */
+const connectionsOf = (form: FormData): ConnectionEntry[] => {
+  const ids = form.getAll("connectionId").map(String).filter(Boolean);
+  const named = text(form, "defaultConnectionId");
+  const defaultId = ids.includes(named) ? named : ids[0];
+  return ids.map((connectionId) => ({ connectionId, isDefault: connectionId === defaultId }));
+};
+
 /**
  * U-11: a new target (personal for a plain user), or one the user may change. A target they
  * can't see is a 404 and one they can't change a 403, for the page's error screen.
@@ -106,14 +117,23 @@ export const loadTargetEditor = async (
   log.debug("target editor load", { targetId: id ?? "new" });
   return guard(request, async () => {
     const d = await gw.gql(TargetsListDocument);
-    const connections = d.connections.map((c) => ({ label: connectionLabel(c), value: c.id }));
+    const connections = d.connections.map((c) => ({
+      label: connectionLabel(c),
+      protocol: c.protocol,
+      value: c.id,
+    }));
     const sharedNames = isAdmin(user)
       ? []
       : d.targets.filter((t) => !t.ownerUserId).map((t) => t.name);
     if (!id)
       return {
         connections,
-        draft: { ...EMPTY_DRAFT, connectionId: connections[0]?.value ?? "" },
+        draft: {
+          ...EMPTY_DRAFT,
+          connections: connections[0]
+            ? [{ connectionId: connections[0].value, isDefault: true }]
+            : [],
+        },
         sharedNames,
         target: null,
       };
@@ -129,7 +149,10 @@ export const loadTargetEditor = async (
     return {
       connections,
       draft: {
-        connectionId: t.connectionId,
+        connections: t.connections.map((c) => ({
+          connectionId: c.connectionId,
+          isDefault: c.isDefault,
+        })),
         description: t.description ?? "",
         domain: t.domain ?? "",
         hostname: t.hostname,
@@ -156,7 +179,7 @@ export const saveTargetAction = async (request: Request, id?: string) => {
   const { gw } = await requireUser(request);
   const form = await request.formData();
   const draft: TargetDraft = {
-    connectionId: text(form, "connectionId"),
+    connections: connectionsOf(form),
     description: text(form, "description"),
     domain: text(form, "domain"),
     hostname: text(form, "hostname"),
@@ -169,7 +192,7 @@ export const saveTargetAction = async (request: Request, id?: string) => {
     try {
       const { saveTarget } = await gw.gql(TargetsSaveDocument, {
         input: {
-          connectionId: draft.connectionId,
+          connections: draft.connections,
           description: draft.description || null,
           domain: draft.domain || null,
           hostname: draft.hostname,

@@ -30,9 +30,9 @@ export const appRequest = (path: string, init: { cookie?: string } & RequestInit
   return new Request(new URL(path, "https://app.example.invalid"), { ...init, headers });
 };
 
-export const form = (fields: Record<string, string>): FormData => {
+export const form = (fields: Record<string, string | string[]>): FormData => {
   const f = new FormData();
-  for (const [k, v] of Object.entries(fields)) f.set(k, v);
+  for (const [k, v] of Object.entries(fields)) for (const item of [v].flat()) f.append(k, item);
   return f;
 };
 

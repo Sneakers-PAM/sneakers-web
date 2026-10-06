@@ -2751,6 +2751,7 @@ export type TargetsTargetFieldsFragment = {
   secretCount: number;
   ownerUserId: string | null;
   sshHostKeys: Array<string>;
+  connections: Array<{ connectionId: string; isDefault: boolean }>;
 };
 
 export type TargetsConnectionFieldsFragment = {
@@ -2776,6 +2777,7 @@ export type TargetsListQuery = {
     secretCount: number;
     ownerUserId: string | null;
     sshHostKeys: Array<string>;
+    connections: Array<{ connectionId: string; isDefault: boolean }>;
   }>;
   connections: Array<{
     id: string;
@@ -2803,6 +2805,7 @@ export type TargetsSaveMutation = {
     secretCount: number;
     ownerUserId: string | null;
     sshHostKeys: Array<string>;
+    connections: Array<{ connectionId: string; isDefault: boolean }>;
   };
 };
 
@@ -3384,6 +3387,10 @@ export const TargetsTargetFieldsFragmentDoc = new TypedDocumentString(
   domain
   realm
   connectionId
+  connections {
+    connectionId
+    isDefault
+  }
   description
   secretCount
   ownerUserId
@@ -5956,6 +5963,10 @@ export const TargetsListDocument = new TypedDocumentString(`
   domain
   realm
   connectionId
+  connections {
+    connectionId
+    isDefault
+  }
   description
   secretCount
   ownerUserId
@@ -5982,6 +5993,10 @@ export const TargetsSaveDocument = new TypedDocumentString(`
   domain
   realm
   connectionId
+  connections {
+    connectionId
+    isDefault
+  }
   description
   secretCount
   ownerUserId

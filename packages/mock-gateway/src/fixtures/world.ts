@@ -170,7 +170,11 @@ export interface MockSecretUse {
 }
 
 export interface MockTarget {
+  /** The default connection's id: kept as an alias, same as the vault's own migration. */
   connectionId: string;
+  /** Unset means a one-item list built from connectionId, for a target saved before this
+   * existed. */
+  connections?: MockTargetConnection[];
   description?: string;
   domain?: string;
   hostname: string;
@@ -180,6 +184,11 @@ export interface MockTarget {
   ownerUserId?: string;
   realm?: string;
   sshHostKeys: string[];
+}
+
+export interface MockTargetConnection {
+  connectionId: string;
+  isDefault: boolean;
 }
 
 export interface MockToken {

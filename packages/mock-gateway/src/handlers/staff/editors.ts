@@ -429,7 +429,7 @@ export const editorsHandlers: RequestHandler[] = [
       const hostname = input.hostname.trim();
       if (!name) return refusal("INVALID_ARGUMENT", "a target needs a name");
       if (!hostname) return refusal("INVALID_ARGUMENT", "a target needs a hostname");
-      if (!world().connections.some((c) => c.id === input.connectionId))
+      if (!input.connectionId || !world().connections.some((c) => c.id === input.connectionId))
         return refusal("INVALID_ARGUMENT", "pick a connection for the target");
       if (input.id) return refusal("PERMISSION_DENIED", "only a site admin edits targets here");
       const saved: MockTarget = {

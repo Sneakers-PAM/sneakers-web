@@ -20,12 +20,106 @@ import { Form, Link, useNavigation } from "react-router";
 
 import type { TargetEditorData } from "@/features/targets/targets.server";
 
-import { capitalize, hostKindOf, KINDS, type TargetDraft } from "@/features/targets/model";
+import {
+  capitalize,
+  type ConnectionChoice,
+  type ConnectionEntry,
+  connectionsProblem,
+  hostKindOf,
+  KINDS,
+  type TargetDraft,
+} from "@/features/targets/model";
 
 const listed = (names: string[]) =>
   names.length <= 1
     ? (names[0] ?? "")
     : `${names.slice(0, -1).join(", ")} or ${names.at(-1) ?? ""}`;
+
+/** The editor's connections list: one row per connection, a default to pick among them, and an
+ * add/remove control. A target binds to more than one connection only when its protocols
+ * differ; the row-level picker leaves out a connection another row already uses. */
+const ConnectionsField = ({
+  choices,
+  entries,
+  onChange,
+}: {
+  choices: ConnectionChoice[];
+  entries: ConnectionEntry[];
+  onChange: (next: ConnectionEntry[]) => void;
+}) => {
+  const used = new Set(entries.map((entry) => entry.connectionId));
+  const nextChoice = choices.find((c) => !used.has(c.value));
+  return (
+    <div className="flex flex-col gap-3">
+      {entries.map((entry, index) => (
+        <div className="flex items-end gap-3" key={index}>
+          <Field className="flex-1" label={`Connection ${index + 1}`}>
+            <Select
+              name="connectionId"
+              onValueChange={(connectionId) =>
+                onChange(
+                  entries.map((entry_, index_) =>
+                    index_ === index ? { ...entry_, connectionId } : entry_,
+                  ),
+                )
+              }
+              value={entry.connectionId}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Choose a connection" />
+              </SelectTrigger>
+              <SelectContent>
+                {choices
+                  .filter((c) => c.value === entry.connectionId || !used.has(c.value))
+                  .map((c) => (
+                    <SelectItem key={c.value} value={c.value}>
+                      {c.label}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <label className="flex items-center gap-1.5 pb-2.5 text-small whitespace-nowrap">
+            <input
+              checked={entry.isDefault}
+              name="defaultConnectionId"
+              onChange={() =>
+                onChange(
+                  entries.map((entry_, index_) => ({ ...entry_, isDefault: index_ === index })),
+                )
+              }
+              type="radio"
+              value={entry.connectionId}
+            />
+            Default
+          </label>
+          {entries.length > 1 && (
+            <Button
+              aria-label={`Remove connection ${index + 1}`}
+              onClick={() => onChange(entries.filter((_, index_) => index_ !== index))}
+              type="button"
+              variant="secondary"
+            >
+              Remove
+            </Button>
+          )}
+        </div>
+      ))}
+      {nextChoice && (
+        <Button
+          className="self-start"
+          onClick={() =>
+            onChange([...entries, { connectionId: nextChoice.value, isDefault: false }])
+          }
+          type="button"
+          variant="secondary"
+        >
+          Add connection
+        </Button>
+      )}
+    </div>
+  );
+};
 
 /** U-11: the target editor. Staff pick a connection; admins manage connections and pins. */
 export const TargetForm = ({
@@ -41,7 +135,7 @@ export const TargetForm = ({
   const [tried, setTried] = useState(false);
   const set = (patch: Partial<TargetDraft>) => setD((current) => ({ ...current, ...patch }));
   const problems = {
-    connectionId: d.connectionId ? undefined : "Pick a connection.",
+    connections: connectionsProblem(d.connections, connections),
     hostname: d.hostname.trim()
       ? hostKindOf(d.hostname) === "invalid"
         ? "That doesn't look like a hostname, IPv4 or IPv6 address."
@@ -123,24 +217,17 @@ export const TargetForm = ({
                 value={d.hostname}
               />
             </Field>
-            <Field error={show ? problems.connectionId : undefined} label="Connection">
-              <Select
-                name="connectionId"
-                onValueChange={(connectionId) => set({ connectionId })}
-                value={d.connectionId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a connection" />
-                </SelectTrigger>
-                <SelectContent>
-                  {connections.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>
-                      {c.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
+            <div className="flex flex-col gap-2">
+              <span className="text-[0.875rem] font-bold">Connections</span>
+              <ConnectionsField
+                choices={connections}
+                entries={d.connections}
+                onChange={(next) => set({ connections: next })}
+              />
+              {show && problems.connections && (
+                <span className="text-small text-danger">{problems.connections}</span>
+              )}
+            </div>
             <Field
               label={
                 <>
