@@ -26,6 +26,7 @@ export default [
     route("policies", "routes/policies.tsx"),
     route("policies/new", "routes/policies.$id.tsx", { id: "routes/policies.new" }),
     route("policies/:id", "routes/policies.$id.tsx"),
+    route("settings", "routes/settings.tsx"),
     route("targets", "routes/targets.tsx"),
     route("targets/new", "routes/targets.$id.tsx", { id: "routes/targets.new" }),
     route("targets/:id", "routes/targets.$id.tsx"),

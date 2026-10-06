@@ -9,8 +9,14 @@ export const Table = ({ className, ...props }: React.ComponentProps<"table">) =>
   );
 };
 
-export const TableBody = (props: React.ComponentProps<"tbody">) => {
-  return <tbody {...props} />;
+export const TableBody = ({
+  className,
+  striped,
+  ...props
+}: { striped?: boolean } & React.ComponentProps<"tbody">) => {
+  return (
+    <tbody className={cn(striped && "[&>tr:nth-child(even)]:bg-sunken/50", className)} {...props} />
+  );
 };
 
 export const TableCell = ({ className, ...props }: React.ComponentProps<"td">) => {

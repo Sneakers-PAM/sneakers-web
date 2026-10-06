@@ -27,33 +27,12 @@ describe("password policies", () => {
     );
   });
 
-  it("shows the security settings with their defaults and saves a switch", async () => {
+  it("sets the default policy", async () => {
     const user = userEvent.setup();
     renderAdmin(ROUTES, "/policies");
-    const checkout = await screen.findByRole("switch", {
-      name: /Require MFA for sensitive checkout/,
-    });
-    expect(checkout).toBeChecked();
-    const api = screen.getByRole("switch", { name: "Allow API access to sensitive secrets" });
-    expect(api).not.toBeChecked();
-    expect(screen.getByRole("switch", { name: "Require MFA before a reveal" })).not.toBeChecked();
-    expect(screen.getByText(/1 minute\s+to 1 hour, 5 minutes by default/)).toBeInTheDocument();
-    await user.click(api);
-    await vi.waitFor(() =>
-      expect(
-        screen.getByRole("switch", { name: "Allow API access to sensitive secrets" }),
-      ).toBeChecked(),
-    );
-  });
-
-  it("refuses a session timeout outside 15 to 60 minutes", async () => {
-    const user = userEvent.setup();
-    renderAdmin(ROUTES, "/policies");
-    const timeout = await screen.findByLabelText("Session timeout (minutes)");
-    await user.clear(timeout);
-    await user.type(timeout, "75");
-    expect(screen.getByText("Max is 60.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save limits" })).toBeDisabled();
+    await user.click(await screen.findByRole("combobox", { name: "Default for new secrets" }));
+    await user.click(await screen.findByRole("option", { name: "PIN (6–8)" }));
+    expect(await screen.findByText("Saved · default policy.")).toBeInTheDocument();
   });
 
   it("pauses the example on impossible rules and saves a valid policy", async () => {

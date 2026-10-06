@@ -37,6 +37,8 @@ describe("U-13 my tokens", () => {
     const active = await screen.findByRole("row", { name: /build1 agent/ });
     expect(within(active).getByText("Build agent")).toBeInTheDocument();
     expect(within(active).getByText("Active")).toBeInTheDocument();
+    // The tbody is the second rowgroup, after the table head.
+    expect(screen.getAllByRole("rowgroup")[1]).toHaveClass("[&>tr:nth-child(even)]:bg-sunken/50");
     const old = screen.getByRole("row", { name: /old laptop/ });
     expect(within(old).getByText("Expired")).toBeInTheDocument();
     expect(within(old).queryByRole("button", { name: /Revoke/ })).toBeNull();

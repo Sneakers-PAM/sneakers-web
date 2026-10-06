@@ -18,6 +18,14 @@ describe("Mark", () => {
     expect(favicon.querySelectorAll("circle")).toHaveLength(0);
   });
 
+  it("draws the three laces at large sizes, none at 32 px and below", () => {
+    const { container: large } = render(<Mark size={120} />);
+    // The body path plus the three lace strokes.
+    expect(large.querySelectorAll("path")).toHaveLength(4);
+    const { container: small } = render(<Mark size={24} />);
+    expect(small.querySelectorAll("path")).toHaveLength(1);
+  });
+
   it("is decorative unless it has a title", () => {
     const { container } = render(
       <>

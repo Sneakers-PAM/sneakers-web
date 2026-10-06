@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
-import { MARK_BODY } from "#ui/brand/Mark";
+import { LACES, MARK_BODY } from "#ui/brand/Mark";
 import { prefersReducedMotion } from "#ui/lib/motion";
 
 export interface SneakerLoaderProps {
@@ -11,12 +11,6 @@ export interface SneakerLoaderProps {
   hole?: string;
   size?: number;
 }
-
-const LACES: [number, number, number, number][] = [
-  [30, 23, 35, 21],
-  [34, 27, 39, 25],
-  [39, 30, 44, 28],
-];
 
 const clamp = (x: number) => Math.max(0, Math.min(1, x));
 const ease = (x: number) => 1 - Math.pow(1 - x, 3);

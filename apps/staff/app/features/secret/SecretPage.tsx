@@ -45,6 +45,9 @@ type DialogName = "break-glass" | "delete" | "export" | "replace" | "rotate" | n
 const CERT_TYPE = "type-ssl-cert";
 const SSH_TYPE = "type-ssh-key";
 
+/** Shown on a manage control a site admin can see but not use: the vault's own reason. */
+const OWNERS_ONLY_HINT = "owners or authors only";
+
 const Banner = ({
   action,
   body,
@@ -113,7 +116,11 @@ export const SecretPage = ({ page }: { page: Page }) => {
 
   // canRead null means the gateway didn't say: never treat that as readable.
   const read = secret.canRead === true && access.read;
-  const manage = access.manage || isAdmin;
+  // The vault's own decision (RACI author), never an admin shortcut.
+  const manage = access.manage;
+  // An admin sees these controls too, disabled, rather than them vanishing as they would for
+  // an ordinary reader without manage: showManage decides visibility, manage decides editing.
+  const showManage = manage || isAdmin;
   const isCert = secret.typeId === CERT_TYPE;
   const production = config.appEnv === "prod";
   const lease = page.lease;
@@ -138,8 +145,13 @@ export const SecretPage = ({ page }: { page: Page }) => {
   const send = (intent: string) => void act.submit({ intent }, { method: "post" });
 
   const primary = secret.retired ? (
-    manage && (
-      <Button loading={act.state !== "idle"} onClick={() => send("restore")}>
+    showManage && (
+      <Button
+        disabled={!manage}
+        loading={act.state !== "idle"}
+        onClick={() => send("restore")}
+        title={manage ? undefined : OWNERS_ONLY_HINT}
+      >
         Restore
       </Button>
     )
@@ -197,26 +209,54 @@ export const SecretPage = ({ page }: { page: Page }) => {
                       <Link to={`/secret/${secret.id}/terminal`}>Open terminal</Link>
                     </DropdownMenuItem>
                   )}
-                  {manage && !secret.retired && isCert && (
-                    <DropdownMenuItem onSelect={() => setDialog("replace")}>
+                  {showManage && !secret.retired && isCert && (
+                    <DropdownMenuItem disabled={!manage} onSelect={() => setDialog("replace")}>
                       Replace certificate…
-                    </DropdownMenuItem>
-                  )}
-                  {manage && !secret.retired && type?.rotation && (
-                    <DropdownMenuItem disabled={!!lease} onSelect={() => setDialog("rotate")}>
-                      Rotate now…
-                      {lease && (
-                        <span className="ml-auto text-[0.75rem] text-muted">check in first</span>
+                      {!manage && (
+                        <span className="ml-auto text-[0.75rem] text-muted">
+                          {OWNERS_ONLY_HINT}
+                        </span>
                       )}
                     </DropdownMenuItem>
                   )}
-                  {manage &&
+                  {showManage && !secret.retired && type?.rotation && (
+                    <DropdownMenuItem
+                      disabled={!!lease || !manage}
+                      onSelect={() => setDialog("rotate")}
+                    >
+                      Rotate now…
+                      {manage ? (
+                        lease && (
+                          <span className="ml-auto text-[0.75rem] text-muted">check in first</span>
+                        )
+                      ) : (
+                        <span className="ml-auto text-[0.75rem] text-muted">
+                          {OWNERS_ONLY_HINT}
+                        </span>
+                      )}
+                    </DropdownMenuItem>
+                  )}
+                  {showManage &&
                     (secret.retired ? (
-                      <DropdownMenuItem onSelect={() => send("restore")}>Restore</DropdownMenuItem>
+                      <DropdownMenuItem disabled={!manage} onSelect={() => send("restore")}>
+                        Restore
+                        {!manage && (
+                          <span className="ml-auto text-[0.75rem] text-muted">
+                            {OWNERS_ONLY_HINT}
+                          </span>
+                        )}
+                      </DropdownMenuItem>
                     ) : (
-                      <DropdownMenuItem onSelect={() => send("retire")}>Retire</DropdownMenuItem>
+                      <DropdownMenuItem disabled={!manage} onSelect={() => send("retire")}>
+                        Retire
+                        {!manage && (
+                          <span className="ml-auto text-[0.75rem] text-muted">
+                            {OWNERS_ONLY_HINT}
+                          </span>
+                        )}
+                      </DropdownMenuItem>
                     ))}
-                  {((read && !secret.retired) || manage) && <DropdownMenuSeparator />}
+                  {((read && !secret.retired) || showManage) && <DropdownMenuSeparator />}
                   {read && !secret.retired && (
                     <DropdownMenuItem
                       className="font-bold text-warn"
@@ -226,7 +266,7 @@ export const SecretPage = ({ page }: { page: Page }) => {
                       Break glass…
                     </DropdownMenuItem>
                   )}
-                  {manage && (
+                  {showManage && (
                     <DropdownMenuItem
                       disabled={production && !isAdmin}
                       onSelect={() => setDialog("delete")}
@@ -380,7 +420,7 @@ export const SecretPage = ({ page }: { page: Page }) => {
               <DetailsRows page={page} />
             </Panel>
             {(type?.rotation || type?.heartbeat) && <AutomationCard page={page} />}
-            {manage && <AgentAccessCard page={page} />}
+            <AgentAccessCard page={page} />
           </div>
         </div>
 

@@ -114,7 +114,7 @@ export const TokensTable = ({ tokens }: { tokens: TokenRow[] }) => (
           </TableHeaderCell>
         </tr>
       </TableHead>
-      <TableBody>
+      <TableBody striped>
         {tokens.map((t) => (
           <Row key={t.id} t={t} />
         ))}

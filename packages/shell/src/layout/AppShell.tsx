@@ -119,12 +119,7 @@ export const AppShell = ({
           {children}
         </main>
       </div>
-      <div
-        className={cn(
-          "fixed bottom-5 z-(--z-a11y) transition-[left] duration-[320ms] ease-laces",
-          phone ? "left-4" : railOpen ? (admin ? "left-70" : "left-73") : "left-22",
-        )}
-      >
+      <div className="fixed right-4 bottom-4 z-(--z-a11y) tablet:right-5 tablet:bottom-5">
         <DisplayPanel />
       </div>
       {phone && (
