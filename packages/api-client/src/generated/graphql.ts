@@ -218,6 +218,31 @@ export type AdminAuditQuery = {
   groups: Array<{ id: string; name: string }>;
 };
 
+export type AdminBreakGlassSessionsQueryVariables = Exact<{
+  limit?: number | null | undefined;
+}>;
+
+export type AdminBreakGlassSessionsQuery = {
+  breakGlassSessions: Array<{
+    id: string;
+    actorUserId: string;
+    actorName: string;
+    reason: string;
+    openedAt: string;
+    expiresAt: string;
+    endedAt: string | null;
+    endReason: string | null;
+    reveals: Array<{
+      eventId: string;
+      secretId: string;
+      secretName: string;
+      revealedAt: string;
+      postRotationScheduled: boolean;
+      ownerNotified: boolean;
+    }>;
+  }>;
+};
+
 export type AdminFolderSettingsQueryVariables = Exact<{ [key: string]: never }>;
 
 export type AdminFolderSettingsQuery = {
@@ -1138,6 +1163,20 @@ export type ComponentVersionFieldsFragment = {
   }> | null;
 };
 
+export type BreakGlassCurrentQueryVariables = Exact<{ [key: string]: never }>;
+
+export type BreakGlassCurrentQuery = {
+  breakGlassSession: { id: string; reason: string; openedAt: string; expiresAt: string } | null;
+};
+
+export type BreakGlassExitMutationVariables = Exact<{
+  id: string;
+}>;
+
+export type BreakGlassExitMutation = {
+  closeBreakGlassSession: { id: string; endedAt: string | null; endReason: string | null };
+};
+
 export type AgentsTokenFieldsFragment = {
   id: string;
   label: string;
@@ -1445,6 +1484,41 @@ export type AgentsConfirmUsesMutation = {
     }>;
   };
 };
+
+export type BreakGlassOpenMutationVariables = Exact<{
+  reason: string;
+  code: string;
+}>;
+
+export type BreakGlassOpenMutation = {
+  openBreakGlassSession: { id: string; reason: string; openedAt: string; expiresAt: string };
+};
+
+export type BreakGlassBrowseQueryVariables = Exact<{
+  sessionId: string;
+}>;
+
+export type BreakGlassBrowseQuery = {
+  breakGlassBrowse: {
+    folders: Array<{
+      id: string;
+      name: string;
+      parentId: string | null;
+      scope: FolderScope;
+      ownerUserId: string | null;
+      isMasterPersonal: boolean | null;
+      order: number | null;
+    }>;
+    secrets: Array<{ id: string; name: string; folderId: string; typeId: string }>;
+  };
+  secretTypes: Array<{ id: string; name: string }>;
+};
+
+export type BreakGlassOwnersQueryVariables = Exact<{
+  ids: Array<string> | string;
+}>;
+
+export type BreakGlassOwnersQuery = { resolveUserLabels: Array<{ id: string; name: string }> };
 
 export type BrowseFolderFieldsFragment = {
   id: string;
@@ -2225,6 +2299,7 @@ export type SecretBreakGlassMutationVariables = Exact<{
   secretId: string;
   reason: string;
   code: string;
+  sessionId?: string | null | undefined;
 }>;
 
 export type SecretBreakGlassMutation = { breakGlassSecret: Array<{ key: string; value: string }> };
@@ -3357,6 +3432,31 @@ export const AdminAuditDocument = new TypedDocumentString(`
   prevHash
   hash
 }`) as unknown as TypedDocumentString<AdminAuditQuery, AdminAuditQueryVariables>;
+export const AdminBreakGlassSessionsDocument = new TypedDocumentString(`
+    query AdminBreakGlassSessions($limit: Int) {
+  breakGlassSessions(limit: $limit) {
+    id
+    actorUserId
+    actorName
+    reason
+    openedAt
+    expiresAt
+    endedAt
+    endReason
+    reveals {
+      eventId
+      secretId
+      secretName
+      revealedAt
+      postRotationScheduled
+      ownerNotified
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<
+  AdminBreakGlassSessionsQuery,
+  AdminBreakGlassSessionsQueryVariables
+>;
 export const AdminFolderSettingsDocument = new TypedDocumentString(`
     query AdminFolderSettings {
   folders {
@@ -4282,6 +4382,25 @@ export const DiagnosticsDocument = new TypedDocumentString(`
     version
   }
 }`) as unknown as TypedDocumentString<DiagnosticsQuery, DiagnosticsQueryVariables>;
+export const BreakGlassCurrentDocument = new TypedDocumentString(`
+    query BreakGlassCurrent {
+  breakGlassSession {
+    id
+    reason
+    openedAt
+    expiresAt
+  }
+}
+    `) as unknown as TypedDocumentString<BreakGlassCurrentQuery, BreakGlassCurrentQueryVariables>;
+export const BreakGlassExitDocument = new TypedDocumentString(`
+    mutation BreakGlassExit($id: ID!) {
+  closeBreakGlassSession(id: $id) {
+    id
+    endedAt
+    endReason
+  }
+}
+    `) as unknown as TypedDocumentString<BreakGlassExitMutation, BreakGlassExitMutationVariables>;
 export const AgentsTokensDocument = new TypedDocumentString(`
     query AgentsTokens {
   myTokens {
@@ -4571,6 +4690,49 @@ fragment AgentsRunUseFields on SecretUse {
   AgentsConfirmUsesMutation,
   AgentsConfirmUsesMutationVariables
 >;
+export const BreakGlassOpenDocument = new TypedDocumentString(`
+    mutation BreakGlassOpen($reason: String!, $code: String!) {
+  openBreakGlassSession(reason: $reason, code: $code) {
+    id
+    reason
+    openedAt
+    expiresAt
+  }
+}
+    `) as unknown as TypedDocumentString<BreakGlassOpenMutation, BreakGlassOpenMutationVariables>;
+export const BreakGlassBrowseDocument = new TypedDocumentString(`
+    query BreakGlassBrowse($sessionId: ID!) {
+  breakGlassBrowse(sessionId: $sessionId) {
+    folders {
+      id
+      name
+      parentId
+      scope
+      ownerUserId
+      isMasterPersonal
+      order
+    }
+    secrets {
+      id
+      name
+      folderId
+      typeId
+    }
+  }
+  secretTypes {
+    id
+    name
+  }
+}
+    `) as unknown as TypedDocumentString<BreakGlassBrowseQuery, BreakGlassBrowseQueryVariables>;
+export const BreakGlassOwnersDocument = new TypedDocumentString(`
+    query BreakGlassOwners($ids: [String!]!) {
+  resolveUserLabels(ids: $ids) {
+    id
+    name
+  }
+}
+    `) as unknown as TypedDocumentString<BreakGlassOwnersQuery, BreakGlassOwnersQueryVariables>;
 export const BrowseFoldersDocument = new TypedDocumentString(`
     query BrowseFolders {
   folders {
@@ -5325,8 +5487,13 @@ export const SecretRestoreVersionDocument = new TypedDocumentString(`
   SecretRestoreVersionMutationVariables
 >;
 export const SecretBreakGlassDocument = new TypedDocumentString(`
-    mutation SecretBreakGlass($secretId: String!, $reason: String!, $code: String!) {
-  breakGlassSecret(secretId: $secretId, reason: $reason, code: $code) {
+    mutation SecretBreakGlass($secretId: String!, $reason: String!, $code: String!, $sessionId: ID) {
+  breakGlassSecret(
+    secretId: $secretId
+    reason: $reason
+    code: $code
+    sessionId: $sessionId
+  ) {
     key
     value
   }

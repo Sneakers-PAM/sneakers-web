@@ -1,3 +1,4 @@
+export { breakGlassExitAction, breakGlassOf } from "#shell/server/breakGlass.server";
 export { diagnosticsLoader } from "#shell/server/diagnostics.server";
 export {
   enrollAction,

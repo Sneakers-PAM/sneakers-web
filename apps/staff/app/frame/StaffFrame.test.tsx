@@ -1,4 +1,9 @@
-import { MOCK_GATEWAY_URL, mockAppliance, mockState } from "@sneakers-web/mock-gateway";
+import {
+  MOCK_GATEWAY_URL,
+  mockAppliance,
+  mockBreakGlass,
+  mockState,
+} from "@sneakers-web/mock-gateway";
 import {
   server,
   sessionCookie,
@@ -11,6 +16,7 @@ import userEvent from "@testing-library/user-event";
 import { graphql } from "msw/graphql";
 import { createRoutesStub } from "react-router";
 
+import { onDesktop } from "@/features/requests/testing";
 import { StaffFrame } from "@/frame/StaffFrame";
 import * as browse from "@/routes/browse";
 import { loader as frameLoader } from "@/routes/frame";
@@ -210,5 +216,74 @@ describe("the folder tree in the frame sidebar", () => {
     await screen.findByText("Dashboard");
     await openDrawer();
     expect(within(nav()).getByText("No shared folders yet.")).toBeInTheDocument();
+  });
+});
+
+describe("StaffFrame break-glass", () => {
+  onDesktop();
+  const frameAs = (user: string) => {
+    const cookie = sessionCookie(user);
+    const Stub = createRoutesStub([
+      {
+        children: [{ Component: () => <h1>Dashboard</h1>, index: true }],
+        Component: () => (
+          <ProblemActions>
+            <StaffFrame />
+          </ProblemActions>
+        ),
+        id: "routes/frame",
+        loader: withCookie(cookie, frameLoader),
+      },
+    ]);
+    render(<Stub initialEntries={["/"]} />);
+    return cookie;
+  };
+
+  it("offers site admins the Break glass entry point", async () => {
+    frameAs("mock-user-alice");
+    await screen.findByRole("heading", { level: 1, name: "Dashboard" });
+    expect(screen.getByRole("button", { name: "Break glass" })).toBeInTheDocument();
+    expect(screen.queryByRole("status", { name: "Break-the-glass mode" })).toBeNull();
+  });
+
+  it("offers nobody else the entry point", async () => {
+    frameAs("mock-user-bob");
+    await screen.findByRole("heading", { level: 1, name: "Dashboard" });
+    expect(screen.queryByRole("button", { name: "Break glass" })).toBeNull();
+  });
+
+  it("shows the banner with Exit on the page while break-glass mode is on", async () => {
+    const realNow = Date.now();
+    mockBreakGlass.sessions.push({
+      actorUserId: "mock-user-alice",
+      expiresAt: realNow + 15 * 60_000,
+      id: "mock-bgs-frame",
+      openedAt: realNow,
+      reason: "Outage",
+      reveals: [],
+      sessionRef: "",
+    });
+    const cookie = sessionCookie("mock-user-alice");
+    const sid = cookie.split("=", 2)[1]!;
+    mockBreakGlass.sessions[0]!.sessionRef = mockState.sessions.get(sid)!.csrf;
+    const Stub = createRoutesStub([
+      {
+        children: [{ Component: () => <h1>Dashboard</h1>, index: true }],
+        Component: () => (
+          <ProblemActions>
+            <StaffFrame />
+          </ProblemActions>
+        ),
+        id: "routes/frame",
+        loader: withCookie(cookie, frameLoader),
+      },
+    ]);
+    render(<Stub initialEntries={["/"]} />);
+    const banner = await screen.findByRole("status", { name: "Break-the-glass mode" });
+    expect(within(banner).getByRole("button", { name: "Exit break-glass" })).toBeInTheDocument();
+    expect(within(banner).getByRole("link", { name: "All secrets" })).toHaveAttribute(
+      "href",
+      "/break-glass",
+    );
   });
 });

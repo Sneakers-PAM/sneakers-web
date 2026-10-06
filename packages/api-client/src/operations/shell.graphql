@@ -84,3 +84,21 @@ fragment ComponentVersionFields on ComponentVersion {
     version
   }
 }
+
+# Break-glass mode, for the banner on every page: the caller's open session, or null.
+query BreakGlassCurrent {
+  breakGlassSession {
+    id
+    reason
+    openedAt
+    expiresAt
+  }
+}
+
+mutation BreakGlassExit($id: ID!) {
+  closeBreakGlassSession(id: $id) {
+    id
+    endedAt
+    endReason
+  }
+}

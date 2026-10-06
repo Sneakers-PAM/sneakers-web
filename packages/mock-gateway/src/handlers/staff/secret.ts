@@ -31,12 +31,24 @@ import type {
   MockVersion,
 } from "#mock/fixtures/world";
 
-import { refusal } from "#mock/admin/refuse";
+import { isSiteAdmin, refusal } from "#mock/admin/refuse";
 import { userById, WRONG_CODE } from "#mock/fixtures/users";
 import { api, asUser } from "#mock/handlers/graphql";
 import { revealStepUpRequired } from "#mock/handlers/revealStepUp";
-import { activeLease, canApprove, canRead, canSee, secretById } from "#mock/handlers/staff/access";
+import {
+  activeLease,
+  canApprove,
+  canRead,
+  canSee,
+  chain,
+  secretById,
+} from "#mock/handlers/staff/access";
 import { confirmMode, needsApproval, runConfirmed } from "#mock/handlers/staff/approval";
+import {
+  breakGlassClosed,
+  liveBreakGlass,
+  recordBreakGlassReveal,
+} from "#mock/handlers/staff/breakGlass";
 import { freshMfa, stepUpRequired } from "#mock/handlers/stepUp";
 import { mockState, onMockReset } from "#mock/state";
 
@@ -53,6 +65,10 @@ const approvalRequired = () =>
     "APPROVAL_REQUIRED",
   );
 const RECOVERY_ROLE = "recovery";
+
+/** The personal-folder owner the vault alerts on a break-glass reveal, if the secret has one. */
+const personalOwnerOf = (s: MockSecret): string | undefined =>
+  chain(s.folderId).find((f) => f.scope === "personal")?.ownerUserId;
 
 const ok = (data: unknown): never => HttpResponse.json({ data } as never) as never;
 const world = () => mockState.world;
@@ -419,12 +435,24 @@ export const secretHandlers: RequestHandler[] = [
   api.mutation(SecretBreakGlassDocument, ({ request, variables }) =>
     asUser(request, (userId) => {
       // The gateway checks the code before the vault sees the call.
+      const sessionId = variables.sessionId ?? null;
+      // In break-glass mode the gateway checks the caller and the session before the code.
+      if (sessionId && !isSiteAdmin(userId))
+        return refusal(
+          "PERMISSION_DENIED",
+          "break-glass is for site admins",
+          "BREAK_GLASS_NOT_ADMIN",
+        );
       if (!/^\d{6}$/.test(variables.code) || variables.code === WRONG_CODE)
         return refusal("UNAUTHENTICATED", "invalid or missing MFA code");
+      const session = sessionId ? liveBreakGlass(request, userId, sessionId) : undefined;
+      if (sessionId && !session) return breakGlassClosed();
       const s = secretById(variables.secretId);
-      if (!s || !canSee(userId, s)) return notFound();
+      // A site admin reads every secret in the vault, other people's personal ones included.
+      if (!s || (!session && !canSee(userId, s))) return notFound();
       if (s.retired) return retired();
-      if (!canRead(userId, s)) return notAllowed("break glass on");
+      if (!session && !canRead(userId, s)) return notAllowed("break glass on");
+      if (session) recordBreakGlassReveal(session, s.id, !!personalOwnerOf(s));
       s.viewCount += 1;
       return ok({
         breakGlassSecret: Object.entries(s.fields).map(([key, value]) => ({ key, value })),

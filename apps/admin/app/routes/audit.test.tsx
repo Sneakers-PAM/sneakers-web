@@ -1,4 +1,4 @@
-import { tamperAuditRecord } from "@sneakers-web/mock-gateway";
+import { mockBreakGlass, tamperAuditRecord } from "@sneakers-web/mock-gateway";
 import { appRequest, sessionCookie, withMockGateway } from "@sneakers-web/mock-gateway/testing";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -119,5 +119,59 @@ describe("audit export", () => {
     expect(records).toHaveLength(25);
     expect(records[0]?.seq).toBe(1205);
     expect(records[0]?.hash).toMatch(/^[0-9a-f]{64}$/);
+  });
+});
+
+const seedBreakGlass = () => {
+  const t = Date.parse("2030-03-04T10:00:00Z");
+  mockBreakGlass.sessions.push({
+    actorUserId: "mock-user-alice",
+    endedAt: t + 5 * 60_000,
+    endReason: "exit",
+    expiresAt: t + 15 * 60_000,
+    id: "mock-bgs-audit",
+    openedAt: t,
+    reason: "Bob is away and the build key expired.",
+    reveals: [
+      {
+        eventId: "mock-bg-1",
+        ownerNotified: true,
+        postRotationScheduled: false,
+        revealedAt: t + 60_000,
+        secretId: "mock-secret-bob-laptop",
+      },
+    ],
+    sessionRef: "",
+  });
+};
+
+describe("break-glass sessions in the audit trail", () => {
+  it("shows each session as one entered and one left entry", async () => {
+    seedBreakGlass();
+    renderAdmin(ROUTES, "/audit");
+    const card = await screen.findByRole("region", { name: "Break-glass sessions" });
+    const session = within(card).getByRole("group", { name: /Alice/ });
+    expect(within(session).getByText("Entered break-glass")).toBeInTheDocument();
+    expect(within(session).getByText("Left break-glass")).toBeInTheDocument();
+    expect(session).toHaveTextContent("Bob is away and the build key expired.");
+    expect(session).toHaveTextContent("Exited");
+    expect(within(session).queryByText("Laptop login")).toBeNull();
+  });
+
+  it("expands a session to every secret revealed in it", async () => {
+    seedBreakGlass();
+    const user = userEvent.setup();
+    renderAdmin(ROUTES, "/audit");
+    const card = await screen.findByRole("region", { name: "Break-glass sessions" });
+    await user.click(within(card).getByRole("button", { name: "Show 1 secret revealed" }));
+    const revealed = within(card).getByRole("list", { name: "Secrets revealed" });
+    expect(within(revealed).getByText("Laptop login")).toBeInTheDocument();
+    expect(revealed).toHaveTextContent("owners alerted");
+  });
+
+  it("isn't shown when nobody has broken glass", async () => {
+    renderAdmin(ROUTES, "/audit");
+    await screen.findByText(/Chain verified/);
+    expect(screen.queryByRole("region", { name: "Break-glass sessions" })).toBeNull();
   });
 });

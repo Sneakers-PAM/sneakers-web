@@ -1,8 +1,13 @@
 import { ApplianceStatusDocument, UnreadCountDocument } from "@sneakers-web/api-client";
 
+import type { BreakGlassState } from "#shell/layout/BreakGlassBanner";
+
+import { breakGlassOf } from "#shell/server/breakGlass.server";
 import { isAdmin, requireUser, type SessionUser } from "#shell/server/session.server";
 
 export interface FrameData {
+  /** The admin's open break-glass session in this web session; null when not in that mode. */
+  breakGlass: BreakGlassState | null;
   isAdmin: boolean;
   /** Read-only maintenance is on, from the appliance; show the banner. */
   maintenance: boolean;
@@ -20,7 +25,8 @@ const DEFAULT_APPLIANCE = { maintenance: false, maintenanceReason: null, mcpOff:
 
 /** What every signed-in page's frame shows: who you are, the MFA nudge and the unread count. */
 export const frameData = async (request: Request): Promise<FrameData> => {
-  const { gw, session, user } = await requireUser(request);
+  const signedIn = await requireUser(request);
+  const { gw, session, user } = signedIn;
   const unread = await gw
     .gql(UnreadCountDocument)
     .then((d) => d.myUnreadNotificationCount)
@@ -34,6 +40,7 @@ export const frameData = async (request: Request): Promise<FrameData> => {
     }))
     .catch(() => DEFAULT_APPLIANCE);
   return {
+    breakGlass: await breakGlassOf(signedIn),
     isAdmin: isAdmin(user),
     maintenance,
     maintenanceReason,

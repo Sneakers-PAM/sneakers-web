@@ -1,0 +1,42 @@
+# Break-glass mode (site admins): open a session with a reason and a TOTP code, then list
+# every folder and secret while it's open. Reveals go through SecretBreakGlass with the session.
+mutation BreakGlassOpen($reason: String!, $code: String!) {
+  openBreakGlassSession(reason: $reason, code: $code) {
+    id
+    reason
+    openedAt
+    expiresAt
+  }
+}
+
+query BreakGlassBrowse($sessionId: ID!) {
+  breakGlassBrowse(sessionId: $sessionId) {
+    folders {
+      id
+      name
+      parentId
+      scope
+      ownerUserId
+      isMasterPersonal
+      order
+    }
+    secrets {
+      id
+      name
+      folderId
+      typeId
+    }
+  }
+  secretTypes {
+    id
+    name
+  }
+}
+
+# The names of the people whose personal folders the break-glass view lists.
+query BreakGlassOwners($ids: [String!]!) {
+  resolveUserLabels(ids: $ids) {
+    id
+    name
+  }
+}

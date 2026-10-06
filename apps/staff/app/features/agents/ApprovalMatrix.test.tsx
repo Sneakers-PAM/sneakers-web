@@ -31,7 +31,21 @@ describe("How approvals work", () => {
       "Not an owner, but you can read it",
       "No read access",
       "An emergency, with no one able to approve in time",
+      "A site admin in break-the-glass mode",
     ]);
+  });
+
+  it("says break-the-glass mode is web-only for site admins, with no approver", () => {
+    render(<ApprovalMatrix />);
+    const row = "A site admin in break-the-glass mode";
+    for (const column of ["Normal secret", "Approval-required secret", "Always-approve secret"]) {
+      const c = cell(row, column);
+      expect(c).toHaveTextContent("Break-the-glass");
+      expect(c).toHaveTextContent(/web app only/i);
+      expect(c).toHaveTextContent(/reason and your second factor, no approver/);
+      expect(c).toHaveTextContent(/owners are alerted on each reveal/);
+      expect(c).toHaveTextContent(/one entered and one left entry per session/);
+    }
   });
 
   it("says who approves at each level, never the requester", () => {
