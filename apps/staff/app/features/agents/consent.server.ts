@@ -5,7 +5,14 @@ const log = createLogger("agent-consent");
 
 /** G-10: what the consent page shows for `?req=`. */
 export type ConsentData =
-  | { clientName: string; redirectHost: string; req: string; user: Person; view: "form" }
+  | {
+      clientName: string;
+      factorRequired: boolean;
+      redirectHost: string;
+      req: string;
+      user: Person;
+      view: "form";
+    }
   | { user: Person; view: "expired" | "no-request" };
 
 /** What a consent post answers: where to send the browser, or what went wrong. */
@@ -13,7 +20,7 @@ export type ConsentResult =
   | { emailSent: true }
   | { label: string; redirect: string; view: "done" }
   | { passkey: { options: string; webauthnSessionId: string } }
-  | { problem: "code" | "email" | "expired" | "passkey" | "unavailable" }
+  | { problem: "code" | "email" | "expired" | "passkey" | "step-up" | "unavailable" }
   | { redirect: string; view: "denied" };
 
 interface Person {
@@ -45,15 +52,19 @@ export const loadConsent = async (request: Request): Promise<ConsentData> => {
   }
   return guard(request, async () => {
     try {
-      const d = await gw.request<{ clientName?: string; redirectHost?: string }>(
-        consentPath(request_),
-        {
-          csrf: true,
-        },
-      );
-      log.debug("consent request loaded");
+      const d = await gw.request<{
+        clientName?: string;
+        factorRequired?: boolean;
+        redirectHost?: string;
+      }>(consentPath(request_), {
+        csrf: true,
+      });
+      // A gateway that doesn't say asks for the factor, as it always did.
+      const factorRequired = d.factorRequired !== false;
+      log.debug("consent request loaded", { factorRequired });
       return {
         clientName: d.clientName || "An app",
+        factorRequired,
         redirectHost: d.redirectHost ?? "",
         req: request_,
         user: person,
@@ -77,7 +88,7 @@ const decide = async (
   const approve = field(form, "intent") === "allow";
   const kind = field(form, "factor");
   const label = field(form, "label");
-  const factor =
+  const given =
     kind === "passkey"
       ? {
           credentialJson: String(form.get("credentialJson") ?? ""),
@@ -88,13 +99,15 @@ const decide = async (
           code: field(form, "code").replaceAll(/\D/g, ""),
           kind: kind === "email" ? "email" : "totp",
         };
+  // No factor means the session's own, within the step-up window, covers the consent.
+  const factor = kind ? given : {};
   try {
     const { redirect } = await gw.request<{ redirect: string }>(consentPath(request), {
       body: { approve, factor: approve ? factor : {}, label },
       csrf: true,
     });
     log.info(approve ? "consent allowed" : "consent denied", {
-      factor: approve ? kind : undefined,
+      factor: approve ? kind || "session" : undefined,
     });
     return approve ? { label, redirect, view: "done" } : { redirect, view: "denied" };
   } catch (error) {
@@ -102,6 +115,10 @@ const decide = async (
     if (error instanceof ApiError && error.code === "invalid_code") {
       log.info("consent factor didn't match", { factor: kind });
       return { problem: kind === "passkey" ? "passkey" : "code" };
+    }
+    if (error instanceof ApiError && error.code === "step_up_required") {
+      log.info("consent needs a step-up: the sign-in factor is too old");
+      return { problem: "step-up" };
     }
     if (expired(error)) return { problem: "expired" };
     if (error instanceof ApiError && error.status >= 500) {

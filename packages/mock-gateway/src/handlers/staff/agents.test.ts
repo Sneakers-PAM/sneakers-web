@@ -260,6 +260,7 @@ describe("agent consent", () => {
   it("names the app and where it returns to", async () => {
     expect(await consent(await as(ALICE), MOCK_CONSENT_ID)).toEqual({
       clientName: "MCP client",
+      factorRequired: true,
       redirectHost: "127.0.0.1:53682",
     });
   });
@@ -269,6 +270,7 @@ describe("agent consent", () => {
     const id = "mock-consent-new-e2e-1";
     expect(await consent(gw, id)).toEqual({
       clientName: "MCP client",
+      factorRequired: true,
       redirectHost: "127.0.0.1:53682",
     });
     const { redirect } = await consent(gw, id, { approve: false, factor: {}, label: "" });

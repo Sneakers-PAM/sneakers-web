@@ -24,6 +24,15 @@ const get = (path: string, user = "mock-user-alice") =>
 const post = (path: string, fields: Record<string, string>, user = "mock-user-alice") =>
   appRequest(path, { body: form(fields), cookie: sessionCookie(user), method: "POST" });
 
+const freshCookie = (user = "mock-user-alice") => {
+  const cookie = sessionCookie(user);
+  for (const s of mockState.sessions.values()) if (s.userId === user) s.mfaVerifiedAt = Date.now();
+  return cookie;
+};
+const freshGet = (path: string) => appRequest(path, { cookie: freshCookie() });
+const freshPost = (path: string, fields: Record<string, string>) =>
+  appRequest(path, { body: form(fields), cookie: freshCookie(), method: "POST" });
+
 const world = () => mockState.world;
 const CAROL = "mock-user-carol";
 const nowUnix = () => Math.floor(Date.now() / 1000);
@@ -257,6 +266,28 @@ describe("the consent page", () => {
       }),
     );
     expect(again).toEqual({ problem: "expired" });
+  });
+
+  it("asks for a factor only when the sign-in one is older than the step-up window", async () => {
+    const stale = await loadConsent(get("/oauth/consent?req=mock-consent-1"));
+    expect(stale).toMatchObject({ factorRequired: true, view: "form" });
+    const fresh = await loadConsent(freshGet("/oauth/consent?req=mock-consent-1"));
+    expect(fresh).toMatchObject({ factorRequired: false, view: "form" });
+  });
+
+  it("allows without a factor while the session's is fresh", async () => {
+    const r = await consentAction(
+      freshPost("/oauth/consent?req=mock-consent-1", { intent: "allow", label: "laptop agent" }),
+    );
+    expect(r).toMatchObject({ label: "laptop agent", view: "done" });
+  });
+
+  it("asks for a step-up when no factor is given and the session's is stale", async () => {
+    const r = await consentAction(
+      post("/oauth/consent?req=mock-consent-1", { intent: "allow", label: "laptop agent" }),
+    );
+    expect(r).toEqual({ problem: "step-up" });
+    expect(world().tokens.some((t) => t.label === "laptop agent")).toBe(false);
   });
 
   it("emails a code for the consent", async () => {
