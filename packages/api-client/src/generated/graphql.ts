@@ -1060,6 +1060,12 @@ export type MarkAllNotificationsReadMutationVariables = Exact<{ [key: string]: n
 
 export type MarkAllNotificationsReadMutation = { markAllNotificationsRead: boolean };
 
+export type ApplianceStatusQueryVariables = Exact<{ [key: string]: never }>;
+
+export type ApplianceStatusQuery = {
+  appliance: { maintenance: boolean; maintenanceReason: string | null; mcp: string | null };
+};
+
 export type DiagnosticsQueryVariables = Exact<{ [key: string]: never }>;
 
 export type DiagnosticsQuery = {
@@ -4129,6 +4135,15 @@ export const MarkAllNotificationsReadDocument = new TypedDocumentString(`
   MarkAllNotificationsReadMutation,
   MarkAllNotificationsReadMutationVariables
 >;
+export const ApplianceStatusDocument = new TypedDocumentString(`
+    query ApplianceStatus {
+  appliance {
+    maintenance
+    maintenanceReason
+    mcp
+  }
+}
+    `) as unknown as TypedDocumentString<ApplianceStatusQuery, ApplianceStatusQueryVariables>;
 export const DiagnosticsDocument = new TypedDocumentString(`
     query Diagnostics {
   diagnostics {
