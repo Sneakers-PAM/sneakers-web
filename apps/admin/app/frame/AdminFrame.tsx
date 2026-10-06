@@ -1,5 +1,6 @@
 import {
   AccountMenu,
+  ApplianceBanners,
   AppShell,
   HeaderButton,
   MfaBanner,
@@ -25,7 +26,8 @@ import type { loader } from "@/routes/frame";
 
 /** The admin console frame. The header is inverted (an ink bar) so it's never mistaken for the user app. */
 export const AdminFrame = () => {
-  const { isAdmin, mfaSetupRecommended, user } = useLoaderData<typeof loader>();
+  const { isAdmin, maintenance, maintenanceReason, mcpOff, mfaSetupRecommended, user } =
+    useLoaderData<typeof loader>();
   const { config } = useRootData();
   const submit = useSubmit();
   const phone = useBreakpoint() === "phone";
@@ -53,7 +55,16 @@ export const AdminFrame = () => {
           </HeaderButton>
         )
       }
-      banners={<MfaBanner show={mfaSetupRecommended} />}
+      banners={
+        <>
+          <ApplianceBanners
+            maintenance={maintenance}
+            maintenanceReason={maintenanceReason}
+            mcpOff={mcpOff}
+          />
+          <MfaBanner show={mfaSetupRecommended} />
+        </>
+      }
       home="/"
       label="Admin console"
       sidebar={(collapsed) => (
