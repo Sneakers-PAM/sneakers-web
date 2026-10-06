@@ -139,6 +139,20 @@ sign-on) uses an absolute URL.
   key reveal prompts. A check-out of a type with a super-sensitive field asks for one while "MFA
   for sensitive checkout" is on (the default).
 
+## Manage controls on a secret
+
+- A secret's settings (Automation, Approvals) are gated on `access.manage` — the vault's RACI
+  author decision — never on `isAdmin`. A site admin who isn't an owner or author gets the same
+  `access.manage: false` as any other reader; admins get no extra edit rights here.
+- The controls still show for everyone who can see the page; a viewer without `access.manage`
+  sees the current value with the control disabled, not hidden, so nobody is invited into a
+  change the vault will only refuse. `SettingsCards.tsx` (`AutomationCard`, `AgentAccessCard`) and
+  the Actions menu's Replace certificate, Rotate now, Restore/Retire items (`SecretPage.tsx`)
+  follow this: `showManage` (`access.manage || isAdmin`) decides whether the control renders,
+  `access.manage` alone decides whether it's enabled, and a disabled one carries a short hint.
+- The one exception is a folder's ruleset and sharing: those pass `ownsFolder`/`manageRuleset`,
+  which includes site admins by design, so they stay editable for admins on the sharing page.
+
 ## Appliance banners
 
 - `ApplianceBanners` (`packages/shell/src/layout/ApplianceBanners.tsx`) is read-only: the

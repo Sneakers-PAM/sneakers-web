@@ -287,6 +287,45 @@ describe("the secret detail page", () => {
   });
 });
 
+describe("manage controls show the vault's own decision, not isAdmin", () => {
+  it("lets the owner edit automation and approvals, with no read-only hint", async () => {
+    open("mock-secret-db-admin");
+    await screen.findByRole("heading", { level: 1, name: /DB admin/ });
+    expect(screen.getByRole("switch", { name: "Heartbeat validation" })).toBeEnabled();
+    expect(screen.getByRole("radio", { name: "Non-owners" })).not.toBeDisabled();
+    expect(screen.queryByText("Only the secret's owners or authors can change this.")).toBeNull();
+  });
+
+  it("shows a site admin who isn't an owner read-only settings, not live controls that refuse", async () => {
+    const user = userEvent.setup();
+    // Carol is a site admin and owns the Platform folder above Databases; take that away so
+    // she's an admin with no ownership anywhere in DB admin's chain, same as a real non-owner.
+    const platform = mockState.world.folders.find((f) => f.id === "mock-folder-platform")!;
+    platform.owners = platform.owners.filter((id) => id !== "mock-user-carol");
+    open("mock-secret-db-admin", "mock-user-carol");
+    await screen.findByRole("heading", { level: 1, name: /DB admin/ });
+    expect(screen.getByRole("switch", { name: "Heartbeat validation" })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "Non-owners" })).toBeDisabled();
+    expect(
+      screen.getAllByText("Only the secret's owners or authors can change this.").length,
+    ).toBeGreaterThan(0);
+    await user.click(screen.getByRole("button", { name: "Actions" }));
+    const retire = await screen.findByRole("menuitem", { name: /Retire/ });
+    expect(retire).toHaveAttribute("aria-disabled", "true");
+    expect(within(retire).getByText("owners or authors only")).toBeInTheDocument();
+  });
+
+  it("shows the same read-only settings to a plain reader with no manage", async () => {
+    open("mock-secret-db-admin", "mock-user-bob");
+    await screen.findByRole("heading", { level: 1, name: /DB admin/ });
+    expect(screen.getByRole("switch", { name: "Heartbeat validation" })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "Non-owners" })).toBeDisabled();
+    // Bob is neither an owner/author nor a site admin, so the Actions menu offers no edits.
+    await userEvent.setup().click(screen.getByRole("button", { name: "Actions" }));
+    expect(screen.queryByRole("menuitem", { name: /Retire/ })).toBeNull();
+  });
+});
+
 describe("a secret the gateway doesn't say can be read", () => {
   it("shows it locked when canRead is null, never as readable", async () => {
     const id = "mock-secret-edge-router";

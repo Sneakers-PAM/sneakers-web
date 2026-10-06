@@ -6,6 +6,9 @@ import type { SecretPage } from "@/features/secret/secret.server";
 import { Panel } from "@/features/secret/Panel";
 import { useSecretFetcher } from "@/features/secret/useSecretFetcher";
 
+/** Shown under a settings card the viewer can see but not change: the vault's own reason, not ours. */
+const MANAGE_HINT = "Only the secret's owners or authors can change this.";
+
 const Setting = ({
   body,
   checked,
@@ -48,7 +51,8 @@ export const AutomationCard = ({ page }: { page: SecretPage }) => {
   const heartbeatOff = pending
     ? pending.get("disableHeartbeat") === "true"
     : !!secret.heartbeatOptOut;
-  const locked = secret.retired || !(access.manage || page.isAdmin);
+  const canManage = access.manage;
+  const locked = secret.retired || !canManage;
   const save = (disableRotation: boolean, disableHeartbeat: boolean) =>
     void fetcher.submit(
       {
@@ -85,6 +89,9 @@ export const AutomationCard = ({ page }: { page: SecretPage }) => {
             title="Heartbeat validation"
           />
         )}
+        {!secret.retired && !canManage && (
+          <p className="m-0 text-small text-muted">{MANAGE_HINT}</p>
+        )}
       </div>
     </Panel>
   );
@@ -114,6 +121,8 @@ export const AgentAccessCard = ({ page }: { page: SecretPage }) => {
       ? "required"
       : "off";
   const level = (typeof pending === "string" ? pending : saved) as ApprovalLevel;
+  const canManage = page.access.manage;
+  const locked = page.secret.retired || !canManage;
   return (
     <Panel title="Approvals">
       <div className="flex flex-col gap-3 px-6 py-5">
@@ -123,9 +132,9 @@ export const AgentAccessCard = ({ page }: { page: SecretPage }) => {
             void fetcher.submit({ intent: "token-approval", level: next }, { method: "post" })
           }
           options={[
-            { disabled: page.secret.retired, label: "Off", value: "off" },
-            { disabled: page.secret.retired, label: "Non-owners", value: "required" },
-            { disabled: page.secret.retired, label: "Everyone", value: "always" },
+            { disabled: locked, label: "Off", value: "off" },
+            { disabled: locked, label: "Non-owners", value: "required" },
+            { disabled: locked, label: "Everyone", value: "always" },
           ]}
           value={level}
         />
@@ -134,6 +143,9 @@ export const AgentAccessCard = ({ page }: { page: SecretPage }) => {
           Service accounts are never held for approval: their access rules and the Allow API access
           to sensitive secrets setting decide what they can reveal.
         </p>
+        {!page.secret.retired && !canManage && (
+          <p className="m-0 text-small text-muted">{MANAGE_HINT}</p>
+        )}
       </div>
     </Panel>
   );
