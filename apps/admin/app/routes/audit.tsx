@@ -1,5 +1,6 @@
 import type { LoaderFunctionArgs } from "react-router";
 
+import { AdminBreakGlassSessionsDocument } from "@sneakers-web/api-client";
 import {
   Alert,
   Avatar,
@@ -50,6 +51,7 @@ import {
   useSubmit,
 } from "react-router";
 
+import { BreakGlassSessions } from "@/components/BreakGlassSessions";
 import { PageError } from "@/components/PageError";
 import { adminLoad } from "@/lib/admin.server";
 import { type AuditFilters, filtersFrom, readAudit } from "@/lib/audit.server";
@@ -58,8 +60,15 @@ import { actionLabel, actionTone } from "@/lib/auditActions";
 export const loader = ({ request }: LoaderFunctionArgs) =>
   adminLoad(request, async (gw) => {
     const filters = filtersFrom(new URL(request.url));
-    const d = await readAudit(gw, filters);
-    return { ...d, checkedAt: Date.now(), filters };
+    const [d, breakGlass] = await Promise.all([
+      readAudit(gw, filters),
+      // Best effort: an older gateway, or a blip, leaves the sessions card out.
+      gw
+        .gql(AdminBreakGlassSessionsDocument, { limit: 20 })
+        .then((r) => r.breakGlassSessions)
+        .catch(() => []),
+    ]);
+    return { ...d, breakGlass, checkedAt: Date.now(), filters };
   });
 
 export const meta = () => [{ title: "Audit trail · Sneakers-PAM admin console" }];
@@ -304,7 +313,7 @@ const SHOW_OPTIONS: { label: string; value: AuditFilters["show"] }[] = [
 ];
 
 const Audit = () => {
-  const { actions, capped, chain, checkedAt, filters, groups, records, userIds } =
+  const { actions, breakGlass, capped, chain, checkedAt, filters, groups, records, userIds } =
     useLoaderData<typeof loader>();
   const linkableUserIds = new Set(userIds);
   const [parameters] = useSearchParams();
@@ -404,6 +413,8 @@ const Audit = () => {
           was written. Records after it can&apos;t be trusted until this is explained.
         </Alert>
       )}
+
+      <BreakGlassSessions sessions={breakGlass} />
 
       <Card className="p-4.5">
         <Form className="flex flex-wrap items-end gap-4" method="get" ref={form} role="search">

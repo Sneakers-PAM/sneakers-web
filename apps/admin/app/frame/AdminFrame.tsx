@@ -2,6 +2,7 @@ import {
   AccountMenu,
   ApplianceBanners,
   AppShell,
+  BreakGlassBanner,
   HeaderButton,
   MfaBanner,
   NavGroup,
@@ -27,7 +28,7 @@ import type { loader } from "@/routes/frame";
 
 /** The admin console frame. The header is inverted (an ink bar) so it's never mistaken for the user app. */
 export const AdminFrame = () => {
-  const { isAdmin, maintenance, maintenanceReason, mcpOff, mfaSetupRecommended, user } =
+  const { breakGlass, isAdmin, maintenance, maintenanceReason, mcpOff, mfaSetupRecommended, user } =
     useLoaderData<typeof loader>();
   const { config } = useRootData();
   const submit = useSubmit();
@@ -58,6 +59,10 @@ export const AdminFrame = () => {
       }
       banners={
         <>
+          <BreakGlassBanner
+            browse={{ href: `${config.staffUrl.replace(/\/$/, "")}/break-glass`, inApp: false }}
+            session={breakGlass}
+          />
           <ApplianceBanners
             maintenance={maintenance}
             maintenanceReason={maintenanceReason}

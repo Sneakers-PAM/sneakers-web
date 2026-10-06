@@ -41,3 +41,26 @@ query AdminAudit($actorUserId: String, $subject: String, $excludeActions: [Strin
     name
   }
 }
+
+# Break-glass sessions for the audit page: one entered/left pair each, with the secrets
+# revealed in it.
+query AdminBreakGlassSessions($limit: Int) {
+  breakGlassSessions(limit: $limit) {
+    id
+    actorUserId
+    actorName
+    reason
+    openedAt
+    expiresAt
+    endedAt
+    endReason
+    reveals {
+      eventId
+      secretId
+      secretName
+      revealedAt
+      postRotationScheduled
+      ownerNotified
+    }
+  }
+}

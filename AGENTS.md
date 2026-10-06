@@ -165,6 +165,30 @@ sign-on) uses an absolute URL.
 - The one exception is a folder's ruleset and sharing: those pass `ownsFolder`/`manageRuleset`,
   which includes site admins by design, so they stay editable for admins on the sharing page.
 
+## Break-the-glass mode
+
+- Site admins (and root) get a "Break glass" header button and account-menu item in the staff
+  app; nobody else sees it, and `/break-glass` is a 404 for them. It's the web app only: the
+  gateway refuses personal tokens and service accounts (`BREAK_GLASS_WEB_ONLY`).
+- `/break-glass` (`routes/break-glass.tsx`, `features/breakGlass/`) asks for a reason and an
+  authenticator code (`openBreakGlassSession`; no approver). With a session open it lists every
+  folder, other people's personal ones included, and each folder's secrets
+  (`breakGlassBrowse`). A reveal there is `breakGlassSecret` with the `sessionId`: a fresh code
+  each time, the dialog says the owners will be notified, and the fields show in the red
+  break-glass card. It grants no edit rights; the page has no edit controls.
+- While a session is open, `BreakGlassBanner` (`packages/shell/src/layout/BreakGlassBanner.tsx`)
+  shows on every page of both apps, from `frameData`'s `breakGlass` (the `breakGlassSession`
+  query, asked only for admins; a failure reads as off). Its Exit posts to each app's
+  `resources/break-glass` route (`breakGlassExitAction`), which ends the session and goes to the
+  app's start. At the session's expiry (15 minutes) the banner reloads the page's data, so the
+  normal app returns; a page that finds the session closed (`BREAK_GLASS_SESSION_CLOSED`) shows
+  the open form again.
+- The admin console's audit page shows each session as one "Entered break-glass" and one "Left
+  break-glass" entry (`breakGlassSessions`), and "Show N secrets revealed" lists who saw what.
+- The mock gateway (`handlers/staff/breakGlass.ts`, state in `mockBreakGlass`) follows the same
+  rules: site admins only, a session bound to the mock web session, 15 minutes, one open session
+  per admin (a new one replaces it), and each reveal recorded under the session.
+
 ## Appliance banners
 
 - `ApplianceBanners` (`packages/shell/src/layout/ApplianceBanners.tsx`) is read-only: the
@@ -174,10 +198,10 @@ sign-on) uses an absolute URL.
   gateway's `appliance` field (`ApplianceStatusDocument`) alongside the unread count. A query
   failure (an older gateway, a blip) falls back to both banners off, the same as a plain install.
 - The maintenance banner shows while `appliance.maintenance` is true, with `appliance.
-  maintenanceReason` when the appliance gave one. The MCP notice shows when `appliance.mcp` is
+maintenanceReason` when the appliance gave one. The MCP notice shows when `appliance.mcp` is
   `"off"` (it's also `"on"` or `"degraded"`; only off has copy today).
 - The mock gateway answers with `mockAppliance.current` (`packages/mock-gateway/src/handlers/
-  graphql.ts`, re-exported from `@sneakers-web/mock-gateway`), which resets to a plain install
+graphql.ts`, re-exported from `@sneakers-web/mock-gateway`), which resets to a plain install
   (`present: false`, every other field null or false) between tests. Set it before rendering to
   mock either banner on.
 

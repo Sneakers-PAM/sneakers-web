@@ -2,6 +2,7 @@ import {
   AccountMenu,
   ApplianceBanners,
   AppShell,
+  BreakGlassBanner,
   HeaderButton,
   HeaderSearch,
   MfaBanner,
@@ -12,7 +13,14 @@ import {
   useRootData,
 } from "@sneakers-web/shell";
 import { CountBadge, useBreakpoint } from "@sneakers-web/ui";
-import { ArrowLeftRight, LayoutGrid, Mail, SquareTerminal, Target } from "lucide-react";
+import {
+  ArrowLeftRight,
+  LayoutGrid,
+  Mail,
+  SquareTerminal,
+  Target,
+  TriangleAlert,
+} from "lucide-react";
 import { Outlet, useLoaderData, useNavigate, useSubmit } from "react-router";
 
 import type { loader } from "@/routes/frame";
@@ -24,6 +32,7 @@ const REFRESH_MS = 30_000;
 /** The staff app frame: search, agent approvals, notifications, the admin link and the account menu. */
 export const StaffFrame = () => {
   const {
+    breakGlass,
     counts,
     folders,
     isAdmin,
@@ -55,6 +64,9 @@ export const StaffFrame = () => {
               onSelect: () => void navigate("/approvals"),
             },
             { label: "Use grants", onSelect: () => void navigate("/grants") },
+            ...(isAdmin
+              ? [{ label: "Break glass", onSelect: () => void navigate("/break-glass") }]
+              : []),
           ]}
           name={user.name}
           onSignOut={() => void submit(null, { action: "/sign-out", method: "post" })}
@@ -83,11 +95,18 @@ export const StaffFrame = () => {
               )
             }
           />
+          {isAdmin && !phone && !breakGlass && (
+            <HeaderButton aria-label="Break glass" onClick={() => void navigate("/break-glass")}>
+              <TriangleAlert aria-hidden className="size-4" />
+              Break glass
+            </HeaderButton>
+          )}
           {isAdmin && !phone && <HeaderButton href={config.adminUrl}>Admin console</HeaderButton>}
         </>
       }
       banners={
         <>
+          <BreakGlassBanner browse={{ href: "/break-glass", inApp: true }} session={breakGlass} />
           <ApplianceBanners
             maintenance={maintenance}
             maintenanceReason={maintenanceReason}

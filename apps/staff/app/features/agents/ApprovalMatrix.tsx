@@ -61,6 +61,9 @@ const Rows = ({ rows }: { rows: [string, string][] }) => (
   </ul>
 );
 
+const BREAK_GLASS_MODE =
+  "Web app only. A reason and your second factor, no approver. Every folder is listed; the owners are alerted on each reveal. The audit log shows one entered and one left entry per session, with every secret revealed.";
+
 /**
  * How approvals work: who approves a reveal at each approval level, what happens when nobody
  * else can approve, what never needs one, when a second factor is asked, and one prompt per
@@ -118,6 +121,12 @@ export const ApprovalMatrix = () => (
           <Cell outcome="glass">Give a reason and confirm with your second factor.</Cell>
           <Cell outcome="glass">Give a reason and confirm with your second factor.</Cell>
           <Cell outcome="glass">Give a reason and confirm with your second factor.</Cell>
+        </TableRow>
+        <TableRow>
+          <RowHead>A site admin in break-the-glass mode</RowHead>
+          <Cell outcome="glass">{BREAK_GLASS_MODE}</Cell>
+          <Cell outcome="glass">{BREAK_GLASS_MODE}</Cell>
+          <Cell outcome="glass">{BREAK_GLASS_MODE}</Cell>
         </TableRow>
       </TableBody>
     </Table>

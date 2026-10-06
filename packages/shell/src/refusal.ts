@@ -42,6 +42,11 @@ export const needsStepUp = (r: null | Refusal | undefined): boolean =>
 const BY_REASON: Record<string, string> = {
   API_SENSITIVE_DISABLED:
     "Tokens and service accounts can't use super-sensitive fields while API access to sensitive secrets is off.",
+  BREAK_GLASS_CODE_INVALID:
+    "That code didn't work. Enter the current code from your authenticator.",
+  BREAK_GLASS_NOT_ADMIN: "Only a site admin can break glass.",
+  BREAK_GLASS_SESSION_CLOSED: "Your break-glass session has ended. Open a new one to carry on.",
+  BREAK_GLASS_WEB_ONLY: "Break-glass is only available in the web app.",
   CHECKIN_NOT_HOLDER: "Only the person who checked it out can check it in.",
   CHECKOUT_LEASE_HELD: "Someone has this secret checked out. Try again after it's checked in.",
   CHECKOUT_NO_ACCESS: "You can't check this secret out. Ask for access first.",

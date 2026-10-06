@@ -28,6 +28,11 @@ export {
 export { AccountMenu, type AccountMenuItem, HeaderButton } from "#shell/layout/AccountMenu";
 export { ApplianceBanners, MaintenanceBanner, McpOffNotice } from "#shell/layout/ApplianceBanners";
 export { AppShell, type AppShellProps } from "#shell/layout/AppShell";
+export {
+  BREAK_GLASS_ROUTE,
+  BreakGlassBanner,
+  type BreakGlassState,
+} from "#shell/layout/BreakGlassBanner";
 export { EdgeBanner } from "#shell/layout/EdgeBanner";
 export { HeaderSearch } from "#shell/layout/HeaderSearch";
 export { MfaBanner } from "#shell/layout/MfaBanner";

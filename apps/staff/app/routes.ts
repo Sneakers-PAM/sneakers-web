@@ -7,6 +7,7 @@ export default [
   route("sign-in/reset", "routes/sign-in.reset.tsx"),
   route("enroll", "routes/enroll.tsx"),
   route("sign-out", "routes/sign-out.tsx"),
+  route("resources/break-glass", "routes/resources.break-glass.tsx"),
   route("resources/diagnostics", "routes/resources.diagnostics.tsx"),
   route("resources/display", "routes/resources.display.tsx"),
   route("resources/notifications", "routes/resources.notifications.tsx"),
@@ -34,6 +35,7 @@ export default [
     route("approvals", "routes/approvals.tsx"),
     route("grants", "routes/grants.tsx"),
     route("security", "routes/security.tsx"),
+    route("break-glass", "routes/break-glass.tsx"),
   ]),
   route("*", "routes/not-found.tsx"),
 ] satisfies RouteConfig;
