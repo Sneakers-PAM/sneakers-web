@@ -68,6 +68,16 @@ const developmentUsers = (): QuickLoginUser[] => {
   return [];
 };
 
+/**
+ * A live dev build simulates "Sign in with SSO" too: with no real identity provider to hand
+ * off to, it signs in as the first dev quick-login account instead of redirecting there. The
+ * build flag check comes first so a release build drops this branch; check:no-mock proves it.
+ */
+const developmentSsoAccount = () =>
+  import.meta.env.SNEAKERS_DEV_QUICK_LOGIN_BUILD === "true"
+    ? developmentQuickLoginAccounts()[0]
+    : undefined;
+
 /** Where the screen starts: an SSO hand-back, the local form, or the SSO button. */
 export const signInLoader = async ({ request }: LoaderFunctionArgs): Promise<SignInLoaderData> => {
   const url = new URL(request.url);
@@ -81,8 +91,9 @@ export const signInLoader = async ({ request }: LoaderFunctionArgs): Promise<Sig
     if (!(error instanceof ApiError || error instanceof GatewayUnreachableError)) throw error;
   }
   const back = auth.readSsoReturn(url.search);
+  const sso = ssoEnabled() || !!developmentSsoAccount();
   let state: SignInState =
-    ssoEnabled() || url.searchParams.get("view") === "sso" ? { view: "sso" } : { view: "local" };
+    sso || url.searchParams.get("view") === "sso" ? { view: "sso" } : { view: "local" };
   if (url.searchParams.get("view") === "local") state = { view: "local" };
   if (url.searchParams.get("notice") === "reset") state = { notice: "reset", view: "local" };
   if (back?.kind === "failed") {
@@ -103,7 +114,7 @@ export const signInLoader = async ({ request }: LoaderFunctionArgs): Promise<Sig
     ended: url.searchParams.get("ended") === "1",
     next,
     quickLoginUsers: developmentUsers(),
-    sso: ssoEnabled(),
+    sso,
     state,
   };
 };
@@ -162,6 +173,16 @@ export const signInAction = async ({ request }: ActionFunctionArgs) => {
   }
   const gw = gatewayFor(request);
 
+  // A live dev build simulates SSO with the first dev quick-login account instead of
+  // redirecting, since there's no real identity provider to hand off to. The build flag
+  // comes first so a release build drops this branch.
+  if (import.meta.env.SNEAKERS_DEV_QUICK_LOGIN_BUILD === "true" && intent === "sso") {
+    const account = developmentQuickLoginAccounts()[0];
+    if (account) {
+      log.info("simulating single sign-on", { username: account.username });
+      return passwordStep(gw, account.username, account.password, next);
+    }
+  }
   if (intent === "sso") {
     log.info("starting single sign-on");
     // An absolute URL: single sign-on may leave the app, and React Router leaves those as they are.

@@ -231,6 +231,29 @@ describe("the dev quick login on a live build", () => {
     expect(user.email).toBe("bob@example.org");
   });
 
+  it("simulates SSO with the first dev account instead of redirecting, and shows the button", async () => {
+    turnOn();
+    const loaded = await signInLoader({
+      context: {},
+      params: {},
+      request: appRequest("/sign-in"),
+    } as never);
+    expect(loaded.sso).toBe(true);
+    expect(loaded.state).toEqual({ view: "sso" });
+    const first = await act({ intent: "sso" });
+    expect(first.data).toMatchObject({ identifier: "alice", view: "code" });
+  });
+
+  it("falls back to the real redirect once the build flag or the account list is off", async () => {
+    turnOn();
+    vi.stubEnv("SNEAKERS_DEV_QUICK_LOGIN_BUILD", "false");
+    const noBuild = await catchResponse(act({ intent: "sso" }));
+    expect(noBuild.headers.get("Location")).toMatch(/sso_pending=/);
+    turnOn("[]");
+    const noAccounts = await catchResponse(act({ intent: "sso" }));
+    expect(noAccounts.headers.get("Location")).toMatch(/sso_pending=/);
+  });
+
   it("refuses a user who isn't in the file, and does nothing while it is off", async () => {
     turnOn();
     const unknown = await catchResponse(act({ intent: "dev-quick-login", userId: "mallory" }));

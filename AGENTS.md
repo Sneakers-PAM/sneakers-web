@@ -60,6 +60,18 @@ one pick. It never ships in a release.
   variable names, or if the Dockerfile's `DEV_QUICK_LOGIN` argument defaults to anything but
   `false`. The chart sets none of it.
 
+## Dev SSO
+
+The chart leaves `SSO_ENABLED` off by default, so "Sign in with SSO" never shows on a live
+install until an admin wires up a real identity provider. The same switches as the dev quick
+login (`SNEAKERS_DEV_QUICK_LOGIN_BUILD` at build time, `SNEAKERS_DEV_QUICK_LOGIN` and
+`SNEAKERS_DEV_QUICK_LOGIN_USERS` at run time) also show the button and simulate the hand-back:
+with no real identity provider to redirect to, posting the `sso` intent signs in as the first
+account in the users file instead, through the same password step as a real login. A mock
+build's `ssoStart` already does the equivalent with a fixture user, so this only matters for a
+live build. Nothing new to turn on: the same `check:no-mock` run that proves the dev quick
+login never ships proves this doesn't either (`packages/shell/src/server/signIn.server.ts`).
+
 ## Brand mark
 
 The brand mark is the still `Mark` everywhere it stands for the brand (the sign-in panel, empty
