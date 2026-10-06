@@ -25,6 +25,7 @@ const post = (path: string, fields: Record<string, string>, user = "mock-user-al
   appRequest(path, { body: form(fields), cookie: sessionCookie(user), method: "POST" });
 
 const world = () => mockState.world;
+const CAROL = "mock-user-carol";
 const nowUnix = () => Math.floor(Date.now() / 1000);
 
 describe("the tokens page", () => {
@@ -49,29 +50,57 @@ describe("the tokens page", () => {
 });
 
 describe("the approvals page", () => {
-  it("lists what is waiting, soonest to expire first", async () => {
+  it("lists what the user may decide and their own requests, soonest to expire first", async () => {
     world().secretUses.push({
       ...world().secretUses[0]!,
       expiresAtUnix: nowUnix() + 30,
       id: "mock-use-soon",
       reveal: true,
     });
-    const { uses } = await loadApprovals(get("/approvals"));
-    expect(uses.map((u) => u.id)).toEqual(["mock-use-soon", "mock-use-1"]);
-    expect(uses[1]).toMatchObject({ command: "psql -h db1.example.org -U postgres_admin" });
+    const carol = await loadApprovals(get("/approvals", CAROL));
+    expect(carol.toDecide.map((u) => u.id)).toEqual(["mock-use-soon", "mock-use-1"]);
+    expect(carol.toDecide[1]).toMatchObject({
+      command: "psql -h db1.example.org -U postgres_admin",
+      requestedBy: "Alice",
+    });
+    const alice = await loadApprovals(get("/approvals"));
+    expect(alice.toDecide).toEqual([]);
+    expect(alice.mine.map((u) => u.id)).toEqual(["mock-use-soon", "mock-use-1"]);
   });
 
-  it("approves with the factor from the form", async () => {
+  it("approves someone else's request with the factor from the form", async () => {
     const r = await approvalsAction(
-      post("/approvals", { code: "123456", factor: "totp", id: "mock-use-1", intent: "approve" }),
+      post(
+        "/approvals",
+        { code: "123456", factor: "totp", id: "mock-use-1", intent: "approve" },
+        CAROL,
+      ),
     );
     expect(r).toMatchObject({ intent: "approve", ok: true });
     expect(world().secretUses[0]?.state).toBe("approved");
   });
 
+  it("never approves the user's own request", async () => {
+    const r = await approvalsAction(
+      post("/approvals", { code: "123456", factor: "totp", id: "mock-use-1", intent: "approve" }),
+    );
+    expect(r).toMatchObject({ ok: false, refusal: { reason: "SELF_APPROVAL" } });
+    expect(world().secretUses[0]?.state).toBe("pending");
+  });
+
+  it("withdraws the user's own request", async () => {
+    const r = await approvalsAction(post("/approvals", { id: "mock-use-1", intent: "withdraw" }));
+    expect(r).toMatchObject({ intent: "withdraw", ok: true });
+    expect(world().secretUses[0]?.state).toBe("denied");
+  });
+
   it("keeps the dialog's problem when the factor is wrong", async () => {
     const r = await approvalsAction(
-      post("/approvals", { code: "000000", factor: "totp", id: "mock-use-1", intent: "approve" }),
+      post(
+        "/approvals",
+        { code: "000000", factor: "totp", id: "mock-use-1", intent: "approve" },
+        CAROL,
+      ),
     );
     expect(r).toMatchObject({ factorRejected: true, ok: false });
     expect(r.ok === false && r.message).toBe("Second factor was not accepted.");
@@ -79,7 +108,9 @@ describe("the approvals page", () => {
   });
 
   it("denies without a factor", async () => {
-    const r = await approvalsAction(post("/approvals", { id: "mock-use-1", intent: "deny" }));
+    const r = await approvalsAction(
+      post("/approvals", { id: "mock-use-1", intent: "deny" }, CAROL),
+    );
     expect(r).toMatchObject({ intent: "deny", ok: true });
     expect(world().secretUses[0]?.state).toBe("denied");
   });

@@ -7,11 +7,12 @@ import { useLoaderData, useLocation, useNavigation } from "react-router";
 import { approvalsAction, loadApprovals } from "@/features/agents/agents.server";
 import { AgentTabs } from "@/features/agents/AgentTabs";
 import { ApprovalsTable } from "@/features/agents/ApprovalsTable";
+import { MyRequestsTable } from "@/features/agents/MyRequestsTable";
 import { ListSkeleton, PageFailure } from "@/features/agents/PageStates";
 
 export const loader = ({ request }: LoaderFunctionArgs) => loadApprovals(request);
 
-/** `approve` (with the factor) and `deny` by `id`, plus `factor-email` and `factor-passkey`. */
+/** `approve` (with the factor), `deny` and `withdraw` by `id`, plus `factor-email` and `factor-passkey`. */
 export const action = ({ request }: ActionFunctionArgs) => approvalsAction(request);
 
 export const meta = () => [{ title: "Agent approvals · Sneakers-PAM" }];
@@ -26,11 +27,11 @@ const Header = ({ waiting }: { waiting?: number }) => (
     <PageHeader
       actions={
         waiting ? (
-          <Pill tone="primary">{waiting} waiting · agents pause until you decide</Pill>
+          <Pill tone="primary">{waiting} waiting for you · they pause until you decide</Pill>
         ) : undefined
       }
       eyebrow="Agents & tokens"
-      subtitle="Approve only commands you started. The value goes to that command once and is never shown to the app."
+      subtitle="Requests for secrets you own or approve, and your own requests still waiting. Nobody approves their own request."
       title="Approvals"
     />
   </div>
@@ -38,7 +39,7 @@ const Header = ({ waiting }: { waiting?: number }) => (
 
 /** U-14 agent approvals. */
 const Approvals = () => {
-  const { uses } = useLoaderData<typeof loader>();
+  const { mine, toDecide } = useLoaderData<typeof loader>();
   const location = useLocation();
   const navigation = useNavigation();
   useQuietRefresh(REFRESH_MS);
@@ -49,16 +50,33 @@ const Approvals = () => {
     navigation.location.search === location.search;
   return (
     <div className="flex flex-col gap-6">
-      <Header waiting={uses.length} />
+      <Header waiting={toDecide.length} />
       {reloading ? (
         <ListSkeleton testId={LOADING} />
-      ) : uses.length === 0 ? (
-        <EmptyState
-          body="New requests from your agents appear here and in the header badge."
-          title="Nothing waiting"
-        />
       ) : (
-        <ApprovalsTable uses={uses} />
+        <>
+          <section aria-labelledby="to-decide" className="flex flex-col gap-3">
+            <h2 className="m-0 text-[1.0625rem] font-bold" id="to-decide">
+              Waiting for you to decide
+            </h2>
+            {toDecide.length === 0 ? (
+              <EmptyState
+                body="Requests for secrets you own or approve appear here and in the header badge."
+                title="Nothing waiting"
+              />
+            ) : (
+              <ApprovalsTable uses={toDecide} />
+            )}
+          </section>
+          {mine.length > 0 && (
+            <section aria-labelledby="your-requests" className="flex flex-col gap-3">
+              <h2 className="m-0 text-[1.0625rem] font-bold" id="your-requests">
+                Your requests
+              </h2>
+              <MyRequestsTable uses={mine} />
+            </section>
+          )}
+        </>
       )}
       <span className="text-small text-muted">
         Requests expire after 10 minutes, and the agent is told it was refused.

@@ -31,6 +31,7 @@ const page = (): StubRoute => ({
 
 const gateway = graphql.link(`${MOCK_GATEWAY_URL}/graphql`);
 const nowUnix = () => Math.floor(Date.now() / 1000);
+const CAROL = { user: "mock-user-carol" };
 const secretUse = (id: string) => mockState.world.secretUses.find((u) => u.id === id)!;
 
 const addReveal = () =>
@@ -44,13 +45,14 @@ const addReveal = () =>
   });
 
 describe("U-14 agent approvals", () => {
-  it("lists what agents are waiting on, with the command and a countdown", async () => {
+  it("lists what an owner may decide, with who asked, the command and a countdown", async () => {
     addReveal();
-    renderRoute("/approvals", page());
+    renderRoute("/approvals", page(), CAROL);
     expect(await screen.findByRole("heading", { name: "Approvals" })).toBeInTheDocument();
     const row = screen.getByRole("row", { name: /DB admin/ });
     expect(within(row).getByText("psql -h db1.example.org -U postgres_admin")).toBeInTheDocument();
     expect(within(row).getByText("Build agent on build1")).toBeInTheDocument();
+    expect(within(row).getByText("Alice")).toBeInTheDocument();
     expect(within(row).getByRole("timer")).toBeInTheDocument();
     const reveal = screen.getByRole("row", { name: /Acme VPN/ });
     expect(within(reveal).getByText("Reveal the value to the agent")).toBeInTheDocument();
@@ -62,7 +64,7 @@ describe("U-14 agent approvals", () => {
 
   it("approves with a second factor, refusing a wrong code first", async () => {
     const user = userEvent.setup();
-    renderRoute("/approvals", page());
+    renderRoute("/approvals", page(), CAROL);
     await user.click(await screen.findByRole("button", { name: "Approve use of DB admin" }));
     const dialog = await screen.findByRole("dialog", { name: "Approve use of DB admin?" });
     expect(
@@ -85,27 +87,29 @@ describe("U-14 agent approvals", () => {
   it("warns before a reveal to the agent", async () => {
     addReveal();
     const user = userEvent.setup();
-    renderRoute("/approvals", page());
+    renderRoute("/approvals", page(), CAROL);
     await user.click(await screen.findByRole("button", { name: "Review reveal of Acme VPN" }));
     const dialog = await screen.findByRole("dialog", { name: "Reveal Acme VPN to the agent?" });
-    expect(within(dialog).getByText(/The agent will see this value/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Alice will see this value/)).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Reveal to agent" })).toBeInTheDocument();
   });
 
   it("denies without a factor", async () => {
     const user = userEvent.setup();
-    renderRoute("/approvals", page());
+    renderRoute("/approvals", page(), CAROL);
     await user.click(await screen.findByRole("button", { name: "Deny use of DB admin" }));
-    expect(await screen.findByText("Denied. The agent was told no.")).toBeInTheDocument();
+    expect(await screen.findByText("Denied. The request was refused.")).toBeInTheDocument();
     expect(secretUse("mock-use-1").state).toBe("denied");
   });
 
   it("shows the empty state when nothing is waiting, and drops expired requests", async () => {
     secretUse("mock-use-1").expiresAtUnix = nowUnix() - 1;
-    renderRoute("/approvals", page());
+    renderRoute("/approvals", page(), CAROL);
     expect(await screen.findByText("Nothing waiting")).toBeInTheDocument();
     expect(
-      screen.getByText("New requests from your agents appear here and in the header badge."),
+      screen.getByText(
+        "Requests for secrets you own or approve appear here and in the header badge.",
+      ),
     ).toBeInTheDocument();
   });
 
@@ -118,10 +122,37 @@ describe("U-14 agent approvals", () => {
       ),
     );
     const user = userEvent.setup();
-    renderRoute("/approvals", page());
+    renderRoute("/approvals", page(), CAROL);
     expect(await screen.findByText("Approvals didn't load")).toBeInTheDocument();
     server.resetHandlers();
     await user.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByRole("row", { name: /DB admin/ })).toBeInTheDocument();
+  });
+
+  it("shows the user's own requests apart, waiting for someone else, with Withdraw", async () => {
+    const user = userEvent.setup();
+    renderRoute("/approvals", page());
+    expect(await screen.findByText("Nothing waiting")).toBeInTheDocument();
+    const mine = screen.getByRole("region", { name: "Your requests" });
+    const row = within(mine).getByRole("row", { name: /DB admin/ });
+    expect(within(row).getByText("Waiting for an owner or approver")).toBeInTheDocument();
+    expect(within(mine).queryByRole("button", { name: /Approve/ })).not.toBeInTheDocument();
+    await user.click(within(row).getByRole("button", { name: "Withdraw request for DB admin" }));
+    expect(
+      await screen.findByText("Withdrawn. Nobody needs to decide it now."),
+    ).toBeInTheDocument();
+    expect(secretUse("mock-use-1").state).toBe("denied");
+  });
+
+  it("links a request only its requester can confirm to its run page", async () => {
+    mockState.world.secretUses.push({
+      ...secretUse("mock-use-1"),
+      confirm: true,
+      id: "mock-use-own",
+    });
+    renderRoute("/approvals", page());
+    const mine = await screen.findByRole("region", { name: "Your requests" });
+    const links = within(mine).getAllByRole("link", { name: "Confirm once" });
+    expect(links[0]).toHaveAttribute("href", "/approvals/run/run_mock_build1");
   });
 });

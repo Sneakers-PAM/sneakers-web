@@ -20,7 +20,10 @@ export const agentRefusalMessage = (r: Refusal): string =>
 export const RUN_REFUSAL: Record<SecretUseRefusal, string> = {
   ALREADY_DECIDED: "It was already decided.",
   EXPIRED: "It expired before you decided. The agent can ask again.",
+  NO_APPROVER: "Nobody can approve it. Ask an admin to give the secret an owner.",
   NOT_FOUND: "It no longer exists.",
   NOT_PERMITTED: "It isn't yours to decide.",
+  OTHER_APPROVER: "An owner or approver of the secret decides it, not you.",
+  SELF_APPROVAL: "You asked for it, so an owner or approver of the secret decides it.",
   UNAVAILABLE: "It couldn't be decided just now. Try again.",
 };

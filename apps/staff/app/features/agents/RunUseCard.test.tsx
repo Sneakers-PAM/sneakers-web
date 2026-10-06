@@ -8,6 +8,7 @@ import { RunUseCard } from "@/features/agents/RunUseCard";
 const use = (over: Partial<RunUse> = {}): RunUse => ({
   clientLabel: "Sneakers MCP",
   command: "psql -h db1.example.org -U postgres_admin",
+  confirm: false,
   expiresAt: Date.now() + 5 * 60_000,
   fieldKey: "password",
   id: "use-1",

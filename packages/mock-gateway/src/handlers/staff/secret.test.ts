@@ -1,6 +1,7 @@
 // @vitest-environment node
 import {
   AdminSetFolderRevealStepUpDocument,
+  AgentsDecideUseDocument,
   auth,
   GatewayClient,
   GraphQLRequestError,
@@ -10,6 +11,8 @@ import {
   SecretDetailDocument,
   SecretExportCertificateDocument,
   SecretFieldsDocument,
+  SecretPrepareRevealDocument,
+  SecretRedeemRevealDocument,
   SecretReplaceCertificateDocument,
   SecretRestoreDocument,
   SecretRetireDocument,
@@ -109,6 +112,8 @@ describe("secret detail in the mock gateway", () => {
   it("reveals a checkout secret's values to anyone who can read it, checked out or not", async () => {
     // Read permission is the control; a check-out is a workflow aid the server doesn't enforce.
     const ssh = "mock-secret-build-ssh";
+    // The fixture holds non-owners' reveals of this key for approval; that's tested below.
+    secret(ssh)!.requireTokenApproval = false;
     const alice = await as(ALICE);
     const { revealSecretField: unheld } = await alice.gql(SecretRevealDocument, {
       fieldKey: "passphrase",
@@ -460,5 +465,51 @@ describe("reveal step-up in the mock gateway", () => {
       id: CERT,
     });
     expect(revealSecretField).toBe(secret(CERT)?.fields.privateKey);
+  });
+
+  describe("approval levels", () => {
+    const ssh = "mock-secret-build-ssh";
+
+    it("lets owners reveal an approval-required secret and holds everyone else", async () => {
+      const alice = await as(ALICE);
+      const own = await alice.gql(SecretRevealDocument, { fieldKey: "passphrase", id: ssh });
+      expect(own.revealSecretField).toBe(secret(ssh)?.fields.passphrase);
+      const bob = await as(BOB);
+      const held = await bob
+        .gql(SecretRevealDocument, { fieldKey: "passphrase", id: ssh })
+        .catch((error: unknown) => error as GraphQLRequestError);
+      expect(held).toMatchObject({ code: "FAILED_PRECONDITION", reason: "APPROVAL_REQUIRED" });
+    });
+
+    it("holds an owner's reveal of an always-approve secret too", async () => {
+      secret(ssh)!.alwaysRequireApproval = true;
+      const alice = await as(ALICE);
+      const held = await alice
+        .gql(SecretRevealDocument, { fieldKey: "passphrase", id: ssh })
+        .catch((error: unknown) => error as GraphQLRequestError);
+      expect(held).toMatchObject({ reason: "APPROVAL_REQUIRED" });
+    });
+
+    it("releases a held web reveal once another owner approves it", async () => {
+      const bob = await as(BOB);
+      const { prepareSecretReveal: u } = await bob.gql(SecretPrepareRevealDocument, {
+        fieldKey: "passphrase",
+        runId: "web_mock",
+        secretId: ssh,
+      });
+      expect(u).toMatchObject({ confirm: false, state: "PENDING" });
+      const early = await bob
+        .gql(SecretRedeemRevealDocument, { id: u.id })
+        .catch((error: unknown) => error as GraphQLRequestError);
+      expect(early).toMatchObject({ code: "FAILED_PRECONDITION" });
+      const carol = await as("mock-user-carol");
+      await carol.gql(AgentsDecideUseDocument, {
+        approve: true,
+        factor: { code: "123456", kind: "totp" },
+        id: u.id,
+      });
+      const { redeemSecretReveal } = await bob.gql(SecretRedeemRevealDocument, { id: u.id });
+      expect(redeemSecretReveal).toBe(secret(ssh)?.fields.passphrase);
+    });
   });
 });

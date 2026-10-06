@@ -1,4 +1,5 @@
 import {
+  AgentsConfirmUsesDocument,
   AgentsDecideUsesDocument,
   AgentsUseRunDocument,
   ApiError,
@@ -39,7 +40,7 @@ export type RunProblem = "batch" | "code" | "passkey" | "step-up" | "unavailable
 
 /** What a post on the run page answers. */
 export type RunResult =
-  | { decision: "approve" | "deny"; outcomes: RunOutcome[]; view: "decided" }
+  | { decision: "confirm" | "deny"; outcomes: RunOutcome[]; view: "decided" }
   | { emailState: "sent" | "wait"; view: "prompt" }
   | { passkey: { options: string; webauthnSessionId: string }; view: "prompt" }
   | { problem: RunProblem; view: "prompt" };
@@ -49,6 +50,8 @@ export interface RunUse {
   clientLabel: string;
   /** The exact command, or "" for a reveal to the agent itself. */
   command: string;
+  /** Nobody else can decide it, so the user confirms it once; otherwise someone else decides. */
+  confirm: boolean;
   /** ms */
   expiresAt: number;
   fieldKey: string;
@@ -62,7 +65,7 @@ export interface RunUse {
 
 const field = (form: FormData, key: string): string => String(form.get(key) ?? "").trim();
 
-/** U-14b: every pending use one agent run raised, for one decision. */
+/** U-14b: every pending use of the user's run, to confirm once or to withdraw. */
 export const loadRun = async (request: Request, runId: string): Promise<RunData> => {
   const { gw, user } = await requireUser(request);
   log.debug("run load", { runId });
@@ -72,6 +75,7 @@ export const loadRun = async (request: Request, runId: string): Promise<RunData>
       .map((u) => ({
         clientLabel: u.clientLabel,
         command: u.reveal ? "" : u.argv.join(" "),
+        confirm: u.confirm,
         expiresAt: u.expiresAtUnix * 1000,
         fieldKey: u.fieldKey,
         id: u.id,
@@ -103,24 +107,28 @@ const proofFrom = (form: FormData): null | StepUpProof => {
   return { code: field(form, "code").replaceAll(/\D/g, ""), kind };
 };
 
-const decide = async (
+const settle = async (
   gw: GatewayClient,
   runId: string,
   ids: string[],
-  decision: "approve" | "deny",
+  decision: "confirm" | "deny",
 ): Promise<RunResult> => {
   try {
-    const { decideSecretUses } = await gw.gql(AgentsDecideUsesDocument, {
-      decision: decision === "approve" ? "APPROVE" : "DENY",
-      ids,
-    });
-    const outcomes = decideSecretUses.outcomes.map((o) => ({
+    let raw;
+    if (decision === "confirm") {
+      const r = await gw.gql(AgentsConfirmUsesDocument, { ids });
+      raw = r.confirmSecretUses;
+    } else {
+      const r = await gw.gql(AgentsDecideUsesDocument, { decision: "DENY", ids });
+      raw = r.decideSecretUses;
+    }
+    const outcomes = raw.outcomes.map((o) => ({
       decided: o.decided,
       id: o.id,
       reason: o.reason,
     }));
     const refused = outcomes.filter((o) => !o.decided);
-    log.info("run decided", {
+    log.info("run settled", {
       decided: outcomes.length - refused.length,
       decision,
       reasons: refused.map((o) => o.reason).join(","),
@@ -131,7 +139,7 @@ const decide = async (
   } catch (error) {
     const refusal = refusalOf(error);
     if (refusal?.reason === "STEP_UP_REQUIRED") {
-      log.info("run approval needs the factor", { runId });
+      log.info("run confirmation needs the factor", { runId });
       return { problem: "step-up", view: "prompt" };
     }
     if (refusal?.reason === "BATCH_SIZE_INVALID") {
@@ -147,10 +155,11 @@ const decide = async (
 };
 
 /**
- * `approve` and `deny` the ticked `ids` (comma-separated), plus `factor-email` and
- * `factor-passkey`. An approval with a factor proves it through the session step-up first,
- * which also opens the MFA_MAX_AGE window for a follow-up batch; then the batch is
- * decided without a factor of its own.
+ * `confirm` the ticked `ids` (comma-separated) once, when nobody else can decide them, and
+ * `deny` (withdraw) them, plus `factor-email` and `factor-passkey`. A confirmation with a
+ * factor proves it through the session step-up first, which also opens the MFA_MAX_AGE window
+ * for a follow-up batch; then the batch is confirmed without a factor of its own. The user's
+ * own requests are never approved here: an owner or approver of the secret decides those.
  */
 export const runAction = async (request: Request, runId: string): Promise<RunResult> => {
   const { gw } = await requireUser(request);
@@ -165,7 +174,7 @@ export const runAction = async (request: Request, runId: string): Promise<RunRes
       if (intent === "factor-passkey") {
         return { passkey: await beginStepUpPasskey(gw), view: "prompt" as const };
       }
-      if (intent !== "approve" && intent !== "deny") {
+      if (intent !== "confirm" && intent !== "deny") {
         log.warn("unknown intent", { intent });
         throw new Response("Unknown intent", { status: 400 });
       }
@@ -174,7 +183,7 @@ export const runAction = async (request: Request, runId: string): Promise<RunRes
         .map((s) => s.trim())
         .filter(Boolean);
       if (ids.length === 0) return { problem: "batch" as const, view: "prompt" as const };
-      const proof = intent === "approve" ? proofFrom(form) : null;
+      const proof = intent === "confirm" ? proofFrom(form) : null;
       if (proof) {
         if (proof.kind !== "passkey" && proof.code.length !== 6)
           return { problem: "code" as const, view: "prompt" as const };
@@ -189,7 +198,7 @@ export const runAction = async (request: Request, runId: string): Promise<RunRes
           };
         }
       }
-      return await decide(gw, runId, ids, intent);
+      return await settle(gw, runId, ids, intent);
     } catch (error) {
       if (error instanceof Response) throw error;
       if (error instanceof ApiError && error.status !== 401) {

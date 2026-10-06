@@ -1,4 +1,4 @@
-import { Switch } from "@sneakers-web/ui";
+import { Segmented, Switch } from "@sneakers-web/ui";
 import { type ReactNode, useId } from "react";
 
 import type { SecretPage } from "@/features/secret/secret.server";
@@ -90,31 +90,49 @@ export const AutomationCard = ({ page }: { page: SecretPage }) => {
   );
 };
 
-/** Whether a personal token's reveal needs the owner's approval each time. */
+type ApprovalLevel = "always" | "off" | "required";
+
+const LEVEL_TEXT: Record<ApprovalLevel, string> = {
+  always:
+    "Every reveal or agent use waits for another owner or an approver of this secret, owners' own included. If nobody else can decide, the person confirms the task once with their second factor.",
+  off: "Anyone who can read this secret reveals it, in the web or through their agent, without an approval.",
+  required:
+    "Owners reveal without an approval. Anyone else who can read it, in the web or through their agent, waits until one owner approves.",
+};
+
+/**
+ * The secret's approval level: off, approval-required (owners exempt) or always-approve
+ * (everyone). Nobody approves their own request. Service accounts are never held for
+ * approval.
+ */
 export const AgentAccessCard = ({ page }: { page: SecretPage }) => {
   const fetcher = useSecretFetcher();
-  const pending = fetcher.formData;
-  const required = pending
-    ? pending.get("required") === "true"
-    : !!page.secret.requireTokenApproval;
+  const pending = fetcher.formData?.get("level");
+  const saved: ApprovalLevel = page.secret.alwaysRequireApproval
+    ? "always"
+    : page.secret.requireTokenApproval
+      ? "required"
+      : "off";
+  const level = (typeof pending === "string" ? pending : saved) as ApprovalLevel;
   return (
-    <Panel title="Agent access">
+    <Panel title="Approvals">
       <div className="flex flex-col gap-3 px-6 py-5">
-        <Setting
-          body="A personal token's reveal of a sensitive field waits until you approve it in Approvals. Service accounts are never held for approval: their access rules and the Allow API access to sensitive secrets setting decide what they can reveal."
-          checked={required}
-          disabled={page.secret.retired}
-          onChange={(on) =>
-            void fetcher.submit(
-              { intent: "token-approval", required: String(on) },
-              { method: "post" },
-            )
+        <Segmented
+          label="Approval for reveals"
+          onChange={(next) =>
+            void fetcher.submit({ intent: "token-approval", level: next }, { method: "post" })
           }
-          title="Require my approval for each personal-token reveal"
+          options={[
+            { disabled: page.secret.retired, label: "Off", value: "off" },
+            { disabled: page.secret.retired, label: "Non-owners", value: "required" },
+            { disabled: page.secret.retired, label: "Everyone", value: "always" },
+          ]}
+          value={level}
         />
+        <p className="m-0 text-[0.875rem]">{LEVEL_TEXT[level]}</p>
         <p className="m-0 text-small text-muted">
-          Agents using your token can still ask to use this secret in a command. You approve each
-          one in Approvals.
+          Service accounts are never held for approval: their access rules and the Allow API access
+          to sensitive secrets setting decide what they can reveal.
         </p>
       </div>
     </Panel>

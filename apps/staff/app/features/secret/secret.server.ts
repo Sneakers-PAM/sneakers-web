@@ -13,6 +13,8 @@ import {
   type SecretDetailQuery,
   SecretExportCertificateDocument,
   SecretFieldsDocument,
+  SecretPrepareRevealDocument,
+  SecretRedeemRevealDocument,
   SecretReplaceCertificateDocument,
   SecretRestoreDocument,
   SecretRestoreVersionDocument,
@@ -182,6 +184,16 @@ export interface ExportedFile {
   filename: string;
 }
 
+/** A web reveal waiting for an owner's or approver's decision, or for the user's confirmation. */
+export interface PendingReveal {
+  /** Nobody else can decide it: the user confirms the task once on its run page. */
+  confirm: boolean;
+  /** ms */
+  expiresAt: number;
+  id: string;
+  runId: null | string;
+}
+
 /** What every form on the page gets back. A revealed value only ever travels in here. */
 export type SecretActionResult =
   | {
@@ -193,7 +205,11 @@ export type SecretActionResult =
       file?: ExportedFile;
       intent: string;
       ok: true;
+      /** A reveal the secret's approval level holds: waiting for a decision or a confirmation. */
+      pendingUse?: PendingReveal;
       purpose?: string;
+      /** The held reveal a collect was for. */
+      useId?: string;
       value?: string;
       versionNo?: number;
     }
@@ -203,6 +219,7 @@ export type SecretActionResult =
       ok: false;
       purpose?: string;
       refusal: Refusal;
+      useId?: string;
       versionNo?: number;
     };
 
@@ -293,8 +310,58 @@ const run = async (
     }
     case "reveal": {
       const fieldKey = text(f, "fieldKey");
-      const r = await gw.gql(SecretRevealDocument, { fieldKey, id });
-      return { fieldKey, value: r.revealSecretField };
+      try {
+        const r = await gw.gql(SecretRevealDocument, { fieldKey, id });
+        return { fieldKey, value: r.revealSecretField };
+      } catch (error) {
+        if (refusalOf(error)?.reason !== "APPROVAL_REQUIRED") throw error;
+      }
+      const runId = text(f, "runId") || undefined;
+      const { prepareSecretReveal: u } = await gw.gql(SecretPrepareRevealDocument, {
+        fieldKey,
+        runId,
+        secretId: id,
+      });
+      log.info("secret reveal held for approval", {
+        confirm: u.confirm,
+        secretId: id,
+        state: u.state,
+        useId: u.id,
+      });
+      if (u.state === "APPROVED") {
+        const r = await gw.gql(SecretRedeemRevealDocument, { id: u.id });
+        return { fieldKey, value: r.redeemSecretReveal };
+      }
+      return {
+        fieldKey,
+        pendingUse: {
+          confirm: u.confirm,
+          expiresAt: u.expiresAtUnix * 1000,
+          id: u.id,
+          runId: u.runId ?? null,
+        },
+      };
+    }
+    case "reveal-collect": {
+      const fieldKey = text(f, "fieldKey");
+      const useId = text(f, "useId");
+      try {
+        const r = await gw.gql(SecretRedeemRevealDocument, { id: useId });
+        return { fieldKey, value: r.redeemSecretReveal };
+      } catch (error) {
+        const refusal = refusalOf(error);
+        if (refusal?.code !== "FAILED_PRECONDITION" || !refusal.detail.includes("PENDING"))
+          throw error;
+      }
+      return {
+        fieldKey,
+        pendingUse: {
+          confirm: text(f, "confirm") === "true",
+          expiresAt: Number(text(f, "expiresAt")),
+          id: useId,
+          runId: text(f, "runId") || null,
+        },
+      };
     }
     case "reveal-version": {
       const fieldKey = text(f, "fieldKey");
@@ -307,14 +374,19 @@ const run = async (
       return { done: "Rotation started. The new value is set on the target." };
     }
     case "token-approval": {
+      const level = text(f, "level") || (text(f, "required") === "true" ? "required" : "off");
       const r = await gw.gql(SecretSetTokenApprovalDocument, {
-        required: text(f, "required") === "true",
+        always: level === "always",
+        required: level !== "off",
         secretId: id,
       });
+      const s = r.setSecretTokenApproval;
       return {
-        done: r.setSecretTokenApproval.requireTokenApproval
-          ? "Agent reveals now need your approval."
-          : "Agent reveals no longer need your approval.",
+        done: s.alwaysRequireApproval
+          ? "Every reveal now needs another owner's or an approver's approval, owners' too."
+          : s.requireTokenApproval
+            ? "Reveals by people who aren't owners now need an owner's approval."
+            : "Reveals no longer need approval.",
       };
     }
   }
@@ -350,6 +422,7 @@ export const secretAction = async (request: Request, id: string): Promise<Secret
   const echo = {
     fieldKey: text(f, "fieldKey") || undefined,
     purpose: text(f, "purpose") || undefined,
+    useId: text(f, "useId") || undefined,
     versionNo: f.has("versionNo") ? Number(text(f, "versionNo")) : undefined,
   };
   log.info("secret action", { fieldKey: echo.fieldKey, intent, secretId: id, userId: user.id });

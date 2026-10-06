@@ -1,5 +1,6 @@
 // @vitest-environment node
 import {
+  AgentsConfirmUsesDocument,
   AgentsDecideUsesDocument,
   AgentsUseRunDocument,
   auth,
@@ -18,6 +19,7 @@ withMockGateway();
 
 const ALICE = "mock-user-alice";
 const BOB = "mock-user-bob";
+const CAROL = "mock-user-carol";
 const RUN = "run_mock_build1";
 const TOTP = { code: "123456", kind: "totp" };
 const nowUnix = () => Math.floor(Date.now() / 1000);
@@ -109,7 +111,7 @@ describe("a run's pending uses", () => {
 describe("deciding a batch", () => {
   it("approves inside the session's factor window, one outcome per distinct id in order", async () => {
     raise("mock-use-run-2");
-    const gw = await as(ALICE);
+    const gw = await as(CAROL);
     await stepUp(gw, { code: "123456", kind: "totp" });
     const { decideSecretUses } = await gw.gql(AgentsDecideUsesDocument, {
       decision: "APPROVE",
@@ -125,7 +127,7 @@ describe("deciding a batch", () => {
   });
 
   it("approves with a factor given once instead of a session window", async () => {
-    const gw = await as(ALICE);
+    const gw = await as(CAROL);
     const { decideSecretUses } = await gw.gql(AgentsDecideUsesDocument, {
       decision: "APPROVE",
       factor: TOTP,
@@ -134,9 +136,25 @@ describe("deciding a batch", () => {
     expect(decideSecretUses.outcomes[0]?.decided).toBe(true);
   });
 
+  it("never lets the requester approve their own use, but lets them withdraw it", async () => {
+    const gw = await as(ALICE);
+    const { decideSecretUses } = await gw.gql(AgentsDecideUsesDocument, {
+      decision: "APPROVE",
+      factor: TOTP,
+      ids: ["mock-use-1"],
+    });
+    expect(decideSecretUses.outcomes[0]).toMatchObject({ decided: false, reason: "SELF_APPROVAL" });
+    expect(secretUse("mock-use-1").state).toBe("pending");
+    const withdraw = await gw.gql(AgentsDecideUsesDocument, {
+      decision: "DENY",
+      ids: ["mock-use-1"],
+    });
+    expect(withdraw.decideSecretUses.outcomes[0]?.decided).toBe(true);
+  });
+
   it("refuses an approval outside the window, deciding nothing, and denies without a factor", async () => {
     raise("mock-use-run-2");
-    const gw = await as(ALICE);
+    const gw = await as(CAROL);
     expect(
       await refused(gw.gql(AgentsDecideUsesDocument, { decision: "APPROVE", ids: ["mock-use-1"] })),
     ).toEqual({ code: "FAILED_PRECONDITION", reason: "STEP_UP_REQUIRED" });
@@ -160,7 +178,7 @@ describe("deciding a batch", () => {
   });
 
   it("refuses a window that has closed", async () => {
-    const gw = await as(ALICE);
+    const gw = await as(CAROL);
     await stepUp(gw, { code: "123456", kind: "totp" });
     for (const s of mockState.sessions.values()) {
       if (s.mfaVerifiedAt) s.mfaVerifiedAt -= MOCK_MFA_MAX_AGE_MS + 1000;
@@ -189,22 +207,72 @@ describe("deciding a batch", () => {
 
   it("decides the rest of a mixed batch, with a reason for each refused item", async () => {
     raise("mock-use-expired", { expiresAtUnix: nowUnix() - 1 });
-    raise("mock-use-bob", { ownerUserId: BOB, tokenId: "mock-token-3" });
+    raise("mock-use-payroll", {
+      ownerUserId: BOB,
+      secretId: "mock-secret-payroll",
+      tokenId: "mock-token-3",
+    });
     raise("mock-use-denied", { state: "denied" });
-    const gw = await as(ALICE);
+    const gw = await as(CAROL);
     await stepUp(gw, { code: "123456", kind: "totp" });
     const { decideSecretUses } = await gw.gql(AgentsDecideUsesDocument, {
       decision: "APPROVE",
-      ids: ["mock-use-expired", "mock-use-bob", "mock-use-denied", "mock-use-nope", "mock-use-1"],
+      ids: [
+        "mock-use-expired",
+        "mock-use-payroll",
+        "mock-use-denied",
+        "mock-use-nope",
+        "mock-use-1",
+      ],
     });
     expect(decideSecretUses.outcomes.map((o) => [o.id, o.decided, o.reason])).toEqual([
       ["mock-use-expired", false, "EXPIRED"],
-      ["mock-use-bob", false, "NOT_PERMITTED"],
+      ["mock-use-payroll", false, "NOT_PERMITTED"],
       ["mock-use-denied", false, "ALREADY_DECIDED"],
       ["mock-use-nope", false, "NOT_FOUND"],
       ["mock-use-1", true, null],
     ]);
     expect(decideSecretUses.outcomes[0]?.use).toBeNull();
-    expect(secretUse("mock-use-bob").state).toBe("pending");
+    expect(secretUse("mock-use-payroll").state).toBe("pending");
+  });
+});
+
+describe("confirming a task once", () => {
+  it("confirms the requester's own uses nobody else can decide, with one factor", async () => {
+    raise("mock-use-lab", {
+      confirm: true,
+      secretId: "mock-secret-alice-wifi",
+      secretName: "Lab wifi",
+    });
+    world().secrets.find((x) => x.id === "mock-secret-alice-wifi")!.alwaysRequireApproval = true;
+    const gw = await as(ALICE);
+    const { confirmSecretUses } = await gw.gql(AgentsConfirmUsesDocument, {
+      factor: TOTP,
+      ids: ["mock-use-lab"],
+    });
+    expect(confirmSecretUses.outcomes[0]).toMatchObject({ decided: true, reason: null });
+    expect(secretUse("mock-use-lab").state).toBe("approved");
+    expect(secretUse("mock-use-lab").confirmedAtUnix).toBeGreaterThan(0);
+  });
+
+  it("refuses a confirmation while an owner or approver could decide", async () => {
+    const gw = await as(ALICE);
+    const { confirmSecretUses } = await gw.gql(AgentsConfirmUsesDocument, {
+      factor: TOTP,
+      ids: ["mock-use-1"],
+    });
+    expect(confirmSecretUses.outcomes[0]).toMatchObject({
+      decided: false,
+      reason: "OTHER_APPROVER",
+    });
+    expect(secretUse("mock-use-1").state).toBe("pending");
+  });
+
+  it("needs the factor or the session's window", async () => {
+    const gw = await as(ALICE);
+    expect(await refused(gw.gql(AgentsConfirmUsesDocument, { ids: ["mock-use-1"] }))).toEqual({
+      code: "FAILED_PRECONDITION",
+      reason: "STEP_UP_REQUIRED",
+    });
   });
 });

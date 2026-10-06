@@ -108,6 +108,8 @@ export interface MockRequest {
 }
 
 export interface MockSecret {
+  /** Always-approve: everyone, owners included, needs another owner's or an approver's decision. */
+  alwaysRequireApproval?: boolean;
   expiresAt?: string;
   /** Every field value, sensitive ones included. Screens get sensitive values only by reveal. */
   fields: Record<string, string>;
@@ -147,6 +149,10 @@ export interface MockSecretType {
 export interface MockSecretUse {
   argv: string[];
   clientLabel: string;
+  /** Nobody else can decide it: its requester confirms the task once. */
+  confirm?: boolean;
+  /** When its requester confirmed it (unix seconds). */
+  confirmedAtUnix?: number;
   expiresAtUnix: number;
   fieldKey: string;
   id: string;
@@ -158,7 +164,7 @@ export interface MockSecretUse {
   runId?: string;
   secretId: string;
   secretName: string;
-  state: "approved" | "denied" | "expired" | "pending";
+  state: "approved" | "denied" | "expired" | "pending" | "redeemed";
   /** The personal token that asked, whose name the approval page shows. */
   tokenId?: string;
 }

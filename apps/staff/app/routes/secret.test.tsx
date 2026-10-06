@@ -230,19 +230,37 @@ describe("the secret detail page", () => {
     await vi.waitFor(() =>
       expect(screen.getByRole("switch", { name: "Heartbeat validation" })).not.toBeChecked(),
     );
-    const agent = screen.getByRole("switch", { name: /Require my approval/ });
-    await user.click(agent);
-    expect(await screen.findByText("Agent reveal needs approval")).toBeInTheDocument();
+    const levels = screen.getByRole("radiogroup", { name: "Approval for reveals" });
+    await user.click(within(levels).getByRole("radio", { name: "Non-owners" }));
+    expect(await screen.findByText("Non-owners need approval")).toBeInTheDocument();
+    await user.click(within(levels).getByRole("radio", { name: "Everyone" }));
+    expect(await screen.findByText("Every reveal needs approval")).toBeInTheDocument();
   });
 
-  it("says the approval switch covers personal tokens, not service accounts", async () => {
+  it("explains each approval level, and that service accounts are never held", async () => {
+    const user = userEvent.setup();
     open("mock-secret-db-admin");
-    const agent = await screen.findByRole("switch", {
-      name: "Require my approval for each personal-token reveal",
-    });
-    expect(agent).toHaveAccessibleDescription(
-      /Service accounts are never held for approval.*Allow API access to sensitive secrets/,
+    const levels = await screen.findByRole("radiogroup", { name: "Approval for reveals" });
+    expect(screen.getByText(/Anyone who can read this secret reveals it/)).toBeInTheDocument();
+    expect(screen.getByText(/Service accounts are never held for approval/)).toBeInTheDocument();
+    await user.click(within(levels).getByRole("radio", { name: "Everyone" }));
+    expect(await screen.findByText(/owners' own included/)).toBeInTheDocument();
+  });
+
+  it("holds a non-owner's reveal of an approval-required secret until an owner decides", async () => {
+    const user = userEvent.setup();
+    open("mock-secret-build-ssh", "mock-user-bob");
+    await user.click(await screen.findByRole("button", { name: "Reveal Passphrase" }));
+    const held = await screen.findByText(/Waiting for an owner or approver of this secret/);
+    expect(held).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "See this task's requests" })).toHaveAttribute(
+      "href",
+      expect.stringMatching(/^\/approvals\/run\/web_[0-9a-f]{32}$/),
     );
+    const use = mockState.world.secretUses.find(
+      (u) => u.ownerUserId === "mock-user-bob" && u.reveal,
+    );
+    expect(use).toMatchObject({ confirm: false, state: "pending" });
   });
 
   it("reveals an old version's value to the recovery role after a step-up", async () => {

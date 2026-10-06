@@ -1,17 +1,21 @@
 import { needsStepUp, refusalMessage, StepUpDialog, useStepUp } from "@sneakers-web/shell";
 import { Button, cn, toast } from "@sneakers-web/ui";
-import { Copy, Lock, Play, Square } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { Clock, Copy, Lock, Play, Square } from "lucide-react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router";
 
 import type { SecretType } from "@/features/secret/secret.server";
 
 import { natoWords, partialMask } from "@/features/secret/phonetic";
 import { PhoneticKeypad } from "@/features/secret/PhoneticKeypad";
+import { useRevealRunId } from "@/features/secret/revealRun";
 import { useSecretFetcher } from "@/features/secret/useSecretFetcher";
 
 type FieldDefinition = SecretType["fields"][number];
 
 const MASK = "• • • • • • • • • • • •";
+// How often a held reveal checks whether it was decided.
+const COLLECT_MS = 5000;
 const SPEAK_LEAD_IN_MS = 1000;
 
 /** Where the value comes from: the live field, or one field of an earlier version. */
@@ -70,6 +74,8 @@ export const SensitiveValue = ({
   target: RevealTarget;
 }) => {
   const fetcher = useSecretFetcher({ quiet: true });
+  const collector = useSecretFetcher({ quiet: true });
+  const runId = useRevealRunId();
   const stepUp = useStepUp();
   const speech = useSpeech();
   const [hidden, setHidden] = useState<unknown>(null);
@@ -78,6 +84,18 @@ export const SensitiveValue = ({
   const handled = useRef<unknown>(null);
   const label = target.versionNo ? `${field.label}, version ${target.versionNo}` : field.label;
   const result = fetcher.data;
+  // A reveal the secret's approval level holds, until a collect for it releases or refuses it.
+  const heldUse = result?.ok ? result.pendingUse : undefined;
+  const lastCollect = collector.data;
+  const forHeld = !!heldUse && lastCollect?.useId === heldUse.id;
+  const collected = forHeld && lastCollect?.ok && !lastCollect.pendingUse ? lastCollect : undefined;
+  const collectRefused = forHeld && lastCollect?.ok === false ? lastCollect : undefined;
+  const heldPurpose = result?.purpose === "copy" ? "copy" : "show";
+  const held = useMemo(
+    () =>
+      heldUse && !collected && !collectRefused ? { purpose: heldPurpose, use: heldUse } : null,
+    [collectRefused, collected, heldPurpose, heldUse],
+  );
 
   const send = useCallback(
     (purpose: "copy" | "show") =>
@@ -86,12 +104,34 @@ export const SensitiveValue = ({
           fieldKey: target.fieldKey,
           intent: target.versionNo ? "reveal-version" : "reveal",
           purpose,
+          runId,
           ...(target.versionNo ? { versionNo: String(target.versionNo) } : {}),
         },
         { method: "post" },
       ),
-    [fetcher, target.fieldKey, target.versionNo],
+    [fetcher, runId, target.fieldKey, target.versionNo],
   );
+
+  // A held reveal checks back until it's decided, expires or is collected.
+  useEffect(() => {
+    if (!held) return;
+    const iv = setInterval(() => {
+      if (collector.state !== "idle") return;
+      void collector.submit(
+        {
+          confirm: String(held.use.confirm),
+          expiresAt: String(held.use.expiresAt),
+          fieldKey: target.fieldKey,
+          intent: "reveal-collect",
+          purpose: held.purpose,
+          runId: held.use.runId ?? "",
+          useId: held.use.id,
+        },
+        { method: "post" },
+      );
+    }, COLLECT_MS);
+    return () => clearInterval(iv);
+  }, [collector, held, target.fieldKey]);
 
   const copy = useCallback(
     (value: string) =>
@@ -105,6 +145,7 @@ export const SensitiveValue = ({
   useEffect(() => {
     if (!result || handled.current === result) return;
     handled.current = result;
+    if (result.ok && result.pendingUse) return;
     if (!result.ok) {
       if (needsStepUp(result.refusal))
         stepUp.ask(() => send(result.purpose === "copy" ? "copy" : "show"));
@@ -114,9 +155,16 @@ export const SensitiveValue = ({
     else toast(`${field.label} revealed. This is logged.`);
   }, [copy, field.label, result, send, stepUp]);
 
+  useEffect(() => {
+    if (collected?.purpose === "copy" && collected.value !== undefined) copy(collected.value);
+    else if (collected) toast(`${field.label} revealed. This is logged.`);
+  }, [collected, copy, field.label]);
+  const latest = collected ?? result;
   const value =
-    result?.ok && result.purpose !== "copy" && result !== hidden ? result.value : undefined;
-  const refusal = result && !result.ok && !needsStepUp(result.refusal) ? result.refusal : null;
+    latest?.ok && latest.purpose !== "copy" && latest !== hidden ? latest.value : undefined;
+  const refusal =
+    collectRefused?.refusal ??
+    (result && !result.ok && !needsStepUp(result.refusal) ? result.refusal : null);
   const busy = fetcher.state !== "idle";
   const masked = !!field.superSensitive && !full;
 
@@ -124,7 +172,7 @@ export const SensitiveValue = ({
     speech.stop();
     setPhonetic(false);
     setFull(false);
-    setHidden(result);
+    setHidden(latest);
   };
 
   const box = cn(
@@ -148,6 +196,27 @@ export const SensitiveValue = ({
             </span>
             <b className="ml-auto font-sans text-small text-ink">{locked}</b>
           </div>
+        </div>
+      ) : held ? (
+        <div className="flex flex-col gap-2" role="status">
+          <div className={cn(box, "bg-sunken text-muted")}>
+            <Clock aria-hidden className="size-4 shrink-0" />
+            <span className="font-sans text-[0.875rem] text-ink">
+              {held.use.confirm
+                ? "Nobody else can approve this. Confirm it once with your second factor."
+                : "Waiting for an owner or approver of this secret. Nobody approves their own request."}
+            </span>
+          </div>
+          {held.use.runId && (
+            <Link
+              className="text-small font-bold text-primary hover:text-ink"
+              rel="noreferrer"
+              target="_blank"
+              to={`/approvals/run/${encodeURIComponent(held.use.runId)}`}
+            >
+              {held.use.confirm ? "Confirm this task" : "See this task's requests"}
+            </Link>
+          )}
         </div>
       ) : value === undefined ? (
         <div className="flex flex-wrap items-center gap-2">

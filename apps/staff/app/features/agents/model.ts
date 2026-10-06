@@ -61,15 +61,21 @@ export interface TokenRow {
 
 export type TokenState = "active" | "expired" | "revoked";
 
-/** A use one of the user's tokens is waiting on. */
+/** A pending secret use: someone else's to decide, or one of the user's own. */
 export interface UseRow {
   clientLabel: string;
   /** The command the value goes to, or "" for a reveal to the agent itself. */
   command: string;
+  /** Nobody else can decide it, so its requester confirms it once. */
+  confirm: boolean;
   expiresAt: number;
   fieldKey: string;
   id: string;
+  /** Who asked, by name. */
+  requestedBy: string;
   reveal: boolean;
+  /** The run it belongs to, whose page decides or confirms it with the rest of the task. */
+  runId: null | string;
   secretName: string;
 }
 
