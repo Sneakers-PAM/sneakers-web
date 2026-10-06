@@ -16,6 +16,8 @@ export type BrowseResult =
 
 export type BrowseSecret = BrowseSecretsQuery["secretsInFolder"][number];
 
+export type BrowseSecretType = BrowseSecretsQuery["secretTypes"][number];
+
 export interface OpenFolder {
   access: BrowseFolderAccessQuery["myFolderAccess"];
   folder: NavFolder;
@@ -24,5 +26,5 @@ export interface OpenFolder {
   path: string[];
   /** Null when the user can see the folder exists but can't read it. */
   secrets: BrowseSecret[] | null;
-  types: Record<string, string>;
+  types: Record<string, BrowseSecretType>;
 }

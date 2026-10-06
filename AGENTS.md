@@ -181,6 +181,15 @@ shared is confirmed first, and shared into someone's personal folder is a folder
 secret_move request unless the user is a site admin. The mock's canManage comes from the owners of
 the folder or any folder above it, and read access from ownership, the folder's group or its role.
 
+Each readable row in the browse grid (`features/browse/SecretsTable`) gets quick-copy buttons and
+matching context-menu entries for its type's primary fields (`quickCopy.primaryFieldsOf`: the
+identity field, plus the required sensitive field or the first sensitive field when none is
+required). `useQuickCopy` copies the identity field straight from the secret's own loader data
+(a plain field, never revealed or audited, same as the secret page's `Plain` fields), and the
+sensitive one through the same audited `intent: "reveal", purpose: "copy"` the secret page posts
+to that secret's route, so the vault's step-up and super-sensitive rules still apply without
+opening the secret.
+
 Paths inside an app are base-free (`appPath("sign-in")` is `/sign-in` in both apps). React
 Router adds the `/admin/` basename to links and redirects; a redirect that leaves the app (single
 sign-on) uses an absolute URL.

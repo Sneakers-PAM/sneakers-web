@@ -6,6 +6,8 @@ import { HttpResponse } from "msw";
 import { graphql } from "msw/graphql";
 
 import * as browse from "@/routes/browse";
+import * as stepUpRoute from "@/routes/resources.step-up";
+import * as secret from "@/routes/secret";
 import { renderRoute, type StubRoute } from "@/test/routeStub";
 
 withMockGateway();
@@ -20,6 +22,8 @@ const page = {
 const ROUTES = [
   { ...page, id: "routes/browse", path: "/browse" },
   { ...page, id: "routes/browse-folder", path: "/browse/:folderId" },
+  { action: secret.action, loader: secret.loader, path: "/secret/:id" },
+  { action: stepUpRoute.action, path: "/resources/step-up" },
 ] as StubRoute[];
 
 const open = (url: string, user?: string) => renderRoute(url, ROUTES, { user });
@@ -82,7 +86,11 @@ describe("the browse page", () => {
                 targetId: s.targetId ?? null,
                 typeId: s.typeId,
               })),
-            secretTypes: mockState.world.secretTypes.map(({ id, name }) => ({ id, name })),
+            secretTypes: mockState.world.secretTypes.map(({ fields, id, name }) => ({
+              fields,
+              id,
+              name,
+            })),
           },
         }),
       ),
@@ -164,6 +172,52 @@ describe("the browse page", () => {
     await user.type(screen.getByRole("searchbox", { name: "Filter secrets" }), "report");
     expect(screen.queryByRole("link", { name: "DB admin" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Reporting reader" })).toBeInTheDocument();
+  });
+
+  it("quick-copies a row's username and password straight from the grid, audited", async () => {
+    const user = userEvent.setup();
+    open("/browse/mock-folder-databases");
+    const row = await screen.findByRole("row", { name: /DB admin/ });
+    await user.click(within(row).getByRole("button", { name: "Copy Username for DB admin" }));
+    await vi.waitFor(async () =>
+      expect(await navigator.clipboard.readText()).toBe("postgres_admin"),
+    );
+    await user.click(within(row).getByRole("button", { name: "Copy Password for DB admin" }));
+    await vi.waitFor(async () =>
+      expect(await navigator.clipboard.readText()).toBe("mock-Tongue-Eyelet-91"),
+    );
+  });
+
+  it("offers the same quick copies in the row's context menu", async () => {
+    const user = userEvent.setup();
+    open("/browse/mock-folder-databases");
+    const row = await screen.findByRole("row", { name: /DB admin/ });
+    await user.pointer({ keys: "[MouseRight]", target: row });
+    await user.click(await screen.findByRole("menuitem", { name: "Copy Password" }));
+    await vi.waitFor(async () =>
+      expect(await navigator.clipboard.readText()).toBe("mock-Tongue-Eyelet-91"),
+    );
+  });
+
+  it("asks for a fresh second factor before a quick copy where the folder requires one", async () => {
+    const databases = folder("mock-folder-databases");
+    if (databases) databases.revealStepUp = "require";
+    const user = userEvent.setup();
+    open("/browse/mock-folder-databases");
+    const row = await screen.findByRole("row", { name: /DB admin/ });
+    await user.click(within(row).getByRole("button", { name: "Copy Password for DB admin" }));
+    const dialog = await screen.findByRole("dialog", { name: "Confirm it's you" });
+    expect(dialog).toHaveTextContent("Copying Password needs a fresh second factor.");
+    await user.type(within(dialog).getByLabelText("6-digit code"), "123456");
+    await vi.waitFor(async () =>
+      expect(await navigator.clipboard.readText()).toBe("mock-Tongue-Eyelet-91"),
+    );
+  });
+
+  it("offers no quick copy for a row the user can't read", async () => {
+    open("/browse/mock-folder-databases", "mock-user-bob");
+    const row = await screen.findByRole("row", { name: /Reporting reader/ });
+    expect(within(row).queryByRole("button", { name: /^Copy /i })).toBeNull();
   });
 });
 
