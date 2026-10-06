@@ -52,6 +52,12 @@ describe("U-17 security", () => {
     expect(screen.getByText("Removing your authenticator")).toBeInTheDocument();
   });
 
+  it("fills the shell's content width, like the other full-width pages", async () => {
+    open();
+    const content = await screen.findByTestId("security-content");
+    expect(content).not.toHaveClass("max-w-160");
+  });
+
   it("nudges someone with no second factor to add one", async () => {
     open("mock-user-bob");
     expect(await screen.findByText("No second factor yet")).toBeInTheDocument();

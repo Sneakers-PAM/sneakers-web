@@ -111,7 +111,7 @@ export const SecurityPage = () => {
   const wrong = confirmer.data && !confirmer.data.ok && "wrong" in confirmer.data;
 
   return (
-    <div className="flex max-w-160 flex-col gap-4">
+    <div className="flex flex-col gap-4" data-testid="security-content">
       {!totp && passkeys.length === 0 && (
         <Alert title="No second factor yet" tone="warn">
           Without one, anyone with your password can sign in as you. Set up an authenticator app or

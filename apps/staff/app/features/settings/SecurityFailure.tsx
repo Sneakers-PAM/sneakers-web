@@ -23,7 +23,6 @@ export const SecurityFailure = () => {
         </Button>
       }
       body="The server didn't answer. Your sign-in methods haven't changed; try again in a moment."
-      className="max-w-160"
       loader={false}
       title="Security didn't load"
     />
