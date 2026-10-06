@@ -20,7 +20,7 @@ import { Form, Link, useNavigation } from "react-router";
 
 import type { TargetEditorData } from "@/features/targets/targets.server";
 
-import { KINDS, type TargetDraft } from "@/features/targets/model";
+import { capitalize, hostKindOf, KINDS, type TargetDraft } from "@/features/targets/model";
 
 const listed = (names: string[]) =>
   names.length <= 1
@@ -42,15 +42,25 @@ export const TargetForm = ({
   const set = (patch: Partial<TargetDraft>) => setD((current) => ({ ...current, ...patch }));
   const problems = {
     connectionId: d.connectionId ? undefined : "Pick a connection.",
-    hostname: d.hostname.trim() ? undefined : "Give the hostname or address.",
+    hostname: d.hostname.trim()
+      ? hostKindOf(d.hostname) === "invalid"
+        ? "That doesn't look like a hostname, IPv4 or IPv6 address."
+        : undefined
+      : "Give the hostname or address.",
     name: d.name.trim() ? undefined : "Give the target a name.",
   };
   const blocked = Object.values(problems).some(Boolean);
   const show = tried || !!result;
-  // A kind the editor doesn't offer (set in the admin console) stays as it is.
-  const kinds: { label: string; value: string }[] = KINDS.some((k) => k.value === d.kind)
-    ? [...KINDS]
-    : [...KINDS, { label: d.kind, value: d.kind }];
+  // A kind set elsewhere (the admin console) that this editor doesn't offer: kept pickable for
+  // the life of the form, from the value the editor opened with, not the one currently picked
+  // (which would drop it from the options the moment someone picks something else).
+  const [unknownKind] = useState(() => {
+    const initial = (result?.draft ?? data.draft).kind;
+    return KINDS.some((k) => k.value === initial) ? "" : initial;
+  });
+  const kinds: { label: string; value: string }[] = unknownKind
+    ? [...KINDS, { label: capitalize(unknownKind), value: unknownKind }]
+    : [...KINDS];
 
   return (
     <Form
@@ -97,13 +107,18 @@ export const TargetForm = ({
                 value={d.name}
               />
             </Field>
-            <Field error={show ? problems.hostname : undefined} label="Hostname" required>
+            <Field
+              error={show ? problems.hostname : undefined}
+              hint="A hostname, an IPv4 address or an IPv6 address."
+              label="Host"
+              required
+            >
               <Input
                 autoCapitalize="none"
                 mono
                 name="hostname"
                 onChange={(event) => set({ hostname: event.target.value })}
-                placeholder="e.g. nas.example.org"
+                placeholder="e.g. nas.example.org, 192.0.2.10 or 2001:db8::10"
                 spellCheck={false}
                 value={d.hostname}
               />

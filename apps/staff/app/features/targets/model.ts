@@ -53,3 +53,22 @@ export const KINDS = [
   { label: "Windows host", value: "windows" },
   { label: "Directory domain", value: "active-directory" },
 ] as const;
+
+/** A kind set elsewhere (the admin console's free-text list) shows capitalized, not raw. */
+export const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
+
+const IPV4_OCTET = String.raw`(25[0-5]|2[0-4]\d|1?\d{1,2})`;
+const IPV4_RE = new RegExp(String.raw`^${IPV4_OCTET}(\.${IPV4_OCTET}){3}$`);
+// Loose on purpose: enough to tell an IPv6 literal from a hostname, not a full RFC 5952 check.
+const IPV6_RE = /^([\da-f]{0,4}:){2,7}[\da-f]{0,4}$/i;
+const HOSTNAME_RE = /^(?=.{1,253}$)(?!-)[a-zA-Z\d-]{1,63}(?<!-)(\.(?!-)[a-zA-Z\d-]{1,63}(?<!-))*$/;
+
+/** What the host field's value looks like, for labelling and validation. */
+export type HostKind = "fqdn" | "invalid" | "ipv4" | "ipv6";
+
+export const hostKindOf = (value: string): HostKind => {
+  const v = value.trim();
+  if (v.includes(":")) return IPV6_RE.test(v) ? "ipv6" : "invalid";
+  if (IPV4_RE.test(v)) return "ipv4";
+  return HOSTNAME_RE.test(v) ? "fqdn" : "invalid";
+};

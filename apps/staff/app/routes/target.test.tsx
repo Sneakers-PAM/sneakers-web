@@ -40,7 +40,7 @@ describe("U-11 target editor", () => {
       screen.getByText("Ask an admin to change Corp directory, Edge router or Primary database."),
     ).toBeInTheDocument();
     await user.type(screen.getByLabelText(/^Name/), "Home NAS");
-    await user.type(screen.getByLabelText(/^Hostname/), "nas.example.org");
+    await user.type(screen.getByLabelText(/^Host/), "nas.example.org");
     await user.click(screen.getByRole("radio", { name: "Directory domain" }));
     await user.type(screen.getByLabelText("Domain"), "home.example.org");
     await user.click(screen.getByRole("button", { name: "Create target" }));
@@ -60,6 +60,34 @@ describe("U-11 target editor", () => {
     await user.click(await screen.findByRole("button", { name: "Create target" }));
     expect(screen.getByText("Give the target a name.")).toBeInTheDocument();
     expect(screen.getByText("Give the hostname or address.")).toBeInTheDocument();
+  });
+
+  it("shows an out-of-list kind capitalized and keeps it pickable after switching away", async () => {
+    const user = userEvent.setup();
+    renderRoute("/targets/mock-target-build1", pages());
+    expect(await screen.findByRole("heading", { name: "Build host" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Linux" })).toBeChecked();
+    await user.click(screen.getByRole("radio", { name: "Windows host" }));
+    expect(screen.getByRole("radio", { name: "Linux" })).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "Linux" }));
+    expect(screen.getByRole("radio", { name: "Linux" })).toBeChecked();
+  });
+
+  it("accepts an IPv4 or IPv6 address as well as a hostname, and refuses junk", async () => {
+    const user = userEvent.setup();
+    renderRoute("/targets/new", pages(), { user: BOB });
+    await user.type(await screen.findByLabelText(/^Name/), "Reachable");
+    const host = screen.getByLabelText(/^Host/);
+    await user.type(host, "not a host!!");
+    await user.click(screen.getByRole("button", { name: "Create target" }));
+    expect(
+      screen.getByText("That doesn't look like a hostname, IPv4 or IPv6 address."),
+    ).toBeInTheDocument();
+    await user.clear(host);
+    await user.type(host, "2001:db8::10");
+    expect(
+      screen.queryByText("That doesn't look like a hostname, IPv4 or IPv6 address."),
+    ).not.toBeInTheDocument();
   });
 
   it("edits the user's own target", async () => {
