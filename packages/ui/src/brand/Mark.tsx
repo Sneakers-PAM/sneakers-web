@@ -2,6 +2,13 @@ import { cn } from "#ui/lib/cn";
 
 export const MARK_BODY = "M6 43c0-13 4-25 13-27h8c2 8 9 13 18 14l8 2c5 1 7 5 7 9v2H6z";
 
+/** The three lace strokes, drawn fully in the still mark and traced in on the loader's resting frame. */
+export const LACES: [number, number, number, number][] = [
+  [30, 23, 35, 21],
+  [34, 27, 39, 25],
+  [39, 30, 44, 28],
+];
+
 export interface MarkProps {
   className?: string;
   /** The colour the keyhole shows through to, usually the surface the mark sits on. */
@@ -51,9 +58,9 @@ export const EnvironmentTag = ({ className, env }: { className?: string; env: st
 };
 
 /**
- * The Laces mark: a sneaker in ink on an orange sole, with a keyhole for an eyelet.
- * Small sizes simplify it the way the brand asks: a round hole at 32 px and below,
- * no hole at 16 px.
+ * The Laces mark: a sneaker in ink on an orange sole, with a keyhole and laces for an
+ * eyelet. Small sizes simplify it the way the brand asks: a round hole at 32 px and
+ * below, no hole at 16 px; the laces simplify away with the eyelet, at 32 px and below.
  */
 export const Mark = ({
   className,
@@ -78,6 +85,18 @@ export const Mark = ({
         <>
           <circle cx="19" cy="29" r="4.2" style={{ fill: hole }} />
           <rect height="8" rx="1.2" style={{ fill: hole }} width="3.2" x="17.4" y="30" />
+          {LACES.map(([x1, y1, x2, y2], index) => (
+            <path
+              d={`M${x1} ${y1}L${x2} ${y2}`}
+              key={index}
+              style={{
+                fill: "none",
+                stroke: hole,
+                strokeLinecap: "round",
+                strokeWidth: 2.6,
+              }}
+            />
+          ))}
         </>
       ) : size > 16 ? (
         <circle cx="19" cy="30" r="5" style={{ fill: hole }} />
