@@ -17,12 +17,15 @@ import { Outlet, useLoaderData, useNavigate, useSubmit } from "react-router";
 
 import type { loader } from "@/routes/frame";
 
+import { FolderSidebar } from "@/features/browse/FolderSidebar";
+
 const REFRESH_MS = 30_000;
 
 /** The staff app frame: search, agent approvals, notifications, the admin link and the account menu. */
 export const StaffFrame = () => {
   const {
     counts,
+    folders,
     isAdmin,
     maintenance,
     maintenanceReason,
@@ -98,25 +101,28 @@ export const StaffFrame = () => {
         <HeaderSearch onSearch={(q) => void navigate(`/secrets?q=${encodeURIComponent(q)}`)} />
       }
       sidebar={(collapsed) => (
-        <NavList label="Primary">
-          <NavItem collapsed={collapsed} end icon={<LayoutGrid />} label="Dashboard" to="/" />
-          <NavItem
-            collapsed={collapsed}
-            count={counts.checkouts}
-            icon={<ArrowLeftRight />}
-            label="Checkouts"
-            to="/checkouts"
-          />
-          <NavItem
-            collapsed={collapsed}
-            count={counts.requests}
-            countTone="primary"
-            icon={<Mail />}
-            label="Requests"
-            to="/requests"
-          />
-          <NavItem collapsed={collapsed} icon={<Target />} label="Targets" to="/targets" />
-        </NavList>
+        <>
+          <NavList label="Primary">
+            <NavItem collapsed={collapsed} end icon={<LayoutGrid />} label="Dashboard" to="/" />
+            <NavItem
+              collapsed={collapsed}
+              count={counts.checkouts}
+              icon={<ArrowLeftRight />}
+              label="Checkouts"
+              to="/checkouts"
+            />
+            <NavItem
+              collapsed={collapsed}
+              count={counts.requests}
+              countTone="primary"
+              icon={<Mail />}
+              label="Requests"
+              to="/requests"
+            />
+            <NavItem collapsed={collapsed} icon={<Target />} label="Targets" to="/targets" />
+          </NavList>
+          <FolderSidebar collapsed={collapsed} folders={folders} isAdmin={isAdmin} />
+        </>
       )}
     >
       <Outlet />

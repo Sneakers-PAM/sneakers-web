@@ -16,6 +16,7 @@ import { useBrowseAction } from "@/features/browse/useBrowseAction";
 
 /** D-05 New folder and Rename: one name, posted as `fields` plus `name`. */
 export const NameDialog = ({
+  action,
   description,
   fields,
   initial = "",
@@ -23,6 +24,8 @@ export const NameDialog = ({
   submitLabel,
   title,
 }: {
+  /** Where to post: the frame sidebar targets `/browse` explicitly, off the browse route. */
+  action?: string;
   description: ReactNode;
   fields: Record<string, string>;
   initial?: string;
@@ -31,7 +34,7 @@ export const NameDialog = ({
   title: string;
 }) => {
   const [name, setName] = useState(initial);
-  const { busy, error, submit } = useBrowseAction(onClose);
+  const { busy, error, submit } = useBrowseAction(onClose, action);
   const trimmed = name.trim();
   return (
     <Dialog onOpenChange={(o) => !o && onClose()} open>

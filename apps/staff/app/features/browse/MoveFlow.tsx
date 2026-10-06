@@ -38,11 +38,14 @@ type Step = "pick" | "request" | "share";
  * gate it. The route's action still decides; this only asks the right question first.
  */
 export const MoveFlow = ({
+  action,
   folders,
   isAdmin,
   onClose,
   subject,
 }: {
+  /** Where to post: the frame sidebar targets `/browse` explicitly, off the browse route. */
+  action?: string;
   folders: NavFolder[];
   isAdmin: boolean;
   onClose: () => void;
@@ -51,7 +54,7 @@ export const MoveFlow = ({
   const [step, setStep] = useState<Step>("pick");
   const [destination, setDestination] = useState("");
   const [reason, setReason] = useState("");
-  const { busy, error, submit } = useBrowseAction(onClose);
+  const { busy, error, submit } = useBrowseAction(onClose, action);
 
   const from = subject.kind === "folder" ? subject.folder : subject.from;
   const to = findFolder(folders, destination);
