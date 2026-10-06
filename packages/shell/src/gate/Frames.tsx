@@ -1,4 +1,4 @@
-import { Brand, cn, EnvironmentTag, SneakerLoader } from "@sneakers-web/ui";
+import { Brand, cn, EnvironmentTag, Mark } from "@sneakers-web/ui";
 import { type ReactNode } from "react";
 
 import { EdgeBanner } from "#shell/layout/EdgeBanner";
@@ -50,7 +50,7 @@ export const FrameTitle = ({ body, title }: { body?: ReactNode; title: ReactNode
 };
 
 /**
- * The split sign-in layout: the brand panel with the sneaker loader on the left, the form
+ * The split sign-in layout: the brand panel with the still logo on the left, the form
  * on the right. On a phone the brand panel shrinks to a header.
  */
 export const SignInLayout = ({ children }: { children: ReactNode }) => {
@@ -66,7 +66,7 @@ export const SignInLayout = ({ children }: { children: ReactNode }) => {
           </div>
           <div className="hidden max-w-140 flex-col gap-5.5 desktop:flex">
             <div className="-ml-3">
-              <SneakerLoader hole="var(--color-sunken)" size={300} />
+              <Mark hole="var(--color-sunken)" size={300} />
             </div>
             <p className="m-0 font-display text-[3.5rem] leading-none font-extrabold tracking-[-0.03em] text-balance">
               Tie it once.

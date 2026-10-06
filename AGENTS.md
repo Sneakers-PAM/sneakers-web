@@ -33,6 +33,12 @@ Before changing anything, know two things:
 - `npm run check:no-mock` fails if a live build (`apps/*/build`) contains the mock marker, and
   also if a mock build (`apps/*/build-mock`) lacks it. A live image installs no msw.
 
+## Brand mark
+
+The brand mark is the still `Mark` everywhere it stands for the brand (the sign-in panel, empty
+states, the no-access cards, the setup "all set" screen). The animated `SneakerLoader` is only for
+loading states: the connecting screen and the hand-off after sign-in.
+
 ## Layout
 
 - `apps/<app>/app/`: `root.tsx` (document, root loader, error screen), `routes.ts` (the route
