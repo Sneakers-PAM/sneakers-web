@@ -53,7 +53,7 @@ export const ConnectAgent = ({ mcpUrl }: { mcpUrl: null | string }) => (
         title="Add this server to your MCP client"
       />
       <Step
-        body="The agent opens a consent page. Name the token and confirm with your second factor."
+        body="The agent opens a consent page. Name the token and allow it. You're asked for your second factor only if you signed in more than your step-up window ago."
         n={2}
         title="Allow it in the browser"
       />

@@ -22,8 +22,9 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-const show = (url: string) => {
+const show = (url: string, { freshMfa = false } = {}) => {
   const cookie = sessionCookie("mock-user-alice");
+  if (freshMfa) for (const s of mockState.sessions.values()) s.mfaVerifiedAt = Date.now();
   const Stub = createRoutesStub([
     {
       action: withCookie(cookie, consent.action),
@@ -66,6 +67,37 @@ describe("G-10 agent consent", () => {
       expect.stringMatching(/^http:\/\/127\.0\.0\.1:53682\/callback\?/),
     );
     expect(mockState.world.tokens.at(-1)).toMatchObject({ label: "laptop agent" });
+  });
+
+  it("asks for no second factor right after sign-in", async () => {
+    const user = userEvent.setup();
+    show("/oauth/consent?req=mock-consent-1", { freshMfa: true });
+    await screen.findByRole("heading", { name: "Allow MCP client to use Sneakers-PAM as you?" });
+    expect(screen.queryByLabelText("6-digit code")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Allow" }));
+    expect(await screen.findByText("You can go back to the app")).toBeInTheDocument();
+    expect(assign).toHaveBeenCalledWith(
+      expect.stringMatching(/^http:\/\/127\.0\.0\.1:53682\/callback\?/),
+    );
+  });
+
+  it("shows the factor form when the gateway asks for a step-up", async () => {
+    const user = userEvent.setup();
+    show("/oauth/consent?req=mock-consent-1", { freshMfa: true });
+    await screen.findByRole("heading", { name: "Allow MCP client to use Sneakers-PAM as you?" });
+    // The window ran out between loading the page and answering it.
+    server.use(
+      http.post(
+        `${MOCK_GATEWAY_URL}/oauth2/consent/:id`,
+        () => HttpResponse.json({ error: "step_up_required" }, { status: 403 }),
+        { once: true },
+      ),
+    );
+    await user.click(screen.getByRole("button", { name: "Allow" }));
+    expect(await screen.findByText("Confirm it's you.")).toBeInTheDocument();
+    await user.type(screen.getByLabelText("6-digit code"), "123456");
+    await user.click(screen.getByRole("button", { name: "Allow" }));
+    expect(await screen.findByText("You can go back to the app")).toBeInTheDocument();
   });
 
   it("denies, and the app gets no token", async () => {

@@ -303,6 +303,7 @@ export const agentsHandlers: RequestHandler[] = [
     if (!c) return restRefuse(404, "request_expired");
     return HttpResponse.json({
       clientName: c.clientName,
+      factorRequired: !freshMfa(request),
       redirectHost: new URL(c.redirectUri).host,
     });
   }),
@@ -325,7 +326,10 @@ export const agentsHandlers: RequestHandler[] = [
         redirect: withQuery(c.redirectUri, { error: "access_denied", state: c.state }),
       });
     }
-    if (!factorOk(body.factor)) return restRefuse(401, "invalid_code");
+    // Like the gateway: no factor given means the session's must be within MFA_MAX_AGE.
+    const given = !!body.factor && Object.values(body.factor).some(Boolean);
+    if (!given && !freshMfa(request)) return restRefuse(403, "step_up_required");
+    if (given && !factorOk(body.factor)) return restRefuse(401, "invalid_code");
     agentsState.consents.delete(id);
     // The gateway mints the token when the app swaps the code; the mock has no app, so it mints now.
     const now = nowUnix();

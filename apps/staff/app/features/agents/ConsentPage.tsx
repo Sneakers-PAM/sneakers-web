@@ -14,6 +14,7 @@ const PROBLEMS: Record<Problem, [string, string]> = {
   email: ["We couldn't send the email.", "Try again in a minute, or use your authenticator."],
   expired: ["This request expired.", "Go back to the app and start sign-in again."],
   passkey: ["Passkey didn't work.", "It was cancelled or not recognised."],
+  "step-up": ["Confirm it's you.", "Your sign-in was a while ago. Enter a code to allow this app."],
   unavailable: ["We couldn't check that just now.", "Try again in a moment."],
 };
 
@@ -74,6 +75,8 @@ const ConsentForm = ({ data }: { data: Extract<ConsentData, { view: "form" }> })
   const codeRef = useRef<HTMLInputElement>(null);
   const [label, setLabel] = useState(data.clientName);
   const [factor, setFactor] = useState<"email" | "totp">("totp");
+  // The sign-in factor covers the consent while it's fresh; a step-up answer brings the form back.
+  const [askFactor, setAskFactor] = useState(data.factorRequired);
   const [code, setCode] = useState("");
   // A problem stays shown until the person edits past it; "expired" never clears.
   const [dismissed, setDismissed] = useState<ConsentResult | undefined>();
@@ -92,6 +95,8 @@ const ConsentForm = ({ data }: { data: Extract<ConsentData, { view: "form" }> })
         : answered && d !== dismissed
           ? answered
           : null;
+
+  if (!askFactor && answered === "step-up") setAskFactor(true);
 
   const send = (fields: Record<string, string>) =>
     void fetcher.submit({ label, ...fields }, { action, method: "post" });
@@ -150,14 +155,14 @@ const ConsentForm = ({ data }: { data: Extract<ConsentData, { view: "form" }> })
     );
   }
 
-  const ready = code.length === 6 && problem !== "expired";
+  const ready = (!askFactor || code.length === 6) && problem !== "expired";
   const shown = problem ? PROBLEMS[problem] : null;
   return (
     <form
       className="flex flex-col gap-5"
       onSubmit={(event) => {
         event.preventDefault();
-        if (ready) send({ code, factor, intent: "allow" });
+        if (ready) send(askFactor ? { code, factor, intent: "allow" } : { intent: "allow" });
       }}
     >
       <div className="flex items-center gap-3.5">
@@ -204,42 +209,44 @@ const ConsentForm = ({ data }: { data: Extract<ConsentData, { view: "form" }> })
       <Field hint="Shown in My tokens so you can tell your apps apart." label="Token name">
         <Input onChange={(event) => setLabel(event.target.value)} value={label} />
       </Field>
-      <div className="flex flex-col gap-2">
-        <span className="flex text-[0.875rem] font-bold">
-          {factor === "totp" ? "Authenticator code" : "Email code"}
-          <button
-            className="ml-auto font-bold text-primary hover:text-ink"
-            onClick={() => {
-              const next = factor === "totp" ? "email" : "totp";
-              setFactor(next);
-              setCode("");
+      {askFactor && (
+        <div className="flex flex-col gap-2">
+          <span className="flex text-[0.875rem] font-bold">
+            {factor === "totp" ? "Authenticator code" : "Email code"}
+            <button
+              className="ml-auto font-bold text-primary hover:text-ink"
+              onClick={() => {
+                const next = factor === "totp" ? "email" : "totp";
+                setFactor(next);
+                setCode("");
+                clear();
+                if (next === "email") send({ intent: "email" });
+              }}
+              type="button"
+            >
+              {factor === "totp" ? "Email me a code instead" : "Use authenticator instead"}
+            </button>
+          </span>
+          <CodeInput
+            invalid={problem === "code"}
+            onChange={(next) => {
+              setCode(next);
               clear();
-              if (next === "email") send({ intent: "email" });
             }}
-            type="button"
-          >
-            {factor === "totp" ? "Email me a code instead" : "Use authenticator instead"}
-          </button>
-        </span>
-        <CodeInput
-          invalid={problem === "code"}
-          onChange={(next) => {
-            setCode(next);
-            clear();
-          }}
-          ref={codeRef}
-          value={code}
-        />
-        {client && passkeysSupported() && (
-          <button
-            className="self-start text-small font-bold text-primary hover:text-ink"
-            onClick={() => send({ intent: "passkey-begin" })}
-            type="button"
-          >
-            Use a passkey
-          </button>
-        )}
-      </div>
+            ref={codeRef}
+            value={code}
+          />
+          {client && passkeysSupported() && (
+            <button
+              className="self-start text-small font-bold text-primary hover:text-ink"
+              onClick={() => send({ intent: "passkey-begin" })}
+              type="button"
+            >
+              Use a passkey
+            </button>
+          )}
+        </div>
+      )}
       <div className="mt-1 flex gap-2.5">
         <Button
           block
