@@ -26,6 +26,7 @@ export {
   OfflineScreen,
 } from "#shell/gate/Screens";
 export { AccountMenu, type AccountMenuItem, HeaderButton } from "#shell/layout/AccountMenu";
+export { ApplianceBanners, MaintenanceBanner, McpOffNotice } from "#shell/layout/ApplianceBanners";
 export { AppShell, type AppShellProps } from "#shell/layout/AppShell";
 export { EdgeBanner } from "#shell/layout/EdgeBanner";
 export { HeaderSearch } from "#shell/layout/HeaderSearch";

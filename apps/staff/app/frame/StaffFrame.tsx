@@ -1,5 +1,6 @@
 import {
   AccountMenu,
+  ApplianceBanners,
   AppShell,
   HeaderButton,
   HeaderSearch,
@@ -20,7 +21,16 @@ const REFRESH_MS = 30_000;
 
 /** The staff app frame: search, agent approvals, notifications, the admin link and the account menu. */
 export const StaffFrame = () => {
-  const { counts, isAdmin, mfaSetupRecommended, unread, user } = useLoaderData<typeof loader>();
+  const {
+    counts,
+    isAdmin,
+    maintenance,
+    maintenanceReason,
+    mcpOff,
+    mfaSetupRecommended,
+    unread,
+    user,
+  } = useLoaderData<typeof loader>();
   const { config } = useRootData();
   const navigate = useNavigate();
   const submit = useSubmit();
@@ -73,7 +83,16 @@ export const StaffFrame = () => {
           {isAdmin && !phone && <HeaderButton href={config.adminUrl}>Admin console</HeaderButton>}
         </>
       }
-      banners={<MfaBanner show={mfaSetupRecommended} />}
+      banners={
+        <>
+          <ApplianceBanners
+            maintenance={maintenance}
+            maintenanceReason={maintenanceReason}
+            mcpOff={mcpOff}
+          />
+          <MfaBanner show={mfaSetupRecommended} />
+        </>
+      }
       home="/"
       search={
         <HeaderSearch onSearch={(q) => void navigate(`/secrets?q=${encodeURIComponent(q)}`)} />

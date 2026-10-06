@@ -1,4 +1,5 @@
 import {
+  ApplianceStatusDocument,
   type ComponentStatus,
   type ComponentVersionFieldsFragment,
   DiagnosticsDocument,
@@ -14,7 +15,26 @@ import { graphql } from "msw/graphql";
 
 import { userById } from "#mock/fixtures/users";
 import { authed } from "#mock/handlers/auth";
-import { MOCK_GATEWAY_URL, mockState } from "#mock/state";
+import { MOCK_GATEWAY_URL, mockState, onMockReset } from "#mock/state";
+
+export interface MockAppliance {
+  maintenance: boolean;
+  maintenanceReason: null | string;
+  mcp: null | string;
+}
+
+const applianceDefault = (): MockAppliance => ({
+  maintenance: false,
+  maintenanceReason: null,
+  mcp: null,
+});
+
+/** The appliance's banner fields, as a plain Kubernetes install sees them by default. */
+export const mockAppliance = { current: applianceDefault() };
+
+onMockReset(() => {
+  mockAppliance.current = applianceDefault();
+});
 
 export const api = graphql.link(`${MOCK_GATEWAY_URL}/graphql`);
 
@@ -69,6 +89,10 @@ const mockComponent = (
     : { commit: null, dependencies: null, name, status, version: null };
 
 export const shellHandlers = [
+  api.query(ApplianceStatusDocument, ({ request }) =>
+    asUser(request, () => HttpResponse.json({ data: { appliance: mockAppliance.current } })),
+  ),
+
   api.query(DiagnosticsDocument, ({ request }) =>
     asUser(request, (userId) => {
       const u = userById(userId);

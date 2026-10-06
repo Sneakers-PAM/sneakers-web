@@ -40,6 +40,14 @@ mutation MarkAllNotificationsRead {
   markAllNotificationsRead
 }
 
+query ApplianceStatus {
+  appliance {
+    maintenance
+    maintenanceReason
+    mcp
+  }
+}
+
 query Diagnostics {
   diagnostics {
     generatedAt

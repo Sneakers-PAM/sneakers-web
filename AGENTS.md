@@ -99,6 +99,22 @@ sign-on) uses an absolute URL.
   key reveal prompts. A check-out of a type with a super-sensitive field asks for one while "MFA
   for sensitive checkout" is on (the default).
 
+## Appliance banners
+
+- `ApplianceBanners` (`packages/shell/src/layout/ApplianceBanners.tsx`) is read-only: the
+  maintenance banner and the MCP-off notice, shown by both `StaffFrame` and `AdminFrame` on every
+  page. There's no control here; the appliance's own platform controller flips both switches.
+- The data comes from `frameData` (`packages/shell/src/server/frame.server.ts`), which queries the
+  gateway's `appliance` field (`ApplianceStatusDocument`) alongside the unread count. A query
+  failure (an older gateway, a blip) falls back to both banners off, the same as a plain install.
+- The maintenance banner shows while `appliance.maintenance` is true, with `appliance.
+  maintenanceReason` when the appliance gave one. The MCP notice shows when `appliance.mcp` is
+  `"off"` (it's also `"on"` or `"degraded"`; only off has copy today).
+- The mock gateway answers with `mockAppliance.current` (`packages/mock-gateway/src/handlers/
+  graphql.ts`, re-exported from `@sneakers-web/mock-gateway`), which resets to a plain install
+  (`present: false`, every other field null or false) between tests. Set it before rendering to
+  mock either banner on.
+
 ## Copy diagnostics
 
 - `CopyDiagnostics` (`packages/shell/src/diagnostics/`) copies a support report as plain text
