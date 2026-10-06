@@ -20,7 +20,7 @@ const BOB = "mock-user-bob";
 
 const get = (path: string, user = "mock-user-alice") =>
   appRequest(path, { cookie: sessionCookie(user) });
-const post = (path: string, fields: Record<string, string>, user = "mock-user-alice") =>
+const post = (path: string, fields: Record<string, string | string[]>, user = "mock-user-alice") =>
   appRequest(path, { body: form(fields), cookie: sessionCookie(user), method: "POST" });
 
 const bobsTarget = () =>
@@ -97,7 +97,10 @@ describe("the target editor", () => {
   it("starts a new target on the first connection, and names the shared targets", async () => {
     const d = await loadTargetEditor(get("/targets/new", BOB));
     expect(d.target).toBeNull();
-    expect(d.draft).toMatchObject({ connectionId: "mock-conn-ldaps", name: "" });
+    expect(d.draft).toMatchObject({
+      connections: [{ connectionId: "mock-conn-ldaps", isDefault: true }],
+      name: "",
+    });
     expect(d.connections.map((c) => c.label)).toEqual([
       "LDAPS · ldap · 636",
       "SSH · ssh · 22",
@@ -179,5 +182,52 @@ describe("the target editor", () => {
     expect(r).toMatchObject({
       data: { draft: { name: "Mine now" }, refusal: { code: "PERMISSION_DENIED" } },
     });
+  });
+
+  it("saves a target with more than one connection, one marked default", async () => {
+    const r = await status(
+      saveTargetAction(
+        post(
+          "/targets/new",
+          {
+            connectionId: ["mock-conn-ssh", "mock-conn-ldaps"],
+            defaultConnectionId: "mock-conn-ldaps",
+            hostname: "multi.example.org",
+            name: "Multi host",
+          },
+          BOB,
+        ),
+      ),
+    );
+    expect(r).toBe(302);
+    const saved = mockState.world.targets.at(-1);
+    expect(saved?.connectionId).toBe("mock-conn-ldaps");
+    expect(saved?.connections).toEqual([
+      { connectionId: "mock-conn-ssh", isDefault: false },
+      { connectionId: "mock-conn-ldaps", isDefault: true },
+    ]);
+  });
+
+  it("refuses a target with no connection", async () => {
+    const r = await saveTargetAction(
+      post("/targets/new", { hostname: "nothing.example.org", name: "Nothing" }, BOB),
+    );
+    expect(r).toMatchObject({ data: { refusal: { code: "INVALID_ARGUMENT" } } });
+  });
+
+  it("refuses two connections on the same protocol", async () => {
+    const r = await saveTargetAction(
+      post(
+        "/targets/new",
+        {
+          connectionId: ["mock-conn-ssh", "mock-conn-ssh"],
+          defaultConnectionId: "mock-conn-ssh",
+          hostname: "dup.example.org",
+          name: "Dup",
+        },
+        BOB,
+      ),
+    );
+    expect(r).toMatchObject({ data: { refusal: { code: "INVALID_ARGUMENT" } } });
   });
 });

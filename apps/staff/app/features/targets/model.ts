@@ -2,12 +2,20 @@ import type { Refusal } from "@sneakers-web/shell";
 
 export interface ConnectionChoice {
   label: string;
+  protocol: string;
   value: string;
+}
+
+/** One of a target's connections, as the editor holds it: the connection it binds to, and
+ * whether it's the one a session starts on. */
+export interface ConnectionEntry {
+  connectionId: string;
+  isDefault: boolean;
 }
 
 /** What the target editor (U-11) holds while someone types. */
 export interface TargetDraft {
-  connectionId: string;
+  connections: ConnectionEntry[];
   description: string;
   domain: string;
   hostname: string;
@@ -34,13 +42,32 @@ export type TargetsResult =
   | { intent: string; inUse: boolean; ok: false; refusal: null | Refusal };
 
 export const EMPTY_DRAFT: TargetDraft = {
-  connectionId: "",
+  connections: [],
   description: "",
   domain: "",
   hostname: "",
   kind: "",
   name: "",
   realm: "",
+};
+
+/**
+ * What's wrong with the editor's connection list, or undefined when it's fine: at least one
+ * connection, no two sharing a protocol, and exactly one marked default. Mirrors the vault's own
+ * validation, so a problem shows in the editor instead of coming back as a refusal.
+ */
+export const connectionsProblem = (
+  connections: ConnectionEntry[],
+  choices: ConnectionChoice[],
+): string | undefined => {
+  if (connections.length === 0) return "Add at least one connection.";
+  const protocolOf = new Map(choices.map((c) => [c.value, c.protocol]));
+  const protocols = connections.map((c) => protocolOf.get(c.connectionId));
+  if (new Set(protocols).size !== protocols.length)
+    return "Each connection needs a different protocol.";
+  if (connections.filter((c) => c.isDefault).length !== 1)
+    return "Pick exactly one connection as the default.";
+  return undefined;
 };
 
 /**

@@ -10,7 +10,12 @@ import {
 } from "@sneakers-web/api-client";
 import { HttpResponse } from "msw";
 
-import type { MockConnection, MockSecret, MockTarget } from "#mock/fixtures/world";
+import type {
+  MockConnection,
+  MockSecret,
+  MockTarget,
+  MockTargetConnection,
+} from "#mock/fixtures/world";
 
 import { isSiteAdmin, refusal } from "#mock/admin/refuse";
 import { api, asUser } from "#mock/handlers/graphql";
@@ -37,8 +42,19 @@ const visible = (userId: string, t: MockTarget) =>
 const canEdit = (userId: string, t: MockTarget) =>
   isSiteAdmin(userId) || (!!t.ownerUserId && t.ownerUserId === userId);
 
+/** A target's connections, same as the vault's own migration: its own list when it has one, or
+ * a one-item default list built from the legacy connectionId. */
+const connectionsOf = (t: MockTarget): MockTargetConnection[] =>
+  t.connections && t.connections.length > 0
+    ? t.connections
+    : [{ connectionId: t.connectionId, isDefault: true }];
+
+const defaultConnectionId = (t: MockTarget): string =>
+  connectionsOf(t).find((c) => c.isDefault)?.connectionId ?? t.connectionId;
+
 const targetView = (t: MockTarget) => ({
-  connectionId: t.connectionId,
+  connectionId: defaultConnectionId(t),
+  connections: connectionsOf(t),
   description: t.description ?? null,
   domain: t.domain ?? null,
   hostname: t.hostname,
@@ -50,6 +66,32 @@ const targetView = (t: MockTarget) => ({
   secretCount: world().secrets.filter((s) => s.targetId === t.id && !s.retired).length,
   sshHostKeys: t.sshHostKeys,
 });
+
+/** The save input's connections, normalized from the new list or the legacy single
+ * connectionId; null when neither names a connection (refused). */
+const connectionsFromInput = (input: {
+  connectionId?: null | string;
+  connections?: { connectionId: string; isDefault: boolean }[] | null;
+}): MockTargetConnection[] | null => {
+  if (input.connections && input.connections.length > 0) return input.connections;
+  if (input.connectionId) return [{ connectionId: input.connectionId, isDefault: true }];
+  return null;
+};
+
+/** Why the vault would refuse this connection list, or null when it's fine: every id must
+ * resolve, no two sharing a protocol, exactly one default. */
+const connectionsProblem = (connections: MockTargetConnection[]): never | null => {
+  if (connections.some((c) => !world().connections.some((wc) => wc.id === c.connectionId)))
+    return refusal("NOT_FOUND", "connection not found");
+  const protocols = connections.map(
+    (c) => world().connections.find((wc) => wc.id === c.connectionId)!.protocol,
+  );
+  if (new Set(protocols).size !== protocols.length)
+    return refusal("INVALID_ARGUMENT", "a target can't use the same protocol twice");
+  if (connections.filter((c) => c.isDefault).length !== 1)
+    return refusal("INVALID_ARGUMENT", "exactly one connection must be the default");
+  return null;
+};
 
 const connectionView = (c: MockConnection) => ({
   description: c.description ?? null,
@@ -110,10 +152,11 @@ export const targetsHandlers: RequestHandler[] = [
       const input = variables.input;
       const name = input.name.trim();
       const hostname = input.hostname.trim();
-      if (!name || !hostname || !input.connectionId)
-        return refusal("INVALID_ARGUMENT", "target name, hostname, and connection are required");
-      if (!world().connections.some((c) => c.id === input.connectionId))
-        return refusal("NOT_FOUND", "connection not found");
+      const connections = connectionsFromInput(input);
+      if (!name || !hostname || !connections)
+        return refusal("INVALID_ARGUMENT", "target name, hostname, and a connection are required");
+      const problem = connectionsProblem(connections);
+      if (problem) return problem;
       const admin = isSiteAdmin(userId);
       const existing = input.id ? world().targets.find((t) => t.id === input.id) : undefined;
       if (input.id && !existing) return refusal("NOT_FOUND", "target not found");
@@ -121,7 +164,8 @@ export const targetsHandlers: RequestHandler[] = [
       const pins = input.sshHostKeys ?? existing?.sshHostKeys ?? [];
       if (!admin && !sameList(pins, existing?.sshHostKeys ?? [])) return noPins();
       const saved: MockTarget = {
-        connectionId: input.connectionId,
+        connectionId: connections.find((c) => c.isDefault)!.connectionId,
+        connections,
         description: blank(input.description),
         domain: blank(input.domain),
         hostname,

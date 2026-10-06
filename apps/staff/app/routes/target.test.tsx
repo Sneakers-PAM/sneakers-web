@@ -54,6 +54,37 @@ describe("U-11 target editor", () => {
     });
   });
 
+  it("adds a second connection and saves with the new one marked default", async () => {
+    const user = userEvent.setup();
+    renderRoute("/targets/new", pages(), { user: BOB });
+    await user.type(await screen.findByLabelText(/^Name/), "Multi host");
+    await user.type(screen.getByLabelText(/^Host/), "multi.example.org");
+    await user.click(screen.getByRole("button", { name: "Add connection" }));
+    await user.click(screen.getAllByRole("radio", { name: "Default" })[1]!);
+    await user.click(screen.getByRole("button", { name: "Create target" }));
+    expect(await screen.findByRole("heading", { name: "Targets list" })).toBeInTheDocument();
+    const saved = mockState.world.targets.at(-1);
+    expect(saved?.connections).toHaveLength(2);
+    expect(saved?.connectionId).toBe(saved?.connections?.[1]?.connectionId);
+    expect(saved?.connections).toEqual([
+      { connectionId: expect.any(String), isDefault: false },
+      { connectionId: saved?.connectionId, isDefault: true },
+    ]);
+  });
+
+  it("won't save with every connection removed down to none, then back up", async () => {
+    const user = userEvent.setup();
+    renderRoute("/targets/new", pages(), { user: BOB });
+    await user.type(await screen.findByLabelText(/^Name/), "Reachable");
+    await user.type(screen.getByLabelText(/^Host/), "host.example.org");
+    await user.click(screen.getByRole("button", { name: "Add connection" }));
+    expect(screen.getAllByRole("button", { name: /Remove connection/ })).toHaveLength(2);
+    await user.click(screen.getAllByRole("button", { name: /Remove connection/ })[1]!);
+    expect(screen.queryByRole("button", { name: /Remove connection/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Create target" }));
+    expect(await screen.findByRole("heading", { name: "Targets list" })).toBeInTheDocument();
+  });
+
   it("says what's missing before saving", async () => {
     const user = userEvent.setup();
     renderRoute("/targets/new", pages(), { user: BOB });

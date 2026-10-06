@@ -29,6 +29,9 @@ interface MockAuditRecord {
   sensitive: boolean;
   seq: number;
   subject: string;
+  subjectId: string;
+  subjectKind: string;
+  subjectName: null | string;
   tier: "activity" | "audit";
 }
 
@@ -204,6 +207,27 @@ const nameOf = (id: string) =>
       ? "CI Pipeline"
       : (USERS.find((u) => u.id === id)?.name ?? id);
 
+/** A slug for a synthetic id: lowercase, non-alphanumerics to "-", no leading or trailing one. */
+const slug = (s: string) =>
+  s
+    .toLowerCase()
+    .replaceAll(/[^a-z0-9]+/g, "-")
+    .replaceAll(/^-|-$/g, "");
+
+/**
+ * The subject's kind and id, the way the gateway resolves them from a real subject string: a
+ * user by name, the one service account by name, a folder path by its " / " separator, and
+ * everything else as a secret (every other entry in the trail names one). Every subject here
+ * already reads as a display name, so it doubles as subjectName too.
+ */
+const subjectInfoOf = (subject: string): { id: string; kind: string } => {
+  const user = USERS.find((u) => u.name === subject);
+  if (user) return { id: user.id, kind: "user" };
+  if (subject === "CI Pipeline") return { id: CI, kind: "service_account" };
+  if (subject.includes(" / ")) return { id: `mock-folder-${slug(subject)}`, kind: "folder" };
+  return { id: `mock-secret-${slug(subject)}`, kind: "secret" };
+};
+
 const build = (now = Date.now()): MockAuditRecord[] => {
   const out: MockAuditRecord[] = [];
   let previousHash = "";
@@ -211,6 +235,7 @@ const build = (now = Date.now()): MockAuditRecord[] => {
     index,
     [ago, action, actor, subject, tier, sensitive, attributes],
   ] of ENTRIES.entries()) {
+    const info = subjectInfoOf(subject);
     const draft = {
       action,
       actorName: nameOf(actor),
@@ -222,6 +247,9 @@ const build = (now = Date.now()): MockAuditRecord[] => {
       sensitive: !!sensitive,
       seq: 1180 + index,
       subject,
+      subjectId: info.id,
+      subjectKind: info.kind,
+      subjectName: subject,
       tier,
     };
     const record = { ...draft, hash: fakeHash(body(draft)) };

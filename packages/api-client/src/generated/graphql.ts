@@ -137,8 +137,14 @@ export type StepUpMode = "inherit" | "off" | "require";
 
 export type SubjectKind = "everyone" | "group" | "user";
 
-export type TargetInput = {
+export type TargetConnectionInput = {
   connectionId: string;
+  isDefault: boolean;
+};
+
+export type TargetInput = {
+  connectionId?: string | null | undefined;
+  connections?: Array<TargetConnectionInput> | null | undefined;
   description?: string | null | undefined;
   domain?: string | null | undefined;
   hostname: string;
@@ -182,6 +188,9 @@ export type AuditRecordFieldsFragment = {
   actorUserId: string;
   actorName: string;
   subject: string;
+  subjectKind: string;
+  subjectId: string;
+  subjectName: string | null;
   groupId: string;
   sensitive: boolean;
   occurredAt: string;
@@ -206,6 +215,9 @@ export type AdminAuditQuery = {
     actorUserId: string;
     actorName: string;
     subject: string;
+    subjectKind: string;
+    subjectId: string;
+    subjectName: string | null;
     groupId: string;
     sensitive: boolean;
     occurredAt: string;
@@ -2739,6 +2751,7 @@ export type TargetsTargetFieldsFragment = {
   secretCount: number;
   ownerUserId: string | null;
   sshHostKeys: Array<string>;
+  connections: Array<{ connectionId: string; isDefault: boolean }>;
 };
 
 export type TargetsConnectionFieldsFragment = {
@@ -2764,6 +2777,7 @@ export type TargetsListQuery = {
     secretCount: number;
     ownerUserId: string | null;
     sshHostKeys: Array<string>;
+    connections: Array<{ connectionId: string; isDefault: boolean }>;
   }>;
   connections: Array<{
     id: string;
@@ -2791,6 +2805,7 @@ export type TargetsSaveMutation = {
     secretCount: number;
     ownerUserId: string | null;
     sshHostKeys: Array<string>;
+    connections: Array<{ connectionId: string; isDefault: boolean }>;
   };
 };
 
@@ -2864,6 +2879,9 @@ export const AuditRecordFieldsFragmentDoc = new TypedDocumentString(
   actorUserId
   actorName
   subject
+  subjectKind
+  subjectId
+  subjectName
   groupId
   sensitive
   attributes {
@@ -3369,6 +3387,10 @@ export const TargetsTargetFieldsFragmentDoc = new TypedDocumentString(
   domain
   realm
   connectionId
+  connections {
+    connectionId
+    isDefault
+  }
   description
   secretCount
   ownerUserId
@@ -3422,6 +3444,9 @@ export const AdminAuditDocument = new TypedDocumentString(`
   actorUserId
   actorName
   subject
+  subjectKind
+  subjectId
+  subjectName
   groupId
   sensitive
   attributes {
@@ -5938,6 +5963,10 @@ export const TargetsListDocument = new TypedDocumentString(`
   domain
   realm
   connectionId
+  connections {
+    connectionId
+    isDefault
+  }
   description
   secretCount
   ownerUserId
@@ -5964,6 +5993,10 @@ export const TargetsSaveDocument = new TypedDocumentString(`
   domain
   realm
   connectionId
+  connections {
+    connectionId
+    isDefault
+  }
   description
   secretCount
   ownerUserId

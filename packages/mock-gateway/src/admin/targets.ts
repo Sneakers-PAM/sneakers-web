@@ -133,7 +133,7 @@ export const targetHandlers = [
       const hostname = input.hostname.trim();
       if (!name) return refusal("INVALID_ARGUMENT", "a target needs a name");
       if (!hostname) return refusal("INVALID_ARGUMENT", "a target needs a hostname");
-      if (!world().connections.some((c) => c.id === input.connectionId))
+      if (!input.connectionId || !world().connections.some((c) => c.id === input.connectionId))
         return refusal("INVALID_ARGUMENT", "pick a connection for the target");
       const existing = world().targets.find((t) => t.id === input.id);
       if (input.id && !existing) return refusal("NOT_FOUND", "target not found");
