@@ -51,6 +51,31 @@ describe("the secret detail page", () => {
     expect(within(card("History")).getByText("Active")).toBeInTheDocument();
   });
 
+  it("ellipsizes a long single-line value, with the full value on hover", async () => {
+    open("mock-secret-db-admin");
+    await screen.findByRole("heading", { level: 1, name: /DB admin/ });
+    const value = within(row("Username")).getByTitle("postgres_admin");
+    expect(value).toHaveClass("truncate");
+  });
+
+  it("copies the public key but not the key format", async () => {
+    const user = userEvent.setup();
+    open("mock-secret-build-ssh");
+    await screen.findByRole("heading", { level: 1, name: /Build host deploy key/ });
+    const keyFormat = row("Key Format");
+    expect(within(keyFormat).getByText("OpenSSH")).toBeInTheDocument();
+    expect(within(keyFormat).queryByRole("button", { name: /^Copy/ })).toBeNull();
+
+    const publicKey = row("Public Key");
+    expect(
+      within(publicKey).getByText("ssh-ed25519 mock-public-key-build alice@example.org"),
+    ).toBeInTheDocument();
+    await user.click(within(publicKey).getByRole("button", { name: "Copy Public Key" }));
+    expect(await navigator.clipboard.readText()).toBe(
+      "ssh-ed25519 mock-public-key-build alice@example.org",
+    );
+  });
+
   it("links to the editor and sharing from the Actions menu", async () => {
     const user = userEvent.setup();
     open("mock-secret-db-admin");
@@ -115,6 +140,24 @@ describe("the secret detail page", () => {
     ).toBeInTheDocument();
     await user.click(within(key).getByRole("button", { name: "Show all" }));
     expect(within(key).getByText("mock certificate key, not a real key")).toBeInTheDocument();
+  });
+
+  it("ellipsizes a revealed value, but never gives away a masked one through its title", async () => {
+    const user = userEvent.setup();
+    open("mock-secret-db-admin");
+    await user.click(await screen.findByRole("button", { name: "Reveal Password" }));
+    const password = row("Password");
+    const revealed = await within(password).findByText("mock-Tongue-Eyelet-91");
+    expect(revealed).toHaveClass("truncate");
+    expect(revealed).toHaveAttribute("title", "mock-Tongue-Eyelet-91");
+
+    open("mock-secret-portal-cert");
+    const key = await screen.findByRole("group", { name: "Private key" });
+    await user.click(within(key).getByRole("button", { name: "Reveal Private key" }));
+    const dialog = await screen.findByRole("dialog", { name: "Confirm it's you" });
+    await user.type(within(dialog).getByLabelText("6-digit code"), "123456");
+    const masked = await within(key).findByText("mock•••••••••••••••••••••••••••• key");
+    expect(masked).not.toHaveAttribute("title");
   });
 
   it("shows someone without access that the secret exists, and where to ask for it", async () => {

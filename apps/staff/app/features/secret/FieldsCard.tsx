@@ -11,29 +11,49 @@ type FieldDefinition = SecretType["fields"][number];
 export const isSecretField = (f: Pick<FieldDefinition, "kind" | "sensitive" | "superSensitive">) =>
   f.kind === "password" || !!f.sensitive || !!f.superSensitive;
 
+/** A select (fixed choices) or boolean field is never worth copying; every other plain kind is. */
+export const isCopyablePlainField = (f: Pick<FieldDefinition, "kind">) =>
+  f.kind !== "boolean" && f.kind !== "select";
+
+const CopyFieldButton = ({ label, value }: { label: string; value: string }) => (
+  <Button
+    aria-label={`Copy ${label}`}
+    className="ml-auto shrink-0"
+    onClick={() =>
+      void navigator.clipboard
+        .writeText(value)
+        .then(() => toast(`${label} copied.`))
+        .catch(() => toast.error("Couldn't copy."))
+    }
+    size="sm"
+    variant="secondary"
+  >
+    <Copy aria-hidden />
+    Copy
+  </Button>
+);
+
 const Plain = ({ field, value }: { field: FieldDefinition; value: string | undefined }) => {
   if (value === undefined || value === "") return <span className="text-muted">—</span>;
+  const copyable = isCopyablePlainField(field);
   if (field.kind === "multiline")
-    return <p className="m-0 rounded-md bg-sunken px-4 py-3 whitespace-pre-wrap">{value}</p>;
+    return (
+      <div className="flex items-start gap-3">
+        <p className="m-0 min-w-0 flex-1 rounded-md bg-sunken px-4 py-3 whitespace-pre-wrap">
+          {value}
+        </p>
+        {copyable && <CopyFieldButton label={field.label} value={value} />}
+      </div>
+    );
   if (field.kind === "boolean") return <span>{value === "true" ? "Yes" : "No"}</span>;
   return (
     <div className="flex items-center gap-3">
-      <span className="min-w-0 font-mono text-value break-all">{value}</span>
-      <Button
-        aria-label={`Copy ${field.label}`}
-        className="ml-auto"
-        onClick={() =>
-          void navigator.clipboard
-            .writeText(value)
-            .then(() => toast(`${field.label} copied.`))
-            .catch(() => toast.error("Couldn't copy."))
-        }
-        size="sm"
-        variant="secondary"
-      >
-        <Copy aria-hidden />
-        Copy
-      </Button>
+      {/* Ellipsized so a long single-line value never overflows its box; the title holds the
+          full value on hover, and the copy below always uses the untruncated one. */}
+      <span className="min-w-0 flex-1 truncate font-mono text-value" title={value}>
+        {value}
+      </span>
+      {copyable && <CopyFieldButton label={field.label} value={value} />}
     </div>
   );
 };
