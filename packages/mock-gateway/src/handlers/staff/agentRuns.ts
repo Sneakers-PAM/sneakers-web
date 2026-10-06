@@ -1,4 +1,5 @@
 import {
+  AgentsConfirmUsesDocument,
   AgentsDecideUsesDocument,
   AgentsUseRunDocument,
   type FactorInput,
@@ -10,8 +11,11 @@ import type { MockSecretUse } from "#mock/fixtures/world";
 
 import { refusal } from "#mock/admin/refuse";
 import { WRONG_CODE } from "#mock/fixtures/users";
+import { userById } from "#mock/fixtures/users";
 import { authed } from "#mock/handlers/auth";
 import { api, asUser } from "#mock/handlers/graphql";
+import { secretById } from "#mock/handlers/staff/access";
+import { confirmMode, mayDecide } from "#mock/handlers/staff/approval";
 import { MOCK_MFA_MAX_AGE_MS } from "#mock/handlers/stepUp";
 import { mockState } from "#mock/state";
 
@@ -39,10 +43,12 @@ const requester = (u: MockSecretUse) =>
 const runUseView = (u: MockSecretUse) => ({
   argv: [...u.argv],
   clientLabel: u.clientLabel,
+  confirm: !!u.confirm,
   expiresAtUnix: u.expiresAtUnix,
   fieldKey: u.fieldKey,
   id: u.id,
   purpose: u.purpose ?? "",
+  requestedBy: userById(u.ownerUserId)?.name ?? u.ownerUserId,
   requester: requester(u),
   reveal: u.reveal,
   runId: u.runId ?? null,
@@ -70,7 +76,10 @@ const decideOne = (
 ): { reason: SecretUseRefusal; use?: undefined } | { reason?: undefined; use: MockSecretUse } => {
   const u = world().secretUses.find((x) => x.id === id);
   if (!u) return { reason: "NOT_FOUND" };
-  if (u.ownerUserId !== userId) return { reason: "NOT_PERMITTED" };
+  const own = u.ownerUserId === userId;
+  if (own && approve) return { reason: "SELF_APPROVAL" };
+  const s = secretById(u.secretId);
+  if (!own && !(s && mayDecide(userId, s, u.ownerUserId))) return { reason: "NOT_PERMITTED" };
   if (u.state === "expired") return { reason: "EXPIRED" };
   if (u.state !== "pending") return { reason: "ALREADY_DECIDED" };
   if (approve) {
@@ -80,6 +89,45 @@ const decideOne = (
     u.state = "denied";
   }
   return { use: u };
+};
+
+/** Like the vault's ConfirmSecretUse for one id: the requester's own, when nobody else decides. */
+const confirmOne = (
+  userId: string,
+  id: string,
+): { reason: SecretUseRefusal; use?: undefined } | { reason?: undefined; use: MockSecretUse } => {
+  const u = world().secretUses.find((x) => x.id === id);
+  if (!u) return { reason: "NOT_FOUND" };
+  if (u.ownerUserId !== userId) return { reason: "NOT_PERMITTED" };
+  if (u.state === "expired") return { reason: "EXPIRED" };
+  if (u.state !== "pending") return { reason: "ALREADY_DECIDED" };
+  const s = secretById(u.secretId);
+  const mode = s ? confirmMode(userId, s) : null;
+  if (mode === null) return { reason: "NO_APPROVER" };
+  if (!mode) return { reason: "OTHER_APPROVER" };
+  u.state = "approved";
+  u.confirmedAtUnix = nowUnix();
+  u.expiresAtUnix = nowUnix() + REDEEM_AFTER_APPROVAL_S;
+  return { use: u };
+};
+
+/** The gateway's batch checks: 1 to 20 distinct ids, and a factor or the step-up window. */
+const batchRefusal = (
+  request: Request,
+  ids: string[],
+  factor?: FactorInput | null,
+): never | null => {
+  if (ids.length === 0 || ids.length > MAX_BATCH)
+    return refusal(
+      "INVALID_ARGUMENT",
+      "decide 1 to 20 secret uses at a time",
+      "BATCH_SIZE_INVALID",
+    );
+  if (!factor && freshUntilUnix(request) === 0)
+    return refusal("FAILED_PRECONDITION", "a fresh second factor is required", "STEP_UP_REQUIRED");
+  if (factor && !factorOk(factor))
+    return refusal("UNAUTHENTICATED", "second factor was not accepted", "FACTOR_NOT_ACCEPTED");
+  return null;
 };
 
 /** Mock answers for an agent run's approval page: list the run, then decide a batch of it. */
@@ -132,6 +180,25 @@ export const agentRunsHandlers: RequestHandler[] = [
         decideSecretUses: {
           outcomes: ids.map((id) => {
             const r = decideOne(userId, id, approve);
+            return r.use
+              ? { decided: true, id, reason: null, use: runUseView(r.use) }
+              : { decided: false, id, reason: r.reason, use: null };
+          }),
+        },
+      });
+    }),
+  ),
+
+  api.mutation(AgentsConfirmUsesDocument, ({ request, variables }) =>
+    asUser(request, (userId) => {
+      const ids = [...new Set(variables.ids)];
+      const refused = batchRefusal(request, ids, variables.factor);
+      if (refused) return refused;
+      sweep();
+      return ok({
+        confirmSecretUses: {
+          outcomes: ids.map((id) => {
+            const r = confirmOne(userId, id);
             return r.use
               ? { decided: true, id, reason: null, use: runUseView(r.use) }
               : { decided: false, id, reason: r.reason, use: null };

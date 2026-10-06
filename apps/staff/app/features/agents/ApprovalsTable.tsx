@@ -98,7 +98,8 @@ const Row = ({ u }: { u: UseRow }) => {
         <Command u={u} />
       </TableCell>
       <TableCell className="hidden text-[0.875rem] whitespace-nowrap text-muted desktop:table-cell">
-        {u.clientLabel}
+        {u.requestedBy}
+        <span className="block text-small">{u.clientLabel}</span>
       </TableCell>
       <TableCell>
         {expired ? (
@@ -154,8 +155,8 @@ const Row = ({ u }: { u: UseRow }) => {
           reveal={
             u.reveal ? (
               <>
-                <b>The agent will see this value.</b> It may be kept in the agent&apos;s logs or
-                history. Approve only if you started this.
+                <b>{u.requestedBy} will see this value.</b> It may be kept in their agent&apos;s
+                logs or history. Approve only if you expect this request.
               </>
             ) : undefined
           }
@@ -164,6 +165,7 @@ const Row = ({ u }: { u: UseRow }) => {
             u.reveal
               ? { label: "Goes to", value: "The agent itself" }
               : { label: "Command", mono: true, value: u.command },
+            { label: "Asked by", value: u.requestedBy },
             { label: "From", value: u.clientLabel },
           ]}
           title={
@@ -175,7 +177,10 @@ const Row = ({ u }: { u: UseRow }) => {
   );
 };
 
-/** U-14: what agents are waiting on, with a live countdown, Deny, and Approve behind a factor. */
+/**
+ * U-14: other people's requests the user may decide, as an owner or approver of the secret,
+ * with a live countdown, Deny, and Approve behind a factor.
+ */
 export const ApprovalsTable = ({ uses }: { uses: UseRow[] }) => (
   <Card className="overflow-hidden">
     <Table>
@@ -184,7 +189,7 @@ export const ApprovalsTable = ({ uses }: { uses: UseRow[] }) => (
           <TableHeaderCell>Secret</TableHeaderCell>
           <TableHeaderCell className="hidden tablet:table-cell">Field</TableHeaderCell>
           <TableHeaderCell className="hidden tablet:table-cell">Command</TableHeaderCell>
-          <TableHeaderCell className="hidden desktop:table-cell">From</TableHeaderCell>
+          <TableHeaderCell className="hidden desktop:table-cell">Asked by</TableHeaderCell>
           <TableHeaderCell>Expires</TableHeaderCell>
           <TableHeaderCell>
             <span className="sr-only">Actions</span>

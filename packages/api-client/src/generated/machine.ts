@@ -263,6 +263,7 @@ export type SecretTypeSummary = {
 export type SecretUse = {
   approvalUrl: Scalars["String"]["output"];
   argv: Array<Scalars["String"]["output"]>;
+  confirm: Scalars["Boolean"]["output"];
   expiresAtUnix: Scalars["Int"]["output"];
   fieldKey: Scalars["String"]["output"];
   id: Scalars["ID"]["output"];

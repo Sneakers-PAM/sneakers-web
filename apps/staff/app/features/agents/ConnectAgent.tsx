@@ -58,9 +58,9 @@ export const ConnectAgent = ({ mcpUrl }: { mcpUrl: null | string }) => (
         title="Allow it in the browser"
       />
       <Step
-        body="Requests land in Approvals. For repeated work, add a use grant."
+        body="Secrets you can read just work. For one set to need approval, an owner or approver decides in Approvals, or you confirm the task once when nobody else can."
         n={3}
-        title="Approve each use"
+        title="Use your secrets"
       />
     </ol>
   </Card>

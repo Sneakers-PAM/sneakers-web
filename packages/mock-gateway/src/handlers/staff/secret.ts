@@ -7,6 +7,8 @@ import {
   SecretDetailDocument,
   SecretExportCertificateDocument,
   SecretFieldsDocument,
+  SecretPrepareRevealDocument,
+  SecretRedeemRevealDocument,
   SecretReplaceCertificateDocument,
   SecretRestoreDocument,
   SecretRestoreVersionDocument,
@@ -21,17 +23,35 @@ import {
 import { HttpResponse } from "msw";
 import { createHash } from "node:crypto";
 
-import type { MockFolder, MockSecret, MockSecretType, MockVersion } from "#mock/fixtures/world";
+import type {
+  MockFolder,
+  MockSecret,
+  MockSecretType,
+  MockSecretUse,
+  MockVersion,
+} from "#mock/fixtures/world";
 
 import { refusal } from "#mock/admin/refuse";
 import { userById, WRONG_CODE } from "#mock/fixtures/users";
 import { api, asUser } from "#mock/handlers/graphql";
 import { revealStepUpRequired } from "#mock/handlers/revealStepUp";
 import { activeLease, canApprove, canRead, canSee, secretById } from "#mock/handlers/staff/access";
+import { confirmMode, needsApproval, runConfirmed } from "#mock/handlers/staff/approval";
 import { freshMfa, stepUpRequired } from "#mock/handlers/stepUp";
 import { mockState, onMockReset } from "#mock/state";
 
 const DAY = 86_400_000;
+// The vault's windows: a pending use waits 10 minutes; an approved one is redeemed within one.
+const PENDING_USE_S = 600;
+const REDEEM_AFTER_APPROVAL_S = 60;
+
+/** The vault's refusal of a direct reveal the secret's approval level holds for a decision. */
+const approvalRequired = () =>
+  refusal(
+    "FAILED_PRECONDITION",
+    "this secret needs an owner's or approver's approval for each reveal; prepare a reveal use",
+    "APPROVAL_REQUIRED",
+  );
 const RECOVERY_ROLE = "recovery";
 
 const ok = (data: unknown): never => HttpResponse.json({ data } as never) as never;
@@ -83,6 +103,7 @@ const certMeta = (s: MockSecret): Record<string, string> => {
 };
 
 const view = (s: MockSecret, userId: string) => ({
+  alwaysRequireApproval: !!s.alwaysRequireApproval,
   canRead: canRead(userId, s),
   expiresAt: s.expiresAt ?? null,
   folderId: s.folderId,
@@ -252,6 +273,7 @@ export const secretHandlers: RequestHandler[] = [
       if (!isSensitive(t, variables.fieldKey))
         return refusal("INVALID_ARGUMENT", "field is not sensitive");
       if (!canRead(userId, s)) return noRead("reveal");
+      if (needsApproval(userId, s)) return approvalRequired();
       if (revealStepUpRequired(s.folderId) && !freshMfa(request))
         return HttpResponse.json({ errors: [stepUpRequired()] }) as never;
       const value = s.fields[variables.fieldKey];
@@ -259,6 +281,75 @@ export const secretHandlers: RequestHandler[] = [
       s.viewCount += 1;
       s.lastAccessedAt = new Date().toISOString();
       return ok({ revealSecretField: value });
+    }),
+  ),
+
+  api.mutation(SecretPrepareRevealDocument, ({ request, variables }) =>
+    withSecret(request, variables.secretId, (s, userId) => {
+      if (s.retired) return retired();
+      if (!isSensitive(typeOf(s), variables.fieldKey))
+        return refusal("NOT_FOUND", "secret field not found");
+      if (!canRead(userId, s)) return noRead("reveal");
+      const now = Math.floor(Date.now() / 1000);
+      const needs = needsApproval(userId, s);
+      const mode = needs ? confirmMode(userId, s) : false;
+      if (mode === null)
+        return refusal(
+          "FAILED_PRECONDITION",
+          "nobody can approve this use: the secret has no active owner or approver",
+          "NO_APPROVER",
+        );
+      const u: MockSecretUse = {
+        argv: [],
+        clientLabel: "Sneakers web",
+        confirm: mode,
+        expiresAtUnix: now + PENDING_USE_S,
+        fieldKey: variables.fieldKey,
+        id: `mock-use-web-${world().secretUses.length + 1}`,
+        ownerUserId: userId,
+        reveal: true,
+        runId: variables.runId ?? undefined,
+        secretId: s.id,
+        secretName: s.name,
+        state: "pending",
+      };
+      if (!needs || (mode && runConfirmed(u, now))) {
+        u.state = "approved";
+        u.expiresAtUnix = now + REDEEM_AFTER_APPROVAL_S;
+      }
+      world().secretUses.push(u);
+      return ok({
+        prepareSecretReveal: {
+          confirm: u.confirm,
+          expiresAtUnix: u.expiresAtUnix,
+          id: u.id,
+          runId: u.runId ?? null,
+          state: u.state.toUpperCase(),
+        },
+      });
+    }),
+  ),
+
+  api.mutation(SecretRedeemRevealDocument, ({ request, variables }) =>
+    asUser(request, (userId) => {
+      const u = world().secretUses.find((x) => x.id === variables.id);
+      if (!u || u.ownerUserId !== userId || u.tokenId)
+        return refusal("PERMISSION_DENIED", "only the person that prepared this use can redeem it");
+      if (u.state === "approved" && Math.floor(Date.now() / 1000) >= u.expiresAtUnix)
+        u.state = "expired";
+      if (u.state !== "approved")
+        return refusal(
+          "FAILED_PRECONDITION",
+          `secret use is SECRET_USE_STATE_${u.state.toUpperCase()}`,
+        );
+      const s = secretById(u.secretId);
+      if (!s || !canRead(userId, s)) return noRead("reveal");
+      if (revealStepUpRequired(s.folderId) && !freshMfa(request))
+        return HttpResponse.json({ errors: [stepUpRequired()] }) as never;
+      u.state = "redeemed";
+      s.viewCount += 1;
+      s.lastAccessedAt = new Date().toISOString();
+      return ok({ redeemSecretReveal: s.fields[u.fieldKey] ?? "" });
     }),
   ),
 
@@ -387,6 +478,7 @@ export const secretHandlers: RequestHandler[] = [
     withSecret(request, variables.secretId, (s, userId) => {
       if (!canApprove(userId, s)) return notAllowed("change");
       s.requireTokenApproval = variables.required;
+      s.alwaysRequireApproval = variables.required && !!variables.always;
       return ok({ setSecretTokenApproval: view(s, userId) });
     }),
   ),

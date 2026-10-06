@@ -35,9 +35,9 @@ const TICK_MS = 1000;
 
 const PROBLEMS: Record<Exclude<RunProblem, "step-up">, string> = {
   batch: "Tick between 1 and 20 requests, then try again.",
-  code: "That code didn't work. Nothing was approved.",
+  code: "That code didn't work. Nothing was confirmed.",
   passkey: "The passkey step didn't finish. Try again, or use a code.",
-  unavailable: "We couldn't decide these just now. Try again in a moment.",
+  unavailable: "We couldn't settle these just now. Try again in a moment.",
 };
 
 /** The time now, moving once a second, so expiry and the factor window follow the clock. */
@@ -68,7 +68,7 @@ export const RunFrame = ({ children }: { children: ReactNode }) => {
 };
 
 interface Decided {
-  decision: "approve" | "deny";
+  decision: "confirm" | "deny";
   /** The ids on the page when the batch went, so later arrivals read as new. */
   onPage: Set<string>;
   outcomes: RunOutcome[];
@@ -91,20 +91,20 @@ const Result = ({
 }) => {
   const done = decided.outcomes.filter((o) => o.decided);
   const refused = decided.outcomes.filter((o) => !o.decided);
-  const approve = decided.decision === "approve";
+  const approve = decided.decision === "confirm";
   const fresh = waiting.filter((u) => !decided.onPage.has(u.id));
   return (
     <div className="flex flex-col gap-4">
       <h1 className="m-0 font-display text-[1.5rem] leading-[1.2] font-bold">
-        {approve ? "Done" : "Denied"}
+        {approve ? "Done" : "Withdrawn"}
       </h1>
       {done.length > 0 && (
-        <section aria-label={approve ? "Approved" : "Denied"}>
+        <section aria-label={approve ? "Confirmed" : "Withdrawn"}>
           <Alert
             title={
               approve
-                ? `Approved ${plural(done.length, "request")}`
-                : `Denied ${plural(done.length, "request")}`
+                ? `Confirmed ${plural(done.length, "request")}`
+                : `Withdrew ${plural(done.length, "request")}`
             }
             tone={approve ? "ok" : "info"}
           >
@@ -116,7 +116,7 @@ const Result = ({
             <span className="mt-1.5 block text-muted">
               {approve
                 ? "The agent can now collect these within 60 seconds. Each one is logged."
-                : "The agent was told no."}
+                : "Nobody needs to decide them now. The agent was told no."}
             </span>
           </Alert>
         </section>
@@ -161,7 +161,7 @@ const Header = ({ uses }: { uses: RunUse[] }) => {
   const shared = purposes.length === 1 ? purposes[0] : "";
   return (
     <div className="flex flex-col gap-2.5">
-      <span className="eyebrow">Agent approval</span>
+      <span className="eyebrow">Your requests</span>
       <h1 className="m-0 font-display text-[1.5rem] leading-[1.2] font-bold tracking-[-0.01em]">
         {requesters.join(", ")} is waiting on {plural(uses.length, "request")}
       </h1>
@@ -180,7 +180,11 @@ const Header = ({ uses }: { uses: RunUse[] }) => {
   );
 };
 
-/** U-14b: every pending use one agent run raised, approved or denied together with one factor. */
+/**
+ * U-14b: every pending use of one of the user's runs. Nobody approves their own request: an
+ * owner or approver of the secret decides it, or, when nobody else can, the user confirms the
+ * task once here with one factor. Any of them can be withdrawn.
+ */
 export const RunApproval = ({ data }: { data: RunData }) => {
   useQuietRefresh(REFRESH_MS);
   const now = useNow();
@@ -202,7 +206,10 @@ export const RunApproval = ({ data }: { data: RunData }) => {
 
   const live = (u: RunUse) => u.expiresAt > now;
   const ticked = data.uses.filter((u) => live(u) && !unticked.has(u.id));
+  const confirmable = ticked.filter((u) => u.confirm);
   const n = ticked.length;
+  const nConfirm = confirmable.length;
+  const anyConfirm = data.uses.some((u) => u.confirm);
   const fresh = data.freshUntil > now && data.freshUntil !== closedWindow;
   const busy = fetcher.state !== "idle";
   const result = fetcher.data;
@@ -214,8 +221,8 @@ export const RunApproval = ({ data }: { data: RunData }) => {
     void fetcher.submit(fields, { action, method: "post" });
 
   /** Remember what the batch covers, so the answer can name it and later arrivals read as new. */
-  const snapshot = (): string[] => {
-    const ids = ticked.map((u) => u.id);
+  const snapshot = (only?: RunUse[]): string[] => {
+    const ids = (only ?? ticked).map((u) => u.id);
     submitted.current = {
       ids,
       onPage: new Set(data.uses.map((u) => u.id)),
@@ -224,8 +231,12 @@ export const RunApproval = ({ data }: { data: RunData }) => {
     return ids;
   };
 
-  const decide = (intent: "approve" | "deny", extra: Record<string, string> = {}) =>
-    send({ ids: snapshot().join(","), intent, ...extra });
+  const decide = (intent: "confirm" | "deny", extra: Record<string, string> = {}) =>
+    send({
+      ids: snapshot(intent === "confirm" ? confirmable : ticked).join(","),
+      intent,
+      ...extra,
+    });
 
   useEffect(() => {
     const d = fetcher.data;
@@ -237,7 +248,7 @@ export const RunApproval = ({ data }: { data: RunData }) => {
       setCode("");
       const done = d.outcomes.filter((o) => o.decided).length;
       announce(
-        `${d.decision === "approve" ? "Approved" : "Denied"} ${plural(done, "request")}` +
+        `${d.decision === "confirm" ? "Confirmed" : "Withdrew"} ${plural(done, "request")}` +
           (done < d.outcomes.length ? `, ${d.outcomes.length - done} not decided` : ""),
       );
       return;
@@ -251,7 +262,7 @@ export const RunApproval = ({ data }: { data: RunData }) => {
               credentialJson,
               factor: "passkey",
               ids: ids.join(","),
-              intent: "approve",
+              intent: "confirm",
               webauthnSessionId: d.passkey.webauthnSessionId,
             },
             { action, method: "post" },
@@ -262,7 +273,7 @@ export const RunApproval = ({ data }: { data: RunData }) => {
     }
     if ("problem" in d && d.problem === "step-up") {
       setClosedWindow(data.freshUntil);
-      announce("Your verification ran out. Enter a code to approve.");
+      announce("Your verification ran out. Enter a code to confirm.");
     }
   }, [fetcher, fetcher.data, action, data.freshUntil]);
 
@@ -311,8 +322,8 @@ export const RunApproval = ({ data }: { data: RunData }) => {
     );
   }
 
-  const needsCode = !fresh;
-  const ready = n > 0 && (!needsCode || code.length === 6);
+  const needsCode = !fresh && anyConfirm;
+  const ready = nConfirm > 0 && (!needsCode || code.length === 6);
   const emailState = email.data && "emailState" in email.data ? email.data.emailState : undefined;
   return (
     <RunFrame>
@@ -321,10 +332,20 @@ export const RunApproval = ({ data }: { data: RunData }) => {
         onSubmit={(event) => {
           event.preventDefault();
           if (!ready) return;
-          decide("approve", needsCode ? { code, factor } : {});
+          decide("confirm", needsCode ? { code, factor } : {});
         }}
       >
         <Header uses={data.uses} />
+        {anyConfirm ? (
+          <Alert tone="info">
+            Nobody else can approve these, so you confirm this task once with your second factor.
+          </Alert>
+        ) : (
+          <Alert tone="info">
+            An owner or approver of these secrets decides them. Nobody approves their own request.
+            This page updates when they do.
+          </Alert>
+        )}
         <div className="flex flex-col gap-2.5">
           {data.uses.map((u) => (
             <RunUseCard
@@ -338,68 +359,70 @@ export const RunApproval = ({ data }: { data: RunData }) => {
           ))}
         </div>
         <div className="mt-auto flex flex-col gap-4 border-t border-border pt-4">
-          {needsCode ? (
-            <div className="flex flex-col gap-2">
-              {closedWindow !== null && (
-                <Alert role="status" tone="warn">
-                  Your verification ran out. Enter a code to approve.
-                </Alert>
-              )}
-              <span className="flex flex-wrap items-center gap-2 text-[0.875rem] font-bold">
-                {factor === "totp" ? "Authenticator code" : "Email code"}
-                <button
-                  className="ml-auto font-bold text-primary hover:text-ink"
-                  onClick={() => {
-                    const next = factor === "totp" ? "email" : "totp";
-                    setFactor(next);
-                    setCode("");
-                    clear();
-                    if (next === "email")
-                      void email.submit({ intent: "factor-email" }, { action, method: "post" });
-                  }}
-                  type="button"
-                >
-                  {factor === "totp" ? "Email me a code" : "Use authenticator instead"}
-                </button>
-              </span>
-              {factor === "email" && emailState && (
-                <span className="text-small text-muted">
-                  {emailState === "wait"
-                    ? "A code was sent a moment ago. Wait a little, then ask for another."
-                    : "We emailed you a code. It works for 10 minutes."}
+          {anyConfirm ? (
+            needsCode ? (
+              <div className="flex flex-col gap-2">
+                {closedWindow !== null && (
+                  <Alert role="status" tone="warn">
+                    Your verification ran out. Enter a code to confirm.
+                  </Alert>
+                )}
+                <span className="flex flex-wrap items-center gap-2 text-[0.875rem] font-bold">
+                  {factor === "totp" ? "Authenticator code" : "Email code"}
+                  <button
+                    className="ml-auto font-bold text-primary hover:text-ink"
+                    onClick={() => {
+                      const next = factor === "totp" ? "email" : "totp";
+                      setFactor(next);
+                      setCode("");
+                      clear();
+                      if (next === "email")
+                        void email.submit({ intent: "factor-email" }, { action, method: "post" });
+                    }}
+                    type="button"
+                  >
+                    {factor === "totp" ? "Email me a code" : "Use authenticator instead"}
+                  </button>
                 </span>
-              )}
-              <CodeInput
-                aria-describedby={problem ? "run-problem" : undefined}
-                invalid={problem === "code"}
-                onChange={(next) => {
-                  setCode(next);
-                  clear();
-                }}
-                ref={codeRef}
-                value={code}
-              />
-              {client && passkeysSupported() && (
-                <Button
-                  disabled={n === 0}
-                  onClick={() => {
+                {factor === "email" && emailState && (
+                  <span className="text-small text-muted">
+                    {emailState === "wait"
+                      ? "A code was sent a moment ago. Wait a little, then ask for another."
+                      : "We emailed you a code. It works for 10 minutes."}
+                  </span>
+                )}
+                <CodeInput
+                  aria-describedby={problem ? "run-problem" : undefined}
+                  invalid={problem === "code"}
+                  onChange={(next) => {
+                    setCode(next);
                     clear();
-                    snapshot();
-                    send({ intent: "factor-passkey" });
                   }}
-                  variant="secondary"
-                >
-                  <KeyRound aria-hidden />
-                  Use a passkey
-                </Button>
-              )}
-            </div>
-          ) : (
-            <span className="flex items-center gap-2 text-[0.875rem] text-ok">
-              <ShieldCheck aria-hidden className="size-4" />
-              Verified, good until {clockTime(data.freshUntil)}
-            </span>
-          )}
+                  ref={codeRef}
+                  value={code}
+                />
+                {client && passkeysSupported() && (
+                  <Button
+                    disabled={nConfirm === 0}
+                    onClick={() => {
+                      clear();
+                      snapshot(confirmable);
+                      send({ intent: "factor-passkey" });
+                    }}
+                    variant="secondary"
+                  >
+                    <KeyRound aria-hidden />
+                    Use a passkey
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <span className="flex items-center gap-2 text-[0.875rem] text-ok">
+                <ShieldCheck aria-hidden className="size-4" />
+                Verified, good until {clockTime(data.freshUntil)}
+              </span>
+            )
+          ) : null}
           {problem && (
             <span
               className="text-[0.875rem] leading-[1.3] font-bold text-danger"
@@ -418,18 +441,20 @@ export const RunApproval = ({ data }: { data: RunData }) => {
               size="lg"
               variant="secondary"
             >
-              {n === data.uses.filter((u) => live(u)).length ? "Deny all" : `Deny ${n}`}
+              {n === data.uses.filter((u) => live(u)).length ? "Withdraw all" : `Withdraw ${n}`}
             </Button>
-            <Button
-              className="flex-2"
-              disabled={!ready}
-              loading={busy}
-              loadingLabel="Checking…"
-              size="lg"
-              type="submit"
-            >
-              Approve {plural(n, "request")}
-            </Button>
+            {anyConfirm && (
+              <Button
+                className="flex-2"
+                disabled={!ready}
+                loading={busy}
+                loadingLabel="Checking…"
+                size="lg"
+                type="submit"
+              >
+                Confirm {plural(nConfirm, "request")}
+              </Button>
+            )}
           </div>
         </div>
       </form>

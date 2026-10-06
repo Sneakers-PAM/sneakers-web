@@ -115,7 +115,14 @@ export type SecretTypeInput = {
 export type SecretUseDecision = "APPROVE" | "DENY";
 
 export type SecretUseRefusal =
-  "ALREADY_DECIDED" | "EXPIRED" | "NOT_FOUND" | "NOT_PERMITTED" | "UNAVAILABLE";
+  | "ALREADY_DECIDED"
+  | "EXPIRED"
+  | "NOT_FOUND"
+  | "NOT_PERMITTED"
+  | "NO_APPROVER"
+  | "OTHER_APPROVER"
+  | "SELF_APPROVAL"
+  | "UNAVAILABLE";
 
 export type SecuritySettingsInput = {
   allowApiForSensitive?: boolean | null | undefined;
@@ -1150,6 +1157,9 @@ export type AgentsUseFieldsFragment = {
   state: string;
   expiresAtUnix: number;
   reveal: boolean;
+  runId: string | null;
+  confirm: boolean;
+  requestedBy: string;
 };
 
 export type AgentsGrantFieldsFragment = {
@@ -1199,6 +1209,19 @@ export type AgentsRevokeTokenMutation = {
 export type AgentsPendingUsesQueryVariables = Exact<{ [key: string]: never }>;
 
 export type AgentsPendingUsesQuery = {
+  secretUsesToDecide: Array<{
+    id: string;
+    secretName: string;
+    fieldKey: string;
+    argv: Array<string>;
+    clientLabel: string;
+    state: string;
+    expiresAtUnix: number;
+    reveal: boolean;
+    runId: string | null;
+    confirm: boolean;
+    requestedBy: string;
+  }>;
   pendingSecretUses: Array<{
     id: string;
     secretName: string;
@@ -1208,6 +1231,9 @@ export type AgentsPendingUsesQuery = {
     state: string;
     expiresAtUnix: number;
     reveal: boolean;
+    runId: string | null;
+    confirm: boolean;
+    requestedBy: string;
   }>;
 };
 
@@ -1227,6 +1253,9 @@ export type AgentsDecideUseMutation = {
     state: string;
     expiresAtUnix: number;
     reveal: boolean;
+    runId: string | null;
+    confirm: boolean;
+    requestedBy: string;
   };
 };
 
@@ -1315,7 +1344,6 @@ export type AgentsBeginFactorPasskeyMutation = {
 };
 
 export type AgentsRunUseFieldsFragment = {
-  runId: string | null;
   purpose: string;
   requester: string;
   id: string;
@@ -1326,6 +1354,9 @@ export type AgentsRunUseFieldsFragment = {
   state: string;
   expiresAtUnix: number;
   reveal: boolean;
+  runId: string | null;
+  confirm: boolean;
+  requestedBy: string;
 };
 
 export type AgentsUseRunQueryVariables = Exact<{
@@ -1337,7 +1368,6 @@ export type AgentsUseRunQuery = {
     runId: string;
     mfaFreshUntilUnix: number;
     uses: Array<{
-      runId: string | null;
       purpose: string;
       requester: string;
       id: string;
@@ -1348,6 +1378,9 @@ export type AgentsUseRunQuery = {
       state: string;
       expiresAtUnix: number;
       reveal: boolean;
+      runId: string | null;
+      confirm: boolean;
+      requestedBy: string;
     }>;
   };
 };
@@ -1365,7 +1398,6 @@ export type AgentsDecideUsesMutation = {
       decided: boolean;
       reason: SecretUseRefusal | null;
       use: {
-        runId: string | null;
         purpose: string;
         requester: string;
         id: string;
@@ -1376,6 +1408,39 @@ export type AgentsDecideUsesMutation = {
         state: string;
         expiresAtUnix: number;
         reveal: boolean;
+        runId: string | null;
+        confirm: boolean;
+        requestedBy: string;
+      } | null;
+    }>;
+  };
+};
+
+export type AgentsConfirmUsesMutationVariables = Exact<{
+  ids: Array<string> | string;
+  factor?: FactorInput | null | undefined;
+}>;
+
+export type AgentsConfirmUsesMutation = {
+  confirmSecretUses: {
+    outcomes: Array<{
+      id: string;
+      decided: boolean;
+      reason: SecretUseRefusal | null;
+      use: {
+        purpose: string;
+        requester: string;
+        id: string;
+        secretName: string;
+        fieldKey: string;
+        argv: Array<string>;
+        clientLabel: string;
+        state: string;
+        expiresAtUnix: number;
+        reveal: boolean;
+        runId: string | null;
+        confirm: boolean;
+        requestedBy: string;
       } | null;
     }>;
   };
@@ -1985,6 +2050,7 @@ export type SecretDetailFieldsFragment = {
   rotationOptOut: boolean | null;
   heartbeatOptOut: boolean | null;
   requireTokenApproval: boolean | null;
+  alwaysRequireApproval: boolean | null;
 };
 
 export type SecretCertMetaFieldsFragment = {
@@ -2027,6 +2093,7 @@ export type SecretDetailQuery = {
     rotationOptOut: boolean | null;
     heartbeatOptOut: boolean | null;
     requireTokenApproval: boolean | null;
+    alwaysRequireApproval: boolean | null;
   } | null;
   secretTypes: Array<{
     id: string;
@@ -2093,6 +2160,28 @@ export type SecretRevealMutationVariables = Exact<{
 
 export type SecretRevealMutation = { revealSecretField: string };
 
+export type SecretPrepareRevealMutationVariables = Exact<{
+  secretId: string;
+  fieldKey: string;
+  runId?: string | null | undefined;
+}>;
+
+export type SecretPrepareRevealMutation = {
+  prepareSecretReveal: {
+    id: string;
+    state: string;
+    confirm: boolean;
+    runId: string | null;
+    expiresAtUnix: number;
+  };
+};
+
+export type SecretRedeemRevealMutationVariables = Exact<{
+  id: string;
+}>;
+
+export type SecretRedeemRevealMutation = { redeemSecretReveal: string };
+
 export type SecretRevealVersionMutationVariables = Exact<{
   secretId: string;
   versionNo: number;
@@ -2128,6 +2217,7 @@ export type SecretRestoreVersionMutation = {
     rotationOptOut: boolean | null;
     heartbeatOptOut: boolean | null;
     requireTokenApproval: boolean | null;
+    alwaysRequireApproval: boolean | null;
   };
 };
 
@@ -2173,12 +2263,14 @@ export type SecretSetAutomationMutation = {
     rotationOptOut: boolean | null;
     heartbeatOptOut: boolean | null;
     requireTokenApproval: boolean | null;
+    alwaysRequireApproval: boolean | null;
   };
 };
 
 export type SecretSetTokenApprovalMutationVariables = Exact<{
   secretId: string;
   required: boolean;
+  always?: boolean | null | undefined;
 }>;
 
 export type SecretSetTokenApprovalMutation = {
@@ -2203,6 +2295,7 @@ export type SecretSetTokenApprovalMutation = {
     rotationOptOut: boolean | null;
     heartbeatOptOut: boolean | null;
     requireTokenApproval: boolean | null;
+    alwaysRequireApproval: boolean | null;
   };
 };
 
@@ -2232,6 +2325,7 @@ export type SecretRetireMutation = {
     rotationOptOut: boolean | null;
     heartbeatOptOut: boolean | null;
     requireTokenApproval: boolean | null;
+    alwaysRequireApproval: boolean | null;
   };
 };
 
@@ -2261,6 +2355,7 @@ export type SecretRestoreMutation = {
     rotationOptOut: boolean | null;
     heartbeatOptOut: boolean | null;
     requireTokenApproval: boolean | null;
+    alwaysRequireApproval: boolean | null;
   };
 };
 
@@ -2311,6 +2406,7 @@ export type SecretReplaceCertificateMutation = {
       rotationOptOut: boolean | null;
       heartbeatOptOut: boolean | null;
       requireTokenApproval: boolean | null;
+      alwaysRequireApproval: boolean | null;
     } | null;
     meta: {
       subject: string;
@@ -2926,6 +3022,9 @@ export const AgentsUseFieldsFragmentDoc = new TypedDocumentString(
   state
   expiresAtUnix
   reveal
+  runId
+  confirm
+  requestedBy
 }
     `,
   { fragmentName: "AgentsUseFields" },
@@ -2934,7 +3033,6 @@ export const AgentsRunUseFieldsFragmentDoc = new TypedDocumentString(
   `
     fragment AgentsRunUseFields on SecretUse {
   ...AgentsUseFields
-  runId
   purpose
   requester
 }
@@ -2947,6 +3045,9 @@ export const AgentsRunUseFieldsFragmentDoc = new TypedDocumentString(
   state
   expiresAtUnix
   reveal
+  runId
+  confirm
+  requestedBy
 }`,
   { fragmentName: "AgentsRunUseFields" },
 ) as unknown as TypedDocumentString<AgentsRunUseFieldsFragment, unknown>;
@@ -3092,6 +3193,7 @@ export const SecretDetailFieldsFragmentDoc = new TypedDocumentString(
   rotationOptOut
   heartbeatOptOut
   requireTokenApproval
+  alwaysRequireApproval
 }
     `,
   { fragmentName: "SecretDetailFields" },
@@ -4215,6 +4317,9 @@ export const AgentsRevokeTokenDocument = new TypedDocumentString(`
 >;
 export const AgentsPendingUsesDocument = new TypedDocumentString(`
     query AgentsPendingUses {
+  secretUsesToDecide {
+    ...AgentsUseFields
+  }
   pendingSecretUses {
     ...AgentsUseFields
   }
@@ -4228,6 +4333,9 @@ export const AgentsPendingUsesDocument = new TypedDocumentString(`
   state
   expiresAtUnix
   reveal
+  runId
+  confirm
+  requestedBy
 }`) as unknown as TypedDocumentString<AgentsPendingUsesQuery, AgentsPendingUsesQueryVariables>;
 export const AgentsDecideUseDocument = new TypedDocumentString(`
     mutation AgentsDecideUse($id: ID!, $approve: Boolean!, $factor: FactorInput) {
@@ -4244,6 +4352,9 @@ export const AgentsDecideUseDocument = new TypedDocumentString(`
   state
   expiresAtUnix
   reveal
+  runId
+  confirm
+  requestedBy
 }`) as unknown as TypedDocumentString<AgentsDecideUseMutation, AgentsDecideUseMutationVariables>;
 export const AgentsGrantsDocument = new TypedDocumentString(`
     query AgentsGrants {
@@ -4386,10 +4497,12 @@ export const AgentsUseRunDocument = new TypedDocumentString(`
   state
   expiresAtUnix
   reveal
+  runId
+  confirm
+  requestedBy
 }
 fragment AgentsRunUseFields on SecretUse {
   ...AgentsUseFields
-  runId
   purpose
   requester
 }`) as unknown as TypedDocumentString<AgentsUseRunQuery, AgentsUseRunQueryVariables>;
@@ -4415,13 +4528,49 @@ export const AgentsDecideUsesDocument = new TypedDocumentString(`
   state
   expiresAtUnix
   reveal
+  runId
+  confirm
+  requestedBy
 }
 fragment AgentsRunUseFields on SecretUse {
   ...AgentsUseFields
-  runId
   purpose
   requester
 }`) as unknown as TypedDocumentString<AgentsDecideUsesMutation, AgentsDecideUsesMutationVariables>;
+export const AgentsConfirmUsesDocument = new TypedDocumentString(`
+    mutation AgentsConfirmUses($ids: [ID!]!, $factor: FactorInput) {
+  confirmSecretUses(ids: $ids, factor: $factor) {
+    outcomes {
+      id
+      decided
+      reason
+      use {
+        ...AgentsRunUseFields
+      }
+    }
+  }
+}
+    fragment AgentsUseFields on SecretUse {
+  id
+  secretName
+  fieldKey
+  argv
+  clientLabel
+  state
+  expiresAtUnix
+  reveal
+  runId
+  confirm
+  requestedBy
+}
+fragment AgentsRunUseFields on SecretUse {
+  ...AgentsUseFields
+  purpose
+  requester
+}`) as unknown as TypedDocumentString<
+  AgentsConfirmUsesMutation,
+  AgentsConfirmUsesMutationVariables
+>;
 export const BrowseFoldersDocument = new TypedDocumentString(`
     query BrowseFolders {
   folders {
@@ -5070,6 +5219,7 @@ export const SecretDetailDocument = new TypedDocumentString(`
   rotationOptOut
   heartbeatOptOut
   requireTokenApproval
+  alwaysRequireApproval
 }`) as unknown as TypedDocumentString<SecretDetailQuery, SecretDetailQueryVariables>;
 export const SecretAccessDocument = new TypedDocumentString(`
     query SecretAccess($secretId: String!) {
@@ -5108,6 +5258,28 @@ export const SecretRevealDocument = new TypedDocumentString(`
   revealSecretField(id: $id, fieldKey: $fieldKey)
 }
     `) as unknown as TypedDocumentString<SecretRevealMutation, SecretRevealMutationVariables>;
+export const SecretPrepareRevealDocument = new TypedDocumentString(`
+    mutation SecretPrepareReveal($secretId: ID!, $fieldKey: String!, $runId: ID) {
+  prepareSecretReveal(secretId: $secretId, fieldKey: $fieldKey, runId: $runId) {
+    id
+    state
+    confirm
+    runId
+    expiresAtUnix
+  }
+}
+    `) as unknown as TypedDocumentString<
+  SecretPrepareRevealMutation,
+  SecretPrepareRevealMutationVariables
+>;
+export const SecretRedeemRevealDocument = new TypedDocumentString(`
+    mutation SecretRedeemReveal($id: ID!) {
+  redeemSecretReveal(id: $id)
+}
+    `) as unknown as TypedDocumentString<
+  SecretRedeemRevealMutation,
+  SecretRedeemRevealMutationVariables
+>;
 export const SecretRevealVersionDocument = new TypedDocumentString(`
     mutation SecretRevealVersion($secretId: ID!, $versionNo: Int!, $fieldKey: String!) {
   revealSecretVersionField(
@@ -5147,6 +5319,7 @@ export const SecretRestoreVersionDocument = new TypedDocumentString(`
   rotationOptOut
   heartbeatOptOut
   requireTokenApproval
+  alwaysRequireApproval
 }`) as unknown as TypedDocumentString<
   SecretRestoreVersionMutation,
   SecretRestoreVersionMutationVariables
@@ -5198,13 +5371,18 @@ export const SecretSetAutomationDocument = new TypedDocumentString(`
   rotationOptOut
   heartbeatOptOut
   requireTokenApproval
+  alwaysRequireApproval
 }`) as unknown as TypedDocumentString<
   SecretSetAutomationMutation,
   SecretSetAutomationMutationVariables
 >;
 export const SecretSetTokenApprovalDocument = new TypedDocumentString(`
-    mutation SecretSetTokenApproval($secretId: String!, $required: Boolean!) {
-  setSecretTokenApproval(secretId: $secretId, required: $required) {
+    mutation SecretSetTokenApproval($secretId: String!, $required: Boolean!, $always: Boolean) {
+  setSecretTokenApproval(
+    secretId: $secretId
+    required: $required
+    always: $always
+  ) {
     ...SecretDetailFields
   }
 }
@@ -5229,6 +5407,7 @@ export const SecretSetTokenApprovalDocument = new TypedDocumentString(`
   rotationOptOut
   heartbeatOptOut
   requireTokenApproval
+  alwaysRequireApproval
 }`) as unknown as TypedDocumentString<
   SecretSetTokenApprovalMutation,
   SecretSetTokenApprovalMutationVariables
@@ -5260,6 +5439,7 @@ export const SecretRetireDocument = new TypedDocumentString(`
   rotationOptOut
   heartbeatOptOut
   requireTokenApproval
+  alwaysRequireApproval
 }`) as unknown as TypedDocumentString<SecretRetireMutation, SecretRetireMutationVariables>;
 export const SecretRestoreDocument = new TypedDocumentString(`
     mutation SecretRestore($id: String!) {
@@ -5288,6 +5468,7 @@ export const SecretRestoreDocument = new TypedDocumentString(`
   rotationOptOut
   heartbeatOptOut
   requireTokenApproval
+  alwaysRequireApproval
 }`) as unknown as TypedDocumentString<SecretRestoreMutation, SecretRestoreMutationVariables>;
 export const SecretDeleteDocument = new TypedDocumentString(`
     mutation SecretDelete($id: String!) {
@@ -5348,6 +5529,7 @@ export const SecretReplaceCertificateDocument = new TypedDocumentString(`
   rotationOptOut
   heartbeatOptOut
   requireTokenApproval
+  alwaysRequireApproval
 }
 fragment SecretCertMetaFields on CertMeta {
   subject

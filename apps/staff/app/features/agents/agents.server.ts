@@ -8,6 +8,7 @@ import {
   AgentsRevokeTokenDocument,
   AgentsSendFactorEmailDocument,
   AgentsTokensDocument,
+  type AgentsUseFieldsFragment,
   createLogger,
   type FactorInput,
   type GatewayClient,
@@ -150,35 +151,51 @@ export const tokensAction = async (request: Request): Promise<AgentsResult> => {
   });
 };
 
-/** U-14: the uses the user's tokens are waiting on, soonest to expire first. */
-export const loadApprovals = async (request: Request): Promise<{ uses: UseRow[] }> => {
+const useRows = (uses: AgentsUseFieldsFragment[]): UseRow[] =>
+  uses
+    .map((u) => ({
+      clientLabel: u.clientLabel,
+      command: u.reveal ? "" : u.argv.join(" "),
+      confirm: u.confirm,
+      expiresAt: u.expiresAtUnix * 1000,
+      fieldKey: u.fieldKey,
+      id: u.id,
+      requestedBy: u.requestedBy,
+      reveal: u.reveal,
+      runId: u.runId ?? null,
+      secretName: u.secretName,
+    }))
+    .toSorted((a, b) => a.expiresAt - b.expiresAt);
+
+/**
+ * U-14: other people's uses the user may decide (as an owner or approver of the secret), and
+ * the user's own uses still waiting, soonest to expire first.
+ */
+export const loadApprovals = async (
+  request: Request,
+): Promise<{ mine: UseRow[]; toDecide: UseRow[] }> => {
   const { gw } = await requireUser(request);
   log.debug("approvals load");
   return guard(request, async () => {
-    const { pendingSecretUses } = await gw.gql(AgentsPendingUsesDocument);
-    const uses = pendingSecretUses
-      .map((u) => ({
-        clientLabel: u.clientLabel,
-        command: u.reveal ? "" : u.argv.join(" "),
-        expiresAt: u.expiresAtUnix * 1000,
-        fieldKey: u.fieldKey,
-        id: u.id,
-        reveal: u.reveal,
-        secretName: u.secretName,
-      }))
-      .toSorted((a, b) => a.expiresAt - b.expiresAt);
-    log.debug("approvals loaded", { count: uses.length });
-    return { uses };
+    const { pendingSecretUses, secretUsesToDecide } = await gw.gql(AgentsPendingUsesDocument);
+    const toDecide = useRows(secretUsesToDecide);
+    const mine = useRows(pendingSecretUses);
+    log.debug("approvals loaded", { mine: mine.length, toDecide: toDecide.length });
+    return { mine, toDecide };
   });
 };
 
-/** `approve` (with the factor) and `deny` by `id`, plus the factor prompt's steps. */
+/**
+ * `approve` (with the factor) and `deny` someone else's use by `id`, `withdraw` one of the
+ * user's own, plus the factor prompt's steps.
+ */
 export const approvalsAction = async (request: Request): Promise<AgentsResult> => {
   const form = await request.formData();
   const intent = field(form, "intent");
   const step = factorStep(request, intent);
   if (step) return step;
-  if (intent !== "approve" && intent !== "deny") return unknownIntent(intent);
+  if (intent !== "approve" && intent !== "deny" && intent !== "withdraw")
+    return unknownIntent(intent);
   const approve = intent === "approve";
   return act(request, intent, async (gw) => {
     const { decideSecretUse: u } = await gw.gql(AgentsDecideUseDocument, {
@@ -186,7 +203,8 @@ export const approvalsAction = async (request: Request): Promise<AgentsResult> =
       factor: approve ? factorFrom(form) : undefined,
       id: field(form, "id"),
     });
-    if (!approve) return { done: "Denied. The agent was told no." };
+    if (intent === "withdraw") return { done: "Withdrawn. Nobody needs to decide it now." };
+    if (!approve) return { done: "Denied. The request was refused." };
     return {
       done: u.reveal
         ? `${u.secretName} goes to the agent once. This is logged.`

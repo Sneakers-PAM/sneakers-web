@@ -23,6 +23,7 @@ withMockGateway();
 
 const ALICE = "mock-user-alice";
 const BOB = "mock-user-bob";
+const CAROL = "mock-user-carol";
 const TOTP = { code: "123456", kind: "totp" };
 const nowUnix = () => Math.floor(Date.now() / 1000);
 
@@ -111,8 +112,17 @@ describe("pending uses", () => {
     expect(counts.pendingSecretUses).toEqual([]);
   });
 
-  it("approves with a factor, for a minute's redemption", async () => {
-    const gw = await as(ALICE);
+  it("lists the uses an owner may decide, never the requester's own", async () => {
+    const carol = await as(CAROL).then((gw) => gw.gql(AgentsPendingUsesDocument));
+    expect(carol.secretUsesToDecide.map((u) => [u.id, u.requestedBy])).toEqual([
+      ["mock-use-1", "Alice"],
+    ]);
+    const alice = await as(ALICE).then((gw) => gw.gql(AgentsPendingUsesDocument));
+    expect(alice.secretUsesToDecide).toEqual([]);
+  });
+
+  it("approves another person's use with a factor, for a minute's redemption", async () => {
+    const gw = await as(CAROL);
     const { decideSecretUse } = await gw.gql(AgentsDecideUseDocument, {
       approve: true,
       factor: TOTP,
@@ -121,8 +131,17 @@ describe("pending uses", () => {
     expect(decideSecretUse.state).toBe("APPROVED");
     expect(use("mock-use-1").state).toBe("approved");
     expect(use("mock-use-1").expiresAtUnix).toBeLessThanOrEqual(nowUnix() + 60);
-    const counts = await gw.gql(ShellCountsDocument, { userId: ALICE });
+    const counts = await as(ALICE).then((a) => a.gql(ShellCountsDocument, { userId: ALICE }));
     expect(counts.pendingSecretUses).toEqual([]);
+  });
+
+  it("refuses the requester's own approval", async () => {
+    const gw = await as(ALICE);
+    const r = await refused(
+      gw.gql(AgentsDecideUseDocument, { approve: true, factor: TOTP, id: "mock-use-1" }),
+    );
+    expect(r).toMatchObject({ code: "PERMISSION_DENIED", reason: "SELF_APPROVAL" });
+    expect(use("mock-use-1").state).toBe("pending");
   });
 
   it("refuses an approval without a factor or with a wrong one, and denies without one", async () => {

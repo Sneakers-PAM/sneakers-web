@@ -17,6 +17,9 @@ fragment AgentsUseFields on SecretUse {
   state
   expiresAtUnix
   reveal
+  runId
+  confirm
+  requestedBy
 }
 
 fragment AgentsGrantFields on UseGrant {
@@ -48,13 +51,18 @@ mutation AgentsRevokeToken($id: ID!) {
   }
 }
 
+# The approvals page: other people's uses you may decide, and your own still waiting.
 query AgentsPendingUses {
+  secretUsesToDecide {
+    ...AgentsUseFields
+  }
   pendingSecretUses {
     ...AgentsUseFields
   }
 }
 
-# Approving needs the factor; denying doesn't.
+# Approving someone else's use needs the factor (or the session's step-up window); denying
+# doesn't. Denying your own use withdraws it.
 mutation AgentsDecideUse($id: ID!, $approve: Boolean!, $factor: FactorInput) {
   decideSecretUse(id: $id, approve: $approve, factor: $factor) {
     ...AgentsUseFields
@@ -116,7 +124,6 @@ mutation AgentsBeginFactorPasskey {
 
 fragment AgentsRunUseFields on SecretUse {
   ...AgentsUseFields
-  runId
   purpose
   requester
 }
@@ -135,6 +142,21 @@ query AgentsUseRun($runId: ID!) {
 # Decide the ticked uses of a run together. The page proves the factor through the session step-up first.
 mutation AgentsDecideUses($ids: [ID!]!, $decision: SecretUseDecision!, $factor: FactorInput) {
   decideSecretUses(ids: $ids, decision: $decision, factor: $factor) {
+    outcomes {
+      id
+      decided
+      reason
+      use {
+        ...AgentsRunUseFields
+      }
+    }
+  }
+}
+
+# Confirm your own uses that nobody else can decide, once for the task. The page proves the
+# factor through the session step-up first.
+mutation AgentsConfirmUses($ids: [ID!]!, $factor: FactorInput) {
+  confirmSecretUses(ids: $ids, factor: $factor) {
     outcomes {
       id
       decided

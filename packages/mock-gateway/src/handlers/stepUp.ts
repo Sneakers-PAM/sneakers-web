@@ -7,7 +7,7 @@ import { authed } from "#mock/handlers/auth";
 import { MOCK_GATEWAY_URL, MOCK_SESSION_COOKIE, type MockSession, mockState } from "#mock/state";
 
 /** How long a step-up stays fresh in the mock, standing in for the vault's MFA_MAX_AGE. */
-export const MOCK_MFA_MAX_AGE_MS = 5 * 60_000;
+export const MOCK_MFA_MAX_AGE_MS = 30 * 60_000;
 
 /** Wrong proofs before the gateway ends the session. */
 const MAX_FAILURES = 5;

@@ -17,9 +17,12 @@ import type { MockSecretUse, MockToken, MockUseGrant } from "#mock/fixtures/worl
 import { refusal } from "#mock/admin/refuse";
 import { agentsState, consentRequest } from "#mock/fixtures/staff/agents";
 import { WRONG_CODE } from "#mock/fixtures/users";
+import { userById } from "#mock/fixtures/users";
 import { authed } from "#mock/handlers/auth";
 import { api, asUser } from "#mock/handlers/graphql";
-import { canRead } from "#mock/handlers/staff/access";
+import { canRead, secretById } from "#mock/handlers/staff/access";
+import { mayDecide } from "#mock/handlers/staff/approval";
+import { freshMfa } from "#mock/handlers/stepUp";
 import { MOCK_GATEWAY_URL, mockState, newToken } from "#mock/state";
 
 // The vault's windows: an approved use must be redeemed within a minute; a grant lasts 24 hours at most.
@@ -64,13 +67,22 @@ const sweep = () => {
 const useView = (u: MockSecretUse) => ({
   argv: [...u.argv],
   clientLabel: u.clientLabel,
+  confirm: !!u.confirm,
   expiresAtUnix: u.expiresAtUnix,
   fieldKey: u.fieldKey,
   id: u.id,
+  requestedBy: userById(u.ownerUserId)?.name ?? u.ownerUserId,
   reveal: u.reveal,
+  runId: u.runId ?? null,
   secretName: u.secretName,
   state: u.state.toUpperCase(),
 });
+
+/** Whether `userId` may decide `u` now: an owner or approver of its secret, never its requester. */
+const decides = (userId: string, u: MockSecretUse): boolean => {
+  const s = secretById(u.secretId);
+  return !!s && mayDecide(userId, s, u.ownerUserId);
+};
 
 const tokenView = (t: MockToken) => ({
   clientName: t.clientName,
@@ -168,21 +180,31 @@ export const agentsHandlers: RequestHandler[] = [
         pendingSecretUses: world()
           .secretUses.filter((u) => u.ownerUserId === userId && u.state === "pending")
           .map((u) => useView(u)),
+        secretUsesToDecide: world()
+          .secretUses.filter((u) => u.state === "pending" && decides(userId, u))
+          .map((u) => useView(u)),
       });
     }),
   ),
 
   api.mutation(AgentsDecideUseDocument, ({ request, variables }) =>
     asUser(request, (userId) => {
-      if (variables.approve) {
+      if (variables.approve && (variables.factor || !freshMfa(request))) {
         const refused = factorRefusal(variables.factor);
         if (refused) return refused;
       }
       sweep();
       const u = world().secretUses.find((x) => x.id === variables.id);
       if (!u) return refusal("NOT_FOUND", "secret use not found");
-      if (u.ownerUserId !== userId)
-        return refusal("PERMISSION_DENIED", "only the token's owner can decide this use");
+      const own = u.ownerUserId === userId;
+      if (own && variables.approve)
+        return refusal("PERMISSION_DENIED", "you can't approve your own request", "SELF_APPROVAL");
+      if (!own && !decides(userId, u))
+        return refusal(
+          "PERMISSION_DENIED",
+          "only an owner or approver of this secret can decide this use",
+          "NOT_APPROVER",
+        );
       if (u.state !== "pending")
         return refusal(
           "FAILED_PRECONDITION",

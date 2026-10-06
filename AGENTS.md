@@ -120,8 +120,9 @@ sign-on) uses an absolute URL.
   (`stepUpAction`, which calls `POST /auth/mfa/step-up`) and, once the factor checks out, runs
   the retry the page gave it. Five wrong proofs end the session, and the prompt sends the person
   to sign in.
-- The mock gateway counts a step-up as fresh for five minutes (`freshMfa`), and a session that
-  never stepped up as stale, so the prompt shows the first time in mock mode.
+- The mock gateway counts a step-up as fresh for 30 minutes (`freshMfa`, the gateway's default
+  `MFA_MAX_AGE`), and a session that never stepped up as stale, so the prompt shows the first time
+  in mock mode.
 - Where a reveal or copy asks for one follows the vault: the nearest folder (this one, then up the
   tree) whose reveal step-up is `require` or `off` wins, else the global "MFA before a reveal"
   security setting (`revealStepUpRequired` in the mock). Site admins set a folder's override on the
@@ -168,25 +169,43 @@ sign-on) uses an absolute URL.
 
 ## Agent approvals
 
-- `/approvals` lists every pending secret use; each one is approved with its own factor
-  (`decideSecretUse`).
+The vault decides who needs an approval, from the secret's approval level: normal,
+approval-required (owners exempt, anyone else needs one owner) or always-approve (everyone, owners
+included, needs another owner or a designated approver, RACI A). The levels cover a person
+revealing in the web and an agent's personal token alike. Nobody approves their own request; when
+nobody else can decide, the requester confirms the task once with their second factor.
+
+- `/approvals` has two lists. "Waiting for you to decide" is `secretUsesToDecide`: other
+  people's requests for secrets the user owns or approves, each approved with a factor (or the
+  session's step-up window) or denied (`decideSecretUse`). "Your requests" is the user's own
+  `pendingSecretUses`: each says whether an owner or approver decides it or links to its run page
+  to confirm it, and can be withdrawn (a deny of one's own request).
 - `/approvals/run/<runId>` (`routes/approvals.run.tsx`, `features/agents/RunApproval.tsx`) is the
-  page an agent's approval link opens for one run: every pending use the run raised, all ticked,
-  decided together with `decideSecretUses`. It sits outside the frame, full-screen on a phone and
-  a centred card on wider screens.
-- The factor is proved once, through `POST /auth/mfa/step-up` (`runAction` steps up, then decides
-  the batch with no factor of its own), so the session's `MFA_MAX_AGE` window also covers a
-  follow-up batch. While `secretUseRun.mfaFreshUntilUnix` is in the future the page shows no factor
-  input. If the window closes before the click, the gateway answers `STEP_UP_REQUIRED` and the
-  page asks for the code again, keeping the ticks.
+  page an agent's link opens for one of the user's runs: every pending use it raised, all ticked.
+  The uses marked `confirm` are confirmed together with `confirmSecretUses`; the rest show that an
+  owner or approver decides them. Any of them can be withdrawn together. It sits outside the
+  frame, full-screen on a phone and a centred card on wider screens.
+- The factor is proved once, through `POST /auth/mfa/step-up` (`runAction` steps up, then
+  confirms the batch with no factor of its own), so the session's `MFA_MAX_AGE` window also covers
+  a follow-up batch. While `secretUseRun.mfaFreshUntilUnix` is in the future the page shows no
+  factor input. If the window closes before the click, the gateway answers `STEP_UP_REQUIRED` and
+  the page asks for the code again, keeping the ticks.
 - A refused item comes back with its reason (`EXPIRED`, `ALREADY_DECIDED`, `NOT_FOUND`,
-  `NOT_PERMITTED`, `UNAVAILABLE`), shown as a fixed sentence (`RUN_REFUSAL` in
-  `features/agents/messages.ts`); the rest of the batch is still decided.
+  `NOT_PERMITTED`, `UNAVAILABLE`, `SELF_APPROVAL`, `OTHER_APPROVER`, `NO_APPROVER`), shown as a
+  fixed sentence (`RUN_REFUSAL` in `features/agents/messages.ts`); the rest of the batch is still
+  settled.
+- On a secret's page, a reveal or copy the level holds (`APPROVAL_REQUIRED`) becomes a web reveal
+  use (`prepareSecretReveal`, intent `reveal`): the field shows that it's waiting for an owner or
+  approver, or asks to confirm the task, links to the run page, and checks back every 5 seconds
+  (intent `reveal-collect`, `redeemSecretReveal`) until it's released. Every reveal on one visit
+  shares a run id (`features/secret/revealRun.tsx`), so one task asks once. The Approvals panel
+  sets the level (off, non-owners, everyone).
 - The agent's `purpose` is shown as plain text, labelled "Agent says", never as product copy.
-- The mock gateway answers both operations (`handlers/staff/agentRuns.ts`) with the gateway's
-  rules: 1 to 20 distinct ids (`BATCH_SIZE_INVALID`), an approval needs the step-up window or a
+- The mock gateway answers these operations (`handlers/staff/agentRuns.ts`, `agents.ts`,
+  `secret.ts`, with the rules in `approval.ts`) with the vault's and gateway's rules: 1 to 20
+  distinct ids (`BATCH_SIZE_INVALID`), an approval or confirmation needs the step-up window or a
   factor (`STEP_UP_REQUIRED`, `FACTOR_NOT_ACCEPTED`), and each id is checked on its own. The
-  fixture run is `run_mock_build1`.
+  fixture run is `run_mock_build1`; its DB admin use is Alice's, decided by Carol, another owner.
 
 ## Build, test, lint
 
