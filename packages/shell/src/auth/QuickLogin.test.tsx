@@ -65,6 +65,13 @@ describe("the dev quick login on the sign-in page", () => {
     await open();
     expect(screen.queryByRole("combobox", { name: "Dev quick login" })).not.toBeInTheDocument();
   });
+
+  it("doesn't need the separate-account caption: a mock user is obviously a fixture", async () => {
+    vi.stubEnv("SNEAKERS_MOCK", "true");
+    await open();
+    await screen.findByRole("combobox", { name: "Dev quick login" });
+    expect(screen.queryByText(/separate seeded test account/)).not.toBeInTheDocument();
+  });
 });
 
 const turnOn = () => {
@@ -100,5 +107,12 @@ describe("the dev quick login on a live build", () => {
     vi.stubEnv("SNEAKERS_DEV_QUICK_LOGIN", "false");
     await open();
     expect(screen.queryByRole("combobox", { name: "Dev quick login" })).not.toBeInTheDocument();
+  });
+
+  it("says a picked account is a separate seeded one, not whatever ran setup", async () => {
+    turnOn();
+    await open();
+    await screen.findByRole("combobox", { name: "Dev quick login" });
+    expect(screen.getByText(/separate seeded test account/)).toBeInTheDocument();
   });
 });

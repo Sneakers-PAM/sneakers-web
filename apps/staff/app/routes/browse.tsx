@@ -12,7 +12,7 @@ import {
   PageHeader,
   plural,
 } from "@sneakers-web/ui";
-import { ChevronLeft, Ellipsis, Plus } from "lucide-react";
+import { ChevronLeft, CircleCheck, Ellipsis, Plus } from "lucide-react";
 import { Fragment, useState } from "react";
 import { Link, useLoaderData, useNavigate, useNavigation, useSearchParams } from "react-router";
 
@@ -197,26 +197,16 @@ const Browse = () => {
     return (
       <div className="flex flex-col gap-6">
         <PageHeader eyebrow="Secrets" title="Browse" />
-        <EmptyState
-          action={
-            isAdmin && (
-              <Button onClick={() => open({ kind: "create", parent: null })}>
-                New shared folder
-              </Button>
-            )
-          }
-          body="Folders you can see show up here. Shared folders are made by a site admin."
-          title="No folders yet"
-        />
-        {shown?.kind === "create" && (
-          <NameDialog
-            description="At the top of the shared folders."
-            fields={{ intent: "create", parentId: "" }}
-            onClose={close}
-            submitLabel="Create"
-            title="New folder"
-          />
-        )}
+        <div className="flex items-center gap-3 rounded-xl border-[1.5px] border-border-strong px-5.5 py-5">
+          <CircleCheck aria-hidden className="size-6 text-ok" />
+          <div className="flex flex-col gap-0.5">
+            <b>No folders yet</b>
+            <span className="text-small text-muted">
+              Nothing&apos;s broken: a personal folder appears once you create your first secret or
+              folder. Shared folders are made by a site admin, from the sidebar.
+            </span>
+          </div>
+        </div>
       </div>
     );
   }

@@ -47,6 +47,11 @@ export const QuickLogin = ({
           ))}
         </SelectContent>
       </Select>
+      {intent === "dev-quick-login" && (
+        <span className="text-small text-muted">
+          Signs in as a separate seeded test account, not whatever account ran setup.
+        </span>
+      )}
     </div>
   );
 };

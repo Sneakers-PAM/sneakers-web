@@ -51,7 +51,10 @@ one pick. It never ships in a release.
   (`packages/shell/src/server/developmentQuickLogin.server.ts`); the page gets only each username, label
   and note. Picking one posts intent `dev-quick-login`, and the action signs that account in
   with its password through the gateway's login, the same step as the password form, second
-  factor included. Keep the file out of the repo.
+  factor included. Keep the file out of the repo. A seeded account is never the account someone
+  ran `/setup` with, even when its username or label reads like "admin", so this variant of
+  `QuickLogin` always shows a caption saying so; a mock build's fixture users don't need it,
+  they're obviously not real to begin with.
 - Release builds can't turn it on: the build flag is a literal, so a release build drops the
   code, and `check:no-mock` fails if a live build (`apps/*/build`) has its intents, label or
   variable names, or if the Dockerfile's `DEV_QUICK_LOGIN` argument defaults to anything but

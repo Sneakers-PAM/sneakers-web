@@ -98,10 +98,16 @@ describe("the browse page", () => {
     expect(await screen.findByText("Pick a folder")).toBeInTheDocument();
   });
 
-  it("says when there are no folders at all", async () => {
+  it("says when there are no folders at all, with the check-icon empty state", async () => {
     mockState.world.folders = [];
     open("/browse");
     expect(await screen.findByText("No folders yet")).toBeInTheDocument();
+    expect(
+      screen.getByText(/appears once you create your first secret or folder/),
+    ).toBeInTheDocument();
+    // The /requests "nothing to approve" pattern: a check icon, not the sneaker-loader mark a
+    // generic EmptyState shows, which this page isn't actually waiting on anything for.
+    expect(screen.queryByRole("img", { name: "Sneakers-PAM" })).not.toBeInTheDocument();
   });
 
   it("says when a folder holds no secrets", async () => {
