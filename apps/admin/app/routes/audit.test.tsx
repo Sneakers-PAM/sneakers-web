@@ -29,6 +29,19 @@ describe("the audit trail", () => {
     expect(screen.getByText("Showing 25 of 26 records")).toBeInTheDocument();
   });
 
+  it("links the actor to their user record, but not a system actor", async () => {
+    renderAdmin(ROUTES, "/audit?show=all");
+    await screen.findByText(/Chain verified/);
+    const rows = screen.getAllByRole("row").slice(1);
+    const aliceRow = rows.find((r) => r.textContent?.includes("#1205")) as HTMLElement;
+    expect(within(aliceRow).getByRole("link", { name: "Alice" })).toHaveAttribute(
+      "href",
+      "/users/mock-user-alice",
+    );
+    const systemRow = rows.find((r) => r.textContent?.includes("#1203")) as HTMLElement;
+    expect(within(systemRow).queryByRole("link", { name: "system" })).not.toBeInTheDocument();
+  });
+
   it("filters by actor name", async () => {
     renderAdmin(ROUTES, "/audit?actor=Bob&show=all");
     expect(await screen.findByText(/Showing 5 of 26/)).toBeInTheDocument();
