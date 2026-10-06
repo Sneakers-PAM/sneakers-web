@@ -22,17 +22,20 @@ import { useBrowseAction } from "@/features/browse/useBrowseAction";
 
 /** D-05 Delete folder: an empty one goes at once; one with secrets moves them first. */
 export const DeleteFolderDialog = ({
+  action,
   folder,
   folders,
   onClose,
 }: {
+  /** Where to post: the frame sidebar targets `/browse` explicitly, off the browse route. */
+  action?: string;
   folder: NavFolder;
   folders: NavFolder[];
   onClose: () => void;
 }) => {
   const [destination, setDestination] = useState("");
   const selectId = useId();
-  const { busy, error, submit } = useBrowseAction(onClose);
+  const { busy, error, submit } = useBrowseAction(onClose, action);
   const count = folder.subtreeSecretCount ?? 0;
   const to = findFolder(folders, destination);
   const targets = reassignTargets(folders, folder);

@@ -100,9 +100,15 @@ a fixture user and puts the pages under the real frame loader. The staff app's t
 against the mock gateway through `apps/staff/vitest.config.ts`, so the build config has no test
 switch.
 
-Browse (U-03): the folder tree lives in the page (`features/browse/FolderNav`), not the frame
-sidebar. Moves follow the vault's gate (`moveKind` in `features/browse/tree.ts`): a personal folder
-going shared is confirmed first, and shared into someone's personal folder is a folder_move or
+Browse (U-03): the folder tree (`features/browse/FolderNav`, personal pinned, shared as a
+parent/child tree) lives in the frame's left main nav (`frame/FolderSidebar`), not the page, so
+it's there on every route. The frame loader (`routes/frame.tsx`) fetches the folder list; since
+`routeStub.tsx`'s `renderRoute` doesn't draw the frame's chrome, a page test never sees the tree —
+cover it against `StaffFrame` directly (`apps/staff/app/frame/StaffFrame.test.tsx`). Off `/browse`,
+a tree mutation posts explicitly to `/browse` (there's no route in context to default to); on it,
+to the open folder's own path, so a delete of the folder you're viewing still gets its redirect.
+Moves follow the vault's gate (`moveKind` in `features/browse/tree.ts`): a personal folder going
+shared is confirmed first, and shared into someone's personal folder is a folder_move or
 secret_move request unless the user is a site admin. The mock's canManage comes from the owners of
 the folder or any folder above it, and read access from ownership, the folder's group or its role.
 

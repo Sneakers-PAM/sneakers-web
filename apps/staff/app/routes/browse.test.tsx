@@ -25,18 +25,6 @@ const ROUTES = [
 const open = (url: string, user?: string) => renderRoute(url, ROUTES, { user });
 
 const folder = (id: string) => mockState.world.folders.find((f) => f.id === id);
-const nav = () => screen.getByRole("navigation", { name: "Folders" });
-
-const nothing = () => {};
-
-/** A promise the test resolves when it's ready, to hold a mock answer back. */
-const gated = () => {
-  const box = { release: nothing };
-  const gate = new Promise<void>((resolve) => {
-    box.release = resolve;
-  });
-  return { gate, release: () => box.release() };
-};
 
 const folderMenu = async (item: string) => {
   const user = userEvent.setup();
@@ -105,27 +93,9 @@ describe("the browse page", () => {
     expect(within(row).queryByRole("link", { name: "DB admin" })).toBeNull();
   });
 
-  it("shows the folder tree: personal folders pinned, shared ones one level at a time", async () => {
-    open("/browse/mock-folder-databases");
-    await screen.findByRole("heading", { name: "Databases" });
-    expect(within(nav()).getByRole("link", { name: /My secrets/ })).toBeInTheDocument();
-    expect(within(nav()).getByRole("link", { name: /Lab/ })).toBeInTheDocument();
-    expect(within(nav()).getByRole("link", { current: "page", name: /Databases/ })).toBeVisible();
-    expect(within(nav()).getByRole("link", { name: /Network/ })).toBeInTheDocument();
-    expect(within(nav()).queryByRole("link", { name: /Finance/ })).not.toBeInTheDocument();
-
-    await userEvent.click(within(nav()).getByRole("button", { name: "Up from Platform" }));
-    expect(within(nav()).getByRole("link", { name: /Finance/ })).toBeInTheDocument();
-    expect(within(nav()).getByRole("link", { name: /Helpdesk/ })).toBeInTheDocument();
-  });
-
   it("asks for a folder when none is open", async () => {
     open("/browse");
     expect(await screen.findByText("Pick a folder")).toBeInTheDocument();
-    expect(within(nav()).getByRole("link", { name: /Platform/ })).toHaveAttribute(
-      "href",
-      "/browse/mock-folder-platform",
-    );
   });
 
   it("says when there are no folders at all", async () => {
@@ -166,26 +136,6 @@ describe("the browse page", () => {
     expect(await screen.findByRole("heading", { name: "Databases" })).toBeInTheDocument();
   });
 
-  it("shows a skeleton while the next folder loads", async () => {
-    open("/browse/mock-folder-databases");
-    await screen.findByRole("heading", { name: "Databases" });
-    const { gate, release } = gated();
-    server.use(
-      graphql.link(`${MOCK_GATEWAY_URL}/graphql`).query(
-        "BrowseFolders",
-        async () => {
-          // Hold the answer, then fall through to the mock gateway's own handler.
-          await gate;
-        },
-        { once: true },
-      ),
-    );
-    await userEvent.click(within(nav()).getByRole("link", { name: /Network/ }));
-    expect(await screen.findByTestId("browse-skeleton")).toBeInTheDocument();
-    release();
-    expect(await screen.findByRole("heading", { name: "Network" })).toBeInTheDocument();
-  });
-
   it("filters, shows retired secrets on request and restores one", async () => {
     const user = userEvent.setup();
     open("/browse/mock-folder-archive", "mock-user-bob");
@@ -223,7 +173,6 @@ describe("folder operations", () => {
     expect(mockState.world.folders.find((f) => f.name === "Staging")?.parentId).toBe(
       "mock-folder-platform",
     );
-    expect(await within(nav()).findByRole("link", { name: /Staging/ })).toBeInTheDocument();
   });
 
   it("shows the gateway's refusal in the dialog", async () => {

@@ -3,7 +3,6 @@ import type { ActionFunctionArgs, LoaderFunctionArgs, MetaArgs } from "react-rou
 import {
   Alert,
   Button,
-  Card,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -23,7 +22,6 @@ import { browseAction, loadBrowse } from "@/features/browse/browse.server";
 import { BrowseSkeleton } from "@/features/browse/BrowseSkeleton";
 import { DeleteFolderDialog } from "@/features/browse/DeleteFolderDialog";
 import { type FolderAction, folderActions } from "@/features/browse/folderActions";
-import { FolderNav } from "@/features/browse/FolderNav";
 import { MoveFlow, type MoveSubject } from "@/features/browse/MoveFlow";
 import { NameDialog } from "@/features/browse/NameDialog";
 import { NoAccess } from "@/features/browse/NoAccess";
@@ -146,7 +144,7 @@ const FolderPane = ({
   );
 };
 
-/** U-03 Browse: the folder tree beside the open folder's secrets, with every folder change. */
+/** U-03 Browse: the open folder's secrets. The folder tree itself lives in the frame sidebar. */
 const Browse = () => {
   const { current, folders, includeRetired, isAdmin } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
@@ -224,28 +222,8 @@ const Browse = () => {
   }
 
   return (
-    <div className="grid gap-6 desktop:grid-cols-[17rem_minmax(0,1fr)] desktop:items-start">
-      <Card className={current ? "hidden p-2 desktop:block" : "p-2"}>
-        <FolderNav
-          currentId={currentId}
-          folders={folders}
-          key={currentId ?? "none"}
-          onAction={onAction}
-        />
-        {isAdmin && (
-          <Button
-            block
-            className="mt-2"
-            onClick={() => open({ kind: "create", parent: null })}
-            size="sm"
-            variant="ghost"
-          >
-            <Plus aria-hidden />
-            New shared folder
-          </Button>
-        )}
-      </Card>
-      <section className={current ? "min-w-0" : "hidden min-w-0 desktop:block"}>
+    <div className="flex flex-col gap-6">
+      <section className="min-w-0">
         {loading ? (
           <BrowseSkeleton />
         ) : current ? (
@@ -262,14 +240,14 @@ const Browse = () => {
           <div className="flex flex-col gap-6">
             <PageHeader eyebrow="Secrets" title="Browse" />
             <EmptyState
-              body="Choose a folder on the left to see its secrets."
+              body="Choose a folder in the sidebar to see its secrets."
               title="Pick a folder"
             />
           </div>
         )}
       </section>
       {order.error && (
-        <p className="text-small font-bold text-danger desktop:col-span-2" role="alert">
+        <p className="text-small font-bold text-danger" role="alert">
           {order.error}
         </p>
       )}
