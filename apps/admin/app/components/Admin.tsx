@@ -1,11 +1,15 @@
 import { refusalMessage } from "@sneakers-web/shell";
 import {
+  Button,
   Card,
   cn,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Select,
   SelectContent,
   SelectItem,
@@ -13,7 +17,7 @@ import {
   SelectValue,
   toast,
 } from "@sneakers-web/ui";
-import { Diamond, Plus, X } from "lucide-react";
+import { Diamond, Info, Plus, X } from "lucide-react";
 import { type ReactNode, useEffect, useRef } from "react";
 
 import type { ActionResult } from "@/lib/admin.server";
@@ -79,6 +83,20 @@ export const SettingRow = ({
     </div>
     <div className="shrink-0">{control}</div>
   </div>
+);
+
+/** An inline "i" affordance that opens a short explanation next to a setting's title. */
+export const InfoButton = ({ children, label }: { children: ReactNode; label: string }) => (
+  <Popover>
+    <PopoverTrigger asChild>
+      <Button aria-label={label} size="icon-sm" variant="ghost">
+        <Info aria-hidden />
+      </Button>
+    </PopoverTrigger>
+    <PopoverContent className="flex flex-col gap-2 text-small leading-[1.45]">
+      {children}
+    </PopoverContent>
+  </Popover>
 );
 
 /**

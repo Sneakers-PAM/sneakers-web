@@ -9,7 +9,7 @@ import {
   type PolicyEnforcement,
   type SecretFieldDefInput,
 } from "@sneakers-web/api-client";
-import { type Refusal, refusalMessage, refusalOf } from "@sneakers-web/shell";
+import { type Refusal, refusalMessage, refusalOf, useRootData } from "@sneakers-web/shell";
 import { guard, requireUser } from "@sneakers-web/shell/server";
 import {
   Alert,
@@ -36,7 +36,7 @@ import {
   useNavigation,
 } from "react-router";
 
-import { Choice, Panel, SettingRow } from "@/components/Admin";
+import { Choice, InfoButton, Panel, SettingRow } from "@/components/Admin";
 import { PageError } from "@/components/PageError";
 import { adminLoad } from "@/lib/admin.server";
 
@@ -450,6 +450,7 @@ const swap = <T,>(list: T[], a: number, b: number): T[] => {
 
 const TypeEditor = () => {
   const { draft: saved, origin, policies, type } = useLoaderData<typeof loader>();
+  const { config } = useRootData();
   const result = useActionData<typeof action>();
   const busy = useNavigation().state === "submitting";
   const [d, setD] = useState<TypeDraft>(result?.draft ?? saved);
@@ -570,7 +571,24 @@ const TypeEditor = () => {
               />
             }
             id="t-co"
-            title="Requires checkout (privileged, rotate-on-checkin)"
+            title={
+              <span className="inline-flex items-center gap-1.5">
+                Requires checkout (privileged, rotate-on-checkin)
+                <InfoButton label="What checkout means for an MCP agent">
+                  <p className="m-0">
+                    An MCP agent must check this secret out before it can reveal its value, the same
+                    as checking it out here. Checking it back in rotates the value, so the next
+                    checkout gets a fresh one.
+                  </p>
+                  <a
+                    className="font-bold text-primary"
+                    href={`${config.staffUrl.replace(/\/$/, "")}/agents#how-approvals-work`}
+                  >
+                    How approvals work
+                  </a>
+                </InfoButton>
+              </span>
+            }
           />
         </div>
       </Panel>

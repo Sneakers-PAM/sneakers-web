@@ -85,5 +85,8 @@ export const readAudit = async (gw: GatewayClient, f: AuditFilters, now = Date.n
     chain: d.auditChain,
     groups: d.groups,
     records,
+    // Only a real user has a /users/:id record to link an actor to; a service account or the
+    // system actor doesn't appear here.
+    userIds: d.users.map((u) => u.id),
   };
 };

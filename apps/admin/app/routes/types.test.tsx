@@ -60,6 +60,21 @@ describe("secret types", () => {
     expect(screen.getByLabelText(/Type name/)).toHaveValue("SSH Key (copy)");
   });
 
+  it("explains what checkout means for an MCP agent", async () => {
+    const user = userEvent.setup();
+    renderAdmin(ROUTES, "/types/type-password");
+    await user.click(
+      await screen.findByRole("button", { name: "What checkout means for an MCP agent" }),
+    );
+    expect(
+      screen.getByText(/An MCP agent must check this secret out before it can reveal/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "How approvals work" })).toHaveAttribute(
+      "href",
+      "/agents#how-approvals-work",
+    );
+  });
+
   it("shows a built-in type read-only", async () => {
     renderAdmin(ROUTES, "/types/type-password");
     expect(await screen.findByText(/can't be changed/)).toBeInTheDocument();

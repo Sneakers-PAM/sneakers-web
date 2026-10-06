@@ -112,21 +112,32 @@ const ActionName = ({ action }: { action: string }) => {
   );
 };
 
-const Actor = ({ row }: { row: AuditRow }) => (
-  <span className="flex items-center gap-2.5">
-    {row.actorUserId === "system" ? (
-      <span
-        aria-hidden
-        className="inline-flex size-7 items-center justify-center rounded-[9px] bg-sunken"
-      >
-        <Cog className="size-3.5" />
-      </span>
-    ) : (
-      <Avatar name={row.actorName} size={28} tone="primary" />
-    )}
-    <span className="font-bold">{row.actorName}</span>
-  </span>
-);
+const Actor = ({ row, userIds }: { row: AuditRow; userIds: Set<string> }) => {
+  const name = <span className="font-bold">{row.actorName}</span>;
+  // The system actor and a service account have no /users/:id record to link to.
+  const linkable = userIds.has(row.actorUserId);
+  return (
+    <span className="flex items-center gap-2.5">
+      {linkable ? (
+        <Avatar name={row.actorName} size={28} tone="primary" />
+      ) : (
+        <span
+          aria-hidden
+          className="inline-flex size-7 items-center justify-center rounded-[9px] bg-sunken"
+        >
+          <Cog className="size-3.5" />
+        </span>
+      )}
+      {linkable ? (
+        <Link className="text-inherit" to={`/users/${row.actorUserId}`}>
+          {name}
+        </Link>
+      ) : (
+        name
+      )}
+    </span>
+  );
+};
 
 /** secret.update keeps its field changes as JSON: plain fields with old and new, sensitive ones by name only. */
 const changesOf = (row: AuditRow) => {
@@ -293,8 +304,9 @@ const SHOW_OPTIONS: { label: string; value: AuditFilters["show"] }[] = [
 ];
 
 const Audit = () => {
-  const { actions, capped, chain, checkedAt, filters, groups, records } =
+  const { actions, capped, chain, checkedAt, filters, groups, records, userIds } =
     useLoaderData<typeof loader>();
+  const linkableUserIds = new Set(userIds);
   const [parameters] = useSearchParams();
   const submit = useSubmit();
   const form = useRef<HTMLFormElement>(null);
@@ -554,7 +566,7 @@ const Audit = () => {
                       {when(r.occurredAt)}
                     </TableCell>
                     <TableCell>
-                      <Actor row={r} />
+                      <Actor row={r} userIds={linkableUserIds} />
                     </TableCell>
                     <TableCell>
                       <ActionName action={r.action} />
