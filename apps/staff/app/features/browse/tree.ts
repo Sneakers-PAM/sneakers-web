@@ -24,6 +24,31 @@ export const childrenOf = (folders: NavFolder[], parentId: null | string): NavFo
 export const findFolder = (folders: NavFolder[], id: null | string | undefined) =>
   id ? folders.find((f) => f.id === id) : undefined;
 
+/** A `useMatches()` entry, trimmed to what `activeFolderId` reads. */
+export interface RouteMatch {
+  data: unknown;
+  id: string;
+}
+
+/** The id of `routes/secret.tsx`, registered at `secret/:id` in routes.ts. */
+const SECRET_ROUTE_ID = "routes/secret";
+
+/**
+ * The folder the sidebar should highlight: the `/browse/:folderId` param directly, or - on
+ * `/secret/:id`, which has no folder param of its own - the secret's containing folder, the last
+ * entry of the `folderPath` its own route already loaded (read here via `useMatches` so the
+ * sidebar, which sits above both routes, never needs a fetch of its own).
+ */
+export const activeFolderId = (
+  folderIdParameter: string | undefined,
+  matches: RouteMatch[],
+): string | undefined => {
+  if (folderIdParameter) return folderIdParameter;
+  const secretData = matches.find((m) => m.id === SECRET_ROUTE_ID)?.data as
+    { folderPath?: { id: string }[]; ok?: boolean } | undefined;
+  return secretData?.ok ? secretData.folderPath?.at(-1)?.id : undefined;
+};
+
 /** The folder and its ancestors, root first. */
 export const lineage = (folders: NavFolder[], folder: NavFolder): NavFolder[] => {
   const out: NavFolder[] = [];
