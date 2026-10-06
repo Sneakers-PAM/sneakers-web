@@ -1,7 +1,14 @@
 /* eslint-disable testing-library/no-container, testing-library/no-node-access -- these check the drawn SVG and the absence of an element, which have no accessible role to query. */
 import { render, screen } from "@testing-library/react";
 
-import { GrantPill, HeartbeatPill, RequestPill, RotationPill } from "#ui/components/Pill";
+import { GrantPill, HeartbeatPill, Pill, RequestPill, RotationPill } from "#ui/components/Pill";
+
+describe("Pill", () => {
+  it("never breaks its label mid-word, so it wraps as a whole pill onto a new line", () => {
+    render(<Pill tone="primary">Non-owners need approval</Pill>);
+    expect(screen.getByText("Non-owners need approval")).toHaveClass("whitespace-nowrap");
+  });
+});
 
 describe("status pills", () => {
   it.each([

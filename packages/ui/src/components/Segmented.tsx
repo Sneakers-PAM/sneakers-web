@@ -2,9 +2,9 @@ import { Tabs as TabsPrimitive, ToggleGroup } from "radix-ui";
 
 import { cn } from "#ui/lib/cn";
 
-const listClasses = "flex gap-1 rounded-lg bg-sunken p-1";
+const listClasses = "flex flex-wrap gap-1 rounded-lg bg-sunken p-1";
 const itemClasses =
-  "flex-1 rounded-[9px] px-3.5 text-[0.875rem] font-bold text-ink transition-colors duration-[120ms] ease-laces hover:bg-surface/60 data-[state=active]:bg-surface data-[state=active]:shadow-seg data-[state=on]:bg-surface data-[state=on]:shadow-seg disabled:cursor-not-allowed disabled:text-muted";
+  "flex-1 rounded-[9px] px-3.5 text-[0.875rem] font-bold whitespace-nowrap text-ink transition-colors duration-[120ms] ease-laces hover:bg-surface/60 data-[state=active]:bg-surface data-[state=active]:shadow-seg data-[state=on]:bg-surface data-[state=on]:shadow-seg disabled:cursor-not-allowed disabled:text-muted";
 
 export interface SegmentedOption<T extends string> {
   disabled?: boolean;
