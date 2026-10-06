@@ -16,6 +16,7 @@ import {
   Diamond,
   ListChecks,
   Rows3,
+  Shield,
   Target,
   User,
   Users,
@@ -79,6 +80,7 @@ export const AdminFrame = () => {
             />
             <NavItem collapsed={collapsed} icon={<Rows3 />} label="Types" to="/types" />
             <NavItem collapsed={collapsed} icon={<ListChecks />} label="Policies" to="/policies" />
+            <NavItem collapsed={collapsed} icon={<Shield />} label="Settings" to="/settings" />
           </NavGroup>
           <NavGroup collapsed={collapsed} label="Access">
             <NavItem collapsed={collapsed} icon={<User />} label="Users" to="/users" />
