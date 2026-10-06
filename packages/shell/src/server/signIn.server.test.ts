@@ -1,6 +1,9 @@
 // @vitest-environment node
 import { MOCK_SESSION_COOKIE } from "@sneakers-web/mock-gateway";
 import { appRequest, cookieFrom, form, withMockGateway } from "@sneakers-web/mock-gateway/testing";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 import { requireUser } from "#shell/server/session.server";
 import { signInAction, signInLoader, type SignInState } from "#shell/server/signIn.server";
@@ -145,5 +148,99 @@ describe("the dev quick login", () => {
     expect(outcome).not.toBeInstanceOf(Response);
     const headers = new Headers((outcome as DataResult).init?.headers);
     expect(headers.get("Set-Cookie")).toBeNull();
+  });
+});
+
+const localAccounts = [
+  { label: "Alice", note: "site admin", password: "alice-local-pass", username: "alice" },
+  { password: "bob-local-pass", username: "bob@example.org" },
+];
+
+const usersFile = (content: string) => {
+  const file = path.join(mkdtempSync(path.join(tmpdir(), "dev-quick-login-")), "users.json");
+  writeFileSync(file, content);
+  return file;
+};
+
+const turnOn = (content = JSON.stringify(localAccounts)) => {
+  vi.stubEnv("SNEAKERS_DEV_QUICK_LOGIN_BUILD", "true");
+  vi.stubEnv("SNEAKERS_DEV_QUICK_LOGIN", "true");
+  vi.stubEnv("SNEAKERS_DEV_QUICK_LOGIN_USERS", usersFile(content));
+};
+
+const offered = async () => {
+  const out = await signInLoader({
+    context: {},
+    params: {},
+    request: appRequest("/sign-in"),
+  } as never);
+  return out.quickLoginUsers;
+};
+
+describe("the dev quick login on a live build", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("lists the local users by name and label, never with their passwords", async () => {
+    turnOn();
+    const users = await offered();
+    expect(users).toEqual([
+      { id: "alice", label: "Alice", note: "site admin" },
+      { id: "bob@example.org", label: "bob@example.org", note: "" },
+    ]);
+    expect(JSON.stringify(users)).not.toMatch(/local-pass/);
+  });
+
+  it("is off unless the server turns it on, and off in a build without the allowance", async () => {
+    turnOn();
+    vi.stubEnv("SNEAKERS_DEV_QUICK_LOGIN", "");
+    expect(await offered()).toEqual([]);
+    turnOn();
+    vi.stubEnv("SNEAKERS_DEV_QUICK_LOGIN_BUILD", "false");
+    expect(await offered()).toEqual([]);
+  });
+
+  it("offers no one when the users file is missing or isn't a list of accounts", async () => {
+    turnOn("not json");
+    expect(await offered()).toEqual([]);
+    turnOn(JSON.stringify({ username: "alice" }));
+    expect(await offered()).toEqual([]);
+    turnOn(JSON.stringify([{ username: "alice" }, ...localAccounts.slice(1)]));
+    const valid = await offered();
+    expect(valid.map((u) => u.id)).toEqual(["bob@example.org"]);
+    turnOn();
+    vi.stubEnv("SNEAKERS_DEV_QUICK_LOGIN_USERS", "");
+    expect(await offered()).toEqual([]);
+  });
+
+  it("signs in through the gateway's password step, then asks for the second factor", async () => {
+    turnOn();
+    const first = await act({ intent: "dev-quick-login", userId: "alice" });
+    expect(first.data).toMatchObject({
+      factors: ["totp", "email"],
+      identifier: "alice",
+      view: "code",
+    });
+    const opened = await act({
+      intent: "dev-quick-login",
+      next: "/secrets",
+      userId: "bob@example.org",
+    });
+    expect(opened.data).toEqual({ name: "Bob", next: "/secrets", view: "done" });
+    const cookie = cookieFrom(new Headers(opened.init?.headers));
+    const { user } = await requireUser(appRequest("/", { cookie }));
+    expect(user.email).toBe("bob@example.org");
+  });
+
+  it("refuses a user who isn't in the file, and does nothing while it is off", async () => {
+    turnOn();
+    const unknown = await catchResponse(act({ intent: "dev-quick-login", userId: "mallory" }));
+    expect(unknown.status).toBe(404);
+    vi.stubEnv("SNEAKERS_DEV_QUICK_LOGIN", "false");
+    const off = await catchResponse(act({ intent: "dev-quick-login", userId: "alice" }));
+    expect(off.status).toBe(404);
+    vi.stubEnv("SNEAKERS_DEV_QUICK_LOGIN_BUILD", "false");
+    vi.stubEnv("SNEAKERS_DEV_QUICK_LOGIN", "true");
+    const outcome = await act({ intent: "dev-quick-login", userId: "alice" });
+    expect(outcome.data).toEqual({ view: "local" });
   });
 });

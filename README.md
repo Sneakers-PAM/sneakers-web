@@ -35,6 +35,10 @@ The server listens on `PORT` (3000) and answers `GET /healthz`. Runtime settings
 `TRUST_PROXY`, `APP_ENV`, `LOG_LEVEL`, `LOG_FORMAT`, `SSO_ENABLED`, `STAFF_URL`, `ADMIN_URL`. More in
 [AGENTS.md](AGENTS.md).
 
+For a local stack, `--build-arg DEV_QUICK_LOGIN=true` plus `SNEAKERS_DEV_QUICK_LOGIN=true` and
+`SNEAKERS_DEV_QUICK_LOGIN_USERS` (a local file of seeded dev accounts) add a dev quick login to
+the sign-in page. Release images never set them; see "Dev quick login" in [AGENTS.md](AGENTS.md).
+
 ## 🙏 Acknowledgements
 
 Sneakers-PAM was originally written by [@Bugs5382](https://github.com/Bugs5382).

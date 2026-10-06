@@ -51,6 +51,20 @@ export const chooseEdge = (
   };
 };
 
+/**
+ * Whether a build carries the dev quick login for a live gateway. The dev server always does;
+ * a production build only when SNEAKERS_DEV_QUICK_LOGIN_BUILD=true is set for the build (the
+ * image's DEV_QUICK_LOGIN build argument, off by default and never set for a release). A mock
+ * build has its own quick login. Even when built in, it stays off until the server sets
+ * SNEAKERS_DEV_QUICK_LOGIN=true.
+ */
+export const developmentQuickLoginBuild = (
+  mode: string,
+  environment: NodeJS.ProcessEnv = process.env,
+): boolean =>
+  mode !== MOCK_MODE &&
+  (mode === "development" || environment.SNEAKERS_DEV_QUICK_LOGIN_BUILD === "true");
+
 /** Aliases shared by every app and package: the package-internal prefixes and the edge. */
 export const sharedAliases = (edgeModule: string): Record<string, string> => ({
   "@sneakers-web/edge.server": edgeModule,
@@ -73,8 +87,11 @@ const buildDefines = {
   __APP_VERSION__: JSON.stringify(version),
 };
 
-const defines = (mock: boolean) => ({
+const defines = (mock: boolean, developmentQuickLogin: boolean) => ({
   ...buildDefines,
+  "import.meta.env.SNEAKERS_DEV_QUICK_LOGIN_BUILD": JSON.stringify(
+    developmentQuickLogin ? "true" : "false",
+  ),
   "import.meta.env.SNEAKERS_MOCK": JSON.stringify(mock ? "true" : "false"),
 });
 
@@ -104,7 +121,7 @@ export const appConfig = ({ base, directory, mode, port }: AppOptions): UserConf
   return {
     base,
     build: { sourcemap: false },
-    define: testing ? buildDefines : defines(edge.mock),
+    define: testing ? buildDefines : defines(edge.mock, developmentQuickLoginBuild(mode)),
     plugins,
     preview: { port, strictPort: true },
     resolve: { alias: { "@": path.join(directory, "app"), ...sharedAliases(edge.module) } },

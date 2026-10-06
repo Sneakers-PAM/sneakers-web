@@ -1,6 +1,9 @@
 import { withMockGateway } from "@sneakers-web/mock-gateway/testing";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { createRoutesStub } from "react-router";
 
 import { SignInPage } from "#shell/auth/SignInPage";
@@ -59,6 +62,42 @@ describe("the dev quick login on the sign-in page", () => {
 
   it("isn't there outside a mock build", async () => {
     vi.stubEnv("SNEAKERS_MOCK", "false");
+    await open();
+    expect(screen.queryByRole("combobox", { name: "Dev quick login" })).not.toBeInTheDocument();
+  });
+});
+
+const turnOn = () => {
+  const file = path.join(mkdtempSync(path.join(tmpdir(), "dev-quick-login-")), "users.json");
+  writeFileSync(
+    file,
+    JSON.stringify([
+      { label: "Alice", note: "site admin", password: "alice-local-pass", username: "alice" },
+      { label: "Bob", password: "bob-local-pass", username: "bob@example.org" },
+    ]),
+  );
+  vi.stubEnv("SNEAKERS_DEV_QUICK_LOGIN_BUILD", "true");
+  vi.stubEnv("SNEAKERS_DEV_QUICK_LOGIN", "true");
+  vi.stubEnv("SNEAKERS_DEV_QUICK_LOGIN_USERS", file);
+};
+
+describe("the dev quick login on a live build", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("lists the local users and signs in as the one picked through the password step", async () => {
+    turnOn();
+    const user = userEvent.setup();
+    await open();
+    await user.click(await screen.findByRole("combobox", { name: "Dev quick login" }));
+    const list = await screen.findByRole("listbox");
+    expect(within(list).getByRole("option", { name: "Bob" })).toBeInTheDocument();
+    await user.click(within(list).getByRole("option", { name: /Alice.*site admin/ }));
+    expect(await screen.findByLabelText("6-digit code")).toBeInTheDocument();
+  });
+
+  it("isn't there until the server turns it on", async () => {
+    turnOn();
+    vi.stubEnv("SNEAKERS_DEV_QUICK_LOGIN", "false");
     await open();
     expect(screen.queryByRole("combobox", { name: "Dev quick login" })).not.toBeInTheDocument();
   });

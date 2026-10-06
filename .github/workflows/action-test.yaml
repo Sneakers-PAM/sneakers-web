@@ -47,6 +47,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      # A release build carries no mock code and can't turn on the dev quick login.
+      - name: No mock code in live builds
+        if: matrix.node-version == 'lts/*'
+        run: npm run build:mock && npm run check:no-mock
+
       # The published set is whatever package.json `files` lists (dist for an app,
       # lib for a library) plus the fixed metadata. Derived, never hardcoded.
       - name: Resolve published files
