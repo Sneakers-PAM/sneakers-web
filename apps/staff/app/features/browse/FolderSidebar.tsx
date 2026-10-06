@@ -1,7 +1,7 @@
 import { Button } from "@sneakers-web/ui";
 import { Plus } from "lucide-react";
 import { useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router";
+import { useLocation, useMatches, useNavigate, useParams } from "react-router";
 
 import type { NavFolder } from "@/features/browse/tree";
 
@@ -10,7 +10,7 @@ import { type FolderAction } from "@/features/browse/folderActions";
 import { FolderNav } from "@/features/browse/FolderNav";
 import { MoveFlow } from "@/features/browse/MoveFlow";
 import { NameDialog } from "@/features/browse/NameDialog";
-import { folderLabel, reordered } from "@/features/browse/tree";
+import { activeFolderId, folderLabel, reordered } from "@/features/browse/tree";
 import { useBrowseAction } from "@/features/browse/useBrowseAction";
 
 type Dialog =
@@ -34,7 +34,9 @@ export const FolderSidebar = ({
   isAdmin: boolean;
 }) => {
   const { pathname } = useLocation();
-  const { folderId: currentId } = useParams();
+  const { folderId } = useParams();
+  const matches = useMatches();
+  const currentId = activeFolderId(folderId, matches);
   const navigate = useNavigate();
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const close = () => setDialog(null);
