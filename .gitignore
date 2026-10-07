@@ -17,4 +17,6 @@ build/
 build-mock/
 .react-router/
 test-results/
+# npm run gallery:appliance-admin
+apps/appliance-admin/gallery/
 playwright-report/

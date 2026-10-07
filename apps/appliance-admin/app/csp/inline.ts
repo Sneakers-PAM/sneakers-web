@@ -13,10 +13,14 @@ export interface ExternalizedScript {
 
 const SCRIPT = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi;
 const HAS_SRC = /\ssrc\s*=/i;
+const ASYNC = /\sasync(?:\s*=\s*(?:""|''|async|"async"))?(?=[\s>/]|$)/gi;
 
 /**
  * Moves every inline `<script>` to `assets/inline-<sha256>.js` and points the tag at it, keeping
- * its other attributes (`type="module"`, `async`), so the scripts run in the same order.
+ * its other attributes, so the scripts run in the same order. `async` goes: React treats a
+ * `<script async src>` as a hoisted resource and skips it while hydrating, so the client's
+ * module script would find no match (error #418). A module script without it still runs
+ * after the page is parsed, once the classic scripts before it have set up the context.
  */
 export const externalizeInlineScripts = (
   html: string,
@@ -28,7 +32,7 @@ export const externalizeInlineScripts = (
     const digest = createHash("sha256").update(content).digest("hex").slice(0, 16);
     const fileName = `assets/inline-${digest}.js`;
     files.set(fileName, { content, fileName });
-    return `<script${attributes} src="${base}${fileName}"></script>`;
+    return `<script${attributes.replaceAll(ASYNC, "")} src="${base}${fileName}"></script>`;
   });
   return { files: [...files.values()], html: out };
 };
