@@ -37,6 +37,9 @@ import { access, elevation as elevationClient } from "@/lib/osadmin/client";
 import { isStepUpRequired } from "@/lib/osadmin/errors";
 import { useSession } from "@/lib/useSession";
 
+const clamp = (value: number, min: number, max: number): number =>
+  Math.min(Math.max(value, min), max);
+
 export default function Access() {
   const { isOwner } = useSession();
   const roleLabelId = useId();
@@ -47,8 +50,9 @@ export default function Access() {
   const [role, setRole] = useState<Admin["role"]>("ROLE_ADMIN");
   const [newKeyAdmin, setNewKeyAdmin] = useState("");
   const [newKey, setNewKey] = useState("");
-  const [quorumMembers, setQuorumMembers] = useState("");
+  const [quorumMembers, setQuorumMembers] = useState<string[]>([]);
   const [quorumRequired, setQuorumRequired] = useState(2);
+  const [removedFromRoster, setRemovedFromRoster] = useState<null | string>(null);
   const [maxMinutes, setMaxMinutes] = useState(240);
   const [defaultMinutes, setDefaultMinutes] = useState(60);
   const [selfApproval, setSelfApproval] = useState(false);
@@ -57,8 +61,11 @@ export default function Access() {
   const reload = () =>
     void access.list().then((response) => {
       setData(response);
-      setQuorumMembers((response.quorum?.members ?? []).join(", "));
-      setQuorumRequired(response.quorum?.required ?? 2);
+      const members = (response.quorum?.members ?? []).filter((m) =>
+        response.admins.some((admin) => admin.name === m),
+      );
+      setQuorumMembers(members);
+      setQuorumRequired(clamp(response.quorum?.required ?? 2, 2, Math.max(2, members.length)));
       setMaxMinutes(response.elevationPolicy?.maxMinutes ?? 240);
       setDefaultMinutes(response.elevationPolicy?.defaultMinutes ?? 60);
       setSelfApproval(response.elevationPolicy?.selfApprovalWhenSingleOwner ?? false);
@@ -122,9 +129,15 @@ export default function Access() {
                 <TableCell>
                   {isOwner && (
                     <Button
-                      onClick={() =>
-                        void runAction(() => access.removeAdmin(admin.name), { onSuccess: reload })
-                      }
+                      onClick={() => {
+                        const onRoster = quorumMembers.includes(admin.name);
+                        void runAction(() => access.removeAdmin(admin.name), {
+                          onSuccess: () => {
+                            reload();
+                            if (onRoster) setRemovedFromRoster(admin.name);
+                          },
+                        });
+                      }}
                       size="sm"
                       variant="secondary"
                     >
@@ -336,30 +349,54 @@ export default function Access() {
             className="flex flex-col gap-3 p-5.5"
             onSubmit={(event) => {
               event.preventDefault();
-              const members = quorumMembers
-                .split(",")
-                .map((m) => m.trim())
-                .filter(Boolean);
-              void runAction(() => access.setQuorum(members, quorumRequired), {
+              void runAction(() => access.setQuorum(quorumMembers, quorumRequired), {
                 onSuccess: reload,
               });
             }}
           >
-            <Field hint="Comma-separated admin names" label="Roster">
-              <Input
-                onChange={(event) => setQuorumMembers(event.target.value)}
-                value={quorumMembers}
-              />
-            </Field>
+            {removedFromRoster && (
+              <Alert tone="info">
+                {removedFromRoster} was removed from the factory-reset quorum roster.
+              </Alert>
+            )}
+            {data.admins.length < 2 && (
+              <Alert tone="info">A single-admin box can&apos;t factory reset.</Alert>
+            )}
+            <fieldset className="flex flex-col gap-2">
+              <legend className="mb-1 text-[0.875rem] font-bold text-ink">Roster</legend>
+              {data.admins.map((admin) => (
+                <Label className="flex items-center gap-2" key={admin.name}>
+                  <Checkbox
+                    checked={quorumMembers.includes(admin.name)}
+                    onCheckedChange={(checked) => {
+                      const next =
+                        checked === true
+                          ? [...quorumMembers, admin.name]
+                          : quorumMembers.filter((m) => m !== admin.name);
+                      setQuorumMembers(next);
+                      setQuorumRequired((required) => clamp(required, 2, Math.max(2, next.length)));
+                    }}
+                  />
+                  {admin.name} ({admin.role === "ROLE_OWNER" ? "owner" : "admin"})
+                </Label>
+              ))}
+            </fieldset>
             <Field label="Approvals required">
               <Input
-                min={1}
-                onChange={(event) => setQuorumRequired(Number(event.target.value))}
+                max={Math.max(2, quorumMembers.length)}
+                min={2}
+                onChange={(event) =>
+                  setQuorumRequired(
+                    clamp(Number(event.target.value), 2, Math.max(2, quorumMembers.length)),
+                  )
+                }
                 type="number"
                 value={quorumRequired}
               />
             </Field>
-            <Button type="submit">Save quorum</Button>
+            <Button disabled={quorumMembers.length < 2} type="submit">
+              Save quorum
+            </Button>
           </form>
         </Card>
       )}

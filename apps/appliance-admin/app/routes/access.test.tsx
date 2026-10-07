@@ -119,6 +119,50 @@ describe("Access", () => {
     expect(group.getByRole("combobox", { name: "Admin" })).toBeInTheDocument();
   });
 
+  it("picks the factory-reset quorum roster from existing admins, not free text", async () => {
+    signInAsOwner();
+    renderPage(Access);
+    await screen.findByRole("table", { name: "Admins" });
+    expect(screen.queryByRole("textbox", { name: "Roster" })).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /alice/ })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /bob/ })).toBeChecked();
+  });
+
+  it("bounds required approvals between 2 and the number of picked members", async () => {
+    signInAsOwner();
+    renderPage(Access);
+    await screen.findByRole("table", { name: "Admins" });
+    const required = screen.getByRole("spinbutton", { name: "Approvals required" });
+    expect(required).toHaveAttribute("min", "2");
+    expect(required).toHaveAttribute("max", "2");
+  });
+
+  it("explains that a single-admin box can't factory reset", async () => {
+    const bob = world.ADMINS.pop();
+    try {
+      resetMockWorld();
+      signInAsOwner();
+      renderPage(Access);
+      await screen.findByRole("table", { name: "Admins" });
+      expect(screen.getByText(/single-admin box can't factory reset/)).toBeInTheDocument();
+    } finally {
+      if (bob) world.ADMINS.push(bob);
+    }
+  });
+
+  it("tells the owner when a removed admin was on the quorum roster, and updates it", async () => {
+    signInAsOwner();
+    const user = userEvent.setup();
+    renderPage(Access);
+    const admins = within(await screen.findByRole("table", { name: "Admins" }));
+    const bobRow = within(admins.getByRole("row", { name: /bob/ }));
+    await user.click(bobRow.getByRole("button", { name: "Remove admin" }));
+    expect(
+      await screen.findByText(/bob was removed from the factory-reset quorum roster/),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /bob/ })).not.toBeInTheDocument();
+  });
+
   it("shows other roles the revoked keys but no un-revoke", async () => {
     signInAs("bob");
     renderPage(Access);
