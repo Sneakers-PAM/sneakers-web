@@ -24,9 +24,9 @@ const WIDTHS = [
   { height: 844, name: "mobile", width: 390 },
 ];
 // Pages a signed-out browser reaches by URL, then the frame's pages after the dev quick login.
-const SIGNED_OUT = ["/sign-in", "/setup", "/no-such-page"];
+const SIGNED_OUT = ["/", "/setup", "/no-such-page"];
 const FRAME = [
-  "/",
+  "/home",
   "/updates",
   "/network",
   "/access",
@@ -69,11 +69,11 @@ const waitForServer = async (url) => {
   throw new Error(`the gallery server never answered at ${url}`);
 };
 
-const slug = (route) => (route === "/" ? "status" : route.slice(1).replaceAll("/", "-"));
+const slug = (route) => (route === "/" ? "sign-in" : route.slice(1).replaceAll("/", "-"));
 
 /** Signs in with the dev quick login's first user, on a sign-in page already loaded. */
 const quickLogin = async (page) => {
-  await waitForReady(page, "/sign-in");
+  await waitForReady(page, "/");
   await page.getByRole("combobox").click();
   await page.getByRole("option").first().click();
 };
@@ -180,7 +180,7 @@ try {
       await shoot(page, shots, size, route);
     }
     // The dev quick login opens a Radix select, so the run also covers its scroll lock.
-    await page.goto(`${base}/sign-in`);
+    await page.goto(`${base}/`);
     await quickLogin(page);
     for (const route of FRAME) {
       await page.evaluate((to) => globalThis.__reactRouterDataRouter.navigate(to), route);
@@ -190,7 +190,7 @@ try {
     // A scenario is read when the app loads, and the session lives in memory, so each one is a
     // fresh load of the sign-in page with the scenario, then the quick login again.
     for (const { name, route, scenario } of SCENARIOS) {
-      await page.goto(`${base}/sign-in?mockScenario=${scenario}`);
+      await page.goto(`${base}/?mockScenario=${scenario}`);
       await quickLogin(page);
       await page.evaluate((to) => globalThis.__reactRouterDataRouter.navigate(to), route);
       await page.waitForURL(`${base}${route}`);

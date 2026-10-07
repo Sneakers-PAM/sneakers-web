@@ -1,9 +1,8 @@
 import { edge } from "@sneakers-web/edge";
+import { CenteredFrame, FrameTitle } from "@sneakers-web/shell";
 import {
   Badge,
   Button,
-  Card,
-  CardHeader,
   Label,
   Select,
   SelectContent,
@@ -17,6 +16,7 @@ import { Navigate } from "react-router";
 
 import { setSession } from "@/lib/osadmin/sessionStore";
 import { useSignInCode } from "@/lib/osadmin/useSignInCode";
+import { useSession } from "@/lib/useSession";
 
 const DevelopmentQuickLogin = () => {
   const id = useId();
@@ -47,46 +47,43 @@ const DevelopmentQuickLogin = () => {
 };
 
 export default function SignIn() {
-  const code = useSignInCode(true);
-  if (code.state === "signed-in") return <Navigate replace to="/" />;
+  const { session } = useSession();
+  const code = useSignInCode(!session);
+  if (session || code.state === "signed-in") return <Navigate replace to="/home" />;
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-sunken p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader subtitle="The :8443 appliance admin" title="Sign in" />
-        <div className="flex flex-col gap-4 p-5.5">
-          {code.state === "starting" && (
-            <div className="flex items-center justify-center py-6">
-              <Spinner />
-            </div>
-          )}
-          {code.state === "error" && (
-            <p className="text-small text-danger">Couldn&apos;t reach the appliance. Try again.</p>
-          )}
-          {code.begun && (code.state === "pending" || code.state === "expired") && (
-            <>
-              <p
-                aria-label={`Sign-in code ${code.begun.code}`}
-                className="rounded-md border-[1.5px] border-control bg-sunken py-4 text-center font-mono text-[1.75rem] font-bold tracking-[0.2em]"
-              >
-                {code.begun.code}
-              </p>
-              <p className="text-small text-muted">
-                From a session you trust, run{" "}
-                <code className="font-mono">
-                  ssh &lt;admin&gt;@{code.begun.sourceAddress} login {code.begun.code}
-                </code>{" "}
-                and approve the sign-in shown as {code.begun.userAgent}.
-              </p>
-            </>
-          )}
-          {code.state === "expired" && (
-            <Button onClick={code.restart} variant="secondary">
-              Get a new code
-            </Button>
-          )}
-          <DevelopmentQuickLogin />
+    <CenteredFrame>
+      <FrameTitle body="The :8443 appliance admin" title="Sign in" />
+      {code.state === "starting" && (
+        <div className="flex items-center justify-center py-6">
+          <Spinner />
         </div>
-      </Card>
-    </main>
+      )}
+      {code.state === "error" && (
+        <p className="text-small text-danger">Couldn&apos;t reach the appliance. Try again.</p>
+      )}
+      {code.begun && (code.state === "pending" || code.state === "expired") && (
+        <>
+          <p
+            aria-label={`Sign-in code ${code.begun.code}`}
+            className="rounded-md border-[1.5px] border-control bg-sunken py-4 text-center font-mono text-[1.75rem] font-bold tracking-[0.2em]"
+          >
+            {code.begun.code}
+          </p>
+          <p className="text-small text-muted">
+            From a session you trust, run{" "}
+            <code className="font-mono">
+              ssh &lt;admin&gt;@{code.begun.sourceAddress} login {code.begun.code}
+            </code>{" "}
+            and approve the sign-in shown as {code.begun.userAgent}.
+          </p>
+        </>
+      )}
+      {code.state === "expired" && (
+        <Button onClick={code.restart} variant="secondary">
+          Get a new code
+        </Button>
+      )}
+      <DevelopmentQuickLogin />
+    </CenteredFrame>
   );
 }
