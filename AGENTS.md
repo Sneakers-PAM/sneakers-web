@@ -6,11 +6,14 @@ hook-enforced rules). Keep this file current when the build, layout, or public A
 ## What this is
 
 Sneakers web apps in one repo: staff, admin, appliance admin, maintenance, docs and the UI kit.
-Today it ships two apps, the staff app (`apps/staff`, served at `/`) and the admin console
-(`apps/admin`, served at `/admin/`). Both are React Router v7 framework-mode apps rendered on the
-server (SSR), each built into its own Node server and container image.
+Today it ships three apps. The staff app (`apps/staff`, served at `/`) and the admin console
+(`apps/admin`, served at `/admin/`) are React Router v7 framework-mode apps rendered on the
+server (SSR), each built into its own Node server and container image. The appliance admin
+(`apps/appliance-admin`) is architecturally different: a React Router v7 SPA (`ssr: false`,
+no Node server at all), built to static assets and served, at `/`, by `sneakers-osadmin` in the
+sneakers-appliance repo's root image -- see "Appliance admin" below before touching it.
 
-Before changing anything, know two things:
+Before changing anything in the staff or admin apps, know two things:
 
 - **Every gateway call runs on the app server.** Loaders and actions call the gateway through
   `GatewayClient` (`packages/api-client/src/gateway.ts`), forwarding only the gateway's session
@@ -33,6 +36,52 @@ Before changing anything, know two things:
 - `npm run check:no-mock` fails if a live build (`apps/*/build`) contains the mock marker, and
   also if a mock build (`apps/*/build-mock`) lacks it. A live image installs no msw. CI runs it
   in the Test workflow's build job.
+
+## Appliance admin (apps/appliance-admin)
+
+The :8443 appliance admin front end for sneakers-appliance's OS and appliance layer (upgrades,
+network, access, backups, MCP, power), not the Sneakers application itself. It is deliberately
+minimal -- plain forms and big obvious actions, the bar of an Infoblox or router admin UI -- and
+built only from `packages/ui` and `packages/shell` pieces; no new design-system components.
+
+- **Static SPA, no server.** `react-router.config.ts` sets `ssr: false`, so `react-router build`
+  writes only `build/client` (no `build/server`), and `entry.server.tsx` runs once at build time
+  to prerender the SPA fallback shell -- it never runs at request time. There is no Dockerfile
+  target for this app in this repo; its build output is consumed by sneakers-appliance, which
+  pins it by digest in `release.yaml` and bakes it into the root image.
+- **No gateway, no GraphQL.** The browser calls `sneakers-osadmin`'s Connect API (gRPC-compatible
+  JSON over HTTP) directly, same origin: `POST /sneakers.appliance.osadmin.v1.<Service>/<Method>`,
+  plus `POST /upload` (a `.bin` body) and `GET /export/audit-log`. `app/lib/osadmin/client.ts` is
+  a thin, hand-written wrapper (there is no generated Connect-ES client yet) over
+  `app/lib/osadmin/types.ts`, which mirrors the protos in sneakers-appliance's
+  `proto/sneakers/appliance/osadmin/v1/*.proto`. `:8443` sends
+  `Content-Security-Policy: default-src 'self'`, so no inline scripts or styles anywhere in this
+  app.
+- **Its own edge, not `@sneakers-web/edge.server`.** `app/lib/edge.live.ts` (real `fetch`) and
+  `app/mock/edge.mock.ts` (an in-memory fake, no MSW and no service worker, since there's no
+  server process to intercept) both implement `app/lib/osadmin/edgeTypes.ts`'s `Edge` interface.
+  The Vite alias `@sneakers-web/edge` picks one by build mode, same idea as the rest of the repo,
+  different mechanics because this app has no server half to swap. Tests always get the mock
+  edge (`vitest.config.ts`); `app/mock/world.ts` holds the fixture admins, keys and settings,
+  and `resetMockWorld()` (called from `app/test/setup.ts` after every test) puts them back.
+- **Sessions live in memory, not a readable cookie.** `__Host-osadmin-session` is `HttpOnly`;
+  the browser never reads it. `app/lib/osadmin/sessionStore.ts` holds the `Session` the last
+  `PollSignIn` or `GetSession` call returned (admin, role, CSRF token, step-up expiry), and
+  `app/frame/AppFrame.tsx` calls `GetSession` once on mount to find out whether the box still
+  knows this browser.
+- **One step-up dialog for every page.** A mutating call that answers
+  `ACCESS_STEPUP_REQUIRED` (Connect `permission_denied`) doesn't build its own prompt; it calls
+  `requestStepUp` (`app/lib/osadmin/stepUpController.ts`) through `runAction`
+  (`app/lib/osadmin/action.ts`), which queues the retry behind the one `<StepUpDialog>` mounted
+  in `AppFrame`. A Connect `unimplemented` (a page's backend isn't on the box yet) becomes "Not
+  available in this release" (`app/components/NotAvailable.tsx`), the same component the Updates
+  page and the Power page's factory-reset section use as a placeholder until their follow-up PR.
+- **Advanced disclosure.** The trust/PKI details on Certificates, the whole Add-on modules page
+  and the Logs page's support bundle sit behind `app/components/Advanced.tsx`, a plain
+  `<details>` -- no new kit component needed for a collapsed-by-default section.
+- **Dev quick login is mock-only.** There's no local dev server talking to a real gateway to
+  gate a second way (unlike staff/admin's build-flag variant): `edge.quickLogin` only exists on
+  the mock edge, and the sign-in page only renders the control when `edge.mode === "mock"`.
 
 ## Dev quick login
 
