@@ -16,6 +16,7 @@ import {
 import { useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router";
 
+import { ApplianceAbout } from "@/components/ApplianceAbout";
 import { StepUpDialog } from "@/components/StepUpDialog";
 import { setup, signIn } from "@/lib/osadmin/client";
 import { getSession, setSession } from "@/lib/osadmin/sessionStore";
@@ -92,6 +93,7 @@ export const AppFrame = () => {
               navigate("/");
             });
           }}
+          renderAbout={(props) => <ApplianceAbout {...props} />}
           role={session.role === "ROLE_OWNER" ? "owner" : "admin"}
         />
       }

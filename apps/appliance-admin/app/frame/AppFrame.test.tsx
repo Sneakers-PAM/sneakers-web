@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { createRoutesStub } from "react-router";
 
 import { AppFrame } from "@/frame/AppFrame";
@@ -32,5 +33,24 @@ describe("AppFrame", () => {
     stub("/home");
     expect(await screen.findByText("Status page")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Account: alice/ })).toBeInTheDocument();
+  });
+
+  it("opens the appliance's own About and diagnostics, not the gateway-shaped one", async () => {
+    setSession({
+      admin: "alice",
+      csrfToken: "test-csrf",
+      keyFingerprint: "SHA256:test",
+      role: "ROLE_OWNER",
+    });
+    const user = userEvent.setup();
+    stub("/home");
+    await screen.findByText("Status page");
+    await user.click(screen.getByRole("button", { name: /Account: alice/ }));
+    await user.click(await screen.findByText("About and diagnostics"));
+    expect(
+      await screen.findByText(`appliance-admin ${__APP_VERSION__} (${__APP_COMMIT__})`),
+    ).toBeInTheDocument();
+    expect(screen.getByText("alice (owner)")).toBeInTheDocument();
+    expect(screen.queryByText(/gateway/i)).not.toBeInTheDocument();
   });
 });

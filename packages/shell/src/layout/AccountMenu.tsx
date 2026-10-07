@@ -33,6 +33,7 @@ export const AccountMenu = ({
   items = [],
   name,
   onSignOut,
+  renderAbout = (props) => <AboutDialog {...props} />,
   role = "",
 }: {
   app: string;
@@ -44,6 +45,12 @@ export const AccountMenu = ({
   items?: AccountMenuItem[];
   name: string;
   onSignOut: () => void;
+  /**
+   * The About and diagnostics dialog, for an app whose build has no gateway-shaped
+   * diagnostics to show (the appliance admin, a static SPA with no app server). Defaults to
+   * the gateway-shaped AboutDialog every other app uses.
+   */
+  renderAbout?: (props: { onOpenChange: (open: boolean) => void; open: boolean }) => ReactNode;
   role?: string;
 }) => {
   const [about, setAbout] = useState(false);
@@ -97,7 +104,7 @@ export const AccountMenu = ({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <AboutDialog onOpenChange={setAbout} open={about} />
+      {renderAbout({ onOpenChange: setAbout, open: about })}
     </>
   );
 };
