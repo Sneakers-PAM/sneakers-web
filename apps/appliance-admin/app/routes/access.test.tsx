@@ -6,7 +6,7 @@ import { access } from "@/lib/osadmin/client";
 import { OsadminError } from "@/lib/osadmin/errors";
 import { setSession } from "@/lib/osadmin/sessionStore";
 import { cancelStepUp, stepUpPending } from "@/lib/osadmin/stepUpController";
-import { applyMockScenario, resetMockWorld } from "@/mock/edge.mock";
+import { applyMockScenario, MOCK_PASSWORD, resetMockWorld } from "@/mock/edge.mock";
 import * as world from "@/mock/world";
 import Access from "@/routes/access";
 import { renderPage } from "@/test/renderPage";
@@ -66,18 +66,6 @@ describe("Access", () => {
     const bobRow = within(admins.getByRole("row", { name: /bob/ }));
     await user.click(bobRow.getByRole("button", { name: "Remove" }));
     expect(bobRow.queryByRole("button", { name: "Remove" })).not.toBeInTheDocument();
-  });
-
-  it("lets an owner approve a pending elevation request", async () => {
-    signInAsOwner();
-    const user = userEvent.setup();
-    renderPage(Access);
-    const elevations = within(
-      await screen.findByRole("table", { name: "Shell elevation requests" }),
-    );
-    expect(elevations.getByText("investigate kubelet")).toBeInTheDocument();
-    await user.click(elevations.getByRole("button", { name: "Approve" }));
-    expect(await elevations.findByText("approved")).toBeInTheDocument();
   });
 
   it("lists each admin's revoked keys with the fingerprint, type, when and who revoked it", async () => {
@@ -142,13 +130,7 @@ describe("Access", () => {
     expect(form.getByRole("combobox", { name: "Role" })).toBeInTheDocument();
   });
 
-  it("labels the Admin control on the add-a-login-key row", async () => {
-    renderPage(Access);
-    const group = within(await screen.findByRole("group", { name: "Add a login key" }));
-    expect(group.getByRole("combobox", { name: "Admin" })).toBeInTheDocument();
-  });
-
-  it("picks the factory-reset quorum roster from existing admins, not free text", async () => {
+  it("picks the root-operator roster from existing admins, not free text", async () => {
     signInAsOwner();
     renderPage(Access);
     await screen.findByRole("table", { name: "Admins" });
@@ -187,7 +169,7 @@ describe("Access", () => {
     const bobRow = within(admins.getByRole("row", { name: /bob/ }));
     await user.click(bobRow.getByRole("button", { name: "Remove admin" }));
     expect(
-      await screen.findByText(/bob was removed from the factory-reset quorum roster/),
+      await screen.findByText(/bob was removed from the root-operator roster/),
     ).toBeInTheDocument();
     expect(screen.queryByRole("checkbox", { name: /bob/ })).not.toBeInTheDocument();
   });
@@ -284,5 +266,152 @@ describe("Access", () => {
     } finally {
       restore();
     }
+  });
+
+  it("shows each admin's role, root-operator badge and last sign-in", async () => {
+    renderPage(Access);
+    const admins = within(await screen.findByRole("table", { name: "Admins" }));
+    const alice = within(admins.getByRole("row", { name: /alice/ }));
+    expect(alice.getByText("owner")).toBeInTheDocument();
+    expect(alice.getByText("root operator")).toBeInTheDocument();
+    expect(alice.getByText("Active")).toBeInTheDocument();
+  });
+
+  it("shows a locked admin and lets an owner unlock them", async () => {
+    applyMockScenario("locked");
+    signInAsOwner();
+    const user = userEvent.setup();
+    renderPage(Access);
+    const admins = within(await screen.findByRole("table", { name: "Admins" }));
+    const bob = within(admins.getByRole("row", { name: /bob/ }));
+    expect(bob.getByText(/Locked until \d{1,2}:\d{2}/)).toBeInTheDocument();
+    await user.click(bob.getByRole("button", { name: "Unlock" }));
+    expect(await bob.findByText("Active")).toBeInTheDocument();
+  });
+
+  it("adds an admin and shows the invitation code once", async () => {
+    signInAsOwner();
+    const user = userEvent.setup();
+    renderPage(Access);
+    const form = within(await screen.findByRole("form", { name: "Add an admin" }));
+    await user.type(form.getByRole("textbox", { name: "Name" }), "carol");
+    await user.click(form.getByRole("checkbox", { name: /root operator/ }));
+    await user.click(form.getByRole("button", { name: "Add admin" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(dialog.getByText(/shown once/)).toBeInTheDocument();
+    expect(dialog.getByLabelText("Invitation code for carol")).toHaveTextContent(
+      /^[0-9A-Z]{4}-[0-9A-Z]{4}$/,
+    );
+    await user.click(dialog.getByRole("button", { name: "Done" }));
+    const admins = within(screen.getByRole("table", { name: "Admins" }));
+    const carol = within(admins.getByRole("row", { name: /carol/ }));
+    expect(carol.getByText(/Invitation open until/)).toBeInTheDocument();
+    expect(carol.getByText("root operator")).toBeInTheDocument();
+  });
+
+  it("re-invites an admin with a new code", async () => {
+    signInAsOwner();
+    const user = userEvent.setup();
+    renderPage(Access);
+    const admins = within(await screen.findByRole("table", { name: "Admins" }));
+    await user.click(
+      within(admins.getByRole("row", { name: /bob/ })).getByRole("button", { name: "Re-invite" }),
+    );
+    await user.click(
+      within(await screen.findByRole("dialog")).getByRole("button", { name: "Re-invite bob" }),
+    );
+    expect(await screen.findByLabelText("Invitation code for bob")).toBeInTheDocument();
+  });
+
+  it("changes your own password after the current one", async () => {
+    signInAsOwner();
+    const user = userEvent.setup();
+    renderPage(Access);
+    const account = within(await screen.findByRole("region", { name: "Your account" }));
+    await user.click(account.getByRole("button", { name: "Change password" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    await user.type(dialog.getByLabelText("Current password"), MOCK_PASSWORD);
+    await user.type(dialog.getByLabelText("New password"), "a brand new long passphrase");
+    await user.type(dialog.getByLabelText("New password again"), "a brand new long passphrase");
+    await dialog.findByText("Strong enough.");
+    await user.click(dialog.getByRole("button", { name: "Change password" }));
+    expect(await screen.findByText("Password changed.")).toBeInTheDocument();
+  });
+
+  it("replaces your authenticator with a QR code and a check code", async () => {
+    signInAsOwner();
+    const user = userEvent.setup();
+    renderPage(Access);
+    const account = within(await screen.findByRole("region", { name: "Your account" }));
+    await user.click(account.getByRole("button", { name: "Replace authenticator" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(await dialog.findByTitle("QR code for your authenticator app")).toBeInTheDocument();
+    await user.type(dialog.getByLabelText("6-digit code from the app"), "112233");
+    await user.click(dialog.getByRole("button", { name: "Replace" }));
+    expect(await screen.findByText("Authenticator replaced.")).toBeInTheDocument();
+  });
+
+  it("issues an SSH key and shows the private key once", async () => {
+    signInAsOwner();
+    const user = userEvent.setup();
+    renderPage(Access);
+    const account = within(await screen.findByRole("region", { name: "Your account" }));
+    expect(account.getByText(/SSH asks for your TOTP code after login/)).toBeInTheDocument();
+    await user.click(account.getByRole("button", { name: "Get an SSH key" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    await user.type(dialog.getByLabelText("Label"), "work laptop");
+    await user.click(dialog.getByRole("button", { name: "Make the key" }));
+    expect(await dialog.findByText(/This is shown once/)).toBeInTheDocument();
+    expect((dialog.getByLabelText("Private key") as HTMLTextAreaElement).value).toContain(
+      "BEGIN OPENSSH PRIVATE KEY",
+    );
+    expect(dialog.getByRole("button", { name: /Download the private key/ })).toBeInTheDocument();
+    expect(dialog.getByRole("button", { name: /Download the certificate/ })).toBeInTheDocument();
+    await user.click(dialog.getByRole("button", { name: "I've saved it" }));
+    expect(await account.findByText("work laptop")).toBeInTheDocument();
+  });
+
+  it("lets an owner set the access settings, with 10-minute root defaults", async () => {
+    signInAsOwner();
+    const user = userEvent.setup();
+    renderPage(Access);
+    const settings = within(await screen.findByRole("form", { name: "Access settings" }));
+    expect(settings.getByLabelText("Root-shell code lifetime (minutes)")).toHaveValue("10");
+    expect(settings.getByLabelText("Root-shell session limit (minutes)")).toHaveValue("10");
+    expect(settings.getByLabelText("SSH key validity (days)")).toHaveValue("365");
+    await user.click(settings.getByRole("radio", { name: "Until an owner unlocks it" }));
+    const minutes = settings.getByLabelText("Root-shell code lifetime (minutes)");
+    await user.clear(minutes);
+    await user.type(minutes, "5");
+    await user.click(settings.getByRole("button", { name: "Save access settings" }));
+    expect(await screen.findByText("Access settings saved.")).toBeInTheDocument();
+    const saved = await access.list();
+    expect(saved.accessPolicy).toMatchObject({
+      lockoutMode: "LOCKOUT_MODE_UNTIL_UNLOCKED",
+      rootCodeMinutes: 5,
+    });
+  });
+
+  it("hides the access settings from an admin who isn't an owner", async () => {
+    signInAs("bob");
+    renderPage(Access);
+    await screen.findByRole("table", { name: "Admins" });
+    expect(screen.queryByRole("form", { name: "Access settings" })).not.toBeInTheDocument();
+  });
+
+  it("shows the root key's fingerprint next to the host keys", async () => {
+    renderPage(Access);
+    expect(await screen.findByText(/Root key ssh-ed25519 SHA256:/)).toBeInTheDocument();
+  });
+
+  it("lists the root shells, and an owner can end an open one", async () => {
+    applyMockScenario("elevated");
+    signInAsOwner();
+    const user = userEvent.setup();
+    renderPage(Access);
+    const shells = within(await screen.findByRole("table", { name: "Root shells" }));
+    const open = within(shells.getByRole("row", { name: /E-9M4T/ }));
+    await user.click(open.getByRole("button", { name: "End" }));
+    expect(await open.findByText("ended")).toBeInTheDocument();
   });
 });

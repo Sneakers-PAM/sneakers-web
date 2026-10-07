@@ -185,23 +185,42 @@ export interface GetStatusResponse {
 
 // ---- access ----
 
+/** An SSH key the box issued to an admin: an ed25519 key with a certificate from the root key. */
 export interface Key {
   added?: string;
   addedBy: string;
+  /** The label the admin gave it. */
   comment: string;
   fingerprint: string;
   lastUsed?: string;
+  /** The certificate's serial, the one the revocation list names. */
+  serial?: string;
   type: string;
+  /** When the certificate stops working. */
+  validBefore?: string;
   via: string;
 }
 
 export interface Admin {
-  approvalHoldUntil?: string;
   created?: string;
   createdBy: string;
+  /** False while an invitation is open: no password and authenticator yet. */
+  credentialsSet?: boolean;
+  failedAttempts?: number;
+  /** When an open invitation's code stops working. */
+  inviteExpires?: string;
   keys: Key[];
+  lastSignIn?: string;
+  /** When a timed lockout ends. */
+  lockedUntil?: string;
+  /** Locked until an owner unlocks the account. */
+  lockedUntilUnlocked?: boolean;
   name: string;
+  passwordChanged?: string;
   role: Role;
+  /** On the root-operator roster. */
+  rootOperator?: boolean;
+  totpAdded?: string;
   uid: number;
 }
 
@@ -210,12 +229,10 @@ export interface HostKey {
   type: string;
 }
 
-export interface ElevationPolicy {
-  defaultMinutes: number;
-  maxMinutes: number;
-  selfApprovalWhenSingleOwner: boolean;
-}
-
+/**
+ * The root-operator roster: who may open the root shell, and whose approvals count for a
+ * factory reset.
+ */
 export interface Quorum {
   configured: boolean;
   members: string[];
@@ -233,25 +250,71 @@ export interface RevokedKey {
   type: string;
 }
 
+/** What 3 consecutive failures in 15 minutes do (NIST SP 800-53 AC-7). */
+export type LockoutMode =
+  "LOCKOUT_MODE_TIMED" | "LOCKOUT_MODE_UNSPECIFIED" | "LOCKOUT_MODE_UNTIL_UNLOCKED";
+
+export interface AccessPolicy {
+  lockoutMode: LockoutMode;
+  /** How long a root-shell code works, 1 to 60 minutes (default 10). */
+  rootCodeMinutes: number;
+  /** The longest a root shell stays open, 1 to 60 minutes (default 10). */
+  rootSessionMinutes: number;
+  /** An issued SSH key's default validity, 1 to 1825 days (default 365). */
+  sshKeyValidDays: number;
+}
+
 export interface ListAdminsResponse {
+  accessPolicy?: AccessPolicy;
   admins: Admin[];
-  elevationPolicy?: ElevationPolicy;
   hostKeys: HostKey[];
   quorum?: Quorum;
   /** Empty lists are left out of the JSON. */
   revokedKeys?: RevokedKey[];
+  /** The box's root key (it never leaves the box): its type and fingerprint. */
+  rootKey?: HostKey;
 }
 
-// ---- elevation ----
+/** A one-time code for an admin to set a password and an authenticator. Shown once. */
+export interface Invitation {
+  admin: string;
+  /** XXXX-XXXX. */
+  code: string;
+  expires?: string;
+}
 
-export type ElevationState = "active" | "approved" | "denied" | "ended" | "expired" | "pending";
+export interface IssueSshKeyResponse {
+  /** The OpenSSH certificate line, saved next to the key as <fileName>-cert.pub. */
+  certificate: string;
+  /** A suggested name for the private key file. */
+  fileName: string;
+  key: Key;
+  /** The OpenSSH private key, shown once and never kept by the box. */
+  privateKey: string;
+  publicKey: string;
+}
 
+// ---- elevation (root shells) ----
+
+/** issued: a code is out; active: the shell is open; ended or expired after. */
+export type ElevationState = "active" | "ended" | "expired" | "issued";
+
+/** One root shell: its challenge, its code and its session. */
 export interface Elevation {
   admin: string;
+  approved?: string;
+  /** The root operator the code was issued to. */
+  approvedBy?: string;
+  ended?: string;
+  /** exit, idle, time-box, terminated or expired. */
+  endReason?: string;
   id: string;
+  /** The SSH key the login used. */
   keyFingerprint: string;
+  /** The session limit the code carries. */
   minutes: number;
   reason: string;
+  /** When the SSH menu showed the challenge. */
   requested?: string;
   sourceAddress: string;
   started?: string;

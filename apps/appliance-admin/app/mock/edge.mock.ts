@@ -2,11 +2,11 @@ import { MOCK_MARKER } from "@sneakers-web/mock-gateway";
 
 import type { Edge } from "@/lib/osadmin/edgeTypes";
 import type {
+  AccessPolicy,
   Admin,
   BackupPolicy,
   CodeKind,
   ElevationOverride,
-  ElevationPolicy,
   FactoryReset,
   NetdSettings,
   Session,
@@ -149,7 +149,24 @@ const revokedKeys = structuredClone(world.REVOKED_KEYS);
 const sessions = structuredClone(world.SESSIONS);
 const auditEvents = structuredClone(world.AUDIT_EVENTS);
 let quorum = structuredClone(world.QUORUM);
-let elevationPolicy = structuredClone(world.ELEVATION_POLICY);
+let accessPolicy = structuredClone(world.ACCESS_POLICY);
+let keySerial = 100;
+let inviteCount = 0;
+const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+/** A new 24-hour invitation code for the admin, as AddAdmin and ReinviteAdmin answer. */
+const invite = (admin: string) => {
+  inviteCount++;
+  const code = Array.from({ length: 8 }, (_, index) =>
+    CROCKFORD.charAt((inviteCount * 7 + index * 13 + admin.length) % CROCKFORD.length),
+  ).join("");
+  const formatted = `${code.slice(0, 4)}-${code.slice(4)}`;
+  invitations.set(normalCode(formatted), admin);
+  const expires = new Date(Date.now() + 24 * 3_600_000).toISOString();
+  const target = findAdmin(admin);
+  if (target) target.inviteExpires = expires;
+  return { admin, code: formatted, expires };
+};
 let networkSettings = structuredClone(world.NETWORK_SETTINGS);
 let mcpEnabled = true;
 let machineApiEnabled = false;
@@ -199,6 +216,8 @@ const sessionOf = (admin: Admin): Session =>
 
 /** The step-up-gated methods refuse once after the "stepup" scenario, as a stale sign-in would. */
 const STEP_UP_METHODS = new Set([
+  "AccessService/AddAdmin",
+  "AccessService/IssueSshKey",
   "AccessService/UnrevokeKey",
   "PowerService/ApproveFactoryReset",
   "PowerService/EndSession",
@@ -405,49 +424,115 @@ const route = async (service: string, method: string, body: Record<string, unkno
   }
   switch (key) {
     case "AccessService/AddAdmin": {
-      const admin = {
+      const name = String(body.name ?? "").trim();
+      if (!NAME_PATTERN.test(name) || RESERVED_NAMES.has(name))
+        throw new OsadminError(
+          "invalid_argument",
+          "ACCESS_ADMIN_NAME: use lower-case letters, digits and dashes, starting with a letter",
+        );
+      if (findAdmin(name))
+        throw new OsadminError("already_exists", `ACCESS_ADMIN_EXISTS: ${name} already exists`);
+      const admin: Admin = {
         created: new Date().toISOString(),
-        createdBy: "alice",
-        keys: body.publicKey
-          ? [
-              {
-                added: new Date().toISOString(),
-                addedBy: "alice",
-                comment: "",
-                fingerprint: `SHA256:new${admins.length}`,
-                type: "ssh-ed25519",
-                via: "osadmin",
-              },
-            ]
-          : [],
-        name: body.name as string,
+        createdBy: caller(),
+        credentialsSet: false,
+        keys: [],
+        name,
         role: (body.role as Admin["role"]) || "ROLE_ADMIN",
         uid: 20_000 + admins.length,
       };
       admins.push(admin);
-      return { admin };
+      if (body.rootOperator === true)
+        quorum = { ...quorum, configured: true, members: [...quorum.members, name] };
+      return { admin, invitation: invite(name) };
     }
-    case "AccessService/AddKey": {
-      const admin = findAdmin(body.admin as string);
+    case "AccessService/BeginTotpReplacement": {
+      const id = `replace-${String(enrolments.size + 1)}`;
+      enrolments.set(id, { admin: caller(), kind: "CODE_KIND_UNSPECIFIED" });
+      return { totp: world.totpEnrolment(caller(), id) };
+    }
+    case "AccessService/ChangePassword": {
+      if (body.currentPassword !== world.MOCK_PASSWORD)
+        throw refused("ACCESS_PASSWORD: the current password is wrong", { attemptsLeft: 2 });
+      const check = passwordCheck(String(body.newPassword ?? ""), caller());
+      if (!check.ok)
+        throw new OsadminError("invalid_argument", `ACCESS_PASSWORD: ${check.message}`);
+      const admin = findAdmin(caller());
+      if (admin) admin.passwordChanged = new Date().toISOString();
+      return {};
+    }
+    case "AccessService/CompleteTotpReplacement": {
+      const enrolment = enrolments.get(String(body.enrolmentId ?? ""));
+      const code = String(body.totpCode ?? "");
+      if (!enrolment)
+        throw new OsadminError("failed_precondition", "ACCESS_ENROLMENT: start again");
+      if (!/^\d{6}$/.test(code) || code === world.MOCK_WRONG_CODE)
+        throw refused("ACCESS_TOTP: the code doesn't match the new authenticator", {
+          attemptsLeft: 2,
+        });
+      enrolments.delete(String(body.enrolmentId));
+      const admin = findAdmin(enrolment.admin);
+      if (admin) admin.totpAdded = new Date().toISOString();
+      return {};
+    }
+    case "AccessService/IssueSshKey": {
+      const admin = findAdmin(caller());
+      if (!admin)
+        throw new OsadminError("unauthenticated", "ACCESS_UNAUTHENTICATED: sign in first");
+      const days = Number(body.validDays) || accessPolicy.sshKeyValidDays;
+      const serial = String(++keySerial);
       const key = {
         added: new Date().toISOString(),
-        addedBy: admin?.name ?? "",
-        comment: "",
-        fingerprint: `SHA256:newkey${Date.now()}`,
+        addedBy: admin.name,
+        comment: String(body.label ?? "").trim(),
+        fingerprint: `SHA256:iSsUeD${serial}k3Vw7Qm2Xp5Ln8Hc4Zb6Yd1Fs0Ga7Ej2K`,
+        serial,
         type: "ssh-ed25519",
-        via: "osadmin",
+        validBefore: new Date(Date.now() + days * 86_400_000).toISOString(),
+        via: "issued",
       };
-      admin?.keys.push(key);
-      return { key };
+      admin.keys.push(key);
+      const fileName = `${admin.name}-sneakers-appliance`;
+      return {
+        certificate: `MOCK-SSH-CERTIFICATE-NOT-A-REAL-ONE ${admin.name}`,
+        fileName,
+        key,
+        privateKey: [
+          "-----BEGIN OPENSSH PRIVATE KEY-----", // gitleaks:allow (a placeholder, not a key)
+          "b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW",
+          "MOCK-PRIVATE-KEY-NOT-A-REAL-KEY-MOCK-PRIVATE-KEY-NOT-A-REAL-KEY",
+          "-----END OPENSSH PRIVATE KEY-----", // gitleaks:allow
+          "",
+        ].join("\n"),
+        publicKey: `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAMOCK ${admin.name}`,
+      };
     }
     case "AccessService/ListAdmins": {
       return {
-        admins,
-        elevationPolicy,
+        accessPolicy: structuredClone(accessPolicy),
+        admins: admins.map((admin) => {
+          const lock = locks.get(admin.name);
+          return {
+            ...structuredClone(admin),
+            failedAttempts: failures.get(admin.name) ?? 0,
+            lockedUntil: lock?.until,
+            lockedUntilUnlocked: lock?.untilUnlocked ?? false,
+            rootOperator: quorum.members.includes(admin.name),
+          };
+        }),
         hostKeys: world.HOST_KEYS,
         quorum,
         revokedKeys: structuredClone(revokedKeys),
+        rootKey: world.ROOT_KEY,
       };
+    }
+    case "AccessService/ReinviteAdmin": {
+      const admin = findAdmin(String(body.name ?? ""));
+      if (!admin) throw notFound(`there is no admin ${String(body.name)}`);
+      if (admin.name === caller())
+        throw new OsadminError("failed_precondition", "ACCESS_REINVITE_SELF: not for yourself");
+      admin.credentialsSet = false;
+      return { invitation: invite(admin.name) };
     }
     case "AccessService/RemoveAdmin": {
       if (admins.length <= 1) throw new OsadminError("failed_precondition", "ACCESS_LAST_OWNER");
@@ -467,8 +552,24 @@ const route = async (service: string, method: string, body: Record<string, unkno
       if (admin) removeKeys(admin, [body.fingerprint as string]);
       return {};
     }
-    case "AccessService/SetElevationPolicy": {
-      elevationPolicy = body.policy as ElevationPolicy;
+    case "AccessService/SetAccessPolicy": {
+      const policy = body.policy as AccessPolicy;
+      const inRange = (value: number, max: number) =>
+        Number.isInteger(value) && value >= 1 && value <= max;
+      if (
+        !inRange(policy.rootCodeMinutes, 60) ||
+        !inRange(policy.rootSessionMinutes, 60) ||
+        !inRange(policy.sshKeyValidDays, 1825)
+      )
+        throw new OsadminError(
+          "invalid_argument",
+          "ACCESS_POLICY: root-shell minutes are 1 to 60, and SSH key validity 1 to 1825 days",
+        );
+      accessPolicy = structuredClone(policy);
+      lockoutMode =
+        policy.lockoutMode === "LOCKOUT_MODE_UNTIL_UNLOCKED"
+          ? policy.lockoutMode
+          : "LOCKOUT_MODE_TIMED";
       return {};
     }
     case "AccessService/SetQuorum": {
@@ -482,6 +583,12 @@ const route = async (service: string, method: string, body: Record<string, unkno
     case "AccessService/SetRole": {
       const admin = findAdmin(body.name as string);
       if (admin) admin.role = body.role as Admin["role"];
+      return {};
+    }
+    case "AccessService/UnlockAdmin": {
+      const name = String(body.name ?? "");
+      locks.delete(name);
+      failures.delete(name);
       return {};
     }
     case "AccessService/UnrevokeKey": {
@@ -519,16 +626,6 @@ const route = async (service: string, method: string, body: Record<string, unkno
     }
     case "BackupService/SetBackupPolicy": {
       backupPolicy = body.policy as BackupPolicy;
-      return {};
-    }
-    case "ElevationService/ApproveElevation": {
-      const elevation = elevations.find((item) => item.id === body.id);
-      if (elevation) elevation.state = "approved";
-      return {};
-    }
-    case "ElevationService/DenyElevation": {
-      const elevation = elevations.find((item) => item.id === body.id);
-      if (elevation) elevation.state = "denied";
       return {};
     }
     case "ElevationService/ListElevations": {
@@ -680,6 +777,10 @@ const route = async (service: string, method: string, body: Record<string, unkno
         };
         admins.push(admin);
       }
+      admin.credentialsSet = true;
+      admin.inviteExpires = undefined;
+      admin.passwordChanged = new Date().toISOString();
+      admin.totpAdded = new Date().toISOString();
       if (enrolment.kind === "CODE_KIND_SETUP")
         quorum = { configured: true, members: [admin.name], required: 1 };
       for (const [code, name] of invitations) if (name === admin.name) invitations.delete(code);
@@ -1199,7 +1300,9 @@ export const resetMockWorld = (): void => {
   mcpEnabled = true;
   machineApiEnabled = false;
   quorum = structuredClone(world.QUORUM);
-  elevationPolicy = structuredClone(world.ELEVATION_POLICY);
+  accessPolicy = structuredClone(world.ACCESS_POLICY);
+  keySerial = 100;
+  inviteCount = 0;
   networkSettings = structuredClone(world.NETWORK_SETTINGS);
   backupPolicy = structuredClone(world.BACKUP_POLICY);
   refill(modules.available, world.MODULES.available);

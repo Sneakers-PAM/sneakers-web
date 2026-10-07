@@ -146,11 +146,24 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   session's admin and id typed (`bob E-9M4T`), and sends them as `elevationOverride` on the same
   Apply or Revert; the box ends the session, audited, before the update goes ahead. A refusal of
   the override stays in the dialog.
-- **Access (`app/routes/access.tsx`).** Besides the admins, keys, host keys, elevation policy,
-  quorum and elevation requests, it lists the revoked login keys (`ListAdmins.revokedKeys`: whose
-  key it was, the fingerprint, the type, when it was revoked and who revoked it, from `revokedBy`:
-  an admin's name or `console`, shown as `unknown` when the box didn't record it). Owners get Un-revoke
-  (`UnrevokeKey`, step-up) behind a confirmation dialog, which keeps the box's refusal in place.
+- **Access (`app/routes/access.tsx`, parts in `app/features/access/`).** The admins, each with
+  the role, a root-operator badge, the sign-in state (active, locked until when or until an
+  owner unlocks, an open invitation) and the issued SSH keys. Owners unlock (`UnlockAdmin`),
+  re-invite (`ReinviteAdmin`: the password and authenticator are cleared and a new code is
+  shown) and remove admins, and Add admin (`AddAdmin`, optionally a root operator) shows the
+  one-time invitation code the new admin types on `/setup`. Your account: change the password
+  (`ChangePassword`, checked as it's typed), replace the authenticator
+  (`Begin`/`CompleteTotpReplacement`), and "Get an SSH key" (`IssueSshKey`): the box makes the
+  key pair and signs it with its root key, and the dialog shows the private key once, with
+  downloads for the key and its `-cert.pub` certificate; SSH asks for the TOTP code after
+  login. Owners set the access settings (`SetAccessPolicy`: the lockout mode, the root-shell
+  code and session minutes, 10 by default, and the SSH key validity) and the root-operator
+  roster (`SetQuorum`; the same roster approves a factory reset). The page also lists the
+  revoked login keys (`ListAdmins.revokedKeys`: whose key it was, the fingerprint, the type,
+  when and who revoked it, `unknown` when the box didn't record it; owners un-revoke behind a
+  confirmation dialog), the root key's and the host keys' fingerprints, and the root shells
+  (`ListElevations`; an owner ends an open one). Owner-approved elevation and adding a key an
+  admin brings are gone.
 - **Factory reset (`app/routes/power.tsx`).** Owner only, after typing the box's host name; not
   offered when `GetPower` says it's unavailable (a single admin), with the reason. A request shows
   M of N and each roster member's approval; a member who hasn't approved gets Approve (the server

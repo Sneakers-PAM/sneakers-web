@@ -3,6 +3,7 @@
 import { edge } from "@sneakers-web/edge";
 
 import type {
+  AccessPolicy,
   ActiveSession,
   Admin,
   AddonModule,
@@ -11,7 +12,6 @@ import type {
   CheckPasswordResponse,
   Certificate,
   ElevationOverride,
-  ElevationPolicy,
   FactoryReset,
   GetBackupsResponse,
   GetMcpResponse,
@@ -21,7 +21,8 @@ import type {
   GetStatusResponse,
   GetTlsResponse,
   GetUpgradesResponse,
-  Key,
+  Invitation,
+  IssueSshKeyResponse,
   ListAdminsResponse,
   ListElevationsResponse,
   ListEventsResponse,
@@ -92,31 +93,59 @@ export const status = {
 };
 
 export const access = {
-  addAdmin: (name: string, role: Admin["role"], publicKey?: string) =>
-    call<{ admin: Admin }>("AccessService", "AddAdmin", { name, publicKey, role }),
-  addKey: (admin: string, publicKey: string) =>
-    call<{ key: Key }>("AccessService", "AddKey", { admin, publicKey }),
+  /** A new admin with no password yet; the answer carries the one-time invitation code. */
+  addAdmin: (name: string, role: Admin["role"], rootOperator: boolean) =>
+    call<{ admin: Admin; invitation: Invitation }>("AccessService", "AddAdmin", {
+      name,
+      role,
+      rootOperator,
+    }),
+  /** A new authenticator secret for the caller; nothing changes until it's completed. */
+  beginTotpReplacement: () =>
+    call<{ totp: TotpEnrolment }>("AccessService", "BeginTotpReplacement"),
+  /** The caller's new password; the current one is checked first. */
+  changePassword: (currentPassword: string, newPassword: string) =>
+    call<Record<string, never>>("AccessService", "ChangePassword", {
+      currentPassword,
+      newPassword,
+    }),
+  completeTotpReplacement: (enrolmentId: string, totpCode: string) =>
+    call<Record<string, never>>("AccessService", "CompleteTotpReplacement", {
+      enrolmentId,
+      totpCode,
+    }),
+  /**
+   * The box makes an ed25519 key pair for the caller, signed by its root key. The private key
+   * is in the answer once and never kept.
+   */
+  issueSshKey: (label: string, validDays = 0) =>
+    call<IssueSshKeyResponse>("AccessService", "IssueSshKey", { label, validDays }),
   list: () => call<ListAdminsResponse>("AccessService", "ListAdmins"),
+  /** Clears the admin's password and authenticator, ends their sessions, and gives a new code. */
+  reinviteAdmin: (name: string) =>
+    call<{ invitation: Invitation }>("AccessService", "ReinviteAdmin", { name }),
   removeAdmin: (name: string) =>
     call<Record<string, never>>("AccessService", "RemoveAdmin", { name }),
+  /** Revokes an issued key: its certificate joins the revocation list at once. */
   removeKey: (admin: string, fingerprint: string) =>
     call<Record<string, never>>("AccessService", "RemoveKey", { admin, fingerprint }),
-  setElevationPolicy: (policy: ElevationPolicy) =>
-    call<Record<string, never>>("AccessService", "SetElevationPolicy", { policy }),
+  setAccessPolicy: (policy: AccessPolicy) =>
+    call<Record<string, never>>("AccessService", "SetAccessPolicy", { policy }),
+  /** The root-operator roster, and the approvals (M) a factory reset needs. */
   setQuorum: (members: string[], required: number) =>
     call<Record<string, never>>("AccessService", "SetQuorum", { members, required }),
   setRole: (name: string, role: Admin["role"]) =>
     call<Record<string, never>>("AccessService", "SetRole", { name, role }),
+  unlockAdmin: (name: string) =>
+    call<Record<string, never>>("AccessService", "UnlockAdmin", { name }),
   /** Takes a removed key off sshd's revocation list, so it can be added to an admin again. */
   unrevokeKey: (fingerprint: string) =>
     call<Record<string, never>>("AccessService", "UnrevokeKey", { fingerprint }),
 };
 
 export const elevation = {
-  approve: (id: string, minutes = 0) =>
-    call<Record<string, never>>("ElevationService", "ApproveElevation", { id, minutes }),
-  deny: (id: string) => call<Record<string, never>>("ElevationService", "DenyElevation", { id }),
   list: () => call<ListElevationsResponse>("ElevationService", "ListElevations"),
+  /** Ends an open root shell at once. */
   terminate: (id: string) =>
     call<Record<string, never>>("ElevationService", "TerminateElevation", { id }),
 };

@@ -1,4 +1,5 @@
 import type {
+  AccessPolicy,
   ActiveSession,
   Admin,
   AuditEvent,
@@ -6,7 +7,6 @@ import type {
   BackupSet,
   Certificate,
   Elevation,
-  ElevationPolicy,
   FactoryReset,
   GetStatusResponse,
   HostKey,
@@ -30,8 +30,10 @@ const aliceKey: Key = {
   comment: "alice laptop",
   fingerprint: "SHA256:7p5Q2m8h8z8sRkYwQwQEuY7zL5mZ8w5z6c1h9b7qv8w",
   lastUsed: soon(-5),
+  serial: "1",
   type: "ssh-ed25519",
-  via: "enrol",
+  validBefore: soon(60 * 24 * 335),
+  via: "issued",
 };
 
 const bobKey: Key = {
@@ -40,25 +42,35 @@ const bobKey: Key = {
   comment: "bob workstation",
   fingerprint: "SHA256:k2m9Q7h5z1sRkYwQwQEuY7zL5mZ8w5z6c1h9b7qABCD",
   lastUsed: soon(-120),
+  serial: "2",
   type: "ssh-ed25519",
-  via: "shell",
+  validBefore: soon(60 * 24 * 355),
+  via: "issued",
 };
 
 export const ADMINS: Admin[] = [
   {
     created: soon(-60 * 24 * 30),
     createdBy: "console",
+    credentialsSet: true,
     keys: [aliceKey],
+    lastSignIn: soon(-5),
     name: "alice",
+    passwordChanged: soon(-60 * 24 * 30),
     role: "ROLE_OWNER",
+    totpAdded: soon(-60 * 24 * 30),
     uid: 20_000,
   },
   {
     created: soon(-60 * 24 * 10),
     createdBy: "alice",
+    credentialsSet: true,
     keys: [bobKey],
+    lastSignIn: soon(-120),
     name: "bob",
+    passwordChanged: soon(-60 * 24 * 10),
     role: "ROLE_ADMIN",
+    totpAdded: soon(-60 * 24 * 10),
     uid: 20_001,
   },
 ];
@@ -68,10 +80,17 @@ export const HOST_KEYS: HostKey[] = [
   { fingerprint: "SHA256:bR9X8qf9w2v6z4m7h5s1rQwQEuY7zL5mZ8w5z6c1h9", type: "ssh-rsa" },
 ];
 
-export const ELEVATION_POLICY: ElevationPolicy = {
-  defaultMinutes: 60,
-  maxMinutes: 240,
-  selfApprovalWhenSingleOwner: true,
+/** The box's root key: it signs the root-shell codes and the SSH certificates. */
+export const ROOT_KEY: HostKey = {
+  fingerprint: "SHA256:rT9k3Vw7Qm2Xp5Ln8Hc4Zb6Yd1Fs0Ga7Ej2Ku9Wq3Mo",
+  type: "ssh-ed25519",
+};
+
+export const ACCESS_POLICY: AccessPolicy = {
+  lockoutMode: "LOCKOUT_MODE_TIMED",
+  rootCodeMinutes: 10,
+  rootSessionMinutes: 10,
+  sshKeyValidDays: 365,
 };
 
 export const QUORUM: Quorum = { configured: true, members: ["alice", "bob"], required: 2 };
@@ -89,13 +108,18 @@ export const RECOVERY_KEYS: RecoveryKey[] = [
 export const ELEVATIONS: Elevation[] = [
   {
     admin: "bob",
+    approved: soon(-60 * 24 - 3),
+    approvedBy: "bob",
+    ended: soon(-60 * 24 + 6),
+    endReason: "exit",
     id: "E-7K2Q",
     keyFingerprint: bobKey.fingerprint,
-    minutes: 30,
-    reason: "investigate kubelet",
-    requested: soon(-4),
+    minutes: 10,
+    reason: "",
+    requested: soon(-60 * 24 - 4),
     sourceAddress: "192.0.2.50",
-    state: "pending",
+    started: soon(-60 * 24 - 2),
+    state: "ended",
   },
 ];
 
@@ -110,12 +134,13 @@ export const REVOKED_KEYS: RevokedKey[] = [
   },
 ];
 
-/** The "elevated" scenario's open shell: bob's, approved and connected. */
+/** The "elevated" scenario's open root shell: bob's, with its code used. */
 export const ACTIVE_ELEVATION: Elevation = {
   admin: "bob",
+  approvedBy: "bob",
   id: "E-9M4T",
   keyFingerprint: bobKey.fingerprint,
-  minutes: 30,
+  minutes: 10,
   reason: "check the kubelet logs",
   requested: soon(-12),
   sourceAddress: "192.0.2.50",
