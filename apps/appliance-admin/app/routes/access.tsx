@@ -217,13 +217,14 @@ export default function Access() {
               <TableHeaderCell>Key</TableHeaderCell>
               <TableHeaderCell>Type</TableHeaderCell>
               <TableHeaderCell>Revoked</TableHeaderCell>
+              <TableHeaderCell>Revoked by</TableHeaderCell>
               <TableHeaderCell />
             </TableRow>
           </TableHead>
           <TableBody>
             {revokedKeys.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5}>No revoked keys.</TableCell>
+                <TableCell colSpan={6}>No revoked keys.</TableCell>
               </TableRow>
             )}
             {revokedKeys.map((key) => (
@@ -234,6 +235,7 @@ export default function Access() {
                 </TableCell>
                 <TableCell>{key.type}</TableCell>
                 <TableCell>{key.revoked ? shortDate(key.revoked) : ""}</TableCell>
+                <TableCell>{key.revokedBy || "unknown"}</TableCell>
                 <TableCell>
                   {isOwner && (
                     <Button onClick={() => setUnrevoking(key)} size="sm" variant="secondary">

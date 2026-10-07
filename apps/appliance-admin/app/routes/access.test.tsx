@@ -6,7 +6,7 @@ import { access } from "@/lib/osadmin/client";
 import { OsadminError } from "@/lib/osadmin/errors";
 import { setSession } from "@/lib/osadmin/sessionStore";
 import { cancelStepUp, stepUpPending } from "@/lib/osadmin/stepUpController";
-import { applyMockScenario } from "@/mock/edge.mock";
+import { applyMockScenario, resetMockWorld } from "@/mock/edge.mock";
 import * as world from "@/mock/world";
 import Access from "@/routes/access";
 import { renderPage } from "@/test/renderPage";
@@ -51,11 +51,13 @@ describe("Access", () => {
     expect(await elevations.findByText("approved")).toBeInTheDocument();
   });
 
-  it("lists each admin's revoked keys with the fingerprint, type and when", async () => {
+  it("lists each admin's revoked keys with the fingerprint, type, when and who revoked it", async () => {
     renderPage(Access);
     const revoked = within(await screen.findByRole("table", { name: "Revoked login keys" }));
+    expect(revoked.getByRole("columnheader", { name: "Revoked by" })).toBeInTheDocument();
     const row = within(revoked.getByRole("row", { name: /SHA256:oLd9Q7h5z1s/ }));
     expect(row.getByText("bob")).toBeInTheDocument();
+    expect(row.getByText("alice")).toBeInTheDocument();
     expect(row.getByText("ssh-ed25519")).toBeInTheDocument();
     expect(row.getByText(shortDate(world.REVOKED_KEYS[0]?.revoked ?? ""))).toBeInTheDocument();
   });
@@ -122,6 +124,24 @@ describe("Access", () => {
       within(admins.getByRole("row", { name: /bob/ })).getByRole("button", { name: "Remove" }),
     );
     const revoked = within(screen.getByRole("table", { name: "Revoked login keys" }));
-    expect(await revoked.findByRole("row", { name: /SHA256:k2m9Q7h5z1s/ })).toBeInTheDocument();
+    const row = within(await revoked.findByRole("row", { name: /SHA256:k2m9Q7h5z1s/ }));
+    expect(row.getByText("alice")).toBeInTheDocument();
+  });
+
+  it("shows unknown for a key revoked before the appliance recorded who did it", async () => {
+    world.REVOKED_KEYS.push({
+      admin: "bob",
+      fingerprint: "SHA256:oLderNoActor",
+      type: "ssh-ed25519",
+    });
+    try {
+      resetMockWorld();
+      renderPage(Access);
+      const revoked = within(await screen.findByRole("table", { name: "Revoked login keys" }));
+      const row = within(revoked.getByRole("row", { name: /SHA256:oLderNoActor/ }));
+      expect(row.getByText("unknown")).toBeInTheDocument();
+    } finally {
+      world.REVOKED_KEYS.pop();
+    }
   });
 });

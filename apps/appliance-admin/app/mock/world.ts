@@ -104,6 +104,7 @@ export const REVOKED_KEYS: RevokedKey[] = [
     admin: "bob",
     fingerprint: "SHA256:oLd9Q7h5z1sRkYwQwQEuY7zL5mZ8w5z6c1h9b7qOLD",
     revoked: soon(-60 * 24 * 7),
+    revokedBy: "alice",
     type: "ssh-ed25519",
   },
 ];
