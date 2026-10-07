@@ -3,7 +3,11 @@ import { useEffect, useState } from "react";
 
 import type { GetStatusResponse } from "@/lib/osadmin/types";
 
+import { ResetCountdown } from "@/components/ResetCountdown";
 import { status as statusClient } from "@/lib/osadmin/client";
+
+/** How often a factory reset in progress is re-read, so another admin's Cancel shows up. */
+const RESET_POLL_MS = 5000;
 
 const bytes = (n: number): string => {
   const units = ["B", "KB", "MB", "GB", "TB"];
@@ -19,13 +23,20 @@ const bytes = (n: number): string => {
 export default function Status() {
   const [data, setData] = useState<GetStatusResponse>();
   const [error, setError] = useState(false);
+  const [resetCancelled, setResetCancelled] = useState(false);
 
-  useEffect(() => {
+  const reload = () =>
     void statusClient
       .get()
       .then(setData)
       .catch(() => setError(true));
-  }, []);
+  useEffect(reload, []);
+  const resetInProgress = !!data?.factoryReset;
+  useEffect(() => {
+    if (!resetInProgress) return;
+    const timer = setInterval(reload, RESET_POLL_MS);
+    return () => clearInterval(timer);
+  }, [resetInProgress]);
 
   return (
     <div className="flex flex-col gap-5 p-5.5">
@@ -39,10 +50,20 @@ export default function Status() {
               {warning.detail}
             </Alert>
           ))}
-          {data.factoryReset && (
+          {resetCancelled && <Alert tone="info">The factory reset was cancelled.</Alert>}
+          {data.factoryReset?.state === "FACTORY_RESET_STATE_COUNTDOWN" && (
+            <ResetCountdown
+              onCancelled={() => {
+                setResetCancelled(true);
+                reload();
+              }}
+              reset={data.factoryReset}
+            />
+          )}
+          {data.factoryReset?.state === "FACTORY_RESET_STATE_PENDING" && (
             <Alert role="alert" title="A factory reset is pending" tone="danger">
               Started by {data.factoryReset.startedBy}, {data.factoryReset.approvals.length} of{" "}
-              {data.factoryReset.required} approved.
+              {data.factoryReset.required} approved. Approve or cancel it on the Power page.
             </Alert>
           )}
           <div className="grid grid-cols-1 gap-4 tablet:grid-cols-2 desktop:grid-cols-3">

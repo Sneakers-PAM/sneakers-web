@@ -46,7 +46,10 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
 
 - **Static SPA, no server.** `react-router.config.ts` sets `ssr: false`, so `react-router build`
   writes only `build/client` (no `build/server`), and `entry.server.tsx` runs once at build time
-  to prerender the SPA fallback shell -- it never runs at request time. There is no Dockerfile
+  to prerender the SPA fallback shell -- it never runs at request time. It re-exports the shell's
+  streaming `handleRequest` (which waits for the whole render in SPA mode): `renderToString`
+  can't write the script that closes React Router's hydration stream, and without it the page
+  never hydrates. There is no Dockerfile
   target for this app in this repo; its build output is consumed by sneakers-appliance, which
   pins it by digest in `release.yaml` and bakes it into the root image.
 - **No gateway, no GraphQL.** The browser calls `sneakers-osadmin`'s Connect API (gRPC-compatible
@@ -74,8 +77,29 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   `requestStepUp` (`app/lib/osadmin/stepUpController.ts`) through `runAction`
   (`app/lib/osadmin/action.ts`), which queues the retry behind the one `<StepUpDialog>` mounted
   in `AppFrame`. A Connect `unimplemented` (a page's backend isn't on the box yet) becomes "Not
-  available in this release" (`app/components/NotAvailable.tsx`), the same component the Updates
-  page and the Power page's factory-reset section use as a placeholder until their follow-up PR.
+  available in this release" (`app/components/NotAvailable.tsx`); the Updates page shows it in
+  full when `GetUpgrades` answers that way.
+- **Updates (`app/routes/updates.tsx`).** Owners upload a `.bin` (`edge.upload`, an
+  `XMLHttpRequest` because only XHR reports upload progress; `/upload` answers errors as plain
+  text) or fetch one from the mirror, which is hidden on an air-gapped box (no mirror set).
+  `UpgradeService.StageUpdate` is one call that verifies the signature, channel and hash and only
+  then unpacks and stages, so the page shows "Verifying" while it runs, then either the verified
+  header or the refusal's reason in place (never a toast). Apply needs the staged version typed;
+  apply, revert, stage and the update window are owner and step-up. Admins see the state only.
+- **Factory reset (`app/routes/power.tsx`).** Owner only, after typing the box's host name; not
+  offered when `GetPower` says it's unavailable (a single admin), with the reason. A request shows
+  M of N and each roster member's approval; a member who hasn't approved gets Approve (the server
+  refuses a second approval from the same admin, `RESET_APPROVED`). Once the quorum is in,
+  `app/components/ResetCountdown.tsx` shows the 10-minute countdown with the one big Cancel any
+  admin may press, on Power and on Status. Both pages re-read every 5 seconds while a reset is in
+  progress.
+- **Mock scenarios.** `applyMockScenario` (`app/mock/edge.mock.ts`), or `?mockScenario=a,b` on a
+  mock build's URL, puts the mock box into a state for the tests and the review screen list:
+  `air-gapped`, `staged`, `failed`, `manual`, `uploading` and `verifying` (the upload or the
+  verification never finishes), `stepup` (the next step-up-gated call is refused once, and the
+  fresh sign-in is never approved, so the dialog stays up), `single-admin`, `reset-pending` and
+  `reset-countdown`. The mock verifies an upload by its content: one containing "tampered" fails
+  the signature, "lab" the channel, and "patch" is a patch for the running version.
 - **Advanced disclosure.** The trust/PKI details on Certificates, the whole Add-on modules page
   and the Logs page's support bundle sit behind `app/components/Advanced.tsx`, a plain
   `<details>` -- no new kit component needed for a collapsed-by-default section.

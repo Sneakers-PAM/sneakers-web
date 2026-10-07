@@ -19,6 +19,7 @@ import type {
   GetSetupResponse,
   GetStatusResponse,
   GetTlsResponse,
+  GetUpgradesResponse,
   Key,
   ListAdminsResponse,
   ListElevationsResponse,
@@ -30,6 +31,8 @@ import type {
   RunChecksResponse,
   Session,
   SetNetworkResponse,
+  UpdatePackage,
+  UpgradePolicy,
 } from "@/lib/osadmin/types";
 
 const call = <Result>(service: string, method: string, body: unknown = {}): Promise<Result> =>
@@ -124,6 +127,20 @@ export const backup = {
   run: () => call<Record<string, never>>("BackupService", "RunBackup"),
   setPolicy: (policy: BackupPolicy) =>
     call<Record<string, never>>("BackupService", "SetBackupPolicy", { policy }),
+};
+
+export const upgrade = {
+  apply: () => call<Record<string, never>>("UpgradeService", "ApplyUpdate"),
+  fetch: (fileName: string) =>
+    call<{ uploadId: string }>("UpgradeService", "FetchUpdate", { fileName }),
+  get: () => call<GetUpgradesResponse>("UpgradeService", "GetUpgrades"),
+  revert: () => call<Record<string, never>>("UpgradeService", "RevertUpdate"),
+  setPolicy: (policy: UpgradePolicy) =>
+    call<Record<string, never>>("UpgradeService", "SetUpgradePolicy", { policy }),
+  /** Verifies the upload's signature, channel and hash, and only then unpacks and stages it. */
+  stage: (uploadId: string) =>
+    call<{ package: UpdatePackage }>("UpgradeService", "StageUpdate", { uploadId }),
+  upload: (file: Blob, onProgress?: (fraction: number) => void) => edge.upload(file, onProgress),
 };
 
 export const modules = {

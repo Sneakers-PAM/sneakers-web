@@ -21,5 +21,6 @@ export interface Edge {
     users(): QuickLoginUser[];
   };
   request<Result>(service: string, method: string, body: unknown): Promise<Result>;
-  upload(bytes: Blob): Promise<{ uploadId: string }>;
+  /** POST /upload with the raw file; onProgress gets the fraction sent, 0 to 1. */
+  upload(bytes: Blob, onProgress?: (fraction: number) => void): Promise<{ uploadId: string }>;
 }
