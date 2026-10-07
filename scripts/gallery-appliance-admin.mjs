@@ -24,7 +24,7 @@ const WIDTHS = [
   { height: 844, name: "mobile", width: 390 },
 ];
 // Pages a signed-out browser reaches by URL, then the frame's pages after the dev quick login.
-const SIGNED_OUT = ["/", "/setup", "/no-such-page"];
+const SIGNED_OUT = ["/", "/setup", "/no-such-page", "/unauthorized", "/forbidden", "/server-error"];
 const FRAME = [
   "/home",
   "/updates",

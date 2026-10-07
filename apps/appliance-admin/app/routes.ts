@@ -3,6 +3,9 @@ import { index, layout, route, type RouteConfig } from "@react-router/dev/routes
 export default [
   index("routes/sign-in.tsx"),
   route("setup", "routes/setup.tsx"),
+  route("unauthorized", "routes/unauthorized.tsx"),
+  route("forbidden", "routes/forbidden.tsx"),
+  route("server-error", "routes/server-error.tsx"),
   layout("routes/frame.tsx", [
     route("home", "routes/home.tsx"),
     route("updates", "routes/updates.tsx"),
