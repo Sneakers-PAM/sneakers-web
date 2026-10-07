@@ -387,10 +387,24 @@ export interface ListEventsResponse {
 
 // ---- power ----
 
+export type SessionKind =
+  | "SESSION_KIND_BROWSER"
+  | "SESSION_KIND_ELEVATED"
+  | "SESSION_KIND_SSH"
+  | "SESSION_KIND_UNSPECIFIED";
+
+/** A live session a power action would end, or ListSessions/EndSession can end on its own. */
 export interface ActiveSession {
   admin: string;
+  /** Names the session for EndSession. Not the session's cookie. */
+  id: string;
+  kind: SessionKind;
   signedIn?: string;
   sourceAddress: string;
+}
+
+export interface ListSessionsResponse {
+  sessions: ActiveSession[];
 }
 
 export interface GetPowerResponse {

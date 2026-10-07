@@ -17,12 +17,51 @@ const openPage = async () => {
 
 const resetSection = () => screen.getByRole("region", { name: "Factory reset" });
 
+const sessionsSection = () => screen.getByRole("region", { name: "Active sessions" });
+
 describe("Power", () => {
   beforeEach(() => signInAs("alice"));
 
-  it("shows the active session", async () => {
+  it("lists every live session with its kind, source address and start time", async () => {
     await openPage();
-    expect(screen.getByText(/alice from 192.0.2.10/)).toBeInTheDocument();
+    const section = sessionsSection();
+    const table = within(section).getByRole("table", { name: "Active sessions" });
+    const rows = within(table).getAllByRole("row");
+    expect(rows).toHaveLength(3); // header + alice + bob
+    expect(within(table).getByText("alice")).toBeInTheDocument();
+    expect(within(table).getByText("browser")).toBeInTheDocument();
+    expect(within(table).getByText("192.0.2.10")).toBeInTheDocument();
+    expect(within(table).getByText("bob")).toBeInTheDocument();
+    expect(within(table).getByText("SSH")).toBeInTheDocument();
+    expect(within(table).getByText("192.0.2.11")).toBeInTheDocument();
+  });
+
+  it("lets an owner end another admin's session after confirming", async () => {
+    const user = userEvent.setup();
+    await openPage();
+    const table = within(sessionsSection()).getByRole("table", { name: "Active sessions" });
+    const bobRow = within(table).getByRole("row", { name: /bob/ });
+    await user.click(within(bobRow).getByRole("button", { name: "End session" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "End session" }));
+    await vi.waitFor(() => expect(within(table).queryByText("bob")).not.toBeInTheDocument());
+  });
+
+  it("doesn't offer an admin the End session action", async () => {
+    signInAs("bob");
+    await openPage();
+    const table = within(sessionsSection()).getByRole("table", { name: "Active sessions" });
+    expect(within(table).queryByRole("button", { name: "End session" })).not.toBeInTheDocument();
+  });
+
+  it("still offers Reboot and Shut down when the box's session list isn't there yet", async () => {
+    vi.spyOn(power, "listSessions").mockRejectedValueOnce(
+      new OsadminError("unimplemented", "PowerService.ListSessions isn't on this box"),
+    );
+    await openPage();
+    const table = within(sessionsSection()).getByRole("table", { name: "Active sessions" });
+    expect(within(table).getAllByRole("row")).toHaveLength(1); // header only
+    expect(screen.getByRole("button", { name: "Reboot" })).toBeInTheDocument();
   });
 
   it("reboots gracefully by default", async () => {

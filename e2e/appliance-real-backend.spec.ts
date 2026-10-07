@@ -1,4 +1,16 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
+
+/** Client-side navigation, the way the gallery script drives the SPA (no full page load). */
+const navigate = (page: Page, to: string) =>
+  page.evaluate(
+    (route) =>
+      (
+        globalThis as unknown as {
+          __reactRouterDataRouter: { navigate: (path: string) => void };
+        }
+      ).__reactRouterDataRouter.navigate(route),
+    to,
+  );
 
 // The built, LIVE appliance admin (no mock) against a backend shaped like the real box's
 // current state (e2e/applianceRealBackendServer.mjs): TlsService, McpService, BackupService
@@ -35,18 +47,18 @@ test("every page renders against a real-shaped backend, with unimplemented pages
   await page.waitForURL("**/home", { timeout: 15_000 });
 
   for (const route of AVAILABLE) {
-    await page.evaluate((to) => globalThis.__reactRouterDataRouter.navigate(to), route);
+    await navigate(page, route);
     await page.waitForURL(`**${route}`);
   }
 
   // Updates leaves `history` out of the reply; the page used to throw a TypeError on it.
-  await page.evaluate((to) => globalThis.__reactRouterDataRouter.navigate(to), "/updates");
+  await navigate(page, "/updates");
   await page.waitForURL("**/updates");
   await expect(page.getByText("Running 0.1.0 in the active slot")).toBeVisible();
   await expect(page.getByRole("table", { name: "Update history" }).getByRole("row")).toHaveCount(1);
 
   for (const { heading, name, route } of UNAVAILABLE) {
-    await page.evaluate((to) => globalThis.__reactRouterDataRouter.navigate(to), route);
+    await navigate(page, route);
     await page.waitForURL(`**${route}`);
     await expect(page.getByText(`${name}: not available in this release`)).toBeVisible();
     expect(await page.getByRole("heading", { name: heading }).count()).toBe(0);
