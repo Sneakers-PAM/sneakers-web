@@ -137,18 +137,32 @@ be read by tools, not people. It never ships in a release.
   `packages/shell/src/server/root.server.ts`) -- kept out of `PublicConfig` so the server
   variable's name never appears unconditionally in a live build.
 - Release builds can't turn it on: the build flag is a literal, so a release build drops the
-  code, and `check:no-mock` fails if a live build (`apps/*/build`) has the button's text or the
-  `SNEAKERS_DEV_UI_ISSUE_COPY` variable name, or if the Dockerfile's `DEV_UI_ISSUE_COPY`
-  argument defaults to anything but `false`. The chart sets none of it.
+  code, and `check:no-mock` fails if a live build (`apps/*/build`) has the button's text, the
+  `SNEAKERS_DEV_UI_ISSUE_COPY` variable name or the item's `data-issue-copy` marker
+  (`ISSUE_COPY_MARKER`), or if the Dockerfile's `DEV_UI_ISSUE_COPY` argument defaults to
+  anything but `false`. The mounted item renders the marker, and the check refuses to run if
+  the component stops doing so, so the tell can't go stale. The chart sets none of it.
 - A ring buffer (`packages/shell/src/issueCopy/errorBuffer.ts`) keeps the last render, fetch,
   window and unhandled-rejection error, capped at 5, and the last clicked element (its
-  `data-testid`, or otherwise a short CSS selector -- never its text). It's only installed
+  `data-testid`, or otherwise a short CSS selector -- never its text; clicks on the copy item
+  itself are ignored). A failure to record a fetch error never replaces the caller's error.
+  It's only installed
   while both switches are on (`AppRoot`, `packages/shell/src/root/Document.tsx`); a render
   error is recorded from the shared error boundary (`RouteError.tsx`).
 - `packages/shell/src/issueCopy/bundle.ts` builds the bundle and copies it as one minified
   line of JSON. Every string goes through the same redaction as the logger (`scrub`,
   `packages/shell/src/diagnostics/report.ts`), and a key with nothing to say is left out,
   never set to null.
+- Every error message goes through one choke point, `redactIssueText`
+  (`packages/shell/src/issueCopy/redact.ts`), before it's cut to 200 characters. On top of
+  the logger's patterns, it replaces:
+  - PEM blocks, terminated or not, with `[pem]`;
+  - URL userinfo with `scheme://[host]`, and drops URL fragments;
+  - emails with `[email]`;
+  - access key ids, cookie-style `key=value` values of 8 or more characters, and base64 or
+    hex runs of 24 or more, with `[redacted]`;
+  - IPv4 and IPv6 addresses with `[ip]`, and host names (two labels or more, ending in a
+    network TLD) with `[host]`.
 
 ### Bundle format (schema v1)
 
@@ -159,10 +173,10 @@ The shared reference for every product's web repo: keep the keys and their order
 | `v` | int | Schema version, `1`. |
 | `product` | string | `"sneakers"`. |
 | `app` | string | The app name (`staff` or `admin`). |
-| `sha` | string | The short commit the build came from (`__APP_COMMIT__`). |
+| `sha` | string | The commit the build came from (`__APP_COMMIT__`: `APP_COMMIT`, else `GITHUB_SHA`, else `"unknown"`). |
 | `route` | string | The router route id (`useMatches().at(-1)?.id`). |
-| `path` | string | The route pattern, not the concrete URL (e.g. `/secret/:id`). |
-| `params` | object | Route params (`useParams()`). Opaque ids only. |
+| `path` | string | The route pattern, not the concrete URL (e.g. `/secret/:id`). An unmatched URL is `"*"`. |
+| `params` | object | Route params (`useParams()`), kept only when the value is a ULID or a UUID; anything else is dropped. |
 | `role` | string | The signed-in user's role (`"root"` or the first of `roles`). No username, display name or email. |
 | `vw` / `vh` / `dpr` | int / int / number | Viewport width and height in CSS px, and the device pixel ratio. |
 | `ua` | string | `navigator.userAgent`. |

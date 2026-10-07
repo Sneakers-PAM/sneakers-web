@@ -1,11 +1,11 @@
 import { createLogger } from "@sneakers-web/api-client";
 
-import { scrub } from "#shell/diagnostics/report";
 import {
   type IssueCopyError,
   type IssueCopyErrorSource,
   MAX_ERRORS,
 } from "#shell/issueCopy/bundle";
+import { redactIssueText } from "#shell/issueCopy/redact";
 import { shortSelector } from "#shell/issueCopy/selector";
 import { easternIso } from "#shell/issueCopy/time";
 
@@ -16,9 +16,9 @@ let ring: IssueCopyError[] = [];
 let clicked: string | undefined;
 let uninstall: (() => void) | null = null;
 
-/** Keep `message` as the newest entry for `source`, redacted the same way as the logger, capped at MAX_ERRORS. */
+/** Keep `message` as the newest entry for `source`, redacted before it is cut to length, capped at MAX_ERRORS. */
 export const recordIssueCopyError = (source: IssueCopyErrorSource, message: string): void => {
-  const m = scrub(message).slice(0, MAX_MESSAGE);
+  const m = redactIssueText(message).slice(0, MAX_MESSAGE);
   ring = [{ at: easternIso(new Date()), m, src: source }, ...ring].slice(0, MAX_ERRORS);
 };
 
@@ -40,8 +40,13 @@ const onUnhandledRejection = (event: PromiseRejectionEvent): void =>
     event.reason instanceof Error ? event.reason.message : String(event.reason),
   );
 
-const onDocumentClick = (event: MouseEvent): void =>
-  noteIssueCopyClick(event.target instanceof Element ? event.target : null);
+// The capture listener sees the click on the copy button itself; that must not replace the
+// click the report is about.
+const onDocumentClick = (event: MouseEvent): void => {
+  const target = event.target instanceof Element ? event.target : null;
+  if (target?.closest("[data-issue-copy]")) return;
+  noteIssueCopyClick(target);
+};
 
 /**
  * Install the window, unhandled-rejection, fetch-failure and click listeners once, returning
@@ -56,7 +61,11 @@ export const installIssueCopyCapture = (): (() => void) => {
     try {
       return await originalFetch(...parameters);
     } catch (error) {
-      recordIssueCopyError("fetch", error instanceof Error ? error.message : String(error));
+      try {
+        recordIssueCopyError("fetch", error instanceof Error ? error.message : String(error));
+      } catch (recordError) {
+        log.warn("issue copy could not record a fetch failure", { error: String(recordError) });
+      }
       throw error;
     }
   }) as typeof fetch;

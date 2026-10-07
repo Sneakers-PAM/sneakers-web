@@ -16,8 +16,19 @@ if (!marker) throw new Error("MOCK_MARKER not found in packages/mock-gateway/src
 // The dev quick login's intents, label and server variables prove it never reaches a live
 // build either, so setting SNEAKERS_DEV_QUICK_LOGIN on a release image does nothing. Same for
 // the dev-only "Copy for UI issue" button and SNEAKERS_DEV_UI_ISSUE_COPY.
+// The UI issue item renders this marker as a data attribute. A live build must not carry it,
+// and the mounted item must still reference it, so the tell can't go stale and pass by default.
+const issueCopyMarker = /export const ISSUE_COPY_MARKER = "([^"]+)"/.exec(
+  readFileSync(path.join(root, "packages/shell/src/issueCopy/IssueCopyMenuItem.tsx"), "utf8"),
+);
+if (!issueCopyMarker || !issueCopyMarker.input.includes("data-issue-copy={ISSUE_COPY_MARKER}")) {
+  throw new Error(
+    "IssueCopyMenuItem must define ISSUE_COPY_MARKER and render it as data-issue-copy",
+  );
+}
 const tells = [
   marker,
+  issueCopyMarker[1],
   "mock_sneakers_sid",
   "mock-gateway.example.invalid",
   "mock-quick-login",

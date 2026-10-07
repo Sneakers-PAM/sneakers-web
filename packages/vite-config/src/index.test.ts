@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { developmentQuickLoginBuild, MOCK_MODE } from "./index";
+import { appCommit, developmentQuickLoginBuild, MOCK_MODE } from "./index";
 
 describe("the dev quick login build allowance", () => {
   it("is on for the dev server, which only ever runs locally", () => {
@@ -24,5 +24,13 @@ describe("the dev quick login build allowance", () => {
     expect(developmentQuickLoginBuild(MOCK_MODE, { SNEAKERS_DEV_QUICK_LOGIN_BUILD: "true" })).toBe(
       false,
     );
+  });
+});
+
+describe("the app commit", () => {
+  it("comes from APP_COMMIT, then GITHUB_SHA, and is never undefined", () => {
+    expect(appCommit({ APP_COMMIT: "abc123", GITHUB_SHA: "def456" })).toBe("abc123");
+    expect(appCommit({ GITHUB_SHA: "def456" })).toBe("def456");
+    expect(appCommit({})).toBe("unknown");
   });
 });

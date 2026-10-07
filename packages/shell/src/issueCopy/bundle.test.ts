@@ -19,7 +19,7 @@ describe("buildIssueCopyBundle", () => {
       ...base,
       clicked: "[data-testid=secret-reveal]",
       locale: "en-US",
-      params: { id: "sec_01H" },
+      params: { id: "0b6f3a52-6c1e-4f0a-9d2b-7e8f9a0b1c2d" },
       path: "/secret/:id",
       role: "site-admin",
       route: "routes/secret",
@@ -105,5 +105,24 @@ describe("buildIssueCopyBundle", () => {
     expect(bundle.t).toBe("2026-10-06T14:05:09-04:00");
     const winter = buildIssueCopyBundle({ ...base, now: new Date("2026-01-06T18:05:09Z") });
     expect(winter.t).toBe("2026-01-06T13:05:09-05:00");
+  });
+
+  it("keeps only params whose value is a ULID or a UUID", () => {
+    const bundle = buildIssueCopyBundle({
+      ...base,
+      params: {
+        folder: "j_smith",
+        id: "01HZX3K6Q8V2M4N7P9R1S3T5W7",
+        node: "123456789012",
+        target: "0b6f3a52-6c1e-4f0a-9d2b-7e8f9a0b1c2d",
+      },
+    });
+    expect(bundle.params).toEqual({
+      id: "01HZX3K6Q8V2M4N7P9R1S3T5W7",
+      target: "0b6f3a52-6c1e-4f0a-9d2b-7e8f9a0b1c2d",
+    });
+    expect(
+      buildIssueCopyBundle({ ...base, params: { user: "admin_alice" } }).params,
+    ).toBeUndefined();
   });
 });

@@ -2,7 +2,13 @@ import { DropdownMenuItem, useDisplay } from "@sneakers-web/ui";
 import { useMatches, useParams } from "react-router";
 
 import { copyIssueBundleWithNotice } from "#shell/issueCopy/copy";
-import { routePattern } from "#shell/issueCopy/path";
+import { issuePath } from "#shell/issueCopy/path";
+
+/**
+ * Rendered on the mounted item, so the live-build check (scripts/check-no-mock.mjs) has a tell
+ * that can't be tree-shaken away while the item exists, and so the click capture can skip it.
+ */
+export const ISSUE_COPY_MARKER = "sneakers-ui-issue-copy-v1";
 
 const cleanParameters = (
   parameters: Readonly<Record<string, string | undefined>>,
@@ -36,11 +42,12 @@ export const IssueCopyMenuItem = ({
   const last = matches.at(-1);
   return (
     <DropdownMenuItem
+      data-issue-copy={ISSUE_COPY_MARKER}
       onSelect={() =>
         void copyIssueBundleWithNotice({
           app,
           params: parameters,
-          path: last ? routePattern(last.pathname, parameters) : undefined,
+          path: issuePath(last?.pathname, parameters),
           role,
           route: last?.id,
           theme: settings.theme,

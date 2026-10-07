@@ -88,12 +88,16 @@ export const sharedAliases = (edgeModule: string): Record<string, string> => ({
 });
 
 // The image build stamps APP_VERSION and APP_COMMIT (its VERSION and COMMIT build arguments);
-// a local build falls back to the package version and "unknown".
+// a local build falls back to the package version, and the commit to GITHUB_SHA or "unknown".
 const version =
   process.env.APP_VERSION ||
   (JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")) as { version: string })
     .version;
-const commit = process.env.APP_COMMIT || "unknown";
+/** The commit stamped into the build: the image's APP_COMMIT, CI's GITHUB_SHA, or "unknown". */
+export const appCommit = (environment: NodeJS.ProcessEnv = process.env): string =>
+  environment.APP_COMMIT || environment.GITHUB_SHA || "unknown";
+
+const commit = appCommit();
 
 const buildDefines = {
   __APP_COMMIT__: JSON.stringify(commit),

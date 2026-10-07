@@ -1,4 +1,5 @@
 import { reactRouter } from "@react-router/dev/vite";
+import { appCommit } from "@sneakers-web/vite-config";
 import tailwindcss from "@tailwindcss/vite";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -12,7 +13,7 @@ const version =
   process.env.APP_VERSION ||
   (JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")) as { version: string })
     .version;
-const commit = process.env.APP_COMMIT || "unknown";
+const commit = appCommit();
 
 export default defineConfig(({ mode }): UserConfig => {
   const mock = mode === MOCK_MODE;
