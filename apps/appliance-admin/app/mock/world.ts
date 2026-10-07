@@ -15,6 +15,8 @@ import type {
   Quorum,
   RecoveryKey,
   Session,
+  UpgradeEvent,
+  UpgradePolicy,
 } from "@/lib/osadmin/types";
 
 const now = () => new Date().toISOString();
@@ -215,3 +217,33 @@ export const sessionFor = (admin: Admin): Session => ({
 });
 
 export const FACTORY_RESET: FactoryReset | undefined = undefined;
+
+export const HOSTNAME = "appliance.example.org";
+
+export const UPGRADE_POLICY: UpgradePolicy = {
+  mirrorUrl: "https://mirror.example.org/sneakers-appliance",
+  mode: "automatic",
+  windowMinutes: 120,
+  windowStart: "02:00",
+};
+
+export const UPGRADE_HISTORY: UpgradeEvent[] = [
+  {
+    action: "apply",
+    actor: "alice",
+    code: "",
+    detail: "",
+    outcome: "ok",
+    time: soon(-60 * 24 * 7),
+    version: "0.1.0",
+  },
+  {
+    action: "stage",
+    actor: "alice",
+    code: "UPGRADE_CHANNEL",
+    detail: "",
+    outcome: "failed",
+    time: soon(-60 * 24 * 8),
+    version: "0.1.0-lab.3",
+  },
+];

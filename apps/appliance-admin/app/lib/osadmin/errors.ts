@@ -31,11 +31,14 @@ export class OsadminError extends Error {
     super(message);
     this.name = "OsadminError";
     this.code = code;
-    this.symbol = symbol;
+    this.symbol = symbol ?? symbolOf(message);
   }
 }
 
 const SYMBOL_PATTERN = /\b([A-Z]+_[A-Z_]+)\b/;
+
+/** The go-apperr symbol a message names, such as UPGRADE_SIGNATURE, if any. */
+export const symbolOf = (message: string): string | undefined => SYMBOL_PATTERN.exec(message)?.[1];
 
 export const parseOsadminError = async (response: Response): Promise<OsadminError> => {
   let code: ConnectCode = "unknown";
@@ -47,8 +50,7 @@ export const parseOsadminError = async (response: Response): Promise<OsadminErro
   } catch {
     // Not JSON (a network or proxy error page): keep the status-based message.
   }
-  const symbol = SYMBOL_PATTERN.exec(message)?.[1];
-  return new OsadminError(code, message, symbol);
+  return new OsadminError(code, message, symbolOf(message));
 };
 
 /** True when the error means the page's backend isn't live on this box yet. */

@@ -278,6 +278,49 @@ export interface GetBackupsResponse {
   sets: BackupSet[];
 }
 
+// ---- upgrade ----
+
+export interface UpgradePolicy {
+  /** The HTTPS base .bin files are fetched from; empty means air-gapped (upload only). */
+  mirrorUrl: string;
+  /** automatic applies a staged release inside the daily window; manual waits for an owner. */
+  mode: "automatic" | "manual";
+  windowMinutes: number;
+  /** HH:MM local. */
+  windowStart: string;
+}
+
+/** A verified .bin's signed header, as StageUpdate returns it. */
+export interface UpdatePackage {
+  arch: string;
+  bases: string[];
+  channel: string;
+  kind: "full" | "patch";
+  sha256: string;
+  size: string;
+  uploadId: string;
+  version: string;
+}
+
+export interface UpgradeEvent {
+  action: "apply" | "fetch" | "revert" | "stage";
+  actor: string;
+  code: string;
+  detail: string;
+  outcome: "failed" | "ok";
+  time?: string;
+  version: string;
+}
+
+export interface GetUpgradesResponse {
+  airGapped: boolean;
+  failedVersion: string;
+  history: UpgradeEvent[];
+  policy?: UpgradePolicy;
+  runningVersion: string;
+  stagedVersion: string;
+}
+
 // ---- modules ----
 
 export interface AddonModule {

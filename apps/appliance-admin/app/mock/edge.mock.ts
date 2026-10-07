@@ -8,9 +8,12 @@ import type {
   FactoryReset,
   NetdSettings,
   Session,
+  UpdatePackage,
+  UpgradePolicy,
 } from "@/lib/osadmin/types";
 
 import { OsadminError } from "@/lib/osadmin/errors";
+import { getSession } from "@/lib/osadmin/sessionStore";
 import * as world from "@/mock/world";
 
 /** The banner every screen shows while the app runs against the mock transport. */
@@ -34,14 +37,176 @@ let factoryReset: FactoryReset | undefined;
 let singleAdminAcknowledged = false;
 let setupDone = true;
 let secureBootOn = true;
+let upgradePolicy = structuredClone(world.UPGRADE_POLICY);
+const upgradeHistory = structuredClone(world.UPGRADE_HISTORY);
+let runningVersion = "0.1.0";
+let stagedVersion = "";
+let failedVersion = "";
+const uploads = new Map<string, Blob>();
+let uploadCount = 0;
+/** Scenario switches for the review screen list and the tests (see applyMockScenario). */
+let uploadStalls = false;
+let verifyStalls = false;
+let stepUpOnce = false;
+/** With the "stepup" scenario the fresh sign-in is never approved, so the dialog stays up. */
+let signInHolds = false;
+
+const RESET_DELAY_MS = 10 * 60_000;
+const RESET_PENDING_MS = 30 * 60_000;
+const SINGLE_ADMIN_REASON =
+  "RESET_UNAVAILABLE: a factory reset needs a quorum of at least two admins; with one admin, delete and re-create or re-flash the box instead";
 
 const unimplemented = (message: string) => new OsadminError("unimplemented", message);
 const notFound = (message: string) => new OsadminError("not_found", message);
 
 const findAdmin = (name: string) => admins.find((a) => a.name === name);
 
+const never = () => new Promise<never>(() => {});
+
+const caller = (): string => getSession()?.admin ?? "";
+
+/** The step-up-gated methods refuse once after the "stepup" scenario, as a stale sign-in would. */
+const STEP_UP_METHODS = new Set([
+  "PowerService/ApproveFactoryReset",
+  "PowerService/StartFactoryReset",
+  "UpgradeService/ApplyUpdate",
+  "UpgradeService/RevertUpdate",
+  "UpgradeService/SetUpgradePolicy",
+  "UpgradeService/StageUpdate",
+]);
+
+const historyEntry = (action: "apply" | "fetch" | "revert" | "stage", version: string, code = "") =>
+  upgradeHistory.unshift({
+    action,
+    actor: caller(),
+    code,
+    detail: "",
+    outcome: code ? "failed" : "ok",
+    time: new Date().toISOString(),
+    version,
+  });
+
+// The mock box's verification: a file whose content says "tampered" fails the signature, and
+// "lab" fails the channel, the way a real .bin's signed header would.
+const verify = async (uploadId: string): Promise<UpdatePackage> => {
+  const blob = uploads.get(uploadId);
+  if (!blob)
+    throw new OsadminError("failed_precondition", `UPGRADE_UPLOAD: there is no upload ${uploadId}`);
+  const content = await blob.text();
+  if (content.includes("tampered")) {
+    uploads.delete(uploadId);
+    throw new OsadminError(
+      "failed_precondition",
+      "UPGRADE_SIGNATURE: the update package isn't signed by this box's release key, or it changed after it was signed",
+    );
+  }
+  if (content.includes("lab")) {
+    uploads.delete(uploadId);
+    throw new OsadminError(
+      "failed_precondition",
+      "UPGRADE_CHANNEL: a lab package never installs on a production box",
+    );
+  }
+  const patch = content.includes("patch");
+  return {
+    arch: "amd64",
+    bases: patch ? [runningVersion] : [],
+    channel: "stable",
+    kind: patch ? "patch" : "full",
+    sha256: Array.from({ length: 32 }, (_, index) =>
+      (index * 7 + 11).toString(16).padStart(2, "0"),
+    ).join(""),
+    size: String(blob.size),
+    uploadId,
+    version: patch ? "0.1.1" : "0.2.0",
+  };
+};
+
+const powerState = () => {
+  if (factoryReset?.runsAt && Date.parse(factoryReset.runsAt) <= Date.now())
+    factoryReset = undefined;
+  if (
+    factoryReset?.expires &&
+    !factoryReset.runsAt &&
+    Date.parse(factoryReset.expires) <= Date.now()
+  )
+    factoryReset = undefined;
+  const available =
+    admins.length > 1 && quorum.members.length >= quorum.required && quorum.required >= 2;
+  return { available, reason: available ? "" : SINGLE_ADMIN_REASON };
+};
+
+const startReset = (actor: string, confirmHostname: string) => {
+  if (findAdmin(actor)?.role !== "ROLE_OWNER")
+    throw new OsadminError(
+      "permission_denied",
+      "ACCESS_FORBIDDEN: only an owner can start a factory reset",
+    );
+  if (confirmHostname !== world.HOSTNAME)
+    throw new OsadminError(
+      "invalid_argument",
+      "ACCESS_CONFIRM: the typed confirmation doesn't match",
+    );
+  if (!powerState().available) throw new OsadminError("failed_precondition", SINGLE_ADMIN_REASON);
+  if (factoryReset)
+    throw new OsadminError(
+      "failed_precondition",
+      "RESET_UNAVAILABLE: a factory reset is already in progress",
+    );
+  const now = Date.now();
+  factoryReset = {
+    approvals: quorum.members.includes(actor) ? [actor] : [],
+    expires: new Date(now + RESET_PENDING_MS).toISOString(),
+    id: "R-MOCK01",
+    members: [...quorum.members],
+    required: quorum.required,
+    started: new Date(now).toISOString(),
+    startedBy: actor,
+    state: "FACTORY_RESET_STATE_PENDING",
+  };
+  return factoryReset;
+};
+
+const approveReset = (actor: string, id: string) => {
+  const reset = factoryReset;
+  if (!reset || reset.id !== id)
+    throw new OsadminError(
+      "failed_precondition",
+      `RESET_CANCELLED: there is no factory reset "${id}" in progress`,
+    );
+  if (!reset.members.includes(actor))
+    throw new OsadminError(
+      "failed_precondition",
+      `RESET_APPROVED: ${actor} isn't on the quorum roster`,
+    );
+  if (reset.approvals.includes(actor))
+    throw new OsadminError(
+      "failed_precondition",
+      `RESET_APPROVED: ${actor}'s approval is already counted; another roster member must approve`,
+    );
+  if (reset.runsAt)
+    throw new OsadminError(
+      "failed_precondition",
+      "RESET_APPROVED: the quorum has already approved",
+    );
+  reset.approvals = [...reset.approvals, actor];
+  if (reset.approvals.length >= reset.required) {
+    reset.state = "FACTORY_RESET_STATE_COUNTDOWN";
+    reset.runsAt = new Date(Date.now() + RESET_DELAY_MS).toISOString();
+  }
+  return reset;
+};
+
 const route = async (service: string, method: string, body: Record<string, unknown>) => {
-  switch (`${service}/${method}`) {
+  const key = `${service}/${method}`;
+  if (stepUpOnce && STEP_UP_METHODS.has(key)) {
+    stepUpOnce = false;
+    throw new OsadminError(
+      "permission_denied",
+      "ACCESS_STEPUP_REQUIRED: this action needs a sign-in no older than 5 minutes",
+    );
+  }
+  switch (key) {
     case "AccessService/AddAdmin": {
       const admin = {
         created: new Date().toISOString(),
@@ -197,12 +362,24 @@ const route = async (service: string, method: string, body: Record<string, unkno
       networkPending = { settings: body.settings as NetdSettings, token };
       return { revertAfterSeconds: 120, token };
     }
+    case "PowerService/ApproveFactoryReset": {
+      return { factoryReset: structuredClone(approveReset(caller(), body.id as string)) };
+    }
+    case "PowerService/CancelFactoryReset": {
+      if (!factoryReset || (body.id && factoryReset.id !== body.id))
+        throw new OsadminError(
+          "failed_precondition",
+          "RESET_CANCELLED: there is no factory reset in progress",
+        );
+      factoryReset = undefined;
+      return {};
+    }
     case "PowerService/GetPower": {
+      const { available, reason } = powerState();
       return {
-        factoryReset,
-        factoryResetAvailable: admins.length > 1,
-        factoryResetUnavailableReason:
-          admins.length > 1 ? "" : "A single-admin box can't reach a quorum.",
+        factoryReset: structuredClone(factoryReset),
+        factoryResetAvailable: available,
+        factoryResetUnavailableReason: reason,
         sessions: [
           { admin: "alice", signedIn: new Date().toISOString(), sourceAddress: "192.0.2.10" },
         ],
@@ -211,6 +388,11 @@ const route = async (service: string, method: string, body: Record<string, unkno
     case "PowerService/Reboot":
     case "PowerService/Shutdown": {
       return {};
+    }
+    case "PowerService/StartFactoryReset": {
+      return {
+        factoryReset: structuredClone(startReset(caller(), body.confirmHostname as string)),
+      };
     }
     case "SetupService/AcknowledgeSingleAdmin": {
       singleAdminAcknowledged = true;
@@ -271,6 +453,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
     }
     case "SignInService/PollSignIn": {
       const token = body.pollToken as string;
+      if (signInHolds) return { state: "SIGN_IN_STATE_PENDING" };
       const attempts = (pollAttempts.get(token) ?? 0) + 1;
       pollAttempts.set(token, attempts);
       if (attempts < 2) return { state: "SIGN_IN_STATE_PENDING" };
@@ -282,10 +465,14 @@ const route = async (service: string, method: string, body: Record<string, unkno
       return {};
     }
     case "StatusService/GetStatus": {
+      powerState();
       return {
         ...world.status(),
-        factoryReset,
+        factoryReset: structuredClone(factoryReset),
+        failedVersion,
         protection: secureBootOn ? "PROTECTION_FULL" : "PROTECTION_REDUCED",
+        runningVersion,
+        stagedVersion,
       };
     }
     case "StatusService/SetSecureBoot": {
@@ -311,10 +498,74 @@ const route = async (service: string, method: string, body: Record<string, unkno
     case "TlsService/UploadCertificate": {
       return {};
     }
-    case "PowerService/ApproveFactoryReset":
-    case "PowerService/CancelFactoryReset":
-    case "PowerService/StartFactoryReset": {
-      throw unimplemented("factory reset is not available in this release");
+    case "UpgradeService/ApplyUpdate": {
+      if (!stagedVersion)
+        throw new OsadminError("failed_precondition", "UPGRADE_NOT_STAGED: no release is staged");
+      historyEntry("apply", stagedVersion);
+      runningVersion = stagedVersion;
+      stagedVersion = "";
+      return {};
+    }
+    case "UpgradeService/FetchUpdate": {
+      if (!upgradePolicy.mirrorUrl)
+        throw new OsadminError(
+          "failed_precondition",
+          "UPGRADE_AIR_GAPPED: no mirror is configured, so this box never fetches; upload the .bin instead",
+        );
+      const fileName = body.fileName as string;
+      if (!/^sneakers-appliance-\d+\.\d+\.\d+(-[\w.]+)?-(amd64|arm64)\.bin$/.test(fileName))
+        throw new OsadminError(
+          "failed_precondition",
+          `UPGRADE_UPLOAD: "${fileName}" isn't a sneakers-appliance .bin name`,
+        );
+      const uploadId = `fetch-${String(++uploadCount)}`;
+      uploads.set(
+        uploadId,
+        new Blob([fileName.includes("0.1.1") ? "signed patch" : "signed release"]),
+      );
+      historyEntry("fetch", "");
+      return { uploadId };
+    }
+    case "UpgradeService/GetUpgrades": {
+      return {
+        airGapped: !upgradePolicy.mirrorUrl,
+        failedVersion,
+        history: structuredClone(upgradeHistory),
+        policy: structuredClone(upgradePolicy),
+        runningVersion,
+        stagedVersion,
+      };
+    }
+    case "UpgradeService/RevertUpdate": {
+      historyEntry("revert", "");
+      return {};
+    }
+    case "UpgradeService/SetUpgradePolicy": {
+      const policy = body.policy as UpgradePolicy;
+      if (
+        !/^([01]\d|2[0-3]):[0-5]\d$/.test(policy.windowStart) ||
+        policy.windowMinutes < 45 ||
+        policy.windowMinutes > 720
+      )
+        throw new OsadminError(
+          "invalid_argument",
+          "ACCESS_CONFIRM: the window starts at HH:MM and lasts 45 to 720 minutes",
+        );
+      upgradePolicy = { ...policy, mirrorUrl: policy.mirrorUrl.trim().replace(/\/+$/, "") };
+      return {};
+    }
+    case "UpgradeService/StageUpdate": {
+      if (verifyStalls) return never();
+      const uploadId = body.uploadId as string;
+      try {
+        const updatePackage = await verify(uploadId);
+        stagedVersion = updatePackage.version;
+        historyEntry("stage", updatePackage.version);
+        return { package: updatePackage };
+      } catch (error) {
+        historyEntry("stage", "", error instanceof OsadminError ? (error.symbol ?? "") : "");
+        throw error;
+      }
     }
     default: {
       throw unimplemented(`mock transport has no ${service}/${method}`);
@@ -344,8 +595,16 @@ export const edge: Edge = {
   async request<Result>(service: string, method: string, body: unknown): Promise<Result> {
     return (await route(service, method, (body as Record<string, unknown>) ?? {})) as Result;
   },
-  async upload(): Promise<{ uploadId: string }> {
-    return { uploadId: `upload-${Date.now()}` };
+  async upload(
+    bytes: Blob,
+    onProgress?: (fraction: number) => void,
+  ): Promise<{ uploadId: string }> {
+    onProgress?.(0.4);
+    if (uploadStalls) return never();
+    const uploadId = `upload-${String(++uploadCount)}`;
+    uploads.set(uploadId, bytes);
+    onProgress?.(1);
+    return { uploadId };
   },
 };
 
@@ -353,8 +612,119 @@ const refill = <T>(target: T[], source: readonly T[]) => {
   target.splice(0, target.length, ...structuredClone(source));
 };
 
+export type MockScenario =
+  | "air-gapped"
+  | "failed"
+  | "manual"
+  | "reset-countdown"
+  | "reset-pending"
+  | "single-admin"
+  | "staged"
+  | "stepup"
+  | "uploading"
+  | "verifying";
+
+const pendingReset = (): FactoryReset => ({
+  approvals: ["alice"],
+  expires: new Date(Date.now() + RESET_PENDING_MS).toISOString(),
+  id: "R-MOCK01",
+  members: [...quorum.members],
+  required: quorum.required,
+  started: new Date().toISOString(),
+  startedBy: "alice",
+  state: "FACTORY_RESET_STATE_PENDING",
+});
+
+/**
+ * Puts the mock box into one of the states the review screen list shows (and the tests use):
+ * an air-gapped box, a staged release, a stalled upload or verification, a factory reset
+ * waiting for its quorum or counting down, and so on.
+ */
+export const applyMockScenario = (scenario: MockScenario): void => {
+  switch (scenario) {
+    case "air-gapped": {
+      upgradePolicy = { ...upgradePolicy, mirrorUrl: "" };
+      break;
+    }
+    case "failed": {
+      failedVersion = "0.2.0";
+      break;
+    }
+    case "manual": {
+      upgradePolicy = { ...upgradePolicy, mode: "manual" };
+      break;
+    }
+    case "reset-countdown": {
+      factoryReset = {
+        ...pendingReset(),
+        approvals: [...quorum.members],
+        runsAt: new Date(Date.now() + RESET_DELAY_MS).toISOString(),
+        state: "FACTORY_RESET_STATE_COUNTDOWN",
+      };
+      break;
+    }
+    case "reset-pending": {
+      factoryReset = pendingReset();
+      break;
+    }
+    case "single-admin": {
+      admins.splice(1);
+      quorum = { configured: false, members: ["alice"], required: 1 };
+      break;
+    }
+    case "staged": {
+      stagedVersion = "0.2.0";
+      break;
+    }
+    case "stepup": {
+      stepUpOnce = true;
+      signInHolds = true;
+      break;
+    }
+    case "uploading": {
+      uploadStalls = true;
+      break;
+    }
+    case "verifying": {
+      verifyStalls = true;
+      break;
+    }
+  }
+};
+
+const SCENARIOS = new Set<string>([
+  "air-gapped",
+  "failed",
+  "manual",
+  "reset-countdown",
+  "reset-pending",
+  "single-admin",
+  "staged",
+  "stepup",
+  "uploading",
+  "verifying",
+] satisfies MockScenario[]);
+
+/** `?mockScenario=staged,reset-pending` on a mock build's URL, for the review screen list. */
+const scenariosFromUrl = (): void => {
+  const search = globalThis.location?.search ?? "";
+  const names = new URLSearchParams(search).get("mockScenario")?.split(",") ?? [];
+  for (const name of names) if (SCENARIOS.has(name)) applyMockScenario(name as MockScenario);
+};
+
 /** Resets every mutable piece of the mock world, so tests don't see another test's writes. */
 export const resetMockWorld = (): void => {
+  upgradePolicy = structuredClone(world.UPGRADE_POLICY);
+  runningVersion = "0.1.0";
+  stagedVersion = "";
+  failedVersion = "";
+  uploads.clear();
+  uploadCount = 0;
+  uploadStalls = false;
+  verifyStalls = false;
+  stepUpOnce = false;
+  signInHolds = false;
+  refill(upgradeHistory, world.UPGRADE_HISTORY);
   pollAttempts = new Map();
   networkPending = null;
   singleAdminAcknowledged = false;
@@ -374,3 +744,5 @@ export const resetMockWorld = (): void => {
   refill(auditEvents, world.AUDIT_EVENTS);
   refill(backupSets, world.BACKUP_SETS);
 };
+
+scenariosFromUrl();
