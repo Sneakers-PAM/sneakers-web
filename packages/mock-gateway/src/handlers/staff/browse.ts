@@ -10,6 +10,7 @@ import {
   BrowseMoveSecretDocument,
   BrowseRenameFolderDocument,
   BrowseReorderFoldersDocument,
+  BrowseReorderSecretsDocument,
   BrowseRestoreSecretDocument,
   BrowseSecretsDocument,
 } from "@sneakers-web/api-client";
@@ -21,7 +22,7 @@ import { isSiteAdmin, refusal } from "#mock/admin/refuse";
 import { userById } from "#mock/fixtures/users";
 import { api, asUser } from "#mock/handlers/graphql";
 import { folderChain, hidden, ownsFolder, resolve } from "#mock/handlers/raci";
-import { canRead as canReadSecret } from "#mock/handlers/staff/access";
+import { canRead as canReadSecret, lastPositionIn } from "#mock/handlers/staff/access";
 import { mockState, newToken } from "#mock/state";
 
 /*
@@ -185,12 +186,17 @@ export const browseHandlers = [
       return ok({
         secretsInFolder: mockState.world.secrets
           .filter((s) => s.folderId === f.id && (variables.includeRetired || live(s)))
+          // Active secrets in their manual order, then retired ones, the way the vault returns them.
+          .toSorted((a, b) =>
+            a.retired === b.retired ? a.position - b.position : a.retired ? 1 : -1,
+          )
           .map((s) => ({
             canRead: canReadSecret(userId, s),
             folderId: s.folderId,
             id: s.id,
             lastHeartbeatResult: s.lastHeartbeatResult ?? null,
             name: s.name,
+            position: s.position,
             retired: s.retired,
             retiredAt: s.retiredAt,
             targetId: s.targetId ?? null,
@@ -324,6 +330,33 @@ export const browseHandlers = [
     }),
   ),
 
+  api.mutation(BrowseReorderSecretsDocument, ({ request: request_, variables }) =>
+    asUser(request_, (userId) => {
+      const f = seen(userId, variables.folderId);
+      if (!f) return notFound();
+      if (!canManage(userId, f)) return notOwner();
+      const active = mockState.world.secrets.filter((s) => s.folderId === f.id && live(s));
+      const known = new Set(active.map((s) => s.id));
+      const ordered = [variables.orderedIds].flat();
+      if (
+        ordered.length !== known.size ||
+        new Set(ordered).size !== ordered.length ||
+        ordered.some((id) => !known.has(id))
+      ) {
+        return invalid("orderedIds must name every active secret in the folder exactly once");
+      }
+      for (const [index, id] of ordered.entries()) {
+        (mockState.world.secrets.find((s) => s.id === id) as MockSecret).position = index + 1;
+      }
+      return ok({
+        reorderSecrets: ordered.map((id) => {
+          const s = mockState.world.secrets.find((x) => x.id === id) as MockSecret;
+          return { id: s.id, position: s.position };
+        }),
+      });
+    }),
+  ),
+
   api.mutation(BrowseCreateFolderMoveRequestDocument, ({ request: request_, variables }) =>
     asUser(request_, (userId) => {
       const f = seen(userId, variables.folderId);
@@ -380,7 +413,9 @@ export const browseHandlers = [
       const destinationOwner = personalOwner(destination);
       if (destinationOwner && personalOwner(from) !== destinationOwner && !isSiteAdmin(userId))
         return notAdmin();
+      const position = lastPositionIn(destination.id);
       s.folderId = destination.id;
+      s.position = position;
       return ok({ updateSecret: { folderId: s.folderId, id: s.id } });
     }),
   ),
@@ -393,6 +428,7 @@ export const browseHandlers = [
       if (!canManage(userId, from)) return notOwner();
       s.retired = false;
       s.retiredAt = "";
+      s.position = lastPositionIn(s.folderId);
       return ok({ restoreSecret: { id: s.id, retired: false } });
     }),
   ),

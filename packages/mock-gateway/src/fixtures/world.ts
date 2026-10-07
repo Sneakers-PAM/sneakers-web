@@ -121,6 +121,8 @@ export interface MockSecret {
   lastRotationResult?: "degraded" | "failed" | "ok" | "rotating" | "unknown";
   name: string;
   nextRotationAt?: string;
+  /** The secret's manual place in its folder, 1-based among active secrets; 0 when retired. */
+  position: number;
   requireTokenApproval: boolean;
   retired: boolean;
   retiredAt: string;
@@ -637,6 +639,7 @@ interface SecretSeed extends Partial<MockSecret> {
 
 const secret = (now: number, seed: SecretSeed, versions = 1): MockSecret => ({
   heartbeatOptOut: false,
+  position: 0,
   requireTokenApproval: false,
   retired: false,
   retiredAt: "",
@@ -646,212 +649,224 @@ const secret = (now: number, seed: SecretSeed, versions = 1): MockSecret => ({
   ...seed,
 });
 
-const secrets = (now: number): MockSecret[] => [
-  secret(
-    now,
-    {
-      fields: {
-        domain: "corp.example.org",
-        notes: "Remote access for the platform team.",
-        password: "mock-Lace-Up-4417",
-        serviceAccount: "false",
-        username: "svc-vpn",
+/** Backfills each folder's manual order from the fixture list's own order, the way the vault's
+ * migration backfills by name: dense, 1-based, active secrets only. A retired secret is 0. */
+const withPositions = (list: MockSecret[]): MockSecret[] => {
+  const next: Record<string, number> = {};
+  return list.map((s) => {
+    if (s.retired) return s;
+    next[s.folderId] = (next[s.folderId] ?? 0) + 1;
+    return { ...s, position: next[s.folderId] as number };
+  });
+};
+
+const secrets = (now: number): MockSecret[] =>
+  withPositions([
+    secret(
+      now,
+      {
+        fields: {
+          domain: "corp.example.org",
+          notes: "Remote access for the platform team.",
+          password: "mock-Lace-Up-4417",
+          serviceAccount: "false",
+          username: "svc-vpn",
+        },
+        folderId: "mock-folder-network",
+        id: "mock-secret-acme-vpn",
+        lastAccessedAt: iso(now - 2 * HOUR),
+        lastHeartbeatResult: "ok",
+        lastRotationResult: "ok",
+        name: "Acme VPN",
+        nextRotationAt: iso(now + 20 * DAY),
+        rotatedAt: iso(now - 10 * DAY),
+        rotationIntervalDays: 30,
+        targetId: "mock-target-dc1",
+        typeId: "type-active-directory",
+        verifiedAt: iso(now - HOUR),
+        viewCount: 42,
       },
-      folderId: "mock-folder-network",
-      id: "mock-secret-acme-vpn",
-      lastAccessedAt: iso(now - 2 * HOUR),
-      lastHeartbeatResult: "ok",
-      lastRotationResult: "ok",
-      name: "Acme VPN",
-      nextRotationAt: iso(now + 20 * DAY),
-      rotatedAt: iso(now - 10 * DAY),
-      rotationIntervalDays: 30,
-      targetId: "mock-target-dc1",
-      typeId: "type-active-directory",
-      verifiedAt: iso(now - HOUR),
-      viewCount: 42,
-    },
-    4,
-  ),
-  secret(
-    now,
-    {
+      4,
+    ),
+    secret(
+      now,
+      {
+        fields: {
+          engine: "PostgreSQL",
+          password: "mock-Tongue-Eyelet-91",
+          port: "5432",
+          server: "db1.example.org",
+          username: "postgres_admin",
+        },
+        folderId: "mock-folder-databases",
+        id: "mock-secret-db-admin",
+        lastAccessedAt: iso(now - DAY),
+        lastHeartbeatResult: "failed",
+        lastRotationResult: "failed",
+        name: "DB admin",
+        rotatedAt: iso(now - 40 * DAY),
+        rotationIntervalDays: 30,
+        targetId: "mock-target-db1",
+        typeId: "type-database-account",
+        verifiedAt: iso(now - 3 * DAY),
+        viewCount: 31,
+      },
+      3,
+    ),
+    secret(now, {
       fields: {
         engine: "PostgreSQL",
-        password: "mock-Tongue-Eyelet-91",
+        password: "mock-Aglet-Outsole-27",
         port: "5432",
         server: "db1.example.org",
-        username: "postgres_admin",
+        username: "reporting_ro",
       },
       folderId: "mock-folder-databases",
-      id: "mock-secret-db-admin",
-      lastAccessedAt: iso(now - DAY),
-      lastHeartbeatResult: "failed",
-      lastRotationResult: "failed",
-      name: "DB admin",
-      rotatedAt: iso(now - 40 * DAY),
-      rotationIntervalDays: 30,
+      heartbeatOptOut: true,
+      id: "mock-secret-db-reporting",
+      name: "Reporting reader",
       targetId: "mock-target-db1",
       typeId: "type-database-account",
-      verifiedAt: iso(now - 3 * DAY),
-      viewCount: 31,
-    },
-    3,
-  ),
-  secret(now, {
-    fields: {
-      engine: "PostgreSQL",
-      password: "mock-Aglet-Outsole-27",
-      port: "5432",
-      server: "db1.example.org",
-      username: "reporting_ro",
-    },
-    folderId: "mock-folder-databases",
-    heartbeatOptOut: true,
-    id: "mock-secret-db-reporting",
-    name: "Reporting reader",
-    targetId: "mock-target-db1",
-    typeId: "type-database-account",
-    viewCount: 6,
-  }),
-  secret(
-    now,
-    {
+      viewCount: 6,
+    }),
+    secret(
+      now,
+      {
+        fields: {
+          keyFormat: "OpenSSH",
+          passphrase: "mock-passphrase-heel",
+          privateKey: "mock private key for the build host, not a real key",
+          publicKey: "ssh-ed25519 mock-public-key-build alice@example.org",
+          username: "deploy",
+        },
+        folderId: "mock-folder-platform",
+        id: "mock-secret-build-ssh",
+        lastAccessedAt: iso(now - 5 * HOUR),
+        lastHeartbeatResult: "ok",
+        name: "Build host deploy key",
+        requireTokenApproval: true,
+        targetId: "mock-target-build1",
+        typeId: "type-ssh-key",
+        verifiedAt: iso(now - 6 * HOUR),
+        viewCount: 18,
+      },
+      2,
+    ),
+    secret(now, {
+      fields: { notes: "Console only.", password: "mock-Vamp-Collar-63", username: "admin" },
+      folderId: "mock-folder-network",
+      id: "mock-secret-edge-router",
+      lastHeartbeatResult: "unreachable",
+      name: "Edge router admin",
+      targetId: "mock-target-edge-router",
+      typeId: "type-password",
+      verifiedAt: iso(now - 9 * DAY),
+      viewCount: 9,
+    }),
+    secret(now, {
+      expiresAt: iso(now + 5 * DAY),
       fields: {
-        keyFormat: "OpenSSH",
-        passphrase: "mock-passphrase-heel",
-        privateKey: "mock private key for the build host, not a real key",
-        publicKey: "ssh-ed25519 mock-public-key-build alice@example.org",
-        username: "deploy",
+        certificate: "mock certificate for portal.example.org",
+        issuer: "CN=Example Issuing CA",
+        notAfter: iso(now + 5 * DAY),
+        privateKey: "mock certificate key, not a real key",
+        subject: "CN=portal.example.org",
+      },
+      folderId: "mock-folder-certificates",
+      id: "mock-secret-portal-cert",
+      name: "portal.example.org",
+      typeId: "type-ssl-cert",
+      viewCount: 3,
+    }),
+    secret(now, {
+      expiresAt: iso(now - 2 * DAY),
+      fields: {
+        certificate: "mock certificate for old.example.org",
+        issuer: "CN=Example Issuing CA",
+        notAfter: iso(now - 2 * DAY),
+        subject: "CN=old.example.org",
+      },
+      folderId: "mock-folder-certificates",
+      id: "mock-secret-old-cert",
+      name: "old.example.org",
+      typeId: "type-ssl-cert",
+      viewCount: 1,
+    }),
+    secret(now, {
+      expiresAt: iso(now + 21 * DAY),
+      fields: {
+        endpoint: "https://api.example.com/v2",
+        scheme: "Bearer",
+        token: "mock-token-insole-5521",
       },
       folderId: "mock-folder-platform",
-      id: "mock-secret-build-ssh",
-      lastAccessedAt: iso(now - 5 * HOUR),
-      lastHeartbeatResult: "ok",
-      name: "Build host deploy key",
-      requireTokenApproval: true,
-      targetId: "mock-target-build1",
-      typeId: "type-ssh-key",
-      verifiedAt: iso(now - 6 * HOUR),
-      viewCount: 18,
-    },
-    2,
-  ),
-  secret(now, {
-    fields: { notes: "Console only.", password: "mock-Vamp-Collar-63", username: "admin" },
-    folderId: "mock-folder-network",
-    id: "mock-secret-edge-router",
-    lastHeartbeatResult: "unreachable",
-    name: "Edge router admin",
-    targetId: "mock-target-edge-router",
-    typeId: "type-password",
-    verifiedAt: iso(now - 9 * DAY),
-    viewCount: 9,
-  }),
-  secret(now, {
-    expiresAt: iso(now + 5 * DAY),
-    fields: {
-      certificate: "mock certificate for portal.example.org",
-      issuer: "CN=Example Issuing CA",
-      notAfter: iso(now + 5 * DAY),
-      privateKey: "mock certificate key, not a real key",
-      subject: "CN=portal.example.org",
-    },
-    folderId: "mock-folder-certificates",
-    id: "mock-secret-portal-cert",
-    name: "portal.example.org",
-    typeId: "type-ssl-cert",
-    viewCount: 3,
-  }),
-  secret(now, {
-    expiresAt: iso(now - 2 * DAY),
-    fields: {
-      certificate: "mock certificate for old.example.org",
-      issuer: "CN=Example Issuing CA",
-      notAfter: iso(now - 2 * DAY),
-      subject: "CN=old.example.org",
-    },
-    folderId: "mock-folder-certificates",
-    id: "mock-secret-old-cert",
-    name: "old.example.org",
-    typeId: "type-ssl-cert",
-    viewCount: 1,
-  }),
-  secret(now, {
-    expiresAt: iso(now + 21 * DAY),
-    fields: {
-      endpoint: "https://api.example.com/v2",
-      scheme: "Bearer",
-      token: "mock-token-insole-5521",
-    },
-    folderId: "mock-folder-platform",
-    id: "mock-secret-status-api",
-    lastAccessedAt: iso(now - 30 * 60_000),
-    name: "Status page API",
-    typeId: "type-api-token",
-    viewCount: 57,
-  }),
-  secret(
-    now,
-    {
-      fields: {
-        password: "mock-Welt-Toecap-08",
-        url: "https://payroll.example.com",
-        username: "finance-team",
+      id: "mock-secret-status-api",
+      lastAccessedAt: iso(now - 30 * 60_000),
+      name: "Status page API",
+      typeId: "type-api-token",
+      viewCount: 57,
+    }),
+    secret(
+      now,
+      {
+        fields: {
+          password: "mock-Welt-Toecap-08",
+          url: "https://payroll.example.com",
+          username: "finance-team",
+        },
+        folderId: "mock-folder-finance",
+        id: "mock-secret-payroll",
+        lastAccessedAt: iso(now - 3 * DAY),
+        name: "Payroll portal",
+        typeId: "type-web-password",
+        viewCount: 12,
       },
-      folderId: "mock-folder-finance",
-      id: "mock-secret-payroll",
-      lastAccessedAt: iso(now - 3 * DAY),
-      name: "Payroll portal",
+      2,
+    ),
+    secret(now, {
+      fields: {
+        password: "mock-Old-Shank-12",
+        url: "https://legacy.example.com",
+        username: "finance",
+      },
+      folderId: "mock-folder-archive",
+      id: "mock-secret-legacy-portal",
+      name: "Legacy portal",
+      retired: true,
+      retiredAt: iso(now - 60 * DAY),
       typeId: "type-web-password",
-      viewCount: 12,
-    },
-    2,
-  ),
-  secret(now, {
-    fields: {
-      password: "mock-Old-Shank-12",
-      url: "https://legacy.example.com",
-      username: "finance",
-    },
-    folderId: "mock-folder-archive",
-    id: "mock-secret-legacy-portal",
-    name: "Legacy portal",
-    retired: true,
-    retiredAt: iso(now - 60 * DAY),
-    typeId: "type-web-password",
-  }),
-  secret(now, {
-    fields: {
-      domain: "corp.example.org",
-      password: "mock-Heel-Counter-30",
-      serviceAccount: "false",
-      username: "helpdesk-reset",
-    },
-    folderId: "mock-folder-helpdesk",
-    id: "mock-secret-helpdesk",
-    lastHeartbeatResult: "ok",
-    name: "Helpdesk reset account",
-    targetId: "mock-target-dc1",
-    typeId: "type-active-directory",
-    viewCount: 4,
-  }),
-  secret(now, {
-    fields: { note: "Lab wifi: mock-wifi-passphrase" },
-    folderId: "mock-folder-alice-lab",
-    id: "mock-secret-alice-wifi",
-    name: "Lab wifi",
-    typeId: "type-secure-note",
-    viewCount: 2,
-  }),
-  secret(now, {
-    fields: { password: "mock-Bob-Brogue-77", username: "bob" },
-    folderId: "mock-folder-bob",
-    id: "mock-secret-bob-laptop",
-    name: "Laptop login",
-    typeId: "type-password",
-  }),
-];
+    }),
+    secret(now, {
+      fields: {
+        domain: "corp.example.org",
+        password: "mock-Heel-Counter-30",
+        serviceAccount: "false",
+        username: "helpdesk-reset",
+      },
+      folderId: "mock-folder-helpdesk",
+      id: "mock-secret-helpdesk",
+      lastHeartbeatResult: "ok",
+      name: "Helpdesk reset account",
+      targetId: "mock-target-dc1",
+      typeId: "type-active-directory",
+      viewCount: 4,
+    }),
+    secret(now, {
+      fields: { note: "Lab wifi: mock-wifi-passphrase" },
+      folderId: "mock-folder-alice-lab",
+      id: "mock-secret-alice-wifi",
+      name: "Lab wifi",
+      typeId: "type-secure-note",
+      viewCount: 2,
+    }),
+    secret(now, {
+      fields: { password: "mock-Bob-Brogue-77", username: "bob" },
+      folderId: "mock-folder-bob",
+      id: "mock-secret-bob-laptop",
+      name: "Laptop login",
+      typeId: "type-password",
+    }),
+  ]);
 
 const requests = (now: number): MockRequest[] => [
   {

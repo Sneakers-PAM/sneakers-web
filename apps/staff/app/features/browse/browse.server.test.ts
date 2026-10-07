@@ -304,3 +304,51 @@ describe("secret moves", () => {
     expect(world().secrets.find((s) => s.id === "mock-secret-legacy-portal")?.retired).toBe(false);
   });
 });
+
+describe("secret order", () => {
+  it("loads secrets in their manual position, not resorted by name", async () => {
+    const data = await load(ALICE, "mock-folder-databases");
+    expect(data.current?.secrets?.map((s) => [s.name, s.position])).toEqual([
+      ["DB admin", 1],
+      ["Reporting reader", 2],
+    ]);
+  });
+
+  it("reorders a folder's secrets and keeps the positions dense", async () => {
+    const r = await act(
+      ALICE,
+      {
+        intent: "reorder-secrets",
+        orderedIds: "mock-secret-db-reporting,mock-secret-db-admin",
+      },
+      "mock-folder-databases",
+    );
+    expect(r).toMatchObject({ ok: true });
+    const data = await load(ALICE, "mock-folder-databases");
+    expect(data.current?.secrets?.map((s) => [s.name, s.position])).toEqual([
+      ["Reporting reader", 1],
+      ["DB admin", 2],
+    ]);
+  });
+
+  it("refuses a reorder that doesn't name every active secret in the folder exactly once", async () => {
+    const r = await act(
+      ALICE,
+      { intent: "reorder-secrets", orderedIds: "mock-secret-db-admin" },
+      "mock-folder-databases",
+    );
+    expect(r).toMatchObject({ ok: false, refusal: { code: "INVALID_ARGUMENT" } });
+  });
+
+  it("refuses a reorder from someone who doesn't manage the folder", async () => {
+    const r = await act(
+      BOB,
+      {
+        intent: "reorder-secrets",
+        orderedIds: "mock-secret-db-reporting,mock-secret-db-admin",
+      },
+      "mock-folder-databases",
+    );
+    expect(r).toMatchObject({ ok: false, refusal: { code: "PERMISSION_DENIED" } });
+  });
+});

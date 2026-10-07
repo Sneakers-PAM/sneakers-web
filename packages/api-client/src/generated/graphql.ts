@@ -1599,6 +1599,7 @@ export type BrowseSecretsQuery = {
     retired: boolean;
     retiredAt: string;
     canRead: boolean | null;
+    position: number;
   }>;
   secretTypes: Array<{
     id: string;
@@ -1665,6 +1666,15 @@ export type BrowseReorderFoldersMutationVariables = Exact<{
 }>;
 
 export type BrowseReorderFoldersMutation = { reorderFolders: boolean };
+
+export type BrowseReorderSecretsMutationVariables = Exact<{
+  folderId: string;
+  orderedIds: Array<string> | string;
+}>;
+
+export type BrowseReorderSecretsMutation = {
+  reorderSecrets: Array<{ id: string; position: number }>;
+};
 
 export type BrowseCreateFolderMoveRequestMutationVariables = Exact<{
   folderId: string;
@@ -4817,6 +4827,7 @@ export const BrowseSecretsDocument = new TypedDocumentString(`
     retired
     retiredAt
     canRead
+    position
   }
   secretTypes {
     id
@@ -4893,6 +4904,17 @@ export const BrowseReorderFoldersDocument = new TypedDocumentString(`
     `) as unknown as TypedDocumentString<
   BrowseReorderFoldersMutation,
   BrowseReorderFoldersMutationVariables
+>;
+export const BrowseReorderSecretsDocument = new TypedDocumentString(`
+    mutation BrowseReorderSecrets($folderId: ID!, $orderedIds: [ID!]!) {
+  reorderSecrets(folderId: $folderId, orderedIds: $orderedIds) {
+    id
+    position
+  }
+}
+    `) as unknown as TypedDocumentString<
+  BrowseReorderSecretsMutation,
+  BrowseReorderSecretsMutationVariables
 >;
 export const BrowseCreateFolderMoveRequestDocument = new TypedDocumentString(`
     mutation BrowseCreateFolderMoveRequest($folderId: String!, $destParentId: String!, $reason: String, $folderName: String, $destParentName: String) {

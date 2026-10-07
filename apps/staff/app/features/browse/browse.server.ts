@@ -9,6 +9,7 @@ import {
   BrowseMoveSecretDocument,
   BrowseRenameFolderDocument,
   BrowseReorderFoldersDocument,
+  BrowseReorderSecretsDocument,
   BrowseRestoreSecretDocument,
   BrowseSecretsDocument,
   createLogger,
@@ -60,7 +61,8 @@ export const loadBrowse = async (
     let types: Record<string, BrowseSecretType> = {};
     if (myFolderAccess.read) {
       const d = await gw.gql(BrowseSecretsDocument, { folderId, includeRetired });
-      secrets = d.secretsInFolder.toSorted((a, b) => a.name.localeCompare(b.name));
+      // The gateway's own order: active secrets by their manual position, then retired ones.
+      secrets = d.secretsInFolder;
       types = Object.fromEntries(d.secretTypes.map((t) => [t.id, t]));
     } else {
       log.info("browse folder not readable", { folderId });
@@ -156,6 +158,13 @@ const run = async (
         parentId: optional(form, "parentId"),
       });
       return "Folder order saved";
+    }
+    case "reorder-secrets": {
+      await gw.gql(BrowseReorderSecretsDocument, {
+        folderId: folderId ?? "",
+        orderedIds: text(form, "orderedIds").split(",").filter(Boolean),
+      });
+      return "Secret order saved";
     }
     case "request-folder-move": {
       await gw.gql(BrowseCreateFolderMoveRequestDocument, {
