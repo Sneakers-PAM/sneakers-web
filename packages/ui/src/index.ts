@@ -121,7 +121,7 @@ export {
 export { cn } from "#ui/lib/cn";
 
 export { clockTime, plural, shortDate, timeAgo } from "#ui/lib/format";
-export { type Breakpoint, useBreakpoint, useMediaQuery } from "#ui/lib/media";
+export { type Breakpoint, useBreakpoint, useMediaQuery, useWideDesktop } from "#ui/lib/media";
 export { prefersReducedMotion } from "#ui/lib/motion";
 export { DisplayPanel } from "#ui/theme/DisplayPanel";
 export {

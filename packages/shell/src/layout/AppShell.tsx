@@ -1,4 +1,4 @@
-import { Brand, cn, DisplayPanel, useBreakpoint, useMediaQuery } from "@sneakers-web/ui";
+import { Brand, cn, DisplayPanel, useBreakpoint, useWideDesktop } from "@sneakers-web/ui";
 import { Menu, X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { type ReactNode, useState } from "react";
@@ -42,9 +42,7 @@ export const AppShell = ({
 }: AppShellProps) => {
   const { storagePrefix } = useRootData();
   const bp = useBreakpoint();
-  // A fixed rail needs real desktop width: an iPad Pro 13 (1024 or 1366 wide) still reads as
-  // "desktop" from useBreakpoint, but has no room for a permanent sidebar next to the content.
-  const wide = useMediaQuery("(min-width: 1440px)");
+  const wide = useWideDesktop();
   const { pathname } = useLocation();
   // A sidebar toggle holds for the breakpoint it was made at; the drawer for the page it
   // was opened on, so it closes itself after a navigation.

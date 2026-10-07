@@ -35,6 +35,7 @@ export {
   type BreakGlassState,
 } from "#shell/layout/BreakGlassBanner";
 export { EdgeBanner } from "#shell/layout/EdgeBanner";
+export { type HeaderAction, HeaderOverflowMenu } from "#shell/layout/HeaderOverflowMenu";
 export { HeaderSearch } from "#shell/layout/HeaderSearch";
 export { MfaBanner } from "#shell/layout/MfaBanner";
 export { NavGroup, NavItem, type NavItemProps, NavList } from "#shell/layout/Nav";

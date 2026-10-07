@@ -335,3 +335,35 @@ describe("StaffFrame break-glass", () => {
     );
   });
 });
+
+describe("StaffFrame header actions at narrow widths", () => {
+  onDesktop();
+
+  it("collapses the approvals, break-glass and admin console buttons into one overflow menu, instead of running off the header", async () => {
+    const restore = atWidth(1024);
+    try {
+      openFrame();
+      await screen.findByText("Dashboard");
+      expect(screen.queryByRole("button", { name: "Agent approvals" })).toBeNull();
+      expect(screen.queryByRole("link", { name: "Admin console" })).toBeNull();
+      const more = screen.getByRole("button", { name: "More actions" });
+      const user = userEvent.setup();
+      await user.click(more);
+      expect(screen.getByRole("menuitem", { name: /Approvals/ })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: "Admin console" })).toHaveAttribute(
+        "href",
+        "/admin/",
+      );
+    } finally {
+      restore();
+    }
+  });
+
+  it("still shows every header action inline at full desktop width", async () => {
+    openFrame();
+    await screen.findByRole("heading", { level: 1, name: "Dashboard" });
+    expect(screen.getByRole("button", { name: "Agent approvals" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Admin console" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "More actions" })).toBeNull();
+  });
+});

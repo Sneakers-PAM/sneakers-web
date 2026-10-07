@@ -3,7 +3,8 @@ import {
   ApplianceBanners,
   AppShell,
   BreakGlassBanner,
-  HeaderButton,
+  type HeaderAction,
+  HeaderOverflowMenu,
   HeaderSearch,
   MfaBanner,
   NavItem,
@@ -13,7 +14,7 @@ import {
   useQuietRefresh,
   useRootData,
 } from "@sneakers-web/shell";
-import { CountBadge, useBreakpoint } from "@sneakers-web/ui";
+import { useBreakpoint } from "@sneakers-web/ui";
 import {
   ArrowLeftRight,
   LayoutGrid,
@@ -50,6 +51,29 @@ export const StaffFrame = () => {
   const phone = useBreakpoint() === "phone";
   useQuietRefresh(REFRESH_MS);
 
+  const headerActions: HeaderAction[] = [
+    {
+      "aria-label": "Agent approvals",
+      badge: counts.agentApprovals,
+      icon: <SquareTerminal aria-hidden className="size-4" />,
+      key: "approvals",
+      label: "Approvals",
+      onClick: () => void navigate("/approvals"),
+      tone: "primary",
+    },
+    ...(isAdmin && !breakGlass
+      ? [
+          {
+            icon: <TriangleAlert aria-hidden className="size-4" />,
+            key: "break-glass",
+            label: "Break glass",
+            onClick: () => void navigate("/break-glass"),
+          },
+        ]
+      : []),
+    ...(isAdmin ? [{ href: config.adminUrl, key: "admin", label: "Admin console" }] : []),
+  ];
+
   return (
     <AppShell
       account={
@@ -78,17 +102,7 @@ export const StaffFrame = () => {
       }
       actions={
         <>
-          {!phone && (
-            <HeaderButton
-              aria-label="Agent approvals"
-              onClick={() => void navigate("/approvals")}
-              tone="primary"
-            >
-              <SquareTerminal aria-hidden className="size-4" />
-              Approvals
-              {counts.agentApprovals > 0 && <CountBadge count={counts.agentApprovals} />}
-            </HeaderButton>
-          )}
+          <HeaderOverflowMenu actions={headerActions} />
           <NotificationBell
             initialUnread={unread}
             onOpenItem={(n) =>
@@ -99,13 +113,6 @@ export const StaffFrame = () => {
               )
             }
           />
-          {isAdmin && !phone && !breakGlass && (
-            <HeaderButton aria-label="Break glass" onClick={() => void navigate("/break-glass")}>
-              <TriangleAlert aria-hidden className="size-4" />
-              Break glass
-            </HeaderButton>
-          )}
-          {isAdmin && !phone && <HeaderButton href={config.adminUrl}>Admin console</HeaderButton>}
         </>
       }
       banners={
