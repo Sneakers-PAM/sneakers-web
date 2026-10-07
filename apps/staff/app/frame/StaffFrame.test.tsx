@@ -219,6 +219,54 @@ describe("the folder tree in the frame sidebar", () => {
   });
 });
 
+/** Simulate a screen of `widthPx`: every `min-width` media query answers for that width. */
+const atWidth = (widthPx: number): (() => void) => {
+  const original = globalThis.matchMedia;
+  globalThis.matchMedia = ((query: string) => {
+    const min = /min-width:\s*(\d+)px/.exec(query);
+    return {
+      addEventListener: () => {},
+      addListener: () => {},
+      dispatchEvent: () => false,
+      matches: min ? widthPx >= Number(min[1]) : false,
+      media: query,
+      onchange: null,
+      removeEventListener: () => {},
+      removeListener: () => {},
+    };
+  }) as typeof globalThis.matchMedia;
+  return () => {
+    globalThis.matchMedia = original;
+  };
+};
+
+describe("browse at an iPad Pro 13 width", () => {
+  it.each([
+    ["in portrait", 1024],
+    ["in landscape", 1366],
+  ])("uses the drawer nav, not a fixed rail, %s (%dpx)", async (_label, widthPx) => {
+    const restore = atWidth(widthPx);
+    open("/browse/mock-folder-databases");
+    expect(await screen.findByRole("heading", { name: "Databases" })).toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: "Sidebar" })).toBeNull();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Open menu" }));
+    expect(within(nav()).getByRole("link", { name: /Platform/ })).toBeInTheDocument();
+    restore();
+  });
+
+  it.each([
+    ["in portrait", 1024],
+    ["in landscape", 1366],
+  ])("never lets the page itself scroll sideways, %s (%dpx)", async (_label, widthPx) => {
+    const restore = atWidth(widthPx);
+    open("/browse/mock-folder-databases");
+    await screen.findByRole("heading", { name: "Databases" });
+    expect(screen.getByRole("main")).toHaveClass("overflow-x-hidden");
+    restore();
+  });
+});
+
 describe("StaffFrame break-glass", () => {
   onDesktop();
   const frameAs = (user: string) => {
@@ -285,5 +333,37 @@ describe("StaffFrame break-glass", () => {
       "href",
       "/break-glass",
     );
+  });
+});
+
+describe("StaffFrame header actions at narrow widths", () => {
+  onDesktop();
+
+  it("collapses the approvals, break-glass and admin console buttons into one overflow menu, instead of running off the header", async () => {
+    const restore = atWidth(1024);
+    try {
+      openFrame();
+      await screen.findByText("Dashboard");
+      expect(screen.queryByRole("button", { name: "Agent approvals" })).toBeNull();
+      expect(screen.queryByRole("link", { name: "Admin console" })).toBeNull();
+      const more = screen.getByRole("button", { name: "More actions" });
+      const user = userEvent.setup();
+      await user.click(more);
+      expect(screen.getByRole("menuitem", { name: /Approvals/ })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: "Admin console" })).toHaveAttribute(
+        "href",
+        "/admin/",
+      );
+    } finally {
+      restore();
+    }
+  });
+
+  it("still shows every header action inline at full desktop width", async () => {
+    openFrame();
+    await screen.findByRole("heading", { level: 1, name: "Dashboard" });
+    expect(screen.getByRole("button", { name: "Agent approvals" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Admin console" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "More actions" })).toBeNull();
   });
 });

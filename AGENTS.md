@@ -144,7 +144,10 @@ loading states: the connecting screen and the hand-off after sign-in.
   `app/test/stub.tsx`, as a chosen fixture user.
 - `packages/shell/src/`: the shared pages (sign-in, reset, enrolment), the frame pieces and error
   screens; `server/` holds the server-only loaders and actions (`*.server.ts`, exported from
-  `@sneakers-web/shell/server`).
+  `@sneakers-web/shell/server`). `layout/AppShell.tsx` is the frame both apps render into: a
+  fixed sidebar rail only from a genuinely wide desktop (`min-width: 1440px`); everything
+  narrower, including an iPad Pro 13 (1024 or 1366 wide, which `useBreakpoint` itself still calls
+  "desktop"), gets the same drawer a phone does.
 - `packages/api-client/src/`: the gateway client, auth routes, errors, logger, public config and
   the generated GraphQL documents (`generated/`, rebuilt by `npm run schema:generate`).
 - `packages/mock-gateway/src/`: fixtures, MSW handlers and the mock edge. `fixtures/world.ts` is
@@ -180,6 +183,15 @@ Moves follow the vault's gate (`moveKind` in `features/browse/tree.ts`): a perso
 shared is confirmed first, and shared into someone's personal folder is a folder_move or
 secret_move request unless the user is a site admin. The mock's canManage comes from the owners of
 the folder or any folder above it, and read access from ownership, the folder's group or its role.
+
+Each readable row in the browse grid (`features/browse/SecretsTable`) gets quick-copy buttons and
+matching context-menu entries for its type's primary fields (`quickCopy.primaryFieldsOf`: the
+identity field, plus the required sensitive field or the first sensitive field when none is
+required). `useQuickCopy` copies the identity field straight from the secret's own loader data
+(a plain field, never revealed or audited, same as the secret page's `Plain` fields), and the
+sensitive one through the same audited `intent: "reveal", purpose: "copy"` the secret page posts
+to that secret's route, so the vault's step-up and super-sensitive rules still apply without
+opening the secret.
 
 Paths inside an app are base-free (`appPath("sign-in")` is `/sign-in` in both apps). React
 Router adds the `/admin/` basename to links and redirects; a redirect that leaves the app (single

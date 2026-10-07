@@ -32,6 +32,7 @@ import { CertificateCard } from "@/features/secret/CertificateCard";
 import { ExportDialog, ReplaceDialog } from "@/features/secret/CertificateDialogs";
 import { CheckoutCard, type LeaseHours } from "@/features/secret/CheckoutCard";
 import { DeleteDialog, RotateDialog } from "@/features/secret/ConfirmDialogs";
+import { DatabaseConnectionCard } from "@/features/secret/DatabaseConnectionCard";
 import { DetailsRows } from "@/features/secret/DetailsCard";
 import { FieldsCard } from "@/features/secret/FieldsCard";
 import { HistoryCard } from "@/features/secret/HistoryCard";
@@ -43,6 +44,7 @@ import { useSecretFetcher } from "@/features/secret/useSecretFetcher";
 type DialogName = "break-glass" | "delete" | "export" | "replace" | "rotate" | null;
 
 const CERT_TYPE = "type-ssl-cert";
+const DB_TYPE = "type-database-account";
 const SSH_TYPE = "type-ssh-key";
 
 /** Shown on a manage control a site admin can see but not use: the vault's own reason. */
@@ -122,6 +124,7 @@ export const SecretPage = ({ page }: { page: Page }) => {
   // an ordinary reader without manage: showManage decides visibility, manage decides editing.
   const showManage = manage || isAdmin;
   const isCert = secret.typeId === CERT_TYPE;
+  const isDatabase = secret.typeId === DB_TYPE;
   const production = config.appEnv === "prod";
   const lease = page.lease;
   const heldByMe = !!lease && lease.userId === page.viewerId;
@@ -395,6 +398,7 @@ export const SecretPage = ({ page }: { page: Page }) => {
                 />
               )
             )}
+            {isDatabase && <DatabaseConnectionCard fields={fields} />}
             {history && (
               <HistoryCard
                 locked={lockedReason}

@@ -1,4 +1,22 @@
-import { activeFolderId } from "@/features/browse/tree";
+import type { NavFolder } from "@/features/browse/tree";
+
+import { activeFolderId, creatableFolders } from "@/features/browse/tree";
+
+const folder = (id: string, name: string, canManage: boolean, parentId: null | string = null) =>
+  ({
+    canManage,
+    groupId: null,
+    id,
+    isMasterPersonal: null,
+    name,
+    order: null,
+    owners: null,
+    ownerUserId: null,
+    parentId,
+    role: null,
+    scope: "group",
+    subtreeSecretCount: null,
+  }) as NavFolder;
 
 describe("resolving the sidebar's active folder", () => {
   it("uses the /browse/:folderId param directly", () => {
@@ -39,5 +57,18 @@ describe("resolving the sidebar's active folder", () => {
 
   it("stays unhighlighted off both routes", () => {
     expect(activeFolderId(undefined, [])).toBeUndefined();
+  });
+});
+
+describe("where a new folder can be created", () => {
+  it("lists only the folders the user manages, nothing marked self", () => {
+    const folders = [
+      folder("f-platform", "Platform", true),
+      folder("f-databases", "Databases", true, "f-platform"),
+      folder("f-archive", "Archive", false),
+    ];
+    const destinations = creatableFolders(folders);
+    expect(destinations.map((d) => d.folder.id)).toEqual(["f-platform", "f-databases"]);
+    expect(destinations.every((d) => !d.self)).toBe(true);
   });
 });

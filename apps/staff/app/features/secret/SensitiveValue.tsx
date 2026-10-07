@@ -250,7 +250,13 @@ export const SensitiveValue = ({
         <>
           <div className="flex flex-wrap items-center gap-2">
             <div className={cn(box, "border-2 border-primary bg-reveal text-ink")}>
-              <span className="min-w-0 text-value break-all">
+              {/* Masked keeps break-all (it's already short, partial-masked chunks); the full
+                  value only ellipsizes and gets a hover title when it's actually shown, so a
+                  super-sensitive partial reveal never leaks the rest through the title. */}
+              <span
+                className={cn("min-w-0 flex-1 text-value", masked ? "break-all" : "truncate")}
+                title={masked ? undefined : value}
+              >
                 {masked ? partialMask(value) : value}
               </span>
               <span className="ml-auto shrink-0 font-sans text-[0.75rem] font-bold text-primary">

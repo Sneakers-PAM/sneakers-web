@@ -8,7 +8,14 @@ const contentClasses =
 const itemClasses =
   "relative flex cursor-pointer items-center gap-2.5 rounded-sm px-3 py-2.75 text-body outline-none select-none data-[disabled]:pointer-events-none data-[disabled]:text-muted data-[highlighted]:bg-sunken [&_svg]:size-4 [&_svg]:shrink-0";
 
-export const DropdownMenu = MenuPrimitive.Root;
+/**
+ * Non-modal: Radix's modal default locks body scroll (`data-scroll-locked`), which compensates
+ * for the vanished scrollbar with a margin that can visibly shift the page on a phone, where
+ * there's no scrollbar to remove. A dropdown menu doesn't need the modal's focus trap either.
+ */
+export const DropdownMenu = (props: React.ComponentProps<typeof MenuPrimitive.Root>) => (
+  <MenuPrimitive.Root modal={false} {...props} />
+);
 export const DropdownMenuTrigger = MenuPrimitive.Trigger;
 export const DropdownMenuGroup = MenuPrimitive.Group;
 

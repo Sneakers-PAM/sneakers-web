@@ -102,6 +102,14 @@ describe("workflow refusals for requests, check-outs and check-ins", () => {
   });
 });
 
+describe("sensitive-field refusals", () => {
+  it("says highly sensitive, never the raw field name", () => {
+    const r = refusalOf(refused("API_SENSITIVE_DISABLED", "FAILED_PRECONDITION", "x"));
+    expect(refusalMessage(r!)).toMatch(/highly sensitive/);
+    expect(refusalMessage(r!)).not.toMatch(/super-sensitive/);
+  });
+});
+
 describe("sign-in method refusals", () => {
   it("says why the last second factor can't go when MFA is required", () => {
     const r = refusalOf(refused("MFA_LAST_FACTOR", "FAILED_PRECONDITION", "x"));

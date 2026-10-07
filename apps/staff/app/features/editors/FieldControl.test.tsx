@@ -49,4 +49,10 @@ describe("a template field", () => {
     await user.type(screen.getByLabelText("Card number"), "41111111");
     expect(screen.getByLabelText("Card number")).toHaveValue("4111 1111");
   });
+
+  it("hints a highly sensitive password field, never the raw field name", () => {
+    render(<Harness definition={{ ...field("pin", "password", "PIN"), superSensitive: true }} />);
+    expect(screen.getByText(/^Highly sensitive:/)).toBeInTheDocument();
+    expect(screen.queryByText(/^Super-sensitive:/)).toBeNull();
+  });
 });

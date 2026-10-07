@@ -196,7 +196,18 @@ export const browseHandlers = [
             targetId: s.targetId ?? null,
             typeId: s.typeId,
           })),
-        secretTypes: mockState.world.secretTypes.map(({ id, name }) => ({ id, name })),
+        secretTypes: mockState.world.secretTypes.map(({ fields, id, name }) => ({
+          fields: fields.map(({ key, kind, label, required, sensitive, superSensitive }) => ({
+            key,
+            kind,
+            label,
+            required: required ?? null,
+            sensitive: sensitive ?? null,
+            superSensitive: superSensitive ?? null,
+          })),
+          id,
+          name,
+        })),
       });
     }),
   ),

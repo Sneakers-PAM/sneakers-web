@@ -94,7 +94,9 @@ export const FieldControl = ({
 }) => {
   const error = problem?.message;
   const required = !!field.required && !(editing && isSensitive(field));
-  const hint = field.superSensitive ? "Super-sensitive: shown as a partial mask first." : undefined;
+  const hint = field.superSensitive
+    ? "Highly sensitive: shown as a partial mask first."
+    : undefined;
 
   if (field.kind === "password") {
     const policy = policyFor(field, policies);

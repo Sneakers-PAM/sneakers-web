@@ -61,6 +61,7 @@ export {
   type GrantStatus,
   HeartbeatPill,
   type HeartbeatStatus,
+  HighlySensitiveBadge,
   NotRotatingPill,
   Pill,
   pillVariants,
@@ -111,11 +112,17 @@ export {
   TableRow,
 } from "#ui/components/Table";
 export { announce, LiveRegion, toast, Toaster } from "#ui/components/Toast";
-export { useIsClient, useSessionValue } from "#ui/lib/client";
+export {
+  readExpiringItem,
+  useExpiringLocalValue,
+  useIsClient,
+  useSessionValue,
+  writeExpiringItem,
+} from "#ui/lib/client";
 export { cn } from "#ui/lib/cn";
 
 export { clockTime, plural, shortDate, timeAgo } from "#ui/lib/format";
-export { type Breakpoint, useBreakpoint, useMediaQuery } from "#ui/lib/media";
+export { type Breakpoint, useBreakpoint, useMediaQuery, useWideDesktop } from "#ui/lib/media";
 export { prefersReducedMotion } from "#ui/lib/motion";
 export { DisplayPanel } from "#ui/theme/DisplayPanel";
 export {

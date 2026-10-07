@@ -18,7 +18,12 @@ import { type Refusal, refusalOf } from "@sneakers-web/shell";
 import { guard, isAdmin, requireUser } from "@sneakers-web/shell/server";
 import { data, redirect } from "react-router";
 
-import type { BrowseData, BrowseResult, BrowseSecret } from "@/features/browse/types";
+import type {
+  BrowseData,
+  BrowseResult,
+  BrowseSecret,
+  BrowseSecretType,
+} from "@/features/browse/types";
 
 import { findFolder, lineage } from "@/features/browse/tree";
 
@@ -52,11 +57,11 @@ export const loadBrowse = async (
       ownerIds: folder.owners ?? [],
     });
     let secrets: BrowseSecret[] | null = null;
-    let types: Record<string, string> = {};
+    let types: Record<string, BrowseSecretType> = {};
     if (myFolderAccess.read) {
       const d = await gw.gql(BrowseSecretsDocument, { folderId, includeRetired });
       secrets = d.secretsInFolder.toSorted((a, b) => a.name.localeCompare(b.name));
-      types = Object.fromEntries(d.secretTypes.map((t) => [t.id, t.name]));
+      types = Object.fromEntries(d.secretTypes.map((t) => [t.id, t]));
     } else {
       log.info("browse folder not readable", { folderId });
     }

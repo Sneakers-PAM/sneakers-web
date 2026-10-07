@@ -1,3 +1,4 @@
+import { StepUpDialog } from "@sneakers-web/shell";
 import {
   Badge,
   Button,
@@ -27,14 +28,16 @@ import {
   TableRow,
   toast,
 } from "@sneakers-web/ui";
-import { ChevronDown, Lock } from "lucide-react";
+import { ChevronDown, Copy, Lock } from "lucide-react";
 import { useId, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
-import type { BrowseSecret } from "@/features/browse/types";
+import type { BrowseSecret, BrowseSecretType } from "@/features/browse/types";
 
 import { heartbeatOf } from "@/features/browse/heartbeat";
+import { primaryFieldsOf } from "@/features/browse/quickCopy";
 import { useBrowseAction } from "@/features/browse/useBrowseAction";
+import { useQuickCopy } from "@/features/browse/useQuickCopy";
 
 type Column = "heartbeat" | "type";
 
@@ -59,20 +62,34 @@ export const SecretsTable = ({
   onMove: (secrets: { id: string; name: string }[]) => void;
   onShowRetired: (on: boolean) => void;
   secrets: BrowseSecret[];
-  types: Record<string, string>;
+  types: Record<string, BrowseSecretType>;
 }) => {
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [sortBy, setSortBy] = useState<"name" | "type">("name");
   const [descending, setDescending] = useState(false);
   const [columns, setColumns] = useState<Set<Column>>(new Set(["heartbeat", "type"]));
   const navigate = useNavigate();
   const restore = useBrowseAction();
+  const quickCopy = useQuickCopy();
   const retiredId = useId();
+
+  const typeNameOf = (s: BrowseSecret) => types[s.typeId]?.name ?? s.typeId;
+  const sortKeyOf = sortBy === "type" ? typeNameOf : (s: BrowseSecret) => s.name;
+  const sortHeader = (column: "name" | "type") => () =>
+    setSortBy((previous) => {
+      if (previous === column) {
+        setDescending((d) => !d);
+        return previous;
+      }
+      setDescending(false);
+      return column;
+    });
 
   const q = query.trim().toLowerCase();
   const rows = secrets
     .filter((s) => !q || s.name.toLowerCase().includes(q))
-    .toSorted((a, b) => (descending ? -1 : 1) * a.name.localeCompare(b.name));
+    .toSorted((a, b) => (descending ? -1 : 1) * sortKeyOf(a).localeCompare(sortKeyOf(b)));
   const chosen = secrets.filter((s) => picked.has(s.id));
   const allPicked = rows.length > 0 && rows.every((s) => picked.has(s.id));
 
@@ -207,20 +224,48 @@ export const SecretsTable = ({
                     }}
                   />
                 </TableHeaderCell>
-                <TableHeaderCell aria-sort={descending ? "descending" : "ascending"}>
+                <TableHeaderCell
+                  aria-sort={sortBy === "name" ? (descending ? "descending" : "ascending") : "none"}
+                >
                   <button
                     className="inline-flex items-center gap-1 uppercase"
-                    onClick={() => setDescending((d) => !d)}
+                    onClick={sortHeader("name")}
                     type="button"
                   >
                     Name
                     <ChevronDown
                       aria-hidden
-                      className={cn("size-3.5", descending && "rotate-180")}
+                      className={cn(
+                        "size-3.5",
+                        sortBy === "name" ? "opacity-100" : "opacity-0",
+                        sortBy === "name" && descending && "rotate-180",
+                      )}
                     />
                   </button>
                 </TableHeaderCell>
-                {columns.has("type") && <TableHeaderCell>Type</TableHeaderCell>}
+                {columns.has("type") && (
+                  <TableHeaderCell
+                    aria-sort={
+                      sortBy === "type" ? (descending ? "descending" : "ascending") : "none"
+                    }
+                  >
+                    <button
+                      className="inline-flex items-center gap-1 uppercase"
+                      onClick={sortHeader("type")}
+                      type="button"
+                    >
+                      Type
+                      <ChevronDown
+                        aria-hidden
+                        className={cn(
+                          "size-3.5",
+                          sortBy === "type" ? "opacity-100" : "opacity-0",
+                          sortBy === "type" && descending && "rotate-180",
+                        )}
+                      />
+                    </button>
+                  </TableHeaderCell>
+                )}
                 {columns.has("heartbeat") && <TableHeaderCell>Heartbeat</TableHeaderCell>}
                 <TableHeaderCell>
                   <span className="sr-only">Actions</span>
@@ -228,81 +273,125 @@ export const SecretsTable = ({
               </tr>
             </TableHead>
             <TableBody>
-              {rows.map((s) => (
-                <ContextMenu key={s.id}>
-                  <ContextMenuTrigger asChild>
-                    <TableRow className={cn(s.retired && "text-muted")} selected={picked.has(s.id)}>
-                      <TableCell>
-                        <Checkbox
-                          aria-label={`Select ${s.name}`}
-                          checked={picked.has(s.id)}
-                          onCheckedChange={(on) => toggle(s.id, on === true)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <span className="flex flex-wrap items-center gap-2">
-                          {s.canRead === true ? (
-                            <Link
-                              className={cn("font-bold text-primary", s.retired && "opacity-70")}
-                              to={`/secret/${s.id}`}
-                            >
-                              {s.name}
-                            </Link>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 font-bold text-muted">
-                              <Lock aria-hidden className="size-3.5" />
-                              {s.name}
-                            </span>
-                          )}
-                          {s.canRead !== true && (
-                            <Badge tone="sunken">
-                              {s.canRead === false ? "Locked" : "Access unknown"}
-                            </Badge>
-                          )}
-                          {s.retired && <Badge>Retired</Badge>}
-                        </span>
-                      </TableCell>
-                      {columns.has("type") && <TableCell>{types[s.typeId] ?? s.typeId}</TableCell>}
-                      {columns.has("heartbeat") && (
+              {rows.map((s) => {
+                const quick = s.canRead === true ? primaryFieldsOf(types[s.typeId]) : [];
+                return (
+                  <ContextMenu key={s.id}>
+                    <ContextMenuTrigger asChild>
+                      <TableRow
+                        className={cn(s.retired && "text-muted")}
+                        selected={picked.has(s.id)}
+                      >
                         <TableCell>
-                          <HeartbeatPill status={heartbeatOf(s)} />
+                          <Checkbox
+                            aria-label={`Select ${s.name}`}
+                            checked={picked.has(s.id)}
+                            onCheckedChange={(on) => toggle(s.id, on === true)}
+                          />
                         </TableCell>
-                      )}
-                      <TableCell className="text-right">
-                        {s.canRead !== true && (
-                          <Button asChild size="sm" variant="secondary">
-                            <Link to={`/requests?new=${s.id}`}>Request access</Link>
-                          </Button>
+                        <TableCell>
+                          <span className="flex flex-wrap items-center gap-2">
+                            {s.canRead === true ? (
+                              <Link
+                                className={cn("font-bold text-primary", s.retired && "opacity-70")}
+                                to={`/secret/${s.id}`}
+                              >
+                                {s.name}
+                              </Link>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 font-bold text-muted">
+                                <Lock aria-hidden className="size-3.5" />
+                                {s.name}
+                              </span>
+                            )}
+                            {s.canRead !== true && (
+                              <Badge tone="sunken">
+                                {s.canRead === false ? "Locked" : "Access unknown"}
+                              </Badge>
+                            )}
+                            {s.retired && <Badge>Retired</Badge>}
+                          </span>
+                        </TableCell>
+                        {columns.has("type") && (
+                          <TableCell>{types[s.typeId]?.name ?? s.typeId}</TableCell>
                         )}
-                        {s.retired && canManage && (
-                          <Button
-                            loading={restore.busy}
-                            onClick={() => restore.submit({ id: s.id, intent: "restore" })}
-                            size="sm"
-                            variant="secondary"
-                          >
-                            Restore
-                          </Button>
+                        {columns.has("heartbeat") && (
+                          <TableCell>
+                            <HeartbeatPill status={heartbeatOf(s)} />
+                          </TableCell>
                         )}
-                      </TableCell>
-                    </TableRow>
-                  </ContextMenuTrigger>
-                  <ContextMenuContent>
-                    <ContextMenuItem onSelect={() => void navigate(`/secret/${s.id}`)}>
-                      Open
-                    </ContextMenuItem>
-                    {canManage && (
-                      <ContextMenuItem onSelect={() => onMove([{ id: s.id, name: s.name }])}>
-                        Move…
+                        <TableCell className="text-right">
+                          <span className="inline-flex items-center justify-end gap-1.5">
+                            {quick.map((field) => (
+                              <Button
+                                aria-label={`Copy ${field.label} for ${s.name}`}
+                                key={field.fieldKey}
+                                onClick={() =>
+                                  quickCopy.copy({
+                                    fieldKey: field.fieldKey,
+                                    label: field.label,
+                                    secretId: s.id,
+                                    sensitive: field.sensitive,
+                                  })
+                                }
+                                size="sm"
+                                title={`Copy ${field.label}`}
+                                variant="ghost"
+                              >
+                                <Copy aria-hidden className="size-3.5" />
+                              </Button>
+                            ))}
+                            {s.canRead !== true && (
+                              <Button asChild size="sm" variant="secondary">
+                                <Link to={`/requests?new=${s.id}`}>Request access</Link>
+                              </Button>
+                            )}
+                            {s.retired && canManage && (
+                              <Button
+                                loading={restore.busy}
+                                onClick={() => restore.submit({ id: s.id, intent: "restore" })}
+                                size="sm"
+                                variant="secondary"
+                              >
+                                Restore
+                              </Button>
+                            )}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    </ContextMenuTrigger>
+                    <ContextMenuContent>
+                      <ContextMenuItem onSelect={() => void navigate(`/secret/${s.id}`)}>
+                        Open
                       </ContextMenuItem>
-                    )}
-                    <ContextMenuSeparator />
-                    <ContextMenuItem onSelect={() => void navigate(`/secret/${s.id}/sharing`)}>
-                      Manage access
-                    </ContextMenuItem>
-                  </ContextMenuContent>
-                </ContextMenu>
-              ))}
+                      {quick.map((field) => (
+                        <ContextMenuItem
+                          key={field.fieldKey}
+                          onSelect={() =>
+                            quickCopy.copy({
+                              fieldKey: field.fieldKey,
+                              label: field.label,
+                              secretId: s.id,
+                              sensitive: field.sensitive,
+                            })
+                          }
+                        >
+                          Copy {field.label}
+                        </ContextMenuItem>
+                      ))}
+                      {canManage && (
+                        <ContextMenuItem onSelect={() => onMove([{ id: s.id, name: s.name }])}>
+                          Move…
+                        </ContextMenuItem>
+                      )}
+                      <ContextMenuSeparator />
+                      <ContextMenuItem onSelect={() => void navigate(`/secret/${s.id}/sharing`)}>
+                        Manage access
+                      </ContextMenuItem>
+                    </ContextMenuContent>
+                  </ContextMenu>
+                );
+              })}
             </TableBody>
           </Table>
         )}
@@ -316,6 +405,7 @@ export const SecretsTable = ({
         Right-click a row or press Shift+F10 for its menu. Change type and Export open a
         &quot;coming soon&quot; note for now.
       </p>
+      <StepUpDialog {...quickCopy.dialog} />
     </div>
   );
 };

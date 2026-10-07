@@ -1,7 +1,14 @@
 /* eslint-disable testing-library/no-container, testing-library/no-node-access -- these check the drawn SVG and the absence of an element, which have no accessible role to query. */
 import { render, screen } from "@testing-library/react";
 
-import { GrantPill, HeartbeatPill, Pill, RequestPill, RotationPill } from "#ui/components/Pill";
+import {
+  GrantPill,
+  HeartbeatPill,
+  HighlySensitiveBadge,
+  Pill,
+  RequestPill,
+  RotationPill,
+} from "#ui/components/Pill";
 
 describe("Pill", () => {
   it("never breaks its label mid-word, so it wraps as a whole pill onto a new line", () => {
@@ -47,5 +54,15 @@ describe("status pills", () => {
     expect(screen.getByText("Pending")).toBeInTheDocument();
     expect(screen.getByText("Approved")).toBeInTheDocument();
     expect(screen.getByText("Denied")).toBeInTheDocument();
+  });
+});
+
+describe("HighlySensitiveBadge", () => {
+  it("reads as clear words, not the raw field name, and explains itself on hover", () => {
+    render(<HighlySensitiveBadge />);
+    const badge = screen.getByText("Highly sensitive");
+    expect(badge).toBeInTheDocument();
+    expect(screen.queryByText("super-sensitive")).toBeNull();
+    expect(badge).toHaveAttribute("title", expect.stringContaining("second factor"));
   });
 });

@@ -24,6 +24,7 @@ import { DeleteFolderDialog } from "@/features/browse/DeleteFolderDialog";
 import { type FolderAction, folderActions } from "@/features/browse/folderActions";
 import { MoveFlow, type MoveSubject } from "@/features/browse/MoveFlow";
 import { NameDialog } from "@/features/browse/NameDialog";
+import { NewFolderDialog } from "@/features/browse/NewFolderDialog";
 import { NoAccess } from "@/features/browse/NoAccess";
 import { SecretsTable } from "@/features/browse/SecretsTable";
 import { folderLabel, isPersonal, type NavFolder, reordered } from "@/features/browse/tree";
@@ -242,20 +243,11 @@ const Browse = () => {
         </p>
       )}
       {shown?.kind === "create" && (
-        <NameDialog
-          description={
-            shown.parent ? (
-              <>
-                In <b className="text-ink">{folderLabel(folders, shown.parent)}</b>
-              </>
-            ) : (
-              "At the top of the shared folders."
-            )
-          }
-          fields={{ intent: "create", parentId: shown.parent?.id ?? "" }}
+        <NewFolderDialog
+          folders={folders}
+          isAdmin={isAdmin}
           onClose={close}
-          submitLabel="Create"
-          title="New folder"
+          parent={shown.parent}
         />
       )}
       {shown?.kind === "rename" && (

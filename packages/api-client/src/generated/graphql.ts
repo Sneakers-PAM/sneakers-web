@@ -1600,7 +1600,18 @@ export type BrowseSecretsQuery = {
     retiredAt: string;
     canRead: boolean | null;
   }>;
-  secretTypes: Array<{ id: string; name: string }>;
+  secretTypes: Array<{
+    id: string;
+    name: string;
+    fields: Array<{
+      key: string;
+      label: string;
+      kind: FieldKind;
+      required: boolean | null;
+      sensitive: boolean | null;
+      superSensitive: boolean | null;
+    }>;
+  }>;
 };
 
 export type BrowseCreateFolderMutationVariables = Exact<{
@@ -4810,6 +4821,14 @@ export const BrowseSecretsDocument = new TypedDocumentString(`
   secretTypes {
     id
     name
+    fields {
+      key
+      label
+      kind
+      required
+      sensitive
+      superSensitive
+    }
   }
 }
     `) as unknown as TypedDocumentString<BrowseSecretsQuery, BrowseSecretsQueryVariables>;

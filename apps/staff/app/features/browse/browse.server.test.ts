@@ -69,7 +69,10 @@ describe("loading the browse page", () => {
     expect(data.current?.folder.name).toBe("Databases");
     expect(data.current?.path).toEqual(["Platform"]);
     expect(data.current?.secrets?.map((s) => s.name)).toEqual(["DB admin", "Reporting reader"]);
-    expect(data.current?.types["type-database-account"]).toBe("Database Account");
+    expect(data.current?.types["type-database-account"]?.name).toBe("Database Account");
+    expect(data.current?.types["type-database-account"]?.fields.map((f) => f.key)).toContain(
+      "password",
+    );
     expect(JSON.stringify(data)).not.toContain("mock-Tongue-Eyelet-91");
   });
 

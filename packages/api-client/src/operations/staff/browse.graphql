@@ -49,6 +49,14 @@ query BrowseSecrets($folderId: String!, $includeRetired: Boolean) {
   secretTypes {
     id
     name
+    fields {
+      key
+      label
+      kind
+      required
+      sensitive
+      superSensitive
+    }
   }
 }
 
