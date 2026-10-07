@@ -162,11 +162,22 @@ export interface Quorum {
   required: number;
 }
 
+/** A removed login key, on sshd's revocation list until an owner un-revokes it. */
+export interface RevokedKey {
+  /** Who the key belonged to. */
+  admin: string;
+  fingerprint: string;
+  revoked?: string;
+  type: string;
+}
+
 export interface ListAdminsResponse {
   admins: Admin[];
   elevationPolicy?: ElevationPolicy;
   hostKeys: HostKey[];
   quorum?: Quorum;
+  /** Empty lists are left out of the JSON. */
+  revokedKeys?: RevokedKey[];
 }
 
 // ---- elevation ----

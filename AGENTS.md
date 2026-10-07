@@ -122,6 +122,10 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   session's admin and id typed (`bob E-9M4T`), and sends them as `elevationOverride` on the same
   Apply or Revert; the box ends the session, audited, before the update goes ahead. A refusal of
   the override stays in the dialog.
+- **Access (`app/routes/access.tsx`).** Besides the admins, keys, host keys, elevation policy,
+  quorum and elevation requests, it lists the revoked login keys (`ListAdmins.revokedKeys`: whose
+  key it was, the fingerprint, the type and when it was revoked). Owners get Un-revoke
+  (`UnrevokeKey`, step-up) behind a confirmation dialog, which keeps the box's refusal in place.
 - **Factory reset (`app/routes/power.tsx`).** Owner only, after typing the box's host name; not
   offered when `GetPower` says it's unavailable (a single admin), with the reason. A request shows
   M of N and each roster member's approval; a member who hasn't approved gets Approve (the server
@@ -136,7 +140,8 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   verification never finishes), `stepup` (the next step-up-gated call is refused once, and the
   fresh sign-in is never approved, so the dialog stays up), `single-admin`, `reset-pending` and
   `reset-countdown`. The mock verifies an upload by its content: one containing "tampered" fails
-  the signature, "lab" the channel, and "patch" is a patch for the running version.
+  the signature, "lab" the channel, and "patch" is a patch for the running version. A key removed
+  in the mock lands on its revoked list, as on the box, and the world starts with one revoked key.
 - **Advanced disclosure.** The trust/PKI details on Certificates, the whole Add-on modules page
   and the Logs page's support bundle sit behind `app/components/Advanced.tsx`, a plain
   `<details>` -- no new kit component needed for a collapsed-by-default section.

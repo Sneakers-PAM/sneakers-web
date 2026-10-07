@@ -87,6 +87,9 @@ export const access = {
     call<Record<string, never>>("AccessService", "SetQuorum", { members, required }),
   setRole: (name: string, role: Admin["role"]) =>
     call<Record<string, never>>("AccessService", "SetRole", { name, role }),
+  /** Takes a removed key off sshd's revocation list, so it can be added to an admin again. */
+  unrevokeKey: (fingerprint: string) =>
+    call<Record<string, never>>("AccessService", "UnrevokeKey", { fingerprint }),
 };
 
 export const elevation = {

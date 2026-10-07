@@ -26,6 +26,7 @@ const modules = structuredClone(world.MODULES);
 const recoveryKeys = structuredClone(world.RECOVERY_KEYS);
 const admins = structuredClone(world.ADMINS);
 const elevations = structuredClone(world.ELEVATIONS);
+const revokedKeys = structuredClone(world.REVOKED_KEYS);
 const auditEvents = structuredClone(world.AUDIT_EVENTS);
 let quorum = structuredClone(world.QUORUM);
 let elevationPolicy = structuredClone(world.ELEVATION_POLICY);
@@ -68,6 +69,7 @@ const caller = (): string => getSession()?.admin ?? "";
 
 /** The step-up-gated methods refuse once after the "stepup" scenario, as a stale sign-in would. */
 const STEP_UP_METHODS = new Set([
+  "AccessService/UnrevokeKey",
   "PowerService/ApproveFactoryReset",
   "PowerService/StartFactoryReset",
   "UpgradeService/ApplyUpdate",
@@ -129,6 +131,17 @@ const verify = async (uploadId: string): Promise<UpdatePackage> => {
 };
 
 const isOwner = (name: string) => findAdmin(name)?.role === "ROLE_OWNER";
+
+const removeKeys = (admin: Admin, fingerprints: string[]) => {
+  for (const key of admin.keys.filter((k) => fingerprints.includes(k.fingerprint)))
+    revokedKeys.push({
+      admin: admin.name,
+      fingerprint: key.fingerprint,
+      revoked: new Date().toISOString(),
+      type: key.type,
+    });
+  admin.keys = admin.keys.filter((k) => !fingerprints.includes(k.fingerprint));
+};
 
 // Apply and Revert refuse while an elevated shell is open, unless an owner's override names it
 // with the typed "<admin> <id>" and a reason; the shell is ended before the update goes ahead,
@@ -296,17 +309,30 @@ const route = async (service: string, method: string, body: Record<string, unkno
       return { key };
     }
     case "AccessService/ListAdmins": {
-      return { admins, elevationPolicy, hostKeys: world.HOST_KEYS, quorum };
+      return {
+        admins,
+        elevationPolicy,
+        hostKeys: world.HOST_KEYS,
+        quorum,
+        revokedKeys: structuredClone(revokedKeys),
+      };
     }
     case "AccessService/RemoveAdmin": {
       if (admins.length <= 1) throw new OsadminError("failed_precondition", "ACCESS_LAST_OWNER");
       const index = admins.findIndex((a) => a.name === body.name);
-      if (index !== -1) admins.splice(index, 1);
+      const admin = admins[index];
+      if (admin) {
+        removeKeys(
+          admin,
+          admin.keys.map((k) => k.fingerprint),
+        );
+        admins.splice(index, 1);
+      }
       return {};
     }
     case "AccessService/RemoveKey": {
       const admin = findAdmin(body.admin as string);
-      if (admin) admin.keys = admin.keys.filter((k) => k.fingerprint !== body.fingerprint);
+      if (admin) removeKeys(admin, [body.fingerprint as string]);
       return {};
     }
     case "AccessService/SetElevationPolicy": {
@@ -324,6 +350,21 @@ const route = async (service: string, method: string, body: Record<string, unkno
     case "AccessService/SetRole": {
       const admin = findAdmin(body.name as string);
       if (admin) admin.role = body.role as Admin["role"];
+      return {};
+    }
+    case "AccessService/UnrevokeKey": {
+      if (!isOwner(caller()))
+        throw new OsadminError(
+          "permission_denied",
+          "ACCESS_FORBIDDEN: only an owner can un-revoke a key",
+        );
+      const index = revokedKeys.findIndex((k) => k.fingerprint === body.fingerprint);
+      if (index === -1)
+        throw new OsadminError(
+          "invalid_argument",
+          `ACCESS_KEY_TYPE: key ${String(body.fingerprint)} isn't revoked`,
+        );
+      revokedKeys.splice(index, 1);
       return {};
     }
     case "AuditService/ListEvents": {
@@ -809,6 +850,7 @@ export const resetMockWorld = (): void => {
   refill(recoveryKeys, world.RECOVERY_KEYS);
   refill(admins, world.ADMINS);
   refill(elevations, world.ELEVATIONS);
+  refill(revokedKeys, world.REVOKED_KEYS);
   refill(auditEvents, world.AUDIT_EVENTS);
   refill(backupSets, world.BACKUP_SETS);
 };

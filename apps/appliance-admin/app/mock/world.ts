@@ -14,6 +14,7 @@ import type {
   NetdSettings,
   Quorum,
   RecoveryKey,
+  RevokedKey,
   Session,
   UpgradeEvent,
   UpgradePolicy,
@@ -94,6 +95,16 @@ export const ELEVATIONS: Elevation[] = [
     requested: soon(-4),
     sourceAddress: "192.0.2.50",
     state: "pending",
+  },
+];
+
+/** A key alice removed from bob last week: still on the revocation list. */
+export const REVOKED_KEYS: RevokedKey[] = [
+  {
+    admin: "bob",
+    fingerprint: "SHA256:oLd9Q7h5z1sRkYwQwQEuY7zL5mZ8w5z6c1h9b7qOLD",
+    revoked: soon(-60 * 24 * 7),
+    type: "ssh-ed25519",
   },
 ];
 
