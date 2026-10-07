@@ -330,6 +330,26 @@ describe("the secret detail page", () => {
   });
 });
 
+describe("a database secret's connection examples", () => {
+  it("shows a psql command and a connection string, with a copy button each, never the password", async () => {
+    const user = userEvent.setup();
+    open("mock-secret-db-admin");
+    const connect = await screen.findByRole("region", { name: "Connect" });
+    expect(within(connect).getByText(/^psql -h db1\.example\.org/)).toBeInTheDocument();
+    expect(within(connect).getByText(/^postgresql:\/\/postgres_admin/)).toBeInTheDocument();
+    expect(connect).not.toHaveTextContent("mock-Tongue-Eyelet-91");
+    const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
+    await user.click(within(connect).getByRole("button", { name: "Copy psql" }));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("psql -h db1.example.org"));
+  });
+
+  it("shows no connect card for a secret type that isn't a database account", async () => {
+    open("mock-secret-acme-vpn");
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.queryByRole("region", { name: "Connect" })).toBeNull();
+  });
+});
+
 describe("manage controls show the vault's own decision, not isAdmin", () => {
   it("lets the owner edit automation and approvals, with no read-only hint", async () => {
     open("mock-secret-db-admin");
