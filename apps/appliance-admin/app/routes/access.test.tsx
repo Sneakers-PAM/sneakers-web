@@ -21,7 +21,37 @@ const signInAsOwner = () =>
     stepUpUntil: new Date(Date.now() + 5 * 60_000).toISOString(),
   });
 
+/** Simulate a screen of `widthPx`: every `min-width` media query answers for that width. */
+const atWidth = (widthPx: number): (() => void) => {
+  const original = globalThis.matchMedia;
+  globalThis.matchMedia = ((query: string) => {
+    const min = /min-width:\s*(\d+)px/.exec(query);
+    return {
+      addEventListener: () => {},
+      addListener: () => {},
+      dispatchEvent: () => false,
+      matches: min ? widthPx >= Number(min[1]) : false,
+      media: query,
+      onchange: null,
+      removeEventListener: () => {},
+      removeListener: () => {},
+    };
+  }) as typeof globalThis.matchMedia;
+  return () => {
+    globalThis.matchMedia = original;
+  };
+};
+
 describe("Access", () => {
+  // Every case but the phone-layout ones exercises the desktop table layout.
+  let restoreWidth: () => void;
+  beforeEach(() => {
+    restoreWidth = atWidth(1440);
+  });
+  afterEach(() => {
+    restoreWidth();
+  });
+
   it("lists the admins and their keys", async () => {
     renderPage(Access);
     const admins = within(await screen.findByRole("table", { name: "Admins" }));
@@ -104,6 +134,65 @@ describe("Access", () => {
     expect(revoked.getByRole("row", { name: /SHA256:oLd9Q7h5z1s/ })).toBeInTheDocument();
   });
 
+  it("gives the add-admin Name field most of the row and labels the narrow Role control", async () => {
+    signInAsOwner();
+    renderPage(Access);
+    const form = within(await screen.findByRole("form", { name: "Add an admin" }));
+    expect(form.getByText("Role")).toBeInTheDocument();
+    expect(form.getByRole("textbox", { name: "Name" })).toBeInTheDocument();
+    expect(form.getByRole("combobox", { name: "Role" })).toBeInTheDocument();
+  });
+
+  it("labels the Admin control on the add-a-login-key row", async () => {
+    renderPage(Access);
+    const group = within(await screen.findByRole("group", { name: "Add a login key" }));
+    expect(group.getByRole("combobox", { name: "Admin" })).toBeInTheDocument();
+  });
+
+  it("picks the factory-reset quorum roster from existing admins, not free text", async () => {
+    signInAsOwner();
+    renderPage(Access);
+    await screen.findByRole("table", { name: "Admins" });
+    expect(screen.queryByRole("textbox", { name: "Roster" })).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /alice/ })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /bob/ })).toBeChecked();
+  });
+
+  it("bounds required approvals between 2 and the number of picked members", async () => {
+    signInAsOwner();
+    renderPage(Access);
+    await screen.findByRole("table", { name: "Admins" });
+    const required = screen.getByRole("spinbutton", { name: "Approvals required" });
+    expect(required).toHaveAttribute("min", "2");
+    expect(required).toHaveAttribute("max", "2");
+  });
+
+  it("explains that a single-admin box can't factory reset", async () => {
+    const bob = world.ADMINS.pop();
+    try {
+      resetMockWorld();
+      signInAsOwner();
+      renderPage(Access);
+      await screen.findByRole("table", { name: "Admins" });
+      expect(screen.getByText(/single-admin box can't factory reset/)).toBeInTheDocument();
+    } finally {
+      if (bob) world.ADMINS.push(bob);
+    }
+  });
+
+  it("tells the owner when a removed admin was on the quorum roster, and updates it", async () => {
+    signInAsOwner();
+    const user = userEvent.setup();
+    renderPage(Access);
+    const admins = within(await screen.findByRole("table", { name: "Admins" }));
+    const bobRow = within(admins.getByRole("row", { name: /bob/ }));
+    await user.click(bobRow.getByRole("button", { name: "Remove admin" }));
+    expect(
+      await screen.findByText(/bob was removed from the factory-reset quorum roster/),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /bob/ })).not.toBeInTheDocument();
+  });
+
   it("shows other roles the revoked keys but no un-revoke", async () => {
     signInAs("bob");
     renderPage(Access);
@@ -142,6 +231,59 @@ describe("Access", () => {
       expect(row.getByText("unknown")).toBeInTheDocument();
     } finally {
       world.REVOKED_KEYS.pop();
+    }
+  });
+
+  it("stacks admins and revoked keys as cards at phone width, with no table", async () => {
+    const restore = atWidth(390);
+    try {
+      signInAsOwner();
+      renderPage(Access);
+      await screen.findByRole("button", { name: "Actions for alice" });
+      expect(screen.queryByRole("table", { name: "Admins" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("table", { name: "Revoked login keys" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Actions for bob" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /Actions for SHA256:oLd9Q7h5z1s/ }),
+      ).toBeInTheDocument();
+    } finally {
+      restore();
+    }
+  });
+
+  it("removes an admin's key from the card's actions menu at phone width", async () => {
+    const restore = atWidth(390);
+    try {
+      signInAsOwner();
+      const user = userEvent.setup();
+      renderPage(Access);
+      await screen.findByRole("button", { name: "Actions for bob" });
+      await user.click(screen.getByRole("button", { name: "Actions for bob" }));
+      await user.click(screen.getByRole("menuitem", { name: /Remove.*key/ }));
+      await vi.waitFor(() =>
+        expect(
+          within(screen.getByRole("group", { name: "bob" })).queryByText(/SHA256:k2m9Q7h5z1s/),
+        ).not.toBeInTheDocument(),
+      );
+    } finally {
+      restore();
+    }
+  });
+
+  it("un-revokes a key from the card's actions menu at phone width", async () => {
+    const restore = atWidth(390);
+    try {
+      signInAs("alice");
+      const user = userEvent.setup();
+      renderPage(Access);
+      await screen.findByRole("button", { name: /Actions for SHA256:oLd9Q7h5z1s/ });
+      await user.click(screen.getByRole("button", { name: /Actions for SHA256:oLd9Q7h5z1s/ }));
+      await user.click(screen.getByRole("menuitem", { name: "Un-revoke" }));
+      const dialog = await screen.findByRole("dialog");
+      await user.click(within(dialog).getByRole("button", { name: "Un-revoke key" }));
+      expect(await screen.findByText("No revoked keys.")).toBeInTheDocument();
+    } finally {
+      restore();
     }
   });
 });

@@ -54,8 +54,8 @@ export default function Modules() {
             ))}
           </TableBody>
         </Table>
-        <div className="flex items-center gap-3 border-t border-border p-5.5">
-          <input aria-label="Module .bin file" ref={fileInput} type="file" />
+        <div className="flex flex-wrap items-center gap-3 border-t border-border p-5.5">
+          <input accept=".bin" aria-label="Module .bin file" ref={fileInput} type="file" />
           <Button
             onClick={() => {
               const file = fileInput.current?.files?.[0];

@@ -20,7 +20,7 @@ const bytes = (n: number): string => {
   return `${value.toFixed(1)} ${units[unit]}`;
 };
 
-export default function Status() {
+export default function Home() {
   const [data, setData] = useState<GetStatusResponse>();
   const [error, setError] = useState(false);
   const [resetCancelled, setResetCancelled] = useState(false);

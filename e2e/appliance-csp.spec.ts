@@ -18,7 +18,7 @@ test("the sign-in page renders and runs under osadmin's CSP", async ({ page }) =
     });
   });
 
-  const response = await page.goto("/sign-in");
+  const response = await page.goto("/");
   expect(response?.headers()["content-security-policy"]).toBe(OSADMIN_CSP);
 
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();

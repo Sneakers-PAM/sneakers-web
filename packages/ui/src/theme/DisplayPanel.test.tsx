@@ -40,6 +40,12 @@ describe("DisplayPanel", () => {
     expect(trigger).toHaveTextContent("Display");
   });
 
+  it("has a compact, icon-only minimize control with no visible label", () => {
+    render(<DisplayPanel />);
+    const minimize = screen.getByRole("button", { name: "Minimize display settings" });
+    expect(minimize.textContent).toBe("");
+  });
+
   it("minimizes to a small icon-only dot that still opens the settings, never hiding the feature", async () => {
     const user = userEvent.setup();
     render(<DisplayPanel />);

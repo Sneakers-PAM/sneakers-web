@@ -72,7 +72,7 @@ export const AppFrame = () => {
       </div>
     );
   }
-  if (!session) return <Navigate replace to="/sign-in" />;
+  if (!session) return <Navigate replace to="/" />;
   if (setupDone === false && location.pathname !== "/setup") {
     return <Navigate replace to="/setup" />;
   }
@@ -89,7 +89,7 @@ export const AppFrame = () => {
           onSignOut={() => {
             void signIn.signOut().finally(() => {
               setSession(null);
-              navigate("/sign-in");
+              navigate("/");
             });
           }}
           role={session.role === "ROLE_OWNER" ? "owner" : "admin"}
@@ -104,12 +104,12 @@ export const AppFrame = () => {
           )}
         </>
       }
-      home="/"
+      home="/home"
       label="Appliance admin"
       sidebar={(collapsed) => (
         <>
           <NavGroup collapsed={collapsed} label="Appliance">
-            <NavItem collapsed={collapsed} end icon={<Activity />} label="Status" to="/" />
+            <NavItem collapsed={collapsed} icon={<Activity />} label="Status" to="/home" />
             <NavItem collapsed={collapsed} icon={<RefreshCw />} label="Updates" to="/updates" />
             <NavItem collapsed={collapsed} icon={<Wifi />} label="Network" to="/network" />
             <NavItem collapsed={collapsed} icon={<KeyRound />} label="Access" to="/access" />

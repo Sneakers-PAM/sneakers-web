@@ -2,13 +2,13 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { applyMockScenario } from "@/mock/edge.mock";
-import Status from "@/routes/status";
+import Home from "@/routes/home";
 import { renderPage } from "@/test/renderPage";
 import { signInAs } from "@/test/session";
 
-describe("Status", () => {
+describe("Home", () => {
   it("shows the version, protection and a TLS warning", async () => {
-    renderPage(Status);
+    renderPage(Home);
     expect(await screen.findByText("Status")).toBeInTheDocument();
     expect(await screen.findByText(/Running/)).toBeInTheDocument();
     expect(screen.getByText("Full")).toBeInTheDocument();
@@ -17,7 +17,7 @@ describe("Status", () => {
 
   it("shows a factory reset waiting for its quorum", async () => {
     applyMockScenario("reset-pending");
-    renderPage(Status);
+    renderPage(Home);
     expect(await screen.findByText("A factory reset is pending")).toBeInTheDocument();
     expect(screen.getByText(/1 of 2 approved/)).toBeInTheDocument();
   });
@@ -26,7 +26,7 @@ describe("Status", () => {
     applyMockScenario("reset-countdown");
     signInAs("bob");
     const user = userEvent.setup();
-    renderPage(Status);
+    renderPage(Home);
     expect(await screen.findByText(/Factory reset in/)).toBeInTheDocument();
     expect(screen.getByRole("timer")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Cancel the factory reset" }));

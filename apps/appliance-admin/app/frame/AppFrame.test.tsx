@@ -6,12 +6,11 @@ import { setSession } from "@/lib/osadmin/sessionStore";
 
 const stub = (start: string) => {
   const Stub = createRoutesStub([
+    { Component: () => <p>Sign-in page</p>, path: "/" },
     {
-      children: [{ Component: () => <p>Status page</p>, index: true }],
+      children: [{ Component: () => <p>Status page</p>, path: "home" }],
       Component: AppFrame,
-      path: "/",
     },
-    { Component: () => <p>Sign-in page</p>, path: "/sign-in" },
   ]);
   return render(<Stub initialEntries={[start]} />);
 };
@@ -19,7 +18,7 @@ const stub = (start: string) => {
 describe("AppFrame", () => {
   it("sends a signed-out visitor to sign-in", async () => {
     setSession(null);
-    stub("/");
+    stub("/home");
     expect(await screen.findByText("Sign-in page")).toBeInTheDocument();
   });
 
@@ -30,7 +29,7 @@ describe("AppFrame", () => {
       keyFingerprint: "SHA256:test",
       role: "ROLE_OWNER",
     });
-    stub("/");
+    stub("/home");
     expect(await screen.findByText("Status page")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Account: alice/ })).toBeInTheDocument();
   });
