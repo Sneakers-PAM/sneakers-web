@@ -6,6 +6,10 @@ The staff app (`/`) and the admin console (`/admin/`) are React Router v7 apps r
 server. Each one is its own Node server and its own container image, and talks to the Sneakers
 gateway from the server side; the browser holds only the HttpOnly session cookie.
 
+The appliance admin (`apps/appliance-admin`) is different: a static single-page app (no Node
+server) that the sneakers-appliance box's `sneakers-osadmin` serves at `:8443`, talking to its
+Connect API directly from the browser. See "Appliance admin" in [AGENTS.md](AGENTS.md).
+
 ## 🛠 Develop
 
 ```bash
@@ -13,6 +17,7 @@ npm install --ignore-scripts
 npm run dev             # staff app against the gateway at GATEWAY_URL (default http://localhost:9100)
 npm run dev:mock        # staff app against the in-process mock gateway (invented data, banner on)
 npm run dev:admin       # admin console; dev:admin:mock for its mock build
+npm run dev:appliance-admin:mock   # appliance admin against its in-memory mock transport
 npm test                # vitest
 npm run lint            # eslint + prettier
 npm run typecheck

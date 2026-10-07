@@ -26,6 +26,8 @@
     "dev:mock": "npm run dev:mock -w @sneakers-web/staff",
     "dev:admin": "npm run dev -w @sneakers-web/admin",
     "dev:admin:mock": "npm run dev:mock -w @sneakers-web/admin",
+    "dev:appliance-admin": "npm run dev -w @sneakers-web/appliance-admin",
+    "dev:appliance-admin:mock": "npm run dev:mock -w @sneakers-web/appliance-admin",
     "build": "npm run build --workspaces --if-present",
     "build:mock": "npm run build:mock --workspaces --if-present",
     "test": "vitest run",

@@ -1,0 +1,26 @@
+{
+  "name": "@sneakers-web/appliance-admin",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "scripts": {
+    "dev": "react-router dev",
+    "dev:mock": "react-router dev --mode mock",
+    "build": "react-router build",
+    "build:mock": "react-router build --mode mock",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@sneakers-web/shell": "*",
+    "@sneakers-web/ui": "*",
+    "lucide-react": "^1.49.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-router": "^7.18.4"
+  },
+  "devDependencies": {
+    "@sneakers-web/mock-gateway": "*",
+    "@sneakers-web/vite-config": "*"
+  }
+}
