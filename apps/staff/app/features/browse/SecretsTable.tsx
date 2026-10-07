@@ -28,7 +28,7 @@ import {
   TableRow,
   toast,
 } from "@sneakers-web/ui";
-import { ChevronDown, Copy, Lock } from "lucide-react";
+import { ChevronDown, ChevronUp, Copy, Lock } from "lucide-react";
 import { useId, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
@@ -40,8 +40,20 @@ import { useBrowseAction } from "@/features/browse/useBrowseAction";
 import { useQuickCopy } from "@/features/browse/useQuickCopy";
 
 type Column = "heartbeat" | "type";
+type SortBy = "index" | "name" | "type";
 
 const COMING_SOON = "Coming soon: this bulk action isn't ready yet.";
+
+/** The active (non-retired) secret ids in their current manual order, up or down `id` by one;
+ * null at an end, or if `id` isn't an active secret here. */
+const moved = (secrets: BrowseSecret[], id: string, direction: "down" | "up"): null | string[] => {
+  const ids = secrets.filter((s) => !s.retired).map((s) => s.id);
+  const at = ids.indexOf(id);
+  const to = direction === "up" ? at - 1 : at + 1;
+  if (at < 0 || to < 0 || to >= ids.length) return null;
+  [ids[at], ids[to]] = [ids[to] as string, ids[at] as string];
+  return ids;
+};
 
 /**
  * U-03 the folder's secrets: filter, retired toggle, column picker, selection with the bulk
@@ -66,7 +78,7 @@ export const SecretsTable = ({
 }) => {
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<Set<string>>(new Set());
-  const [sortBy, setSortBy] = useState<"name" | "type">("name");
+  const [sortBy, setSortBy] = useState<SortBy>("name");
   const [descending, setDescending] = useState(false);
   const [columns, setColumns] = useState<Set<Column>>(new Set(["heartbeat", "type"]));
   const navigate = useNavigate();
@@ -75,8 +87,7 @@ export const SecretsTable = ({
   const retiredId = useId();
 
   const typeNameOf = (s: BrowseSecret) => types[s.typeId]?.name ?? s.typeId;
-  const sortKeyOf = sortBy === "type" ? typeNameOf : (s: BrowseSecret) => s.name;
-  const sortHeader = (column: "name" | "type") => () =>
+  const sortHeader = (column: SortBy) => () =>
     setSortBy((previous) => {
       if (previous === column) {
         setDescending((d) => !d);
@@ -85,13 +96,26 @@ export const SecretsTable = ({
       setDescending(false);
       return column;
     });
+  const move = (id: string, direction: "down" | "up") => {
+    const ids = moved(secrets, id, direction);
+    if (!ids) return;
+    setSortBy("index");
+    setDescending(false);
+    restore.submit({ folderId, intent: "reorder-secrets", orderedIds: ids.join(",") });
+  };
 
   const q = query.trim().toLowerCase();
   const rows = secrets
     .filter((s) => !q || s.name.toLowerCase().includes(q))
-    .toSorted((a, b) => (descending ? -1 : 1) * sortKeyOf(a).localeCompare(sortKeyOf(b)));
+    .toSorted((a, b) => {
+      const direction = descending ? -1 : 1;
+      if (sortBy === "index") return direction * (a.position - b.position);
+      const key = sortBy === "type" ? typeNameOf : (s: BrowseSecret) => s.name;
+      return direction * key(a).localeCompare(key(b));
+    });
   const chosen = secrets.filter((s) => picked.has(s.id));
   const allPicked = rows.length > 0 && rows.every((s) => picked.has(s.id));
+  const activeIds = secrets.filter((s) => !s.retired).map((s) => s.id);
 
   const toggle = (id: string, on: boolean) =>
     setPicked((previous) => {
@@ -225,6 +249,28 @@ export const SecretsTable = ({
                   />
                 </TableHeaderCell>
                 <TableHeaderCell
+                  aria-sort={
+                    sortBy === "index" ? (descending ? "descending" : "ascending") : "none"
+                  }
+                  className="w-14"
+                >
+                  <button
+                    className="inline-flex items-center gap-1 uppercase"
+                    onClick={sortHeader("index")}
+                    type="button"
+                  >
+                    <span className="sr-only">Index</span>#
+                    <ChevronDown
+                      aria-hidden
+                      className={cn(
+                        "size-3.5",
+                        sortBy === "index" ? "opacity-100" : "opacity-0",
+                        sortBy === "index" && descending && "rotate-180",
+                      )}
+                    />
+                  </button>
+                </TableHeaderCell>
+                <TableHeaderCell
                   aria-sort={sortBy === "name" ? (descending ? "descending" : "ascending") : "none"}
                 >
                   <button
@@ -288,6 +334,37 @@ export const SecretsTable = ({
                             checked={picked.has(s.id)}
                             onCheckedChange={(on) => toggle(s.id, on === true)}
                           />
+                        </TableCell>
+                        <TableCell>
+                          {!s.retired && (
+                            <span className="inline-flex items-center gap-0.5">
+                              <span className="w-4 text-right tabular-nums">{s.position}</span>
+                              {canManage && (
+                                <span className="flex flex-col">
+                                  <Button
+                                    aria-label={`Move ${s.name} up`}
+                                    className="size-4.5 p-0"
+                                    disabled={activeIds.indexOf(s.id) <= 0}
+                                    onClick={() => move(s.id, "up")}
+                                    size="sm"
+                                    variant="ghost"
+                                  >
+                                    <ChevronUp aria-hidden className="size-3" />
+                                  </Button>
+                                  <Button
+                                    aria-label={`Move ${s.name} down`}
+                                    className="size-4.5 p-0"
+                                    disabled={activeIds.indexOf(s.id) >= activeIds.length - 1}
+                                    onClick={() => move(s.id, "down")}
+                                    size="sm"
+                                    variant="ghost"
+                                  >
+                                    <ChevronDown aria-hidden className="size-3" />
+                                  </Button>
+                                </span>
+                              )}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <span className="flex flex-wrap items-center gap-2">

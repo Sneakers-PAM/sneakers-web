@@ -1599,6 +1599,7 @@ export type BrowseSecretsQuery = {
     retired: boolean;
     retiredAt: string;
     canRead: boolean | null;
+    position: number;
   }>;
   secretTypes: Array<{
     id: string;
@@ -1665,6 +1666,15 @@ export type BrowseReorderFoldersMutationVariables = Exact<{
 }>;
 
 export type BrowseReorderFoldersMutation = { reorderFolders: boolean };
+
+export type BrowseReorderSecretsMutationVariables = Exact<{
+  folderId: string;
+  orderedIds: Array<string> | string;
+}>;
+
+export type BrowseReorderSecretsMutation = {
+  reorderSecrets: Array<{ id: string; position: number }>;
+};
 
 export type BrowseCreateFolderMoveRequestMutationVariables = Exact<{
   folderId: string;
@@ -2861,6 +2871,29 @@ export type TargetsOpenSshSessionMutationVariables = Exact<{
 
 export type TargetsOpenSshSessionMutation = {
   openSshSession: { wsUrl: string; ticket: string; sessionId: string; expiresInSeconds: number };
+};
+
+export type TargetsScanHostKeyQueryVariables = Exact<{
+  targetId: string;
+}>;
+
+export type TargetsScanHostKeyQuery = {
+  scanTargetHostKey: {
+    targetId: string;
+    keyType: string;
+    publicKey: string;
+    fingerprint: string;
+    pinned: boolean;
+  };
+};
+
+export type TargetsPinHostKeyMutationVariables = Exact<{
+  targetId: string;
+  fingerprint: string;
+}>;
+
+export type TargetsPinHostKeyMutation = {
+  pinTargetHostKey: { id: string; sshHostKeys: Array<string> };
 };
 
 export class TypedDocumentString<TResult, TVariables>
@@ -4817,6 +4850,7 @@ export const BrowseSecretsDocument = new TypedDocumentString(`
     retired
     retiredAt
     canRead
+    position
   }
   secretTypes {
     id
@@ -4893,6 +4927,17 @@ export const BrowseReorderFoldersDocument = new TypedDocumentString(`
     `) as unknown as TypedDocumentString<
   BrowseReorderFoldersMutation,
   BrowseReorderFoldersMutationVariables
+>;
+export const BrowseReorderSecretsDocument = new TypedDocumentString(`
+    mutation BrowseReorderSecrets($folderId: ID!, $orderedIds: [ID!]!) {
+  reorderSecrets(folderId: $folderId, orderedIds: $orderedIds) {
+    id
+    position
+  }
+}
+    `) as unknown as TypedDocumentString<
+  BrowseReorderSecretsMutation,
+  BrowseReorderSecretsMutationVariables
 >;
 export const BrowseCreateFolderMoveRequestDocument = new TypedDocumentString(`
     mutation BrowseCreateFolderMoveRequest($folderId: String!, $destParentId: String!, $reason: String, $folderName: String, $destParentName: String) {
@@ -6073,4 +6118,26 @@ export const TargetsOpenSshSessionDocument = new TypedDocumentString(`
     `) as unknown as TypedDocumentString<
   TargetsOpenSshSessionMutation,
   TargetsOpenSshSessionMutationVariables
+>;
+export const TargetsScanHostKeyDocument = new TypedDocumentString(`
+    query TargetsScanHostKey($targetId: ID!) {
+  scanTargetHostKey(targetId: $targetId) {
+    targetId
+    keyType
+    publicKey
+    fingerprint
+    pinned
+  }
+}
+    `) as unknown as TypedDocumentString<TargetsScanHostKeyQuery, TargetsScanHostKeyQueryVariables>;
+export const TargetsPinHostKeyDocument = new TypedDocumentString(`
+    mutation TargetsPinHostKey($targetId: ID!, $fingerprint: String!) {
+  pinTargetHostKey(targetId: $targetId, fingerprint: $fingerprint) {
+    id
+    sshHostKeys
+  }
+}
+    `) as unknown as TypedDocumentString<
+  TargetsPinHostKeyMutation,
+  TargetsPinHostKeyMutationVariables
 >;

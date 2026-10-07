@@ -14,6 +14,17 @@ const world = () => mockState.world;
 export const secretById = (id: string): MockSecret | undefined =>
   world().secrets.find((s) => s.id === id);
 
+/** The next manual position in a folder, for a secret that's new, moved in, or restored:
+ * last, the way the vault places one. */
+export const lastPositionIn = (folderId: string): number =>
+  1 +
+  Math.max(
+    0,
+    ...world()
+      .secrets.filter((s) => s.folderId === folderId && !s.retired)
+      .map((s) => s.position),
+  );
+
 /** A folder and its parents, nearest first. */
 export const chain = (folderId: string): MockFolder[] => {
   const out: MockFolder[] = [];

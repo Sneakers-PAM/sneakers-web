@@ -62,3 +62,8 @@ export type {
   RulesetSimulatorProps,
   RulesetSubject,
 } from "#shell/sharing/types";
+export {
+  HOST_KEY_PIN_ROUTE,
+  HostKeyPinDialog,
+  type HostKeyPinDialogProps,
+} from "#shell/targets/HostKeyPinDialog";

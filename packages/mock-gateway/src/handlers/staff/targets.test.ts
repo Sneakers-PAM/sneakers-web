@@ -6,7 +6,9 @@ import {
   TargetsDeleteDocument,
   TargetsListDocument,
   TargetsOpenSshSessionDocument,
+  TargetsPinHostKeyDocument,
   TargetsSaveDocument,
+  TargetsScanHostKeyDocument,
   TargetsTerminalDocument,
   TargetsTerminalFieldsDocument,
 } from "@sneakers-web/api-client";
@@ -209,6 +211,62 @@ describe("the SSH terminal in the mock", () => {
     world().secrets.find((s) => s.id === BUILD_KEY)!.targetId = "mock-target-db1";
     expect(
       await refused(alice.gql(TargetsOpenSshSessionDocument, { secretId: BUILD_KEY })),
+    ).toEqual({ code: "FAILED_PRECONDITION", reason: undefined });
+  });
+});
+
+describe("trust-on-first-use host-key pinning in the mock", () => {
+  const BUILD = "mock-target-build1";
+
+  it("scans without pinning, and reports a match against what's already pinned", async () => {
+    const alice = await as(ALICE);
+    const before = [...world().targets.find((t) => t.id === BUILD)!.sshHostKeys];
+    const scan = await alice.gql(TargetsScanHostKeyDocument, { targetId: BUILD });
+    expect(scan.scanTargetHostKey).toMatchObject({
+      keyType: "ssh-ed25519",
+      pinned: true,
+      targetId: BUILD,
+    });
+    expect(scan.scanTargetHostKey.fingerprint).toMatch(/^SHA256:/);
+    expect(world().targets.find((t) => t.id === BUILD)!.sshHostKeys).toEqual(before);
+  });
+
+  it("reports not pinned once the target's pins are cleared, then pins on confirm", async () => {
+    world().targets.find((t) => t.id === BUILD)!.sshHostKeys = [];
+    const alice = await as(ALICE);
+    const scan = await alice.gql(TargetsScanHostKeyDocument, { targetId: BUILD });
+    expect(scan.scanTargetHostKey.pinned).toBe(false);
+    const { pinTargetHostKey } = await alice.gql(TargetsPinHostKeyDocument, {
+      fingerprint: scan.scanTargetHostKey.fingerprint,
+      targetId: BUILD,
+    });
+    expect(pinTargetHostKey.sshHostKeys).toHaveLength(1);
+    const again = await alice.gql(TargetsScanHostKeyDocument, { targetId: BUILD });
+    expect(again.scanTargetHostKey.pinned).toBe(true);
+  });
+
+  it("refuses to pin a stale fingerprint, and pins nothing", async () => {
+    const alice = await as(ALICE);
+    const before = [...world().targets.find((t) => t.id === BUILD)!.sshHostKeys];
+    expect(
+      await refused(
+        alice.gql(TargetsPinHostKeyDocument, { fingerprint: "SHA256:stale", targetId: BUILD }),
+      ),
+    ).toEqual({ code: "FAILED_PRECONDITION", reason: "HOST_KEY_CHANGED" });
+    expect(world().targets.find((t) => t.id === BUILD)!.sshHostKeys).toEqual(before);
+  });
+
+  it("refuses a non-admin, and a target with no SSH connection", async () => {
+    const bob = await as(BOB);
+    expect(
+      await refused(bob.gql(TargetsScanHostKeyDocument, { targetId: "mock-target-edge-router" })),
+    ).toEqual({
+      code: "PERMISSION_DENIED",
+      reason: undefined,
+    });
+    const alice = await as(ALICE);
+    expect(
+      await refused(alice.gql(TargetsScanHostKeyDocument, { targetId: "mock-target-dc1" })),
     ).toEqual({ code: "FAILED_PRECONDITION", reason: undefined });
   });
 });

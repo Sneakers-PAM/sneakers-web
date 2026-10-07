@@ -45,6 +45,7 @@ query BrowseSecrets($folderId: String!, $includeRetired: Boolean) {
     retired
     retiredAt
     canRead
+    position
   }
   secretTypes {
     id
@@ -87,6 +88,13 @@ mutation BrowseDeleteFolder($id: ID!, $reassignToId: String) {
 
 mutation BrowseReorderFolders($parentId: String, $orderedIds: [String!]!) {
   reorderFolders(parentId: $parentId, orderedIds: $orderedIds)
+}
+
+mutation BrowseReorderSecrets($folderId: ID!, $orderedIds: [ID!]!) {
+  reorderSecrets(folderId: $folderId, orderedIds: $orderedIds) {
+    id
+    position
+  }
 }
 
 mutation BrowseCreateFolderMoveRequest(

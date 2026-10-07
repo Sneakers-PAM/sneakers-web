@@ -1,4 +1,4 @@
-import { EdgeBanner, refusalMessage } from "@sneakers-web/shell";
+import { EdgeBanner, HostKeyPinDialog, refusalMessage } from "@sneakers-web/shell";
 import { Button, cn, toast } from "@sneakers-web/ui";
 import {
   ChevronLeft,
@@ -11,7 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { use, useCallback, useEffect, useRef, useState } from "react";
-import { Link, useFetcher } from "react-router";
+import { Link, useFetcher, useRevalidator } from "react-router";
 
 import type { OpenResult, TerminalSession } from "@/features/targets/terminal.server";
 import type { Screen } from "@/features/targets/terminal/screen";
@@ -56,6 +56,8 @@ const TOOL =
 
 interface Problem {
   message: string;
+  /** Set only for a close the person can act on beyond Reconnect, right now just this one. */
+  reason?: "host-key-not-pinned";
   title: string;
 }
 
@@ -68,6 +70,7 @@ export const Console = ({
   session: Ready;
 }) => {
   const deps = use(TerminalDepsContext);
+  const revalidator = useRevalidator();
   const fetcher = useFetcher<OpenResult>();
   const rootRef = useRef<HTMLDivElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
@@ -82,6 +85,7 @@ export const Console = ({
   const [sessionProblem, setProblem] = useState<null | Problem>(null);
   const [fontSize, setFontSize] = useState(DEFAULT_FONT);
   const [shortcuts, setShortcuts] = useState(false);
+  const [pinOpen, setPinOpen] = useState(false);
   const [ready, setReady] = useState(false);
   const [platform] = useState(() => platformOf(globalThis.navigator.userAgent));
   const submit = fetcher.submit;
@@ -135,6 +139,13 @@ export const Console = ({
     if (ready) openRef.current();
   }, [ready]);
 
+  // A fresh pin flips `session.pinned` once the loader revalidates; reconnect right away.
+  const wasPinned = useRef(session.pinned);
+  useEffect(() => {
+    if (!wasPinned.current && session.pinned) openRef.current();
+    wasPinned.current = session.pinned;
+  }, [session.pinned]);
+
   useEffect(() => {
     const result = fetcher.data;
     if (!result || handled.current === result) return;
@@ -159,7 +170,11 @@ export const Console = ({
             return;
           }
           setStatus("error");
-          setProblem({ message: closeMessage(reason), title: "Connection error" });
+          setProblem({
+            message: closeMessage(reason),
+            reason: reason.kind === "host-key-not-pinned" ? reason.kind : undefined,
+            title: "Connection error",
+          });
         },
         onOpen: () => {
           if (!live()) return;
@@ -297,7 +312,7 @@ export const Console = ({
         {problem && (
           <div
             className={cn(
-              "absolute bottom-5 left-5 flex max-w-[520px] flex-col gap-3 rounded-[14px] border-[1.5px] bg-[#1A1F29] p-4.5",
+              "absolute inset-x-5 bottom-5 mx-auto flex max-w-[520px] flex-col gap-3 rounded-[14px] border-[1.5px] bg-[#1A1F29] p-4.5 tablet:inset-x-auto tablet:left-5 tablet:mx-0",
               shownStatus === "error" ? "border-[#FF8577]" : "border-[#3A4252]",
             )}
             role={shownStatus === "error" ? "alert" : "status"}
@@ -320,6 +335,11 @@ export const Console = ({
                 <RefreshCw aria-hidden />
                 Reconnect
               </Button>
+              {problem.reason === "host-key-not-pinned" && session.canPinHostKey && (
+                <Button className={TOOL} onClick={() => setPinOpen(true)} size="sm">
+                  Pin the host key
+                </Button>
+              )}
               <Button asChild className={TOOL} size="sm" variant="secondary">
                 <Link to={`/secret/${secret.id}`}>Back to secret</Link>
               </Button>
@@ -328,6 +348,13 @@ export const Console = ({
         )}
       </div>
       <ShortcutsDialog onOpenChange={setShortcuts} open={shortcuts} platform={platform} />
+      <HostKeyPinDialog
+        hostname={session.hostname}
+        onOpenChange={setPinOpen}
+        onPinned={() => void revalidator.revalidate()}
+        open={pinOpen}
+        targetId={session.targetId}
+      />
     </div>
   );
 };

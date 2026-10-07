@@ -13,6 +13,7 @@ import { TerminalDepsContext } from "@/features/targets/terminal/deps";
 import { openSocket } from "@/features/targets/terminal/socket";
 import { fakeScreens } from "@/features/targets/terminal/testing";
 import { connectSession } from "@/features/targets/terminal/transport";
+import * as hostKeyPinRoute from "@/routes/resources.host-key-pin";
 import * as terminal from "@/routes/terminal";
 import { renderRoute } from "@/test/routeStub";
 
@@ -21,17 +22,20 @@ withMockGateway();
 const KEY = "mock-secret-build-ssh";
 const gateway = graphql.link(`${MOCK_GATEWAY_URL}/graphql`);
 
-const page = (deps: TerminalDeps): StubRoute => ({
-  action: terminal.action,
-  Component: () => (
-    <TerminalDepsContext value={deps}>
-      <terminal.default />
-    </TerminalDepsContext>
-  ),
-  ErrorBoundary: terminal.ErrorBoundary,
-  loader: terminal.loader,
-  path: "/secret/:id/terminal",
-});
+const page = (deps: TerminalDeps): StubRoute[] => [
+  {
+    action: terminal.action,
+    Component: () => (
+      <TerminalDepsContext value={deps}>
+        <terminal.default />
+      </TerminalDepsContext>
+    ),
+    ErrorBoundary: terminal.ErrorBoundary,
+    loader: terminal.loader,
+    path: "/secret/:id/terminal",
+  },
+  { action: hostKeyPinRoute.action, path: "/resources/host-key-pin" },
+];
 
 const output = async (text: RegExp | string) =>
   expect(await screen.findByTestId("terminal-output")).toHaveTextContent(text);
@@ -129,7 +133,7 @@ describe("U-12 terminal", () => {
     expect(screen.getByRole("link", { name: "Back to secret" })).toBeInTheDocument();
   });
 
-  it("names a host the broker won't reach because its key isn't pinned", async () => {
+  it("names a host the broker won't reach because its key isn't pinned, boxed and centred", async () => {
     vi.stubEnv("SNEAKERS_MOCK", "true");
     mockState.world.targets.find((t) => t.id === "mock-target-build1")!.sshHostKeys = [];
     renderRoute(
@@ -137,6 +141,42 @@ describe("U-12 terminal", () => {
       page({ connect: connectSession, createScreen: fakeScreens().create }),
     );
     expect(await screen.findByText(/This host has no pinned SSH host key/)).toBeInTheDocument();
+    const box = screen.getByRole("alert");
+    expect(box.className).toContain("mx-auto");
+    expect(box.className).toContain("inset-x-5");
+    expect(screen.getByRole("button", { name: "Pin the host key" })).toBeInTheDocument();
+  });
+
+  it("hides the pin action from someone who isn't a site admin or root", async () => {
+    vi.stubEnv("SNEAKERS_MOCK", "true");
+    const target = mockState.world.targets.find((t) => t.id === "mock-target-build1")!;
+    target.sshHostKeys = [];
+    target.ownerUserId = undefined;
+    renderRoute(
+      `/secret/${KEY}/terminal`,
+      page({ connect: connectSession, createScreen: fakeScreens().create }),
+      { user: "mock-user-bob" },
+    );
+    expect(await screen.findByText(/This host has no pinned SSH host key/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Pin the host key" })).not.toBeInTheDocument();
+  });
+
+  it("scans, pins on confirm, and reconnects with the newly pinned key", async () => {
+    vi.stubEnv("SNEAKERS_MOCK", "true");
+    mockState.world.targets.find((t) => t.id === "mock-target-build1")!.sshHostKeys = [];
+    const user = userEvent.setup();
+    renderRoute(
+      `/secret/${KEY}/terminal`,
+      page({ connect: connectSession, createScreen: fakeScreens().create }),
+    );
+    await user.click(await screen.findByRole("button", { name: "Pin the host key" }));
+    expect(await screen.findByRole("heading", { name: "Pin the host key" })).toBeInTheDocument();
+    expect(await screen.findByText(/SHA256:/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Pin this key" }));
+    expect(await screen.findByText("Connected")).toBeInTheDocument();
+    expect(
+      mockState.world.targets.find((t) => t.id === "mock-target-build1")!.sshHostKeys,
+    ).toHaveLength(1);
   });
 
   it("says when the secret isn't an SSH key bound to a target", async () => {
