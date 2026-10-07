@@ -1,4 +1,4 @@
-import { Accessibility, Minus, X } from "lucide-react";
+import { Accessibility, ChevronDown, X } from "lucide-react";
 import { Popover as PopoverPrimitive } from "radix-ui";
 import { useState } from "react";
 
@@ -16,10 +16,11 @@ import {
 } from "#ui/theme/ThemeProvider";
 
 /**
- * The floating display and motion settings. It starts labelled; "Minimize" collapses it to
- * a small icon-only dot that never disappears, and clicking the dot restores the label. The
- * minimized choice is remembered in this browser for 30 days. At phone widths the settings
- * open as a bottom drawer instead of a popover, so there's room to use them.
+ * The floating display and motion settings: a compact trigger and a tighter panel. The
+ * icon-only collapse control shrinks it further to a small dot that never disappears, and
+ * clicking the dot restores the trigger. The collapsed choice is remembered in this browser
+ * for 30 days. At phone widths the settings open as a bottom drawer instead of a popover, so
+ * there's room to use them.
  */
 export const DisplayPanel = ({
   className,
@@ -46,13 +47,13 @@ export const DisplayPanel = ({
       <button
         aria-label="Show display settings"
         className={cn(
-          "z-(--z-a11y) inline-flex size-10 items-center justify-center rounded-full border-[1.5px] border-border-strong bg-surface text-ink shadow-menu hover:bg-sunken",
+          "z-(--z-a11y) inline-flex size-9 items-center justify-center rounded-full border-[1.5px] border-border-strong bg-surface text-ink shadow-menu hover:bg-sunken",
           className,
         )}
         onClick={() => setMinimized(false)}
         type="button"
       >
-        <Accessibility aria-hidden className="size-4.5" />
+        <Accessibility aria-hidden className="size-4" />
       </button>
     );
   }
@@ -122,9 +123,9 @@ export const DisplayPanel = ({
         <SheetRoot>
           <SheetTrigger
             aria-label="Accessibility settings"
-            className="inline-flex h-11 items-center gap-2 rounded-full border-[1.5px] border-border-strong bg-surface px-4 text-[0.9375rem] font-bold text-ink shadow-menu hover:bg-sunken"
+            className="inline-flex h-9 items-center gap-1.5 rounded-full border-[1.5px] border-border-strong bg-surface px-3 text-[0.8125rem] font-bold text-ink shadow-menu hover:bg-sunken"
           >
-            <Accessibility aria-hidden className="size-5" />
+            <Accessibility aria-hidden className="size-4" />
             Display
           </SheetTrigger>
           <SheetContent side="bottom" title="Display & motion">
@@ -141,28 +142,28 @@ export const DisplayPanel = ({
       <PopoverPrimitive.Root>
         <PopoverPrimitive.Trigger
           aria-label="Accessibility settings"
-          className="inline-flex h-11 items-center gap-2 rounded-full border-[1.5px] border-border-strong bg-surface px-4 text-[0.9375rem] font-bold text-ink shadow-menu hover:bg-sunken"
+          className="inline-flex h-9 items-center gap-1.5 rounded-full border-[1.5px] border-border-strong bg-surface px-3 text-[0.8125rem] font-bold text-ink shadow-menu hover:bg-sunken"
         >
-          <Accessibility aria-hidden className="size-5" />
+          <Accessibility aria-hidden className="size-4" />
           Display
         </PopoverPrimitive.Trigger>
         <PopoverPrimitive.Portal>
           <PopoverPrimitive.Content
             align="start"
             aria-label="Accessibility"
-            className="z-(--z-a11y) flex w-85 flex-col gap-4 rounded-xl border border-border-strong bg-surface p-5 text-ink shadow-dialog"
+            className="z-(--z-a11y) flex w-70 flex-col gap-3 rounded-xl border border-border-strong bg-surface p-4 text-ink shadow-dialog"
             side="top"
-            sideOffset={12}
+            sideOffset={10}
           >
             <div className="flex items-center">
-              <b className="font-display text-[1.125rem] leading-none font-bold">
+              <b className="font-display text-[1rem] leading-none font-bold">
                 Display &amp; motion
               </b>
               <PopoverPrimitive.Close
                 aria-label="Close"
-                className="ml-auto inline-flex size-8 items-center justify-center rounded-sm text-muted hover:bg-sunken"
+                className="ml-auto inline-flex size-7 items-center justify-center rounded-sm text-muted hover:bg-sunken"
               >
-                <X aria-hidden className="size-4.5" />
+                <X aria-hidden className="size-4" />
               </PopoverPrimitive.Close>
             </div>
             {rows}
@@ -174,17 +175,16 @@ export const DisplayPanel = ({
   );
 };
 
-/** The minimize control: an icon plus a short visible label, not just an icon-only hit target. */
+/** The minimize control: an icon-only hit target, still 24 px or more (WCAG 2.2 AA 2.5.8). */
 const MinimizeButton = ({ onClick }: { onClick: () => void }) => {
   return (
     <button
       aria-label="Minimize display settings"
-      className="inline-flex h-11 items-center gap-1.5 rounded-full px-3 text-[0.8125rem] font-semibold text-muted hover:bg-sunken hover:text-ink"
+      className="inline-flex size-9 items-center justify-center rounded-full text-muted hover:bg-sunken hover:text-ink"
       onClick={onClick}
       type="button"
     >
-      <Minus aria-hidden className="size-3.5" />
-      Minimize
+      <ChevronDown aria-hidden className="size-4" />
     </button>
   );
 };
