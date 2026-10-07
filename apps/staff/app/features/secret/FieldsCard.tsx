@@ -1,4 +1,4 @@
-import { Button, toast } from "@sneakers-web/ui";
+import { Button, HighlySensitiveBadge, toast } from "@sneakers-web/ui";
 import { Copy, RefreshCw } from "lucide-react";
 
 import type { SecretType } from "@/features/secret/secret.server";
@@ -82,11 +82,7 @@ export const FieldsCard = ({
         <Row
           key={f.key}
           label={f.label}
-          note={
-            f.superSensitive ? (
-              <span className="font-mono text-[0.75rem] text-warn">super-sensitive</span>
-            ) : undefined
-          }
+          note={f.superSensitive ? <HighlySensitiveBadge /> : undefined}
         >
           {isSecretField(f) ? (
             <SensitiveValue

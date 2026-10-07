@@ -8,6 +8,7 @@ import {
   Heart,
   Hourglass,
   RefreshCw,
+  ShieldAlert,
   TriangleAlert,
   X,
 } from "lucide-react";
@@ -50,6 +51,22 @@ export const Pill = ({ children, className, icon, title, tone }: PillProps) => {
     </span>
   );
 };
+
+/**
+ * The shared label for a field marked `superSensitive`: wherever one shows up (a field badge,
+ * the type editor, settings copy, the secret page), it reads "Highly sensitive" with a short
+ * explanation on hover, never the raw field name.
+ */
+export const HighlySensitiveBadge = ({ className }: { className?: string }) => (
+  <Pill
+    className={className}
+    icon={<ShieldAlert aria-hidden />}
+    title="Needs a fresh second factor to reveal, and shows only a partial mask at first."
+    tone="warn"
+  >
+    Highly sensitive
+  </Pill>
+);
 
 const heartbeat: Record<
   HeartbeatStatus,

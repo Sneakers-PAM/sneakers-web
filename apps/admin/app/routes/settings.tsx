@@ -78,7 +78,7 @@ const Settings = () => {
       <Panel className="max-w-[40rem]" title="Security">
         <div className="flex flex-col gap-4">
           <SettingRow
-            body="Checking out a secret whose type has a super-sensitive field (a card number, a PIN, a private key) needs a second factor from within the MFA window. Other types aren't affected."
+            body="Checking out a secret whose type has a highly sensitive field (a card number, a PIN, a private key) needs a second factor from within the MFA window. Other types aren't affected."
             control={
               <Switch
                 aria-labelledby="set-checkout"
@@ -106,7 +106,7 @@ const Settings = () => {
             title="Require MFA before a reveal"
           />
           <SettingRow
-            body="Off (the default): service accounts and personal tokens can't reveal, prepare or redeem a super-sensitive field; ordinary passwords and sensitive fields stay available to them. On: they get super-sensitive fields too, under their usual access. People are never affected."
+            body="Off (the default): service accounts and personal tokens can't reveal, prepare or redeem a highly sensitive field; ordinary passwords and sensitive fields stay available to them. On: they get highly sensitive fields too, under their usual access. People are never affected."
             control={
               <Switch
                 aria-labelledby="set-api"

@@ -412,7 +412,7 @@ const FieldRow = ({
                       id={`f${index}-super`}
                       onCheckedChange={(on) => onChange({ superSensitive: on === true })}
                     />
-                    <Label htmlFor={`f${index}-super`}>Super-sensitive</Label>
+                    <Label htmlFor={`f${index}-super`}>Highly sensitive</Label>
                   </span>
                   <span className="flex items-center gap-2 pb-3">
                     <Checkbox

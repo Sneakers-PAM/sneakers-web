@@ -61,6 +61,7 @@ export {
   type GrantStatus,
   HeartbeatPill,
   type HeartbeatStatus,
+  HighlySensitiveBadge,
   NotRotatingPill,
   Pill,
   pillVariants,
