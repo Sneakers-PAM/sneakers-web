@@ -1,7 +1,7 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { upgrade } from "@/lib/osadmin/client";
+import { elevation, upgrade } from "@/lib/osadmin/client";
 import { OsadminError } from "@/lib/osadmin/errors";
 import { cancelStepUp, stepUpPending } from "@/lib/osadmin/stepUpController";
 import { applyMockScenario } from "@/mock/edge.mock";
@@ -138,6 +138,103 @@ describe("Updates", () => {
     await user.click(screen.getByRole("button", { name: "Apply and reboot" }));
     await vi.waitFor(() => expect(stepUpPending()).toBe(true));
     cancelStepUp();
+  });
+
+  it("names who holds an open elevated shell", async () => {
+    applyMockScenario("elevated");
+    await openPage();
+    const notice = screen.getByRole("region", { name: "Elevated shell open" });
+    expect(within(notice).getByText(/bob holds an elevated shell \(E-9M4T\)/)).toBeInTheDocument();
+  });
+
+  it("shows the refusal with who holds the shell, then ends it and applies with the typed override", async () => {
+    applyMockScenario("staged");
+    applyMockScenario("elevated");
+    const user = userEvent.setup();
+    await openPage();
+    await user.click(screen.getByRole("button", { name: "Apply 0.2.0" }));
+    await user.type(screen.getByLabelText("Type 0.2.0 to confirm"), "0.2.0");
+    await user.click(screen.getByRole("button", { name: "Apply and reboot" }));
+    const refusal = await screen.findByRole("region", { name: "Apply refused" });
+    expect(within(refusal).getByText(/UPGRADE_ELEVATED/)).toBeInTheDocument();
+    expect(within(refusal).getByText(/bob holds an elevated shell \(E-9M4T\)/)).toBeInTheDocument();
+    expect(screen.queryByText(/Applying 0.2.0/)).not.toBeInTheDocument();
+
+    await user.click(within(refusal).getByRole("button", { name: "End bob's shell and apply" }));
+    const dialog = await screen.findByRole("dialog");
+    const go = within(dialog).getByRole("button", { name: "End the shell and apply" });
+    await user.type(within(dialog).getByLabelText("Reason"), "the security fix can't wait");
+    await user.type(within(dialog).getByLabelText("Type bob E-9M4T to confirm"), "bob E-9M4");
+    expect(go).toBeDisabled();
+    await user.type(within(dialog).getByLabelText("Type bob E-9M4T to confirm"), "T");
+    expect(go).not.toBeDisabled();
+    await user.click(go);
+    expect(await screen.findByText(/Applying 0.2.0/)).toBeInTheDocument();
+    const history = await elevation.list();
+    expect(history.elevations.find((item) => item.id === "E-9M4T")?.state).toBe("ended");
+  });
+
+  it("ends the shell before the release applies", async () => {
+    applyMockScenario("staged");
+    applyMockScenario("elevated");
+    const order: string[] = [];
+    const real = upgrade.apply;
+    vi.spyOn(upgrade, "apply").mockImplementation(async (override) => {
+      const result = await real(override);
+      const after = await upgrade.get();
+      order.push(
+        after.activeElevations?.length ? "applied under a shell" : "shell ended, then applied",
+      );
+      return result;
+    });
+    await expect(upgrade.apply()).rejects.toThrow(/UPGRADE_ELEVATED/);
+    await upgrade.apply({ confirm: "bob E-9M4T", elevationId: "E-9M4T", reason: "patch now" });
+    expect(order).toEqual(["shell ended, then applied"]);
+    const after = await upgrade.get();
+    expect(after.history[0]?.detail).toBe("ended elevated shell E-9M4T");
+  });
+
+  it("refuses a wrong confirmation and leaves the shell open", async () => {
+    applyMockScenario("staged");
+    applyMockScenario("elevated");
+    await expect(
+      upgrade.apply({ confirm: "alice E-9M4T", elevationId: "E-9M4T", reason: "patch now" }),
+    ).rejects.toThrow(/ACCESS_CONFIRM/);
+    const { elevations } = await elevation.list();
+    expect(elevations.find((item) => item.id === "E-9M4T")?.state).toBe("active");
+  });
+
+  it("shows the box's refusal of an override in the dialog", async () => {
+    applyMockScenario("elevated");
+    const user = userEvent.setup();
+    await openPage();
+    await user.click(screen.getByRole("button", { name: "Revert to the other slot" }));
+    await user.click(screen.getByRole("button", { name: "Revert and reboot" }));
+    const refusal = await screen.findByRole("region", { name: "Revert refused" });
+    await user.click(within(refusal).getByRole("button", { name: "End bob's shell and revert" }));
+    const dialog = await screen.findByRole("dialog");
+    vi.spyOn(upgrade, "revert").mockRejectedValueOnce(
+      new OsadminError(
+        "invalid_argument",
+        'ACCESS_CONFIRM: type "bob E-9M4T" to confirm ending bob\'s elevated shell',
+      ),
+    );
+    await user.type(within(dialog).getByLabelText("Reason"), "roll back the bad release");
+    await user.type(within(dialog).getByLabelText("Type bob E-9M4T to confirm"), "bob E-9M4T");
+    await user.click(within(dialog).getByRole("button", { name: "End the shell and revert" }));
+    expect(await within(dialog).findByText(/ACCESS_CONFIRM/)).toBeInTheDocument();
+    expect(screen.queryByText(/Reverting to the other slot/)).not.toBeInTheDocument();
+  });
+
+  it("refuses a non-owner's override, and doesn't offer one", async () => {
+    applyMockScenario("elevated");
+    signInAs("bob");
+    await openPage();
+    expect(screen.getByRole("region", { name: "Elevated shell open" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /End bob's shell/ })).not.toBeInTheDocument();
+    await expect(
+      upgrade.revert({ confirm: "bob E-9M4T", elevationId: "E-9M4T", reason: "mine" }),
+    ).rejects.toThrow(/ACCESS_FORBIDDEN/);
   });
 
   it("reverts to the other slot after a confirmation", async () => {

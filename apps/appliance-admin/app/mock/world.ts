@@ -14,6 +14,7 @@ import type {
   NetdSettings,
   Quorum,
   RecoveryKey,
+  RevokedKey,
   Session,
   UpgradeEvent,
   UpgradePolicy,
@@ -96,6 +97,29 @@ export const ELEVATIONS: Elevation[] = [
     state: "pending",
   },
 ];
+
+/** A key alice removed from bob last week: still on the revocation list. */
+export const REVOKED_KEYS: RevokedKey[] = [
+  {
+    admin: "bob",
+    fingerprint: "SHA256:oLd9Q7h5z1sRkYwQwQEuY7zL5mZ8w5z6c1h9b7qOLD",
+    revoked: soon(-60 * 24 * 7),
+    type: "ssh-ed25519",
+  },
+];
+
+/** The "elevated" scenario's open shell: bob's, approved and connected. */
+export const ACTIVE_ELEVATION: Elevation = {
+  admin: "bob",
+  id: "E-9M4T",
+  keyFingerprint: bobKey.fingerprint,
+  minutes: 30,
+  reason: "check the kubelet logs",
+  requested: soon(-12),
+  sourceAddress: "192.0.2.50",
+  started: soon(-10),
+  state: "active",
+};
 
 export const BACKUP_POLICY: BackupPolicy = {
   retentionDays: 30,

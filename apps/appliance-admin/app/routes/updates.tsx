@@ -25,15 +25,35 @@ import {
 } from "@sneakers-web/ui";
 import { useEffect, useRef, useState } from "react";
 
-import type { GetUpgradesResponse, UpdatePackage, UpgradePolicy } from "@/lib/osadmin/types";
+import type {
+  Elevation,
+  ElevationOverride,
+  GetUpgradesResponse,
+  UpdatePackage,
+  UpgradePolicy,
+} from "@/lib/osadmin/types";
 
 import { NotAvailable } from "@/components/NotAvailable";
 import { runAction } from "@/lib/osadmin/action";
 import { upgrade } from "@/lib/osadmin/client";
-import { isNotAvailable, isStepUpRequired } from "@/lib/osadmin/errors";
+import { isNotAvailable, isStepUpRequired, OsadminError } from "@/lib/osadmin/errors";
 import { useSession } from "@/lib/useSession";
 
+/** An apply or revert the box refused because an elevated shell is open. */
+interface Held {
+  action: "apply" | "revert";
+  message: string;
+  version: string;
+}
+
 type Rebooting = { kind: "applying"; version: string } | { kind: "reverting" } | null;
+
+/** True when the box refused an apply or revert because an elevated shell is open. */
+const isElevated = (error: unknown): boolean =>
+  error instanceof OsadminError && error.symbol === "UPGRADE_ELEVATED";
+
+const holder = (elevation: Elevation): string =>
+  `${elevation.admin} holds an elevated shell (${elevation.id})${elevation.started ? `, open since ${shortDate(elevation.started)}` : ""}: ${elevation.reason}`;
 
 /** Where the file in hand is: nothing yet, sending, on the box, being verified, or done. */
 type Step =
@@ -65,6 +85,8 @@ export default function Updates() {
   const [confirmApply, setConfirmApply] = useState<null | string>(null);
   const [confirmRevert, setConfirmRevert] = useState(false);
   const [rebooting, setRebooting] = useState<Rebooting>(null);
+  const [held, setHeld] = useState<Held | null>(null);
+  const [override, setOverride] = useState<{ elevation: Elevation; held: Held } | null>(null);
   const [mode, setMode] = useState<UpgradePolicy["mode"]>("automatic");
   const [windowStart, setWindowStart] = useState("02:00");
   const [windowMinutes, setWindowMinutes] = useState(120);
@@ -144,21 +166,38 @@ export default function Updates() {
     );
   };
 
-  const apply = (version: string) =>
-    void runAction(() => upgrade.apply(), {
-      onSuccess: () => {
-        setConfirmApply(null);
-        setRebooting({ kind: "applying", version });
-      },
-    });
+  const started = (action: Held["action"], version: string) => {
+    setHeld(null);
+    setOverride(null);
+    setRebooting(action === "apply" ? { kind: "applying", version } : { kind: "reverting" });
+  };
 
-  const revert = () =>
-    void runAction(() => upgrade.revert(), {
-      onSuccess: () => {
-        setConfirmRevert(false);
-        setRebooting({ kind: "reverting" });
+  // An open elevated shell refuses the update; the refusal stays on the page with who holds the
+  // shell (re-read from GetUpgrades), and an owner can end it from there.
+  const runUpdate = (action: Held["action"], version: string) =>
+    void runAction(
+      async () => {
+        try {
+          await (action === "apply" ? upgrade.apply() : upgrade.revert());
+          return true;
+        } catch (error) {
+          if (!isElevated(error)) throw error;
+          setHeld({ action, message: errorText(error), version });
+          reload();
+          return false;
+        }
       },
-    });
+      {
+        onSuccess: (done) => {
+          setConfirmApply(null);
+          setConfirmRevert(false);
+          if (done) started(action, version);
+        },
+      },
+    );
+
+  const apply = (version: string) => runUpdate("apply", version);
+  const revert = () => runUpdate("revert", "");
 
   const savePolicy = () =>
     void runAction(
@@ -176,6 +215,7 @@ export default function Updates() {
   if (!data) return null;
 
   const staged = data.stagedVersion;
+  const openShells = data.activeElevations ?? [];
 
   return (
     <div className="flex flex-col gap-5 p-5.5">
@@ -190,6 +230,47 @@ export default function Updates() {
         <Alert title="Reverting to the other slot" tone="warn">
           The appliance is rebooting into the previous release. Sign in again when it&apos;s back.
         </Alert>
+      )}
+      {held && (
+        <section aria-label={held.action === "apply" ? "Apply refused" : "Revert refused"}>
+          <Alert
+            title={held.action === "apply" ? "The apply was refused" : "The revert was refused"}
+            tone="danger"
+          >
+            <div className="flex flex-col gap-2">
+              <p>{held.message}</p>
+              {openShells.map((elevation) => (
+                <div className="flex flex-wrap items-center gap-3" key={elevation.id}>
+                  <p>{holder(elevation)}</p>
+                  {isOwner && (
+                    <Button
+                      onClick={() => setOverride({ elevation, held })}
+                      size="sm"
+                      variant="danger"
+                    >
+                      {`End ${elevation.admin}'s shell and ${held.action}`}
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </Alert>
+        </section>
+      )}
+      {!held && openShells.length > 0 && (
+        <section aria-label="Elevated shell open">
+          <Alert title="An elevated shell is open" tone="warn">
+            <div className="flex flex-col gap-1">
+              {openShells.map((elevation) => (
+                <p key={elevation.id}>{holder(elevation)}</p>
+              ))}
+              <p>
+                Apply and Revert are refused until it ends
+                {isOwner ? ", or an owner ends it with an override" : ""}.
+              </p>
+            </div>
+          </Alert>
+        </section>
       )}
       {data.failedVersion && (
         <Alert title={`${data.failedVersion} failed to boot`} tone="danger">
@@ -343,6 +424,18 @@ export default function Updates() {
         )}
       </Dialog>
 
+      <Dialog onOpenChange={(open) => !open && setOverride(null)} open={!!override}>
+        {override && (
+          <OverrideDialog
+            action={override.held.action}
+            elevation={override.elevation}
+            onCancel={() => setOverride(null)}
+            onDone={() => started(override.held.action, override.held.version)}
+            version={override.held.version}
+          />
+        )}
+      </Dialog>
+
       <Dialog onOpenChange={setConfirmRevert} open={confirmRevert}>
         <DialogContent>
           <DialogHeader>
@@ -470,6 +563,87 @@ const ApplyDialog = ({
         </Button>
         <Button disabled={typed.trim() !== version} onClick={onApply} variant="danger">
           Apply and reboot
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+};
+
+/**
+ * The owner's override of an open elevated shell: the session's admin and id typed to confirm,
+ * and a reason for the audit log. The box ends the session and applies (or reverts) only once
+ * it has ended; its refusal stays in the dialog.
+ */
+const OverrideDialog = ({
+  action,
+  elevation,
+  onCancel,
+  onDone,
+  version,
+}: {
+  action: Held["action"];
+  elevation: Elevation;
+  onCancel: () => void;
+  onDone: () => void;
+  version: string;
+}) => {
+  const [typed, setTyped] = useState("");
+  const [reason, setReason] = useState("");
+  const [refusal, setRefusal] = useState("");
+  const want = `${elevation.admin} ${elevation.id}`;
+  const submit = () => {
+    setRefusal("");
+    const elevationOverride: ElevationOverride = {
+      confirm: typed.trim(),
+      elevationId: elevation.id,
+      reason: reason.trim(),
+    };
+    void runAction(
+      async () => {
+        try {
+          await (action === "apply"
+            ? upgrade.apply(elevationOverride)
+            : upgrade.revert(elevationOverride));
+          return true;
+        } catch (error) {
+          if (isStepUpRequired(error)) throw error;
+          setRefusal(errorText(error));
+          return false;
+        }
+      },
+      { onSuccess: (done) => done && onDone() },
+    );
+  };
+  return (
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>
+          End {elevation.admin}&apos;s elevated shell and{" "}
+          {action === "apply" ? `apply ${version}` : "revert"}
+        </DialogTitle>
+        <DialogDescription>
+          {elevation.admin}&apos;s root shell ({elevation.id}) ends at once, and the end is written
+          to the OS audit log with your reason. The {action === "apply" ? "apply" : "revert"} goes
+          ahead once the session has ended, and the appliance reboots.
+        </DialogDescription>
+      </DialogHeader>
+      <Field label="Reason">
+        <Input onChange={(event) => setReason(event.target.value)} value={reason} />
+      </Field>
+      <Field label={`Type ${want} to confirm`}>
+        <Input mono onChange={(event) => setTyped(event.target.value)} value={typed} />
+      </Field>
+      {refusal && <Alert tone="danger">{refusal}</Alert>}
+      <DialogFooter>
+        <Button onClick={onCancel} variant="secondary">
+          Cancel
+        </Button>
+        <Button
+          disabled={typed.trim() !== want || !reason.trim()}
+          onClick={submit}
+          variant="danger"
+        >
+          {action === "apply" ? "End the shell and apply" : "End the shell and revert"}
         </Button>
       </DialogFooter>
     </DialogContent>

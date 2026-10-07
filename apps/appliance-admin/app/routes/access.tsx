@@ -1,9 +1,16 @@
 import {
+  Alert,
   Badge,
   Button,
   Card,
   CardHeader,
   Checkbox,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   Field,
   Input,
   Label,
@@ -13,6 +20,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  shortDate,
   Table,
   TableBody,
   TableCell,
@@ -22,10 +30,11 @@ import {
 } from "@sneakers-web/ui";
 import { useEffect, useState } from "react";
 
-import type { Admin, Elevation, ListAdminsResponse } from "@/lib/osadmin/types";
+import type { Admin, Elevation, ListAdminsResponse, RevokedKey } from "@/lib/osadmin/types";
 
 import { runAction } from "@/lib/osadmin/action";
 import { access, elevation as elevationClient } from "@/lib/osadmin/client";
+import { isStepUpRequired } from "@/lib/osadmin/errors";
 import { useSession } from "@/lib/useSession";
 
 export default function Access() {
@@ -41,6 +50,7 @@ export default function Access() {
   const [maxMinutes, setMaxMinutes] = useState(240);
   const [defaultMinutes, setDefaultMinutes] = useState(60);
   const [selfApproval, setSelfApproval] = useState(false);
+  const [unrevoking, setUnrevoking] = useState<null | RevokedKey>(null);
 
   const reload = () =>
     void access.list().then((response) => {
@@ -59,6 +69,7 @@ export default function Access() {
   }, []);
 
   if (!data) return null;
+  const revokedKeys = data.revokedKeys ?? [];
 
   return (
     <div className="flex flex-col gap-5 p-5.5">
@@ -193,6 +204,60 @@ export default function Access() {
           </form>
         )}
       </Card>
+      <Card>
+        <CardHeader title="Revoked login keys" />
+        <p className="px-5.5 pt-4 text-small text-muted">
+          A removed login key stays on sshd&apos;s revocation list, so it can&apos;t sign in or be
+          added to any admin, until an owner un-revokes it.
+        </p>
+        <Table aria-label="Revoked login keys">
+          <TableHead>
+            <TableRow>
+              <TableHeaderCell>Belonged to</TableHeaderCell>
+              <TableHeaderCell>Key</TableHeaderCell>
+              <TableHeaderCell>Type</TableHeaderCell>
+              <TableHeaderCell>Revoked</TableHeaderCell>
+              <TableHeaderCell />
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {revokedKeys.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5}>No revoked keys.</TableCell>
+              </TableRow>
+            )}
+            {revokedKeys.map((key) => (
+              <TableRow key={key.fingerprint}>
+                <TableCell>{key.admin}</TableCell>
+                <TableCell className="font-mono text-[0.8125rem] break-all">
+                  {key.fingerprint}
+                </TableCell>
+                <TableCell>{key.type}</TableCell>
+                <TableCell>{key.revoked ? shortDate(key.revoked) : ""}</TableCell>
+                <TableCell>
+                  {isOwner && (
+                    <Button onClick={() => setUnrevoking(key)} size="sm" variant="secondary">
+                      Un-revoke
+                    </Button>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
+      <Dialog onOpenChange={(open) => !open && setUnrevoking(null)} open={!!unrevoking}>
+        {unrevoking && (
+          <UnrevokeDialog
+            onCancel={() => setUnrevoking(null)}
+            onDone={() => {
+              setUnrevoking(null);
+              reload();
+            }}
+            revokedKey={unrevoking}
+          />
+        )}
+      </Dialog>
       <Card>
         <CardHeader title="Host key fingerprints" />
         <div className="flex flex-col gap-1 p-5.5 font-mono text-[0.8125rem]">
@@ -347,3 +412,55 @@ export default function Access() {
     </div>
   );
 }
+
+/** Owner, step-up: the key comes off the revocation list; it isn't added back to anyone. */
+const UnrevokeDialog = ({
+  onCancel,
+  onDone,
+  revokedKey,
+}: {
+  onCancel: () => void;
+  onDone: () => void;
+  revokedKey: RevokedKey;
+}) => {
+  const [refusal, setRefusal] = useState("");
+  const submit = () => {
+    setRefusal("");
+    void runAction(
+      async () => {
+        try {
+          await access.unrevokeKey(revokedKey.fingerprint);
+          return true;
+        } catch (error) {
+          if (isStepUpRequired(error)) throw error;
+          setRefusal(error instanceof Error ? error.message : "The appliance refused.");
+          return false;
+        }
+      },
+      { onSuccess: (done) => done && onDone() },
+    );
+  };
+  return (
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>Un-revoke {revokedKey.admin}&apos;s key</DialogTitle>
+        <DialogDescription>
+          The key comes off sshd&apos;s revocation list, so it can be added to an admin again. It
+          isn&apos;t added back to anyone by this.
+        </DialogDescription>
+      </DialogHeader>
+      <p className="font-mono text-[0.8125rem] break-all">
+        {revokedKey.type} {revokedKey.fingerprint}
+      </p>
+      {refusal && <Alert tone="danger">{refusal}</Alert>}
+      <DialogFooter>
+        <Button onClick={onCancel} variant="secondary">
+          Cancel
+        </Button>
+        <Button onClick={submit} variant="danger">
+          Un-revoke key
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+};

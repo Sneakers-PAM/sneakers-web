@@ -21,7 +21,9 @@ CHROME_PATH=/usr/bin/google-chrome npm run gallery:appliance-admin
 This builds the mock app, serves it the way osadmin does (same `Content-Security-Policy` and
 other headers, page routes falling back to `index.html`) and opens it in headless Chrome. It
 shoots the signed-out pages, signs in with the dev quick login, then shoots every page in the
-frame, at 1280 and 390 px. Each shot waits for the running app's ready marker
+frame, at 1280 and 390 px, then the pages again in the mock states a fresh box doesn't show
+(`SCENARIOS` in `scripts/gallery-appliance-admin.mjs`, such as Updates with an elevated shell
+open). Each shot waits for the running app's ready marker
 (`data-app-ready` on `<html>`, set once the route has rendered and its API calls have
 answered), so a build that never starts can't pass.
 

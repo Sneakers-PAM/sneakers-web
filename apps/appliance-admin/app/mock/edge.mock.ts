@@ -4,6 +4,7 @@ import type { Edge } from "@/lib/osadmin/edgeTypes";
 import type {
   Admin,
   BackupPolicy,
+  ElevationOverride,
   ElevationPolicy,
   FactoryReset,
   NetdSettings,
@@ -25,6 +26,7 @@ const modules = structuredClone(world.MODULES);
 const recoveryKeys = structuredClone(world.RECOVERY_KEYS);
 const admins = structuredClone(world.ADMINS);
 const elevations = structuredClone(world.ELEVATIONS);
+const revokedKeys = structuredClone(world.REVOKED_KEYS);
 const auditEvents = structuredClone(world.AUDIT_EVENTS);
 let quorum = structuredClone(world.QUORUM);
 let elevationPolicy = structuredClone(world.ELEVATION_POLICY);
@@ -67,6 +69,7 @@ const caller = (): string => getSession()?.admin ?? "";
 
 /** The step-up-gated methods refuse once after the "stepup" scenario, as a stale sign-in would. */
 const STEP_UP_METHODS = new Set([
+  "AccessService/UnrevokeKey",
   "PowerService/ApproveFactoryReset",
   "PowerService/StartFactoryReset",
   "UpgradeService/ApplyUpdate",
@@ -75,12 +78,17 @@ const STEP_UP_METHODS = new Set([
   "UpgradeService/StageUpdate",
 ]);
 
-const historyEntry = (action: "apply" | "fetch" | "revert" | "stage", version: string, code = "") =>
+const historyEntry = (
+  action: "apply" | "fetch" | "revert" | "stage",
+  version: string,
+  code = "",
+  detail = "",
+) =>
   upgradeHistory.unshift({
     action,
     actor: caller(),
     code,
-    detail: "",
+    detail,
     outcome: code ? "failed" : "ok",
     time: new Date().toISOString(),
     version,
@@ -120,6 +128,63 @@ const verify = async (uploadId: string): Promise<UpdatePackage> => {
     uploadId,
     version: patch ? "0.1.1" : "0.2.0",
   };
+};
+
+const isOwner = (name: string) => findAdmin(name)?.role === "ROLE_OWNER";
+
+const removeKeys = (admin: Admin, fingerprints: string[]) => {
+  for (const key of admin.keys.filter((k) => fingerprints.includes(k.fingerprint)))
+    revokedKeys.push({
+      admin: admin.name,
+      fingerprint: key.fingerprint,
+      revoked: new Date().toISOString(),
+      type: key.type,
+    });
+  admin.keys = admin.keys.filter((k) => !fingerprints.includes(k.fingerprint));
+};
+
+// Apply and Revert refuse while an elevated shell is open, unless an owner's override names it
+// with the typed "<admin> <id>" and a reason; the shell is ended before the update goes ahead,
+// as on the box. Returns the history line's detail.
+const holdForElevation = (what: string, override?: ElevationOverride): string => {
+  const open = elevations.filter((item) => item.state === "active");
+  const other = open.find((item) => item.id !== override?.elevationId);
+  if (other)
+    throw new OsadminError(
+      "failed_precondition",
+      `UPGRADE_ELEVATED: ${other.admin} has an elevated shell open (${other.id}); it must end, or an owner ends it with an override, before the ${what}`,
+    );
+  const held = open.find((item) => item.id === override?.elevationId);
+  if (!held || !override) return "";
+  if (!isOwner(caller()))
+    throw new OsadminError(
+      "permission_denied",
+      "ACCESS_FORBIDDEN: only an owner can end an elevated shell to apply or revert",
+    );
+  const want = `${held.admin} ${held.id}`;
+  if (override.confirm.trim() !== want)
+    throw new OsadminError(
+      "invalid_argument",
+      `ACCESS_CONFIRM: type "${want}" to confirm ending ${held.admin}'s elevated shell`,
+    );
+  if (!override.reason.trim())
+    throw new OsadminError(
+      "invalid_argument",
+      `ACCESS_CONFIRM: say why ${held.admin}'s elevated shell is ended, in at most 500 characters`,
+    );
+  held.state = "ended";
+  auditEvents.unshift({
+    action: "elevation.terminate",
+    actor: caller(),
+    code: "",
+    detail: { admin: held.admin, for: what, reason: override.reason.trim() },
+    keyFingerprint: "",
+    outcome: "ok",
+    sourceAddress: "192.0.2.10",
+    target: held.id,
+    time: new Date().toISOString(),
+  });
+  return `ended elevated shell ${held.id}`;
 };
 
 const powerState = () => {
@@ -244,17 +309,30 @@ const route = async (service: string, method: string, body: Record<string, unkno
       return { key };
     }
     case "AccessService/ListAdmins": {
-      return { admins, elevationPolicy, hostKeys: world.HOST_KEYS, quorum };
+      return {
+        admins,
+        elevationPolicy,
+        hostKeys: world.HOST_KEYS,
+        quorum,
+        revokedKeys: structuredClone(revokedKeys),
+      };
     }
     case "AccessService/RemoveAdmin": {
       if (admins.length <= 1) throw new OsadminError("failed_precondition", "ACCESS_LAST_OWNER");
       const index = admins.findIndex((a) => a.name === body.name);
-      if (index !== -1) admins.splice(index, 1);
+      const admin = admins[index];
+      if (admin) {
+        removeKeys(
+          admin,
+          admin.keys.map((k) => k.fingerprint),
+        );
+        admins.splice(index, 1);
+      }
       return {};
     }
     case "AccessService/RemoveKey": {
       const admin = findAdmin(body.admin as string);
-      if (admin) admin.keys = admin.keys.filter((k) => k.fingerprint !== body.fingerprint);
+      if (admin) removeKeys(admin, [body.fingerprint as string]);
       return {};
     }
     case "AccessService/SetElevationPolicy": {
@@ -272,6 +350,21 @@ const route = async (service: string, method: string, body: Record<string, unkno
     case "AccessService/SetRole": {
       const admin = findAdmin(body.name as string);
       if (admin) admin.role = body.role as Admin["role"];
+      return {};
+    }
+    case "AccessService/UnrevokeKey": {
+      if (!isOwner(caller()))
+        throw new OsadminError(
+          "permission_denied",
+          "ACCESS_FORBIDDEN: only an owner can un-revoke a key",
+        );
+      const index = revokedKeys.findIndex((k) => k.fingerprint === body.fingerprint);
+      if (index === -1)
+        throw new OsadminError(
+          "invalid_argument",
+          `ACCESS_KEY_TYPE: key ${String(body.fingerprint)} isn't revoked`,
+        );
+      revokedKeys.splice(index, 1);
       return {};
     }
     case "AuditService/ListEvents": {
@@ -501,7 +594,11 @@ const route = async (service: string, method: string, body: Record<string, unkno
     case "UpgradeService/ApplyUpdate": {
       if (!stagedVersion)
         throw new OsadminError("failed_precondition", "UPGRADE_NOT_STAGED: no release is staged");
-      historyEntry("apply", stagedVersion);
+      const detail = holdForElevation(
+        "update applies",
+        body.elevationOverride as ElevationOverride | undefined,
+      );
+      historyEntry("apply", stagedVersion, "", detail);
       runningVersion = stagedVersion;
       stagedVersion = "";
       return {};
@@ -528,6 +625,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
     }
     case "UpgradeService/GetUpgrades": {
       return {
+        activeElevations: structuredClone(elevations.filter((item) => item.state === "active")),
         airGapped: !upgradePolicy.mirrorUrl,
         failedVersion,
         history: structuredClone(upgradeHistory),
@@ -537,7 +635,11 @@ const route = async (service: string, method: string, body: Record<string, unkno
       };
     }
     case "UpgradeService/RevertUpdate": {
-      historyEntry("revert", "");
+      const detail = holdForElevation(
+        "update reverts",
+        body.elevationOverride as ElevationOverride | undefined,
+      );
+      historyEntry("revert", "", "", detail);
       return {};
     }
     case "UpgradeService/SetUpgradePolicy": {
@@ -614,6 +716,7 @@ const refill = <T>(target: T[], source: readonly T[]) => {
 
 export type MockScenario =
   | "air-gapped"
+  | "elevated"
   | "failed"
   | "manual"
   | "reset-countdown"
@@ -644,6 +747,11 @@ export const applyMockScenario = (scenario: MockScenario): void => {
   switch (scenario) {
     case "air-gapped": {
       upgradePolicy = { ...upgradePolicy, mirrorUrl: "" };
+      break;
+    }
+    case "elevated": {
+      if (!elevations.some((item) => item.id === world.ACTIVE_ELEVATION.id))
+        elevations.push(structuredClone(world.ACTIVE_ELEVATION));
       break;
     }
     case "failed": {
@@ -694,6 +802,7 @@ export const applyMockScenario = (scenario: MockScenario): void => {
 
 const SCENARIOS = new Set<string>([
   "air-gapped",
+  "elevated",
   "failed",
   "manual",
   "reset-countdown",
@@ -741,6 +850,7 @@ export const resetMockWorld = (): void => {
   refill(recoveryKeys, world.RECOVERY_KEYS);
   refill(admins, world.ADMINS);
   refill(elevations, world.ELEVATIONS);
+  refill(revokedKeys, world.REVOKED_KEYS);
   refill(auditEvents, world.AUDIT_EVENTS);
   refill(backupSets, world.BACKUP_SETS);
 };

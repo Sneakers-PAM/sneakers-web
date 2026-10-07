@@ -162,11 +162,22 @@ export interface Quorum {
   required: number;
 }
 
+/** A removed login key, on sshd's revocation list until an owner un-revokes it. */
+export interface RevokedKey {
+  /** Who the key belonged to. */
+  admin: string;
+  fingerprint: string;
+  revoked?: string;
+  type: string;
+}
+
 export interface ListAdminsResponse {
   admins: Admin[];
   elevationPolicy?: ElevationPolicy;
   hostKeys: HostKey[];
   quorum?: Quorum;
+  /** Empty lists are left out of the JSON. */
+  revokedKeys?: RevokedKey[];
 }
 
 // ---- elevation ----
@@ -181,6 +192,7 @@ export interface Elevation {
   reason: string;
   requested?: string;
   sourceAddress: string;
+  started?: string;
   state: ElevationState;
 }
 
@@ -312,7 +324,20 @@ export interface UpgradeEvent {
   version: string;
 }
 
+/**
+ * An owner's override of an open elevated shell on Apply or Revert: the session is ended,
+ * audited with the reason, and the update goes ahead once its end is reported.
+ */
+export interface ElevationOverride {
+  /** Typed by the owner: the session's admin, a space and the request id ("bob E-7KQ2"). */
+  confirm: string;
+  elevationId: string;
+  reason: string;
+}
+
 export interface GetUpgradesResponse {
+  /** The elevated shells open now; Apply and Revert are refused while there is one. */
+  activeElevations?: Elevation[];
   airGapped: boolean;
   failedVersion: string;
   history: UpgradeEvent[];

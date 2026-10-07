@@ -10,6 +10,7 @@ import type {
   BackupSet,
   BeginSignInResponse,
   Certificate,
+  ElevationOverride,
   ElevationPolicy,
   FactoryReset,
   GetBackupsResponse,
@@ -86,6 +87,9 @@ export const access = {
     call<Record<string, never>>("AccessService", "SetQuorum", { members, required }),
   setRole: (name: string, role: Admin["role"]) =>
     call<Record<string, never>>("AccessService", "SetRole", { name, role }),
+  /** Takes a removed key off sshd's revocation list, so it can be added to an admin again. */
+  unrevokeKey: (fingerprint: string) =>
+    call<Record<string, never>>("AccessService", "UnrevokeKey", { fingerprint }),
 };
 
 export const elevation = {
@@ -132,11 +136,14 @@ export const backup = {
 };
 
 export const upgrade = {
-  apply: () => call<Record<string, never>>("UpgradeService", "ApplyUpdate"),
+  /** With an override, the named elevated shell is ended first (owner, step-up). */
+  apply: (elevationOverride?: ElevationOverride) =>
+    call<Record<string, never>>("UpgradeService", "ApplyUpdate", { elevationOverride }),
   fetch: (fileName: string) =>
     call<{ uploadId: string }>("UpgradeService", "FetchUpdate", { fileName }),
   get: () => call<GetUpgradesResponse>("UpgradeService", "GetUpgrades"),
-  revert: () => call<Record<string, never>>("UpgradeService", "RevertUpdate"),
+  revert: (elevationOverride?: ElevationOverride) =>
+    call<Record<string, never>>("UpgradeService", "RevertUpdate", { elevationOverride }),
   setPolicy: (policy: UpgradePolicy) =>
     call<Record<string, never>>("UpgradeService", "SetUpgradePolicy", { policy }),
   /** Verifies the upload's signature, channel and hash, and only then unpacks and stages it. */

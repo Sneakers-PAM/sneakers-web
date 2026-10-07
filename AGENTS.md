@@ -116,6 +116,16 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   then unpacks and stages, so the page shows "Verifying" while it runs, then either the verified
   header or the refusal's reason in place (never a toast). Apply needs the staged version typed;
   apply, revert, stage and the update window are owner and step-up. Admins see the state only.
+  While an elevated shell is open (`GetUpgrades.activeElevations`) the page names who holds it,
+  and an apply or revert the box refuses with `UPGRADE_ELEVATED` stays on the page with the
+  holder. From there an owner can end the shell: the override dialog takes a reason and the
+  session's admin and id typed (`bob E-9M4T`), and sends them as `elevationOverride` on the same
+  Apply or Revert; the box ends the session, audited, before the update goes ahead. A refusal of
+  the override stays in the dialog.
+- **Access (`app/routes/access.tsx`).** Besides the admins, keys, host keys, elevation policy,
+  quorum and elevation requests, it lists the revoked login keys (`ListAdmins.revokedKeys`: whose
+  key it was, the fingerprint, the type and when it was revoked). Owners get Un-revoke
+  (`UnrevokeKey`, step-up) behind a confirmation dialog, which keeps the box's refusal in place.
 - **Factory reset (`app/routes/power.tsx`).** Owner only, after typing the box's host name; not
   offered when `GetPower` says it's unavailable (a single admin), with the reason. A request shows
   M of N and each roster member's approval; a member who hasn't approved gets Approve (the server
@@ -125,11 +135,13 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   progress.
 - **Mock scenarios.** `applyMockScenario` (`app/mock/edge.mock.ts`), or `?mockScenario=a,b` on a
   mock build's URL, puts the mock box into a state for the tests and the review screen list:
-  `air-gapped`, `staged`, `failed`, `manual`, `uploading` and `verifying` (the upload or the
+  `air-gapped`, `staged`, `failed`, `manual`, `elevated` (bob has an elevated shell open, so
+  Apply and Revert are refused without an owner's override), `uploading` and `verifying` (the upload or the
   verification never finishes), `stepup` (the next step-up-gated call is refused once, and the
   fresh sign-in is never approved, so the dialog stays up), `single-admin`, `reset-pending` and
   `reset-countdown`. The mock verifies an upload by its content: one containing "tampered" fails
-  the signature, "lab" the channel, and "patch" is a patch for the running version.
+  the signature, "lab" the channel, and "patch" is a patch for the running version. A key removed
+  in the mock lands on its revoked list, as on the box, and the world starts with one revoked key.
 - **Advanced disclosure.** The trust/PKI details on Certificates, the whole Add-on modules page
   and the Logs page's support bundle sit behind `app/components/Advanced.tsx`, a plain
   `<details>` -- no new kit component needed for a collapsed-by-default section.
