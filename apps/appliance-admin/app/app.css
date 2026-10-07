@@ -1,5 +1,7 @@
 @import "tailwindcss";
 @import "@sneakers-web/ui/laces.css";
 @import "@sneakers-web/shell/styles.css";
+/* sonner's toast styles as a file: the build drops its runtime <style> (app/csp/sonnerStyles.ts). */
+@import "sonner/dist/styles.css";
 
 @source "./";

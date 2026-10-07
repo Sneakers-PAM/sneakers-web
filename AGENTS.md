@@ -57,9 +57,26 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   plus `POST /upload` (a `.bin` body) and `GET /export/audit-log`. `app/lib/osadmin/client.ts` is
   a thin, hand-written wrapper (there is no generated Connect-ES client yet) over
   `app/lib/osadmin/types.ts`, which mirrors the protos in sneakers-appliance's
-  `proto/sneakers/appliance/osadmin/v1/*.proto`. `:8443` sends
-  `Content-Security-Policy: default-src 'self'`, so no inline scripts or styles anywhere in this
-  app.
+  `proto/sneakers/appliance/osadmin/v1/*.proto`.
+- **Strict CSP, no inline anything.** `sneakers-osadmin` sets the header on every :8443 response
+  (`SecurityHeaders` in sneakers-appliance's `internal/osadmin/server.go`):
+  `default-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`, with no
+  `unsafe-inline`, `unsafe-eval` or hashes. So the build keeps every script and style in a file:
+  - React Router's SPA prerender writes its bootstrap and hydration data as inline scripts; the
+    `buildEnd` hook in `react-router.config.ts` moves each one to `assets/inline-<sha256>.js`
+    and points the tag at it (`app/csp/inline.ts`), in the same order.
+  - sonner (the toasts) inserts its CSS as a runtime `<style>`; a Vite plugin
+    (`app/csp/sonnerStyles.ts`) drops that insert and `app/app.css` imports
+    `sonner/dist/styles.css` instead. The build fails if a new sonner changes how it injects.
+  - The shell's `Document` leaves the `--text-scale` style attribute off at the default size,
+    so the prerendered `<html>` carries none.
+  - `npm run check:csp` (in `npm run check` and the Test workflow) fails if a built page, live
+    or mock, has an inline script or style, a style or event handler attribute, a `javascript:`
+    URL or a resource from another origin. It reads HTML only, so runtime injection is the
+    browser test's job: `e2e/appliance-csp.spec.ts` (the `appliance-csp` Playwright project, in
+    `npm run test:e2e`) serves the live build with osadmin's headers
+    (`e2e/applianceAdminServer.mjs`) in Chrome, and checks the sign-in page renders, runs and
+    logs no CSP violation. Run it alone with `npx playwright test --project appliance-csp`.
 - **Its own edge, not `@sneakers-web/edge.server`.** `app/lib/edge.live.ts` (real `fetch`) and
   `app/mock/edge.mock.ts` (an in-memory fake, no MSW and no service worker, since there's no
   server process to intercept) both implement `app/lib/osadmin/edgeTypes.ts`'s `Edge` interface.

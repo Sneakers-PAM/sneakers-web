@@ -1,5 +1,6 @@
 import { setLogLevel } from "@sneakers-web/api-client";
 import {
+  DEFAULT_DISPLAY,
   displayClassName,
   type DisplaySettings,
   LiveRegion,
@@ -38,7 +39,13 @@ export const Document = ({ children }: { children: ReactNode }) => {
     <html
       className={displayClassName(display)}
       lang="en"
-      style={{ "--text-scale": String(display.textScale) } as React.CSSProperties}
+      // The stylesheet's default is 1; leaving the attribute off then keeps the appliance
+      // admin's prerendered shell inside a `default-src 'self'` CSP.
+      style={
+        display.textScale === DEFAULT_DISPLAY.textScale
+          ? undefined
+          : ({ "--text-scale": String(display.textScale) } as React.CSSProperties)
+      }
     >
       <head>
         <meta charSet="utf-8" />

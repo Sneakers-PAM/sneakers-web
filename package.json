@@ -42,7 +42,8 @@
     "schema:generate": "bash scripts/schema-generate.sh",
     "check:no-mock": "node scripts/check-no-mock.mjs",
     "check:assets": "node scripts/check-assets.mjs",
-    "check": "npm run lint && npm run typecheck && npm test && npm run build && npm run build:mock && npm run check:no-mock && npm run check:assets"
+    "check:csp": "node scripts/check-csp.mjs",
+    "check": "npm run lint && npm run typecheck && npm test && npm run build && npm run build:mock && npm run check:no-mock && npm run check:assets && npm run check:csp"
   },
   "devDependencies": {
     "@graphql-codegen/cli": "^7.4.3",

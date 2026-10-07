@@ -7,6 +7,8 @@ const STAFF_PORT = 4176;
 const ADMIN_PORT = 4177;
 // A second admin server that starts as a fresh install, for first-run setup.
 const FRESH_PORT = 4178;
+// The appliance admin's live build, served with osadmin's headers (e2e/applianceAdminServer.mjs).
+const APPLIANCE_PORT = 4179;
 
 // The staff server trusts a proxy in front of it and the admin server doesn't, so e2e/proxy.spec.ts
 // can check both.
@@ -34,6 +36,14 @@ const fresh = {
   url: `http://127.0.0.1:${FRESH_PORT}/admin/healthz`,
 };
 
+const appliance = {
+  command: "npm run build -w @sneakers-web/appliance-admin && node e2e/applianceAdminServer.mjs",
+  env: { PORT: String(APPLIANCE_PORT) },
+  reuseExistingServer: false,
+  timeout: 180_000,
+  url: `http://127.0.0.1:${APPLIANCE_PORT}/favicon.svg`,
+};
+
 export default defineConfig({
   forbidOnly: !!process.env.CI,
   projects: [
@@ -53,6 +63,11 @@ export default defineConfig({
       testMatch: "setup.spec.ts",
       use: { ...devices["Desktop Chrome"], baseURL: `http://127.0.0.1:${FRESH_PORT}` },
     },
+    {
+      name: "appliance-csp",
+      testMatch: "appliance-csp.spec.ts",
+      use: { ...devices["Desktop Chrome"], baseURL: `http://127.0.0.1:${APPLIANCE_PORT}` },
+    },
   ],
   reporter: process.env.CI ? "github" : "list",
   retries: process.env.CI ? 1 : 0,
@@ -61,5 +76,5 @@ export default defineConfig({
     launchOptions: process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {},
     trace: "retain-on-failure",
   },
-  webServer: [serve("staff", STAFF_PORT, "1"), serve("admin", ADMIN_PORT), fresh],
+  webServer: [serve("staff", STAFF_PORT, "1"), serve("admin", ADMIN_PORT), fresh, appliance],
 });
