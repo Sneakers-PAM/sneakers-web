@@ -13,3 +13,15 @@ export const routePattern = (
   }
   return pattern;
 };
+
+/**
+ * The bundle's `path`: the route pattern, or "*" when no route matched (the splat route, or
+ * no match at all), so an unmatched URL is never copied as typed.
+ */
+export const issuePath = (
+  pathname: string | undefined,
+  parameters: Readonly<Record<string, string>>,
+): string => {
+  if (pathname === undefined || "*" in parameters) return "*";
+  return routePattern(pathname, parameters);
+};

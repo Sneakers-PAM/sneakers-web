@@ -57,6 +57,12 @@ export interface IssueCopyInput {
 /** The ring buffer's capacity: `lastErr` is the newest entry, `recentErrors` the rest. */
 export const MAX_ERRORS = 5;
 
+const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/i;
+const UUID = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
+
+/** Only ids travel in `params`: anything else (a username, a serial) could name a person or a box. */
+const isId = (value: string): boolean => ULID.test(value) || UUID.test(value);
+
 const text = (s: string | undefined): string | undefined => (s ? scrub(s) : undefined);
 
 /** Build the schema v1 bundle, in the exact key order above. */
@@ -72,11 +78,8 @@ export const buildIssueCopyBundle = (input: IssueCopyInput): IssueCopyBundle => 
   if (route) bundle.route = route;
   const path = text(input.path);
   if (path) bundle.path = path;
-  if (input.params && Object.keys(input.params).length > 0) {
-    bundle.params = Object.fromEntries(
-      Object.entries(input.params).map(([key, value]) => [key, scrub(value)]),
-    );
-  }
+  const ids = Object.entries(input.params ?? {}).filter(([, value]) => isId(value));
+  if (ids.length > 0) bundle.params = Object.fromEntries(ids);
   const role = text(input.role);
   if (role) bundle.role = role;
   bundle.vw = input.vw;

@@ -50,6 +50,36 @@ describe("the UI issue copy ring buffer", () => {
   });
 });
 
+describe("the UI issue copy choke point", () => {
+  afterEach(() => resetIssueCopyCapture());
+
+  it("redacts every source before cutting the message to 200 characters", () => {
+    const host = "vault.sneakers.example.org";
+    for (const source of ["window", "promise", "render", "fetch"] as const) {
+      recordIssueCopyError(source, `${"x".repeat(190)} ${host}`);
+      expect(issueCopyErrors()[0]?.m).toBe(`${"x".repeat(190)} [host]`);
+    }
+  });
+
+  it("ignores clicks inside the dev button itself", () => {
+    const real = document.createElement("button");
+    real.dataset.testid = "secret-reveal";
+    document.body.append(real);
+    const item = document.createElement("div");
+    item.dataset.issueCopy = "marker";
+    const label = document.createElement("span");
+    item.append(label);
+    document.body.append(item);
+    const uninstall = installIssueCopyCapture();
+    real.click();
+    label.click();
+    expect(lastIssueCopyClick()).toBe("[data-testid=secret-reveal]");
+    uninstall();
+    real.remove();
+    item.remove();
+  });
+});
+
 describe("installIssueCopyCapture", () => {
   afterEach(() => {
     resetIssueCopyCapture();
@@ -80,5 +110,18 @@ describe("installIssueCopyCapture", () => {
     expect(globalThis.fetch).not.toBe(original);
     uninstall();
     expect(globalThis.fetch).toBe(original);
+  });
+
+  it("never replaces the caller's fetch error, even if recording it fails", async () => {
+    const failure = new Error("network down");
+    Object.defineProperty(failure, "message", {
+      get: () => {
+        throw new Error("recorder broke");
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(failure));
+    const uninstall = installIssueCopyCapture();
+    await expect(globalThis.fetch("https://sneakers.example.org/api")).rejects.toBe(failure);
+    uninstall();
   });
 });
