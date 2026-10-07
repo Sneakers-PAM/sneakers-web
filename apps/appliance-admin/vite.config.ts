@@ -5,6 +5,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { defineConfig, type UserConfig } from "vite";
 
+import { sonnerStylesFromFile } from "./app/csp/sonnerStyles.ts";
+
 const here = import.meta.dirname;
 const root = path.resolve(here, "../..");
 const MOCK_MODE = "mock";
@@ -25,7 +27,7 @@ export default defineConfig(({ mode }): UserConfig => {
       __APP_VERSION__: JSON.stringify(version),
       "import.meta.env.SNEAKERS_MOCK": JSON.stringify(mock ? "true" : "false"),
     },
-    plugins: [tailwindcss(), reactRouter()],
+    plugins: [tailwindcss(), reactRouter(), sonnerStylesFromFile()],
     preview: { port: 5180, strictPort: true },
     resolve: {
       alias: {

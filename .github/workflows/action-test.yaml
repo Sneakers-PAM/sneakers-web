@@ -64,6 +64,11 @@ jobs:
         if: matrix.node-version == 'lts/*'
         run: npm run build:mock && npm run check:no-mock
 
+      # osadmin serves the appliance admin under `default-src 'self'`: no inline script or style.
+      - name: Appliance admin CSP
+        if: matrix.node-version == 'lts/*'
+        run: npm run check:csp
+
       # The published set is whatever package.json `files` lists (dist for an app,
       # lib for a library) plus the fixed metadata. Derived, never hardcoded.
       - name: Resolve published files
