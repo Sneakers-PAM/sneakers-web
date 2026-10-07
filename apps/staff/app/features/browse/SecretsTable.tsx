@@ -66,6 +66,7 @@ export const SecretsTable = ({
 }) => {
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [sortBy, setSortBy] = useState<"name" | "type">("name");
   const [descending, setDescending] = useState(false);
   const [columns, setColumns] = useState<Set<Column>>(new Set(["heartbeat", "type"]));
   const navigate = useNavigate();
@@ -73,10 +74,22 @@ export const SecretsTable = ({
   const quickCopy = useQuickCopy();
   const retiredId = useId();
 
+  const typeNameOf = (s: BrowseSecret) => types[s.typeId]?.name ?? s.typeId;
+  const sortKeyOf = sortBy === "type" ? typeNameOf : (s: BrowseSecret) => s.name;
+  const sortHeader = (column: "name" | "type") => () =>
+    setSortBy((previous) => {
+      if (previous === column) {
+        setDescending((d) => !d);
+        return previous;
+      }
+      setDescending(false);
+      return column;
+    });
+
   const q = query.trim().toLowerCase();
   const rows = secrets
     .filter((s) => !q || s.name.toLowerCase().includes(q))
-    .toSorted((a, b) => (descending ? -1 : 1) * a.name.localeCompare(b.name));
+    .toSorted((a, b) => (descending ? -1 : 1) * sortKeyOf(a).localeCompare(sortKeyOf(b)));
   const chosen = secrets.filter((s) => picked.has(s.id));
   const allPicked = rows.length > 0 && rows.every((s) => picked.has(s.id));
 
@@ -211,20 +224,48 @@ export const SecretsTable = ({
                     }}
                   />
                 </TableHeaderCell>
-                <TableHeaderCell aria-sort={descending ? "descending" : "ascending"}>
+                <TableHeaderCell
+                  aria-sort={sortBy === "name" ? (descending ? "descending" : "ascending") : "none"}
+                >
                   <button
                     className="inline-flex items-center gap-1 uppercase"
-                    onClick={() => setDescending((d) => !d)}
+                    onClick={sortHeader("name")}
                     type="button"
                   >
                     Name
                     <ChevronDown
                       aria-hidden
-                      className={cn("size-3.5", descending && "rotate-180")}
+                      className={cn(
+                        "size-3.5",
+                        sortBy === "name" ? "opacity-100" : "opacity-0",
+                        sortBy === "name" && descending && "rotate-180",
+                      )}
                     />
                   </button>
                 </TableHeaderCell>
-                {columns.has("type") && <TableHeaderCell>Type</TableHeaderCell>}
+                {columns.has("type") && (
+                  <TableHeaderCell
+                    aria-sort={
+                      sortBy === "type" ? (descending ? "descending" : "ascending") : "none"
+                    }
+                  >
+                    <button
+                      className="inline-flex items-center gap-1 uppercase"
+                      onClick={sortHeader("type")}
+                      type="button"
+                    >
+                      Type
+                      <ChevronDown
+                        aria-hidden
+                        className={cn(
+                          "size-3.5",
+                          sortBy === "type" ? "opacity-100" : "opacity-0",
+                          sortBy === "type" && descending && "rotate-180",
+                        )}
+                      />
+                    </button>
+                  </TableHeaderCell>
+                )}
                 {columns.has("heartbeat") && <TableHeaderCell>Heartbeat</TableHeaderCell>}
                 <TableHeaderCell>
                   <span className="sr-only">Actions</span>
