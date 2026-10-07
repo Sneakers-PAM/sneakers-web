@@ -9,6 +9,7 @@ test("the sign-in page renders and runs under osadmin's CSP", async ({ page }) =
   page.on("console", (message) => {
     if (/content security policy/i.test(message.text())) violations.push(message.text());
   });
+  page.on("pageerror", (error) => violations.push(`page error: ${error.message}`));
   await page.addInitScript(() => {
     document.addEventListener("securitypolicyviolation", (event) => {
       console.error(

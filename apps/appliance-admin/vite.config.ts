@@ -5,7 +5,9 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { defineConfig, type UserConfig } from "vite";
 
+import { radixStylesFromFile } from "./app/csp/radixStyles.ts";
 import { sonnerStylesFromFile } from "./app/csp/sonnerStyles.ts";
+import { cspSafeStyleSingleton } from "./app/csp/styleSingletonPlugin.ts";
 
 const here = import.meta.dirname;
 const root = path.resolve(here, "../..");
@@ -27,7 +29,13 @@ export default defineConfig(({ mode }): UserConfig => {
       __APP_VERSION__: JSON.stringify(version),
       "import.meta.env.SNEAKERS_MOCK": JSON.stringify(mock ? "true" : "false"),
     },
-    plugins: [tailwindcss(), reactRouter(), sonnerStylesFromFile()],
+    plugins: [
+      tailwindcss(),
+      reactRouter(),
+      radixStylesFromFile(),
+      sonnerStylesFromFile(),
+      cspSafeStyleSingleton(),
+    ],
     preview: { port: 5180, strictPort: true },
     resolve: {
       alias: {

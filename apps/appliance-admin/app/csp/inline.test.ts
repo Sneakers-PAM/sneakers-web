@@ -20,10 +20,15 @@ describe("externalizeInlineScripts", () => {
     ]);
     expect(out).toBe(
       `<html><body><script src="/assets/inline-${sha("window.a = 1;")}.js"></script>` +
-        `<script type="module" async="" src="/assets/inline-${sha('import "/assets/x.js";')}.js"></script>` +
+        `<script type="module" src="/assets/inline-${sha('import "/assets/x.js";')}.js"></script>` +
         '<script src="/assets/kept.js"></script></body></html>',
     );
     expect(findCspViolations(out)).toEqual([]);
+  });
+
+  it("drops async, so React doesn't take the module script for a hoisted resource", () => {
+    const { html } = externalizeInlineScripts('<script type="module" async>m()</script>', "/");
+    expect(html).toBe(`<script type="module" src="/assets/inline-${sha("m()")}.js"></script>`);
   });
 
   it("writes one file for scripts with the same content and honours the base path", () => {

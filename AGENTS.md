@@ -64,19 +64,32 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   `unsafe-inline`, `unsafe-eval` or hashes. So the build keeps every script and style in a file:
   - React Router's SPA prerender writes its bootstrap and hydration data as inline scripts; the
     `buildEnd` hook in `react-router.config.ts` moves each one to `assets/inline-<sha256>.js`
-    and points the tag at it (`app/csp/inline.ts`), in the same order.
+    and points the tag at it (`app/csp/inline.ts`), in the same order. It drops `async` from
+    the module script: React treats `<script async src>` as a hoisted resource and the page
+    would fail to hydrate.
   - sonner (the toasts) inserts its CSS as a runtime `<style>`; a Vite plugin
     (`app/csp/sonnerStyles.ts`) drops that insert and `app/app.css` imports
-    `sonner/dist/styles.css` instead. The build fails if a new sonner changes how it injects.
+    `sonner/dist/styles.css` instead.
+  - Radix's select viewport renders an inline `<style>`; `app/csp/radixStyles.ts` replaces it
+    with nothing and `app/csp/radix.css` ships the same rules.
+  - Radix's scroll lock (react-remove-scroll) adds a `<style>` while a dialog, select or menu is
+    open; `app/csp/styleSingletonPlugin.ts` swaps react-style-singleton's singleton for
+    `app/csp/styleSingleton.ts`, which uses a constructed stylesheet instead.
+  - Each of these plugins fails the build if the package changes so the swap no longer applies.
   - The shell's `Document` leaves the `--text-scale` style attribute off at the default size,
-    so the prerendered `<html>` carries none.
+    so the prerendered `<html>` carries none. The stylesheet link in `root.tsx` has a
+    `precedence`, so React hoists it and the prerendered `<head>` hydrates.
   - `npm run check:csp` (in `npm run check` and the Test workflow) fails if a built page, live
     or mock, has an inline script or style, a style or event handler attribute, a `javascript:`
     URL or a resource from another origin. It reads HTML only, so runtime injection is the
-    browser test's job: `e2e/appliance-csp.spec.ts` (the `appliance-csp` Playwright project, in
+    browser's job: `e2e/appliance-csp.spec.ts` (the `appliance-csp` Playwright project, in
     `npm run test:e2e`) serves the live build with osadmin's headers
     (`e2e/applianceAdminServer.mjs`) in Chrome, and checks the sign-in page renders, runs and
     logs no CSP violation. Run it alone with `npx playwright test --project appliance-csp`.
+- **Review gallery.** `npm run gallery:appliance-admin` shoots every route of the running mock
+  build, served with osadmin's headers, in headless Chrome; see `apps/appliance-admin/README.md`.
+  The app sets `data-app-ready="<pathname>"` on `<html>` once a route has rendered and every API
+  call it made has answered (`app/lib/readiness.ts`, counted in `app/lib/osadmin/client.ts`).
 - **Its own edge, not `@sneakers-web/edge.server`.** `app/lib/edge.live.ts` (real `fetch`) and
   `app/mock/edge.mock.ts` (an in-memory fake, no MSW and no service worker, since there's no
   server process to intercept) both implement `app/lib/osadmin/edgeTypes.ts`'s `Edge` interface.

@@ -35,8 +35,10 @@ import type {
   UpgradePolicy,
 } from "@/lib/osadmin/types";
 
+import { trackRequest } from "@/lib/readiness";
+
 const call = <Result>(service: string, method: string, body: unknown = {}): Promise<Result> =>
-  edge.request<Result>(service, method, body);
+  trackRequest(edge.request<Result>(service, method, body));
 
 export const signIn = {
   begin: () => call<BeginSignInResponse>("SignInService", "BeginSignIn"),

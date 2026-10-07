@@ -1,0 +1,18 @@
+/* Radix renders these as inline <style> elements, which osadmin's CSP blocks; the build drops
+   them (app/csp/radixStyles.ts) and they ship here instead, with the same rules. */
+[data-radix-select-viewport] {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+[data-radix-select-viewport]::-webkit-scrollbar {
+  display: none;
+}
+[data-radix-scroll-area-viewport] {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+[data-radix-scroll-area-viewport]::-webkit-scrollbar {
+  display: none;
+}

@@ -3,5 +3,7 @@
 @import "@sneakers-web/shell/styles.css";
 /* sonner's toast styles as a file: the build drops its runtime <style> (app/csp/sonnerStyles.ts). */
 @import "sonner/dist/styles.css";
+/* Radix's inline viewport styles as a file (app/csp/radixStyles.ts). */
+@import "./csp/radix.css";
 
 @source "./";
