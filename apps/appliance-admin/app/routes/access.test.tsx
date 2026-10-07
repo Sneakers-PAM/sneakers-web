@@ -21,7 +21,37 @@ const signInAsOwner = () =>
     stepUpUntil: new Date(Date.now() + 5 * 60_000).toISOString(),
   });
 
+/** Simulate a screen of `widthPx`: every `min-width` media query answers for that width. */
+const atWidth = (widthPx: number): (() => void) => {
+  const original = globalThis.matchMedia;
+  globalThis.matchMedia = ((query: string) => {
+    const min = /min-width:\s*(\d+)px/.exec(query);
+    return {
+      addEventListener: () => {},
+      addListener: () => {},
+      dispatchEvent: () => false,
+      matches: min ? widthPx >= Number(min[1]) : false,
+      media: query,
+      onchange: null,
+      removeEventListener: () => {},
+      removeListener: () => {},
+    };
+  }) as typeof globalThis.matchMedia;
+  return () => {
+    globalThis.matchMedia = original;
+  };
+};
+
 describe("Access", () => {
+  // Every case but the phone-layout ones exercises the desktop table layout.
+  let restoreWidth: () => void;
+  beforeEach(() => {
+    restoreWidth = atWidth(1440);
+  });
+  afterEach(() => {
+    restoreWidth();
+  });
+
   it("lists the admins and their keys", async () => {
     renderPage(Access);
     const admins = within(await screen.findByRole("table", { name: "Admins" }));
@@ -201,6 +231,59 @@ describe("Access", () => {
       expect(row.getByText("unknown")).toBeInTheDocument();
     } finally {
       world.REVOKED_KEYS.pop();
+    }
+  });
+
+  it("stacks admins and revoked keys as cards at phone width, with no table", async () => {
+    const restore = atWidth(390);
+    try {
+      signInAsOwner();
+      renderPage(Access);
+      await screen.findByRole("button", { name: "Actions for alice" });
+      expect(screen.queryByRole("table", { name: "Admins" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("table", { name: "Revoked login keys" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Actions for bob" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /Actions for SHA256:oLd9Q7h5z1s/ }),
+      ).toBeInTheDocument();
+    } finally {
+      restore();
+    }
+  });
+
+  it("removes an admin's key from the card's actions menu at phone width", async () => {
+    const restore = atWidth(390);
+    try {
+      signInAsOwner();
+      const user = userEvent.setup();
+      renderPage(Access);
+      await screen.findByRole("button", { name: "Actions for bob" });
+      await user.click(screen.getByRole("button", { name: "Actions for bob" }));
+      await user.click(screen.getByRole("menuitem", { name: /Remove.*key/ }));
+      await vi.waitFor(() =>
+        expect(
+          within(screen.getByRole("group", { name: "bob" })).queryByText(/SHA256:k2m9Q7h5z1s/),
+        ).not.toBeInTheDocument(),
+      );
+    } finally {
+      restore();
+    }
+  });
+
+  it("un-revokes a key from the card's actions menu at phone width", async () => {
+    const restore = atWidth(390);
+    try {
+      signInAs("alice");
+      const user = userEvent.setup();
+      renderPage(Access);
+      await screen.findByRole("button", { name: /Actions for SHA256:oLd9Q7h5z1s/ });
+      await user.click(screen.getByRole("button", { name: /Actions for SHA256:oLd9Q7h5z1s/ }));
+      await user.click(screen.getByRole("menuitem", { name: "Un-revoke" }));
+      const dialog = await screen.findByRole("dialog");
+      await user.click(within(dialog).getByRole("button", { name: "Un-revoke key" }));
+      expect(await screen.findByText("No revoked keys.")).toBeInTheDocument();
+    } finally {
+      restore();
     }
   });
 });

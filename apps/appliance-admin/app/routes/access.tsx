@@ -11,6 +11,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Field,
   Input,
   Label,
@@ -27,7 +31,9 @@ import {
   TableHead,
   TableHeaderCell,
   TableRow,
+  useBreakpoint,
 } from "@sneakers-web/ui";
+import { MoreVertical } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 
 import type { Admin, Elevation, ListAdminsResponse, RevokedKey } from "@/lib/osadmin/types";
@@ -42,6 +48,7 @@ const clamp = (value: number, min: number, max: number): number =>
 
 export default function Access() {
   const { isOwner } = useSession();
+  const phone = useBreakpoint() === "phone";
   const roleLabelId = useId();
   const newKeyAdminLabelId = useId();
   const [data, setData] = useState<ListAdminsResponse>();
@@ -85,70 +92,96 @@ export default function Access() {
       <PageHeader eyebrow="Appliance" title="Access" />
       <Card>
         <CardHeader title="Admins" />
-        <Table aria-label="Admins">
-          <TableHead>
-            <TableRow>
-              <TableHeaderCell>Name</TableHeaderCell>
-              <TableHeaderCell>Role</TableHeaderCell>
-              <TableHeaderCell>Keys</TableHeaderCell>
-              <TableHeaderCell />
-            </TableRow>
-          </TableHead>
-          <TableBody>
+        {phone ? (
+          <ul className="flex flex-col gap-3 p-5.5">
             {data.admins.map((admin) => (
-              <TableRow key={admin.name}>
-                <TableCell>{admin.name}</TableCell>
-                <TableCell>
-                  <Badge tone={admin.role === "ROLE_OWNER" ? "primary" : "neutral"}>
-                    {admin.role === "ROLE_OWNER" ? "owner" : "admin"}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <ul className="flex flex-col gap-1">
-                    {admin.keys.map((key) => (
-                      <li
-                        className="flex items-center gap-2 font-mono text-[0.8125rem]"
-                        key={key.fingerprint}
-                      >
-                        {key.fingerprint} ({key.type})
-                        <Button
-                          onClick={() =>
-                            void runAction(() => access.removeKey(admin.name, key.fingerprint), {
-                              onSuccess: reload,
-                            })
-                          }
-                          size="xs"
-                          variant="secondary"
-                        >
-                          Remove
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                </TableCell>
-                <TableCell>
-                  {isOwner && (
-                    <Button
-                      onClick={() => {
-                        const onRoster = quorumMembers.includes(admin.name);
-                        void runAction(() => access.removeAdmin(admin.name), {
-                          onSuccess: () => {
-                            reload();
-                            if (onRoster) setRemovedFromRoster(admin.name);
-                          },
-                        });
-                      }}
-                      size="sm"
-                      variant="secondary"
-                    >
-                      Remove admin
-                    </Button>
-                  )}
-                </TableCell>
-              </TableRow>
+              <AdminCard
+                admin={admin}
+                isOwner={isOwner}
+                key={admin.name}
+                onRemoveAdmin={() => {
+                  const onRoster = quorumMembers.includes(admin.name);
+                  void runAction(() => access.removeAdmin(admin.name), {
+                    onSuccess: () => {
+                      reload();
+                      if (onRoster) setRemovedFromRoster(admin.name);
+                    },
+                  });
+                }}
+                onRemoveKey={(fingerprint) =>
+                  void runAction(() => access.removeKey(admin.name, fingerprint), {
+                    onSuccess: reload,
+                  })
+                }
+              />
             ))}
-          </TableBody>
-        </Table>
+          </ul>
+        ) : (
+          <Table aria-label="Admins">
+            <TableHead>
+              <TableRow>
+                <TableHeaderCell>Name</TableHeaderCell>
+                <TableHeaderCell>Role</TableHeaderCell>
+                <TableHeaderCell>Keys</TableHeaderCell>
+                <TableHeaderCell />
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {data.admins.map((admin) => (
+                <TableRow key={admin.name}>
+                  <TableCell>{admin.name}</TableCell>
+                  <TableCell>
+                    <Badge tone={admin.role === "ROLE_OWNER" ? "primary" : "neutral"}>
+                      {admin.role === "ROLE_OWNER" ? "owner" : "admin"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <ul className="flex flex-col gap-1">
+                      {admin.keys.map((key) => (
+                        <li
+                          className="flex items-center gap-2 font-mono text-[0.8125rem]"
+                          key={key.fingerprint}
+                        >
+                          {key.fingerprint} ({key.type})
+                          <Button
+                            onClick={() =>
+                              void runAction(() => access.removeKey(admin.name, key.fingerprint), {
+                                onSuccess: reload,
+                              })
+                            }
+                            size="xs"
+                            variant="secondary"
+                          >
+                            Remove
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  </TableCell>
+                  <TableCell>
+                    {isOwner && (
+                      <Button
+                        onClick={() => {
+                          const onRoster = quorumMembers.includes(admin.name);
+                          void runAction(() => access.removeAdmin(admin.name), {
+                            onSuccess: () => {
+                              reload();
+                              if (onRoster) setRemovedFromRoster(admin.name);
+                            },
+                          });
+                        }}
+                        size="sm"
+                        variant="secondary"
+                      >
+                        Remove admin
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
         <div
           aria-label="Add a login key"
           className="flex flex-col gap-3 border-t border-border p-5.5"
@@ -239,43 +272,59 @@ export default function Access() {
           A removed login key stays on sshd&apos;s revocation list, so it can&apos;t sign in or be
           added to any admin, until an owner un-revokes it.
         </p>
-        <Table aria-label="Revoked login keys">
-          <TableHead>
-            <TableRow>
-              <TableHeaderCell>Belonged to</TableHeaderCell>
-              <TableHeaderCell>Key</TableHeaderCell>
-              <TableHeaderCell>Type</TableHeaderCell>
-              <TableHeaderCell>Revoked</TableHeaderCell>
-              <TableHeaderCell>Revoked by</TableHeaderCell>
-              <TableHeaderCell />
-            </TableRow>
-          </TableHead>
-          <TableBody>
+        {phone ? (
+          <ul className="flex flex-col gap-3 p-5.5 pt-0">
             {revokedKeys.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6}>No revoked keys.</TableCell>
-              </TableRow>
+              <li className="text-small text-muted">No revoked keys.</li>
             )}
             {revokedKeys.map((key) => (
-              <TableRow key={key.fingerprint}>
-                <TableCell>{key.admin}</TableCell>
-                <TableCell className="font-mono text-[0.8125rem] break-all">
-                  {key.fingerprint}
-                </TableCell>
-                <TableCell>{key.type}</TableCell>
-                <TableCell>{key.revoked ? shortDate(key.revoked) : ""}</TableCell>
-                <TableCell>{key.revokedBy || "unknown"}</TableCell>
-                <TableCell>
-                  {isOwner && (
-                    <Button onClick={() => setUnrevoking(key)} size="sm" variant="secondary">
-                      Un-revoke
-                    </Button>
-                  )}
-                </TableCell>
-              </TableRow>
+              <RevokedKeyCard
+                isOwner={isOwner}
+                key={key.fingerprint}
+                onUnrevoke={() => setUnrevoking(key)}
+                revokedKey={key}
+              />
             ))}
-          </TableBody>
-        </Table>
+          </ul>
+        ) : (
+          <Table aria-label="Revoked login keys">
+            <TableHead>
+              <TableRow>
+                <TableHeaderCell>Belonged to</TableHeaderCell>
+                <TableHeaderCell>Key</TableHeaderCell>
+                <TableHeaderCell>Type</TableHeaderCell>
+                <TableHeaderCell>Revoked</TableHeaderCell>
+                <TableHeaderCell>Revoked by</TableHeaderCell>
+                <TableHeaderCell />
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {revokedKeys.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6}>No revoked keys.</TableCell>
+                </TableRow>
+              )}
+              {revokedKeys.map((key) => (
+                <TableRow key={key.fingerprint}>
+                  <TableCell>{key.admin}</TableCell>
+                  <TableCell className="font-mono text-[0.8125rem] break-all">
+                    {key.fingerprint}
+                  </TableCell>
+                  <TableCell>{key.type}</TableCell>
+                  <TableCell>{key.revoked ? shortDate(key.revoked) : ""}</TableCell>
+                  <TableCell>{key.revokedBy || "unknown"}</TableCell>
+                  <TableCell>
+                    {isOwner && (
+                      <Button onClick={() => setUnrevoking(key)} size="sm" variant="secondary">
+                        Un-revoke
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </Card>
       <Dialog onOpenChange={(open) => !open && setUnrevoking(null)} open={!!unrevoking}>
         {unrevoking && (
@@ -467,6 +516,106 @@ export default function Access() {
     </div>
   );
 }
+
+/** An admin's row as a card, for phone widths: no horizontal scroll, actions behind a menu. */
+const AdminCard = ({
+  admin,
+  isOwner,
+  onRemoveAdmin,
+  onRemoveKey,
+}: {
+  admin: Admin;
+  isOwner: boolean;
+  onRemoveAdmin: () => void;
+  onRemoveKey: (fingerprint: string) => void;
+}) => (
+  <li
+    aria-label={admin.name}
+    className="flex flex-col gap-2 rounded-lg border border-border p-4"
+    role="group"
+  >
+    <div className="flex items-start justify-between gap-2">
+      <div className="flex flex-col gap-1.5">
+        <b className="text-body-lg">{admin.name}</b>
+        <Badge className="w-max" tone={admin.role === "ROLE_OWNER" ? "primary" : "neutral"}>
+          {admin.role === "ROLE_OWNER" ? "owner" : "admin"}
+        </Badge>
+      </div>
+      {(isOwner || admin.keys.length > 0) && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button aria-label={`Actions for ${admin.name}`} size="icon-sm" variant="secondary">
+              <MoreVertical aria-hidden />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            {admin.keys.map((key) => (
+              <DropdownMenuItem key={key.fingerprint} onSelect={() => onRemoveKey(key.fingerprint)}>
+                Remove the {key.type} key
+              </DropdownMenuItem>
+            ))}
+            {isOwner && (
+              <DropdownMenuItem onSelect={onRemoveAdmin} tone="danger">
+                Remove admin
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </div>
+    {admin.keys.length > 0 && (
+      <ul className="flex flex-col gap-1">
+        {admin.keys.map((key) => (
+          <li className="truncate font-mono text-[0.8125rem] text-muted" key={key.fingerprint}>
+            {key.fingerprint} ({key.type})
+          </li>
+        ))}
+      </ul>
+    )}
+  </li>
+);
+
+/** A revoked key's row as a card, for phone widths. */
+const RevokedKeyCard = ({
+  isOwner,
+  onUnrevoke,
+  revokedKey,
+}: {
+  isOwner: boolean;
+  onUnrevoke: () => void;
+  revokedKey: RevokedKey;
+}) => (
+  <li className="flex flex-col gap-1.5 rounded-lg border border-border p-4">
+    <div className="flex items-start justify-between gap-2">
+      <div className="flex min-w-0 flex-col gap-1 text-small">
+        <span className="truncate font-mono">{revokedKey.fingerprint}</span>
+        <span className="text-muted">
+          {revokedKey.type} · belonged to {revokedKey.admin}
+        </span>
+        <span className="text-muted">
+          {revokedKey.revoked ? `${shortDate(revokedKey.revoked)} · ` : ""}revoked by{" "}
+          {revokedKey.revokedBy || "unknown"}
+        </span>
+      </div>
+      {isOwner && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              aria-label={`Actions for ${revokedKey.fingerprint}`}
+              size="icon-sm"
+              variant="secondary"
+            >
+              <MoreVertical aria-hidden />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onSelect={onUnrevoke}>Un-revoke</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </div>
+  </li>
+);
 
 /** Owner, step-up: the key comes off the revocation list; it isn't added back to anyone. */
 const UnrevokeDialog = ({
