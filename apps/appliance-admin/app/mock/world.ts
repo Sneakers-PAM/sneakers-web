@@ -1,4 +1,5 @@
 import type {
+  ActiveSession,
   Admin,
   AuditEvent,
   BackupPolicy,
@@ -244,6 +245,24 @@ export const sessionFor = (admin: Admin): Session => ({
 export const FACTORY_RESET: FactoryReset | undefined = undefined;
 
 export const HOSTNAME = "appliance.example.org";
+
+/** Every live session: GetPower's graceful-shutdown warning and ListSessions/EndSession. */
+export const SESSIONS: ActiveSession[] = [
+  {
+    admin: "alice",
+    id: "S-1A2B",
+    kind: "SESSION_KIND_BROWSER",
+    signedIn: now(),
+    sourceAddress: "192.0.2.10",
+  },
+  {
+    admin: "bob",
+    id: "S-3C4D",
+    kind: "SESSION_KIND_SSH",
+    signedIn: soon(-30),
+    sourceAddress: "192.0.2.11",
+  },
+];
 
 export const UPGRADE_POLICY: UpgradePolicy = {
   mirrorUrl: "https://mirror.example.org/sneakers-appliance",

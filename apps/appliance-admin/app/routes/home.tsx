@@ -45,7 +45,7 @@ export default function Home() {
       {!data && !error && <Skeleton className="h-40 w-full" />}
       {data && (
         <>
-          {data.warnings.map((warning) => (
+          {(data.warnings ?? []).map((warning) => (
             <Alert key={warning.kind} role="status" tone="warn">
               {warning.detail}
             </Alert>
@@ -104,7 +104,7 @@ export default function Home() {
           <Card>
             <CardHeader title="Health" />
             <div className="flex flex-wrap gap-2 p-5.5">
-              {data.health.map((component) => (
+              {(data.health ?? []).map((component) => (
                 <Pill key={component.name} tone={component.ok ? "ok" : "danger"}>
                   {component.name}
                 </Pill>

@@ -397,7 +397,7 @@ export default function Updates() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {data.history.map((event, index) => (
+            {(data.history ?? []).map((event, index) => (
               <TableRow key={`${event.time ?? ""}-${String(index)}`}>
                 <TableCell>{event.time ? shortDate(event.time) : ""}</TableCell>
                 <TableCell>{event.action}</TableCell>

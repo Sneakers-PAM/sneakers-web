@@ -191,7 +191,7 @@ describe("Updates", () => {
     await upgrade.apply({ confirm: "bob E-9M4T", elevationId: "E-9M4T", reason: "patch now" });
     expect(order).toEqual(["shell ended, then applied"]);
     const after = await upgrade.get();
-    expect(after.history[0]?.detail).toBe("ended elevated shell E-9M4T");
+    expect(after.history?.[0]?.detail).toBe("ended elevated shell E-9M4T");
   });
 
   it("refuses a wrong confirmation and leaves the shell open", async () => {
@@ -273,6 +273,17 @@ describe("Updates", () => {
     );
     renderPage(Updates);
     expect(await screen.findByText("Updates: not available in this release")).toBeInTheDocument();
+  });
+
+  it("shows an empty history without crashing when the box leaves it out of the reply", async () => {
+    // A box that's never had an update event omits `history` entirely (an empty repeated
+    // field isn't sent), unlike the mock, which always fills it in.
+    const { history, ...rest } = await upgrade.get();
+    expect(history?.length).toBeGreaterThan(0);
+    vi.spyOn(upgrade, "get").mockResolvedValueOnce(rest as Awaited<ReturnType<typeof upgrade.get>>);
+    await openPage();
+    const table = screen.getByRole("table", { name: "Update history" });
+    expect(within(table).queryAllByRole("row")).toHaveLength(1);
   });
 
   it("shows a non-owner the state but no install actions", async () => {

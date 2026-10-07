@@ -1,6 +1,8 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import { modules } from "@/lib/osadmin/client";
+import { OsadminError } from "@/lib/osadmin/errors";
 import Modules from "@/routes/modules";
 import { renderPage } from "@/test/renderPage";
 
@@ -10,6 +12,16 @@ describe("Modules", () => {
     expect(await screen.findByText("Add-on modules")).toBeInTheDocument();
     expect(screen.getByText("sneakers-core-bundle")).toBeInTheDocument();
     expect(screen.getByText("active")).toBeInTheDocument();
+  });
+
+  it("says it isn't available when the box's modules backend isn't there", async () => {
+    vi.spyOn(modules, "list").mockRejectedValueOnce(
+      new OsadminError("unimplemented", "ModulesService isn't on this box"),
+    );
+    renderPage(Modules);
+    expect(
+      await screen.findByText("Add-on modules: not available in this release"),
+    ).toBeInTheDocument();
   });
 
   it("adds a module from an uploaded .bin", async () => {

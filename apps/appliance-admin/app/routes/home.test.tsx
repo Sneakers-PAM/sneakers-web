@@ -1,6 +1,7 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import { status } from "@/lib/osadmin/client";
 import { applyMockScenario } from "@/mock/edge.mock";
 import Home from "@/routes/home";
 import { renderPage } from "@/test/renderPage";
@@ -13,6 +14,19 @@ describe("Home", () => {
     expect(await screen.findByText(/Running/)).toBeInTheDocument();
     expect(screen.getByText("Full")).toBeInTheDocument();
     expect(screen.getByText(/self-signed/)).toBeInTheDocument();
+  });
+
+  it("renders without warnings or health when the box leaves them out of the reply", async () => {
+    // A box with nothing to warn about and no dependency to report leaves both repeated
+    // fields out entirely (an empty repeated field isn't sent), unlike the mock, which
+    // always fills them in.
+    const { health, warnings, ...rest } = await status.get();
+    expect(health?.length).toBeGreaterThan(0);
+    expect(warnings?.length).toBeGreaterThan(0);
+    vi.spyOn(status, "get").mockResolvedValueOnce(rest as Awaited<ReturnType<typeof status.get>>);
+    renderPage(Home);
+    expect(await screen.findByText("Status")).toBeInTheDocument();
+    expect(screen.getByText(/Running/)).toBeInTheDocument();
   });
 
   it("shows a factory reset waiting for its quorum", async () => {

@@ -26,6 +26,7 @@ import type {
   ListElevationsResponse,
   ListEventsResponse,
   ListModulesResponse,
+  ListSessionsResponse,
   NetdSettings,
   PollSignInResponse,
   RecoveryKey,
@@ -169,7 +170,11 @@ export const power = {
     call<{ factoryReset: FactoryReset }>("PowerService", "ApproveFactoryReset", { id }),
   cancelFactoryReset: (id: string) =>
     call<Record<string, never>>("PowerService", "CancelFactoryReset", { id }),
+  /** Ends a session from listSessions: a browser is signed out, an SSH or elevated shell cut. */
+  endSession: (id: string) => call<Record<string, never>>("PowerService", "EndSession", { id }),
   get: () => call<GetPowerResponse>("PowerService", "GetPower"),
+  /** Every live session on the box: :8443 browsers, SSH shells and elevated shells, oldest first. */
+  listSessions: () => call<ListSessionsResponse>("PowerService", "ListSessions"),
   reboot: (forced: boolean, forcedConfirmed: boolean) =>
     call<Record<string, never>>("PowerService", "Reboot", { forced, forcedConfirmed }),
   shutdown: (forced: boolean, forcedConfirmed: boolean) =>

@@ -27,6 +27,7 @@ const recoveryKeys = structuredClone(world.RECOVERY_KEYS);
 const admins = structuredClone(world.ADMINS);
 const elevations = structuredClone(world.ELEVATIONS);
 const revokedKeys = structuredClone(world.REVOKED_KEYS);
+const sessions = structuredClone(world.SESSIONS);
 const auditEvents = structuredClone(world.AUDIT_EVENTS);
 let quorum = structuredClone(world.QUORUM);
 let elevationPolicy = structuredClone(world.ELEVATION_POLICY);
@@ -71,6 +72,7 @@ const caller = (): string => getSession()?.admin ?? "";
 const STEP_UP_METHODS = new Set([
   "AccessService/UnrevokeKey",
   "PowerService/ApproveFactoryReset",
+  "PowerService/EndSession",
   "PowerService/StartFactoryReset",
   "UpgradeService/ApplyUpdate",
   "UpgradeService/RevertUpdate",
@@ -468,16 +470,23 @@ const route = async (service: string, method: string, body: Record<string, unkno
       factoryReset = undefined;
       return {};
     }
+    case "PowerService/EndSession": {
+      const index = sessions.findIndex((s) => s.id === body.id);
+      if (index === -1) throw notFound(`there is no live session ${JSON.stringify(body.id)}`);
+      sessions.splice(index, 1);
+      return {};
+    }
     case "PowerService/GetPower": {
       const { available, reason } = powerState();
       return {
         factoryReset: structuredClone(factoryReset),
         factoryResetAvailable: available,
         factoryResetUnavailableReason: reason,
-        sessions: [
-          { admin: "alice", signedIn: new Date().toISOString(), sourceAddress: "192.0.2.10" },
-        ],
+        sessions: structuredClone(sessions),
       };
+    }
+    case "PowerService/ListSessions": {
+      return { sessions: structuredClone(sessions) };
     }
     case "PowerService/Reboot":
     case "PowerService/Shutdown": {

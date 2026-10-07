@@ -16,11 +16,23 @@ import {
   Input,
   Label,
   PageHeader,
+  shortDate,
   Switch,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeaderCell,
+  TableRow,
 } from "@sneakers-web/ui";
 import { useEffect, useState } from "react";
 
-import type { FactoryReset, GetPowerResponse } from "@/lib/osadmin/types";
+import type {
+  ActiveSession,
+  FactoryReset,
+  GetPowerResponse,
+  SessionKind,
+} from "@/lib/osadmin/types";
 
 import { ResetCountdown } from "@/components/ResetCountdown";
 import { runAction } from "@/lib/osadmin/action";
@@ -32,8 +44,18 @@ const RESET_POLL_MS = 5000;
 
 type Target = "reboot" | "shutdown";
 
+const KIND_LABEL: Record<SessionKind, string> = {
+  SESSION_KIND_BROWSER: "browser",
+  SESSION_KIND_ELEVATED: "elevated shell",
+  SESSION_KIND_SSH: "SSH",
+  SESSION_KIND_UNSPECIFIED: "unknown",
+};
+
 export default function Power() {
+  const { isOwner } = useSession();
   const [data, setData] = useState<GetPowerResponse>();
+  const [sessions, setSessions] = useState<ActiveSession[]>();
+  const [ending, setEnding] = useState<ActiveSession | null>(null);
   const [target, setTarget] = useState<null | Target>(null);
   const [forced, setForced] = useState(false);
   const [forcedConfirmed, setForcedConfirmed] = useState(false);
@@ -42,8 +64,15 @@ export default function Power() {
   const [cancelled, setCancelled] = useState(false);
 
   const reload = () => void power.get().then(setData);
+  // Not fatal: an older box without ListSessions still reboots, shuts down and factory resets.
+  const reloadSessions = () =>
+    void power
+      .listSessions()
+      .then((response) => setSessions(response.sessions))
+      .catch(() => setSessions([]));
   useEffect(() => {
     reload();
+    reloadSessions();
     void status.get().then((response) => setHostname(response.hostname));
   }, []);
   const resetInProgress = !!data?.factoryReset;
@@ -74,23 +103,45 @@ export default function Power() {
     <div className="flex flex-col gap-5 p-5.5">
       <PageHeader eyebrow="Appliance" title="Power" />
       <Card>
-        <CardHeader title="Active sessions" />
-        <div className="flex flex-col gap-1 p-5.5 text-small">
-          {data.sessions.length === 0 && <p className="text-muted">None.</p>}
-          {data.sessions.map((session) => (
-            <p key={`${session.admin}-${session.sourceAddress}`}>
-              {session.admin} from {session.sourceAddress}
-            </p>
-          ))}
-        </div>
-        <div className="flex gap-3 border-t border-border p-5.5">
-          <Button onClick={() => setTarget("reboot")} variant="secondary">
-            Reboot
-          </Button>
-          <Button onClick={() => setTarget("shutdown")} variant="danger">
-            Shut down
-          </Button>
-        </div>
+        <section aria-label="Active sessions">
+          <CardHeader title="Active sessions" />
+          <Table aria-label="Active sessions">
+            <TableHead>
+              <TableRow>
+                <TableHeaderCell>Admin</TableHeaderCell>
+                <TableHeaderCell>Kind</TableHeaderCell>
+                <TableHeaderCell>Source address</TableHeaderCell>
+                <TableHeaderCell>Started</TableHeaderCell>
+                <TableHeaderCell />
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {(sessions ?? []).map((session) => (
+                <TableRow aria-label={session.admin} key={session.id}>
+                  <TableCell>{session.admin}</TableCell>
+                  <TableCell>{KIND_LABEL[session.kind]}</TableCell>
+                  <TableCell>{session.sourceAddress}</TableCell>
+                  <TableCell>{session.signedIn ? shortDate(session.signedIn) : ""}</TableCell>
+                  <TableCell>
+                    {isOwner && (
+                      <Button onClick={() => setEnding(session)} size="sm" variant="secondary">
+                        End session
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <div className="flex gap-3 border-t border-border p-5.5">
+            <Button onClick={() => setTarget("reboot")} variant="secondary">
+              Reboot
+            </Button>
+            <Button onClick={() => setTarget("shutdown")} variant="danger">
+              Shut down
+            </Button>
+          </div>
+        </section>
       </Card>
       <Card>
         <section aria-label="Factory reset">
@@ -146,6 +197,37 @@ export default function Power() {
             </Button>
           </DialogFooter>
         </DialogContent>
+      </Dialog>
+      <Dialog onOpenChange={(open) => !open && setEnding(null)} open={!!ending}>
+        {ending && (
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>End {ending.admin}&apos;s session</DialogTitle>
+              <DialogDescription>
+                {ending.admin}&apos;s {KIND_LABEL[ending.kind]} session from {ending.sourceAddress}{" "}
+                ends at once.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button onClick={() => setEnding(null)} variant="secondary">
+                Cancel
+              </Button>
+              <Button
+                onClick={() =>
+                  void runAction(() => power.endSession(ending.id), {
+                    onSuccess: () => {
+                      setEnding(null);
+                      reloadSessions();
+                    },
+                  })
+                }
+                variant="danger"
+              >
+                End session
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        )}
       </Dialog>
     </div>
   );

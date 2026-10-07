@@ -107,7 +107,8 @@ export interface GetStatusResponse {
   disk?: Disk;
   factoryReset?: FactoryReset;
   failedVersion: string;
-  health: Component[];
+  /** Empty lists are left out of the JSON: a box with no dependency to report leaves this out. */
+  health?: Component[];
   hostname: string;
   managementAddresses: string[];
   ntpSynced: boolean;
@@ -120,7 +121,8 @@ export interface GetStatusResponse {
   tlsFingerprint: string;
   tlsSelfSigned: boolean;
   version: string;
-  warnings: Warning[];
+  /** Empty lists are left out of the JSON: a box with nothing to warn about leaves this out. */
+  warnings?: Warning[];
 }
 
 // ---- access ----
@@ -342,7 +344,8 @@ export interface GetUpgradesResponse {
   activeElevations?: Elevation[];
   airGapped: boolean;
   failedVersion: string;
-  history: UpgradeEvent[];
+  /** Empty lists are left out of the JSON: a box with no update event yet leaves this out. */
+  history?: UpgradeEvent[];
   policy?: UpgradePolicy;
   runningVersion: string;
   stagedVersion: string;
@@ -384,10 +387,24 @@ export interface ListEventsResponse {
 
 // ---- power ----
 
+export type SessionKind =
+  | "SESSION_KIND_BROWSER"
+  | "SESSION_KIND_ELEVATED"
+  | "SESSION_KIND_SSH"
+  | "SESSION_KIND_UNSPECIFIED";
+
+/** A live session a power action would end, or ListSessions/EndSession can end on its own. */
 export interface ActiveSession {
   admin: string;
+  /** Names the session for EndSession. Not the session's cookie. */
+  id: string;
+  kind: SessionKind;
   signedIn?: string;
   sourceAddress: string;
+}
+
+export interface ListSessionsResponse {
+  sessions: ActiveSession[];
 }
 
 export interface GetPowerResponse {

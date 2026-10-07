@@ -43,7 +43,7 @@
     "check:no-mock": "node scripts/check-no-mock.mjs",
     "check:assets": "node scripts/check-assets.mjs",
     "check:csp": "node scripts/check-csp.mjs",
-    "gallery:appliance-admin": "npm run build:mock -w @sneakers-web/appliance-admin && node scripts/gallery-appliance-admin.mjs",
+    "gallery:appliance-admin": "npm run build:mock -w @sneakers-web/appliance-admin && npm run build -w @sneakers-web/appliance-admin && node scripts/gallery-appliance-admin.mjs",
     "check": "npm run lint && npm run typecheck && npm test && npm run build && npm run build:mock && npm run check:no-mock && npm run check:assets && npm run check:csp"
   },
   "devDependencies": {

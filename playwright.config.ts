@@ -9,6 +9,9 @@ const ADMIN_PORT = 4177;
 const FRESH_PORT = 4178;
 // The appliance admin's live build, served with osadmin's headers (e2e/applianceAdminServer.mjs).
 const APPLIANCE_PORT = 4179;
+// The same live build, served against a real-osadmin-shaped backend
+// (e2e/applianceRealBackendServer.mjs): issue #201.
+const APPLIANCE_REAL_PORT = 4180;
 
 // The staff server trusts a proxy in front of it and the admin server doesn't, so e2e/proxy.spec.ts
 // can check both.
@@ -44,6 +47,16 @@ const appliance = {
   url: `http://127.0.0.1:${APPLIANCE_PORT}/favicon.svg`,
 };
 
+// Reuses the appliance build above (two builds into one folder would race), so it waits for
+// that server first.
+const applianceReal = {
+  command: `node e2e/waitFor.mjs http://127.0.0.1:${APPLIANCE_PORT}/favicon.svg && node e2e/applianceRealBackendServer.mjs`,
+  env: { PORT: String(APPLIANCE_REAL_PORT) },
+  reuseExistingServer: false,
+  timeout: 200_000,
+  url: `http://127.0.0.1:${APPLIANCE_REAL_PORT}/favicon.svg`,
+};
+
 export default defineConfig({
   forbidOnly: !!process.env.CI,
   projects: [
@@ -68,6 +81,11 @@ export default defineConfig({
       testMatch: "appliance-csp.spec.ts",
       use: { ...devices["Desktop Chrome"], baseURL: `http://127.0.0.1:${APPLIANCE_PORT}` },
     },
+    {
+      name: "appliance-real-backend",
+      testMatch: "appliance-real-backend.spec.ts",
+      use: { ...devices["Desktop Chrome"], baseURL: `http://127.0.0.1:${APPLIANCE_REAL_PORT}` },
+    },
   ],
   reporter: process.env.CI ? "github" : "list",
   retries: process.env.CI ? 1 : 0,
@@ -76,5 +94,11 @@ export default defineConfig({
     launchOptions: process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {},
     trace: "retain-on-failure",
   },
-  webServer: [serve("staff", STAFF_PORT, "1"), serve("admin", ADMIN_PORT), fresh, appliance],
+  webServer: [
+    serve("staff", STAFF_PORT, "1"),
+    serve("admin", ADMIN_PORT),
+    fresh,
+    appliance,
+    applianceReal,
+  ],
 });

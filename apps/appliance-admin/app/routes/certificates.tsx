@@ -14,18 +14,34 @@ import { useEffect, useState } from "react";
 import type { GetTlsResponse } from "@/lib/osadmin/types";
 
 import { Advanced } from "@/components/Advanced";
+import { NotAvailable } from "@/components/NotAvailable";
 import { runAction } from "@/lib/osadmin/action";
 import { tls } from "@/lib/osadmin/client";
+import { isNotAvailable } from "@/lib/osadmin/errors";
 
 export default function Certificates() {
   const [data, setData] = useState<GetTlsResponse>();
   const [certificatePem, setCertificatePem] = useState("");
   const [chainPem, setChainPem] = useState("");
   const [csr, setCsr] = useState("");
+  const [unavailable, setUnavailable] = useState(false);
 
-  const reload = () => void tls.get().then(setData);
+  const reload = () =>
+    void tls
+      .get()
+      .then(setData)
+      .catch((error: unknown) => {
+        if (isNotAvailable(error)) setUnavailable(true);
+      });
   useEffect(reload, []);
 
+  if (unavailable) {
+    return (
+      <div className="p-5.5">
+        <NotAvailable name="Certificates" />
+      </div>
+    );
+  }
   if (!data) return null;
 
   return (
