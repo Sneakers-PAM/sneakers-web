@@ -16,7 +16,8 @@ const roleLabel = (role: Role): string => (role === "ROLE_OWNER" ? "owner" : "ad
 
 const secureBootState = (status: GetStatusResponse): string => {
   if (status.protectionReason === "secure-boot-off") return "off";
-  if (status.protectionReason === "no-secure-boot-firmware") return "not supported by this firmware";
+  if (status.protectionReason === "no-secure-boot-firmware")
+    return "not supported by this firmware";
   return "on";
 };
 

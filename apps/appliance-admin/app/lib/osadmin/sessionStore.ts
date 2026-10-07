@@ -8,10 +8,26 @@ import type { Session } from "@/lib/osadmin/types";
 let current: null | Session = null;
 const listeners = new Set<() => void>();
 
+// A redeemed one-time code's CSRF token (RedeemCodeResponse.csrfToken), for the code session's
+// calls before a signed-in session exists. Kept in sessionStorage too, so a reload part-way
+// through setup can still finish the admin's credentials; a session replaces it.
+const CODE_CSRF_KEY = "osadmin_code_csrf";
+let codeCsrf = globalThis.sessionStorage?.getItem(CODE_CSRF_KEY) ?? "";
+
+export const setCodeCsrfToken = (token: string): void => {
+  codeCsrf = token;
+  if (token) globalThis.sessionStorage?.setItem(CODE_CSRF_KEY, token);
+  else globalThis.sessionStorage?.removeItem(CODE_CSRF_KEY);
+};
+
+/** The X-CSRF-Token for a call that changes something: the session's, else the code's. */
+export const csrfToken = (): string => current?.csrfToken || codeCsrf;
+
 export const getSession = (): null | Session => current;
 
 export const setSession = (session: null | Session): void => {
   current = session;
+  setCodeCsrfToken("");
   for (const listener of listeners) listener();
 };
 

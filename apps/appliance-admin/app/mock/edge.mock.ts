@@ -4,6 +4,7 @@ import type { Edge } from "@/lib/osadmin/edgeTypes";
 import type {
   Admin,
   BackupPolicy,
+  CodeKind,
   ElevationOverride,
   ElevationPolicy,
   FactoryReset,
@@ -20,7 +21,7 @@ import * as world from "@/mock/world";
 /** The banner every screen shows while the app runs against the mock transport. */
 export const MOCK_BANNER = `MOCK DATA, not a real box (${MOCK_MARKER})`;
 
-export { MOCK_PASSWORD, MOCK_WRONG_CODE } from "@/mock/world";
+export { MOCK_INVITE_CODE, MOCK_PASSWORD, MOCK_SETUP_CODE, MOCK_WRONG_CODE } from "@/mock/world";
 
 const REFUSAL_TYPE = "sneakers.appliance.osadmin.v1.SignInRefusal";
 
@@ -85,6 +86,59 @@ const checkCredentials = (name: string, password: null | string, code: string): 
 
 /** The session a real box keeps in its HttpOnly cookie, for GetSession after a reload. */
 let cookieSession: null | Session = null;
+
+/** A redeemed one-time code's session, before its admin can sign in. */
+let codeSession: { admin: string; kind: CodeKind } | null = null;
+/** Open invitation codes, by code (normalised), to the admin they're for. */
+const invitations = new Map<string, string>();
+/** BeginCredentials' enrolments waiting for a code from the new authenticator. */
+const enrolments = new Map<string, { admin: string; kind: CodeKind }>();
+let codeTries = 5;
+let networkSeen = false;
+let protectionSeen = false;
+/** An admin has signed in with a password and a TOTP code since first boot. */
+let signedInOnce = true;
+let custodyMode = "tpm";
+
+const normalCode = (code: string): string => code.replaceAll(/[\s-]/g, "").toUpperCase();
+
+const NAME_PATTERN = /^[a-z][a-z0-9-]{0,31}$/;
+const RESERVED_NAMES = new Set(["admin", "enrol", "root", "sneakers"]);
+
+const passwordCheck = (password: string, admin: string) => {
+  if (password.length < 12)
+    return { message: "Use at least 12 characters.", minLength: 12, ok: false, tooShort: true };
+  if (world.BREACHED_PASSWORDS.includes(password))
+    return {
+      breached: true,
+      message: "This password is on a list of breached passwords. Pick another.",
+      minLength: 12,
+      ok: false,
+    };
+  if (admin && password.toLowerCase() === admin.toLowerCase())
+    return { message: "The password can't be the admin's name.", minLength: 12, ok: false };
+  return { minLength: 12, ok: true };
+};
+
+const setupSteps = () => {
+  const done = [
+    admins.length > 0 || !!codeSession,
+    admins.length > 0,
+    recoveryKeys.length > 0,
+    networkSeen,
+    protectionSeen,
+    setupDone,
+  ];
+  const kinds = ["CODE", "ADMIN", "RECOVERY_KEYS", "NETWORK", "PROTECTION", "SIGN_IN"] as const;
+  const steps = kinds.map((kind, index) => ({
+    done: done[index],
+    kind: `SETUP_STEP_KIND_${kind}` as const,
+    number: index + 1,
+    optional: kind === "NETWORK",
+  }));
+  const open = done.findIndex((d) => !d);
+  return { current: setupDone ? 0 : open + 1, steps };
+};
 
 let networkPending: { settings: NetdSettings; token: string } | null = null;
 const modules = structuredClone(world.MODULES);
@@ -576,6 +630,134 @@ const route = async (service: string, method: string, body: Record<string, unkno
       singleAdminAcknowledged = true;
       return {};
     }
+    case "SetupService/AcknowledgeStep": {
+      if (body.step === "SETUP_STEP_KIND_NETWORK") networkSeen = true;
+      if (body.step === "SETUP_STEP_KIND_PROTECTION") protectionSeen = true;
+      return {};
+    }
+    case "SetupService/BeginCredentials": {
+      if (!codeSession)
+        throw new OsadminError("unauthenticated", "ACCESS_UNAUTHENTICATED: enter a code first");
+      const admin = codeSession.admin || String(body.admin ?? "").trim();
+      if (!NAME_PATTERN.test(admin) || RESERVED_NAMES.has(admin))
+        throw new OsadminError(
+          "invalid_argument",
+          "ACCESS_ADMIN_NAME: use lower-case letters, digits and dashes, starting with a letter; admin, enrol, root and sneakers are taken",
+        );
+      if (codeSession.kind === "CODE_KIND_SETUP" && findAdmin(admin))
+        throw new OsadminError("already_exists", `ACCESS_ADMIN_EXISTS: ${admin} already exists`);
+      const check = passwordCheck(String(body.password ?? ""), admin);
+      if (!check.ok)
+        throw new OsadminError("invalid_argument", `ACCESS_PASSWORD: ${check.message}`);
+      const id = `enrol-${String(enrolments.size + 1)}`;
+      enrolments.set(id, { admin, kind: codeSession.kind });
+      return { totp: world.totpEnrolment(admin, id) };
+    }
+    case "SetupService/CheckPassword": {
+      return passwordCheck(String(body.password ?? ""), String(body.admin ?? ""));
+    }
+    case "SetupService/CompleteCredentials": {
+      const enrolment = enrolments.get(String(body.enrolmentId ?? ""));
+      if (!enrolment || !codeSession)
+        throw new OsadminError(
+          "failed_precondition",
+          "ACCESS_ENROLMENT: start again from the code",
+        );
+      const code = String(body.totpCode ?? "");
+      if (!/^\d{6}$/.test(code) || code === world.MOCK_WRONG_CODE)
+        throw refused("ACCESS_TOTP: the code doesn't match the new authenticator", {
+          attemptsLeft: 2,
+        });
+      let admin = findAdmin(enrolment.admin);
+      if (!admin) {
+        admin = {
+          created: new Date().toISOString(),
+          createdBy: enrolment.kind === "CODE_KIND_SETUP" ? "console" : "invitation",
+          keys: [],
+          name: enrolment.admin,
+          role: enrolment.kind === "CODE_KIND_INVITE" ? "ROLE_ADMIN" : "ROLE_OWNER",
+          uid: 20_000 + admins.length,
+        };
+        admins.push(admin);
+      }
+      if (enrolment.kind === "CODE_KIND_SETUP")
+        quorum = { configured: true, members: [admin.name], required: 1 };
+      for (const [code, name] of invitations) if (name === admin.name) invitations.delete(code);
+      enrolments.clear();
+      codeSession = null;
+      cookieSession = sessionOf(admin);
+      return { session: cookieSession };
+    }
+    case "SetupService/DownloadEscrow": {
+      return { content: btoa("mock-escrow-ciphertext"), fileName: "escrow-20261007.age" };
+    }
+    case "SetupService/Finish": {
+      const open = setupSteps().steps.find((step) => !step.done && step.number < 6);
+      if (open)
+        throw new OsadminError(
+          "failed_precondition",
+          `SETUP_INCOMPLETE: step ${String(open.number)} isn't done`,
+        );
+      if (!signedInOnce)
+        throw new OsadminError(
+          "failed_precondition",
+          "SETUP_INCOMPLETE: sign in once with the password and a code",
+        );
+      if (admins.length === 1 && !singleAdminAcknowledged)
+        throw new OsadminError(
+          "failed_precondition",
+          "SETUP_INCOMPLETE: confirm the single-admin warning",
+        );
+      setupDone = true;
+      return { productSetupUrl: "https://sneakers.example.org/setup" };
+    }
+    case "SetupService/GetSetup": {
+      if (!getSession() && !cookieSession && !codeSession)
+        throw new OsadminError(
+          "unauthenticated",
+          "ACCESS_UNAUTHENTICATED: sign in or enter a code",
+        );
+      const { current, steps } = setupSteps();
+      return {
+        adminCount: admins.length,
+        codeAdmin: codeSession?.admin ?? "",
+        codeKind: codeSession?.kind,
+        current,
+        done: setupDone,
+        escrowFile: recoveryKeys.length > 0 ? "escrow-20261007.age" : "",
+        firstAdmin: admins[0]?.name ?? "",
+        maxRecoveryKeys: 3,
+        productSetupUrl: "https://sneakers.example.org/setup",
+        recoveryKeys,
+        signedIn: signedInOnce,
+        singleAdminAcknowledged,
+        singleAdminWarning: admins.length === 1,
+        steps,
+      };
+    }
+    case "SetupService/RedeemCode": {
+      const code = normalCode(String(body.code ?? ""));
+      const invited = invitations.get(code);
+      if (invited) {
+        codeSession = { admin: invited, kind: "CODE_KIND_INVITE" };
+        return {
+          admin: invited,
+          csrfToken: "mock-code-csrf",
+          expires: new Date(Date.now() + 24 * 3_600_000).toISOString(),
+          kind: codeSession.kind,
+        };
+      }
+      if (!setupDone && admins.length === 0 && code === normalCode(world.MOCK_SETUP_CODE)) {
+        codeSession = { admin: "", kind: "CODE_KIND_SETUP" };
+        return {
+          csrfToken: "mock-code-csrf",
+          expires: new Date(Date.now() + 60 * 60_000).toISOString(),
+          kind: codeSession.kind,
+        };
+      }
+      codeTries = Math.max(0, codeTries - 1);
+      throw refused("SETUP_CODE: the code is wrong or used up", { attemptsLeft: codeTries });
+    }
     case "SetupService/AddRecoveryKey": {
       if (recoveryKeys.length >= 3)
         throw new OsadminError("invalid_argument", "ACCESS_RECOVERY_KEY_LIMIT");
@@ -588,25 +770,6 @@ const route = async (service: string, method: string, body: Record<string, unkno
       };
       recoveryKeys.push(key);
       return { recoveryKey: key };
-    }
-    case "SetupService/DownloadEscrow": {
-      return { content: btoa("mock-escrow-ciphertext"), fileName: "escrow-20261007.age" };
-    }
-    case "SetupService/Finish": {
-      setupDone = true;
-      return { productSetupUrl: "https://appliance.example.org/setup" };
-    }
-    case "SetupService/GetSetup": {
-      return {
-        adminCount: admins.length,
-        done: setupDone,
-        escrowFile: recoveryKeys.length > 0 ? "escrow-20261007.age" : "",
-        maxRecoveryKeys: 3,
-        productSetupUrl: "https://appliance.example.org/setup",
-        recoveryKeys,
-        singleAdminAcknowledged,
-        singleAdminWarning: admins.length === 1,
-      };
     }
     case "SetupService/RemoveRecoveryKey": {
       if (recoveryKeys.length <= 1)
@@ -624,6 +787,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
       const admin = findAdmin(name);
       if (!admin) throw notFound("no admin");
       cookieSession = sessionOf(admin);
+      signedInOnce = true;
       return { session: cookieSession };
     }
     case "SignInService/SignOut": {
@@ -643,9 +807,15 @@ const route = async (service: string, method: string, body: Record<string, unkno
       powerState();
       return {
         ...world.status(),
+        custodyMode,
         factoryReset: structuredClone(factoryReset),
         failedVersion,
-        protection: secureBootOn ? "PROTECTION_FULL" : "PROTECTION_REDUCED",
+        protection:
+          secureBootOn && custodyMode === "tpm" ? "PROTECTION_FULL" : "PROTECTION_REDUCED",
+        protectionReason:
+          secureBootOn && custodyMode === "tpm"
+            ? ""
+            : "Secure Boot isn't available on this hardware, and there is no TPM",
         runningVersion,
         stagedVersion,
       };
@@ -796,21 +966,74 @@ const refill = <T>(target: T[], source: readonly T[]) => {
   target.splice(0, target.length, ...structuredClone(source));
 };
 
-export type MockScenario =
-  | "air-gapped"
-  | "elevated"
-  | "failed"
-  | "locked-until-unlocked"
-  | "locked"
-  | "manual"
-  | "reset-countdown"
-  | "reset-pending"
-  | "single-admin"
-  | "staged"
-  | "stepup"
-  | "throttled"
-  | "uploading"
-  | "verifying";
+const MOCK_SCENARIOS = [
+  "air-gapped",
+  "elevated",
+  "failed",
+  "first-boot",
+  "invited",
+  "locked",
+  "locked-until-unlocked",
+  "manual",
+  "reduced",
+  "reset-countdown",
+  "reset-pending",
+  "setup-admin",
+  "setup-finish",
+  "setup-keys",
+  "setup-network",
+  "setup-protection",
+  "signed-in",
+  "single-admin",
+  "staged",
+  "stepup",
+  "throttled",
+  "uploading",
+  "verifying",
+] as const;
+
+export type MockScenario = (typeof MOCK_SCENARIOS)[number];
+
+/** A fresh box: no admin, no recovery key, setup not started. */
+const firstBoot = () => {
+  admins.splice(0);
+  recoveryKeys.splice(0);
+  quorum = { configured: false, members: [], required: 0 };
+  setupDone = false;
+  signedInOnce = false;
+  singleAdminAcknowledged = false;
+  networkSeen = false;
+  protectionSeen = false;
+};
+
+const SETUP_ORDER = [
+  "setup-admin",
+  "setup-keys",
+  "setup-network",
+  "setup-protection",
+  "setup-finish",
+];
+
+/**
+ * A box part-way through setup, as a reload finds it: the code redeemed (setup-admin), then
+ * alice created and signed in by her cookie (setup-keys), with a recovery key (setup-network),
+ * the network seen (setup-protection) and the protection seen (setup-finish).
+ */
+const setupAt = (scenario: string) => {
+  firstBoot();
+  const reached = SETUP_ORDER.indexOf(scenario);
+  if (reached === 0) {
+    codeSession = { admin: "", kind: "CODE_KIND_SETUP" };
+    return;
+  }
+  const alice = { ...structuredClone(world.ADMINS[0]!), keys: [] };
+  admins.push(alice);
+  quorum = { configured: true, members: ["alice"], required: 1 };
+  cookieSession = sessionOf(alice);
+  if (reached >= 2) recoveryKeys.push(structuredClone(world.RECOVERY_KEYS[0]!));
+  if (reached >= 3) networkSeen = true;
+  if (reached >= 4) protectionSeen = true;
+};
 
 const pendingReset = (): FactoryReset => ({
   approvals: ["alice"],
@@ -843,6 +1066,23 @@ export const applyMockScenario = (scenario: MockScenario): void => {
       failedVersion = "0.2.0";
       break;
     }
+    case "first-boot": {
+      firstBoot();
+      break;
+    }
+    case "invited": {
+      if (!findAdmin("carol"))
+        admins.push({
+          created: new Date().toISOString(),
+          createdBy: "alice",
+          keys: [],
+          name: "carol",
+          role: "ROLE_ADMIN",
+          uid: 20_002,
+        });
+      invitations.set(normalCode(world.MOCK_INVITE_CODE), "carol");
+      break;
+    }
     case "locked": {
       locks.set("bob", {
         until: new Date(Date.now() + 12 * 60_000).toISOString(),
@@ -858,6 +1098,11 @@ export const applyMockScenario = (scenario: MockScenario): void => {
       upgradePolicy = { ...upgradePolicy, mode: "manual" };
       break;
     }
+    case "reduced": {
+      secureBootOn = false;
+      custodyMode = "keyfile";
+      break;
+    }
     case "reset-countdown": {
       factoryReset = {
         ...pendingReset(),
@@ -869,6 +1114,19 @@ export const applyMockScenario = (scenario: MockScenario): void => {
     }
     case "reset-pending": {
       factoryReset = pendingReset();
+      break;
+    }
+    case "setup-admin":
+    case "setup-finish":
+    case "setup-keys":
+    case "setup-network":
+    case "setup-protection": {
+      setupAt(scenario);
+      break;
+    }
+    case "signed-in": {
+      const alice = findAdmin("alice");
+      if (alice) cookieSession = sessionOf(alice);
       break;
     }
     case "single-admin": {
@@ -899,22 +1157,7 @@ export const applyMockScenario = (scenario: MockScenario): void => {
   }
 };
 
-const SCENARIOS = new Set<string>([
-  "air-gapped",
-  "elevated",
-  "failed",
-  "locked",
-  "locked-until-unlocked",
-  "manual",
-  "reset-countdown",
-  "reset-pending",
-  "single-admin",
-  "staged",
-  "stepup",
-  "throttled",
-  "uploading",
-  "verifying",
-] satisfies MockScenario[]);
+const SCENARIOS = new Set<string>(MOCK_SCENARIOS);
 
 /** `?mockScenario=staged,reset-pending` on a mock build's URL, for the review screen list. */
 const scenariosFromUrl = (): void => {
@@ -939,6 +1182,14 @@ export const resetMockWorld = (): void => {
   throttledUntil = "";
   cookieSession = null;
   lockoutMode = "LOCKOUT_MODE_TIMED";
+  codeSession = null;
+  invitations.clear();
+  enrolments.clear();
+  codeTries = 5;
+  networkSeen = false;
+  protectionSeen = false;
+  signedInOnce = true;
+  custodyMode = "tpm";
   refill(upgradeHistory, world.UPGRADE_HISTORY);
   networkPending = null;
   singleAdminAcknowledged = false;

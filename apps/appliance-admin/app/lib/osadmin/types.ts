@@ -36,15 +36,81 @@ export interface RecoveryKey {
   type: string;
 }
 
+/** A one-time code's purpose: the console's setup code, an invitation, or Recover access. */
+export type CodeKind =
+  "CODE_KIND_INVITE" | "CODE_KIND_RECOVER" | "CODE_KIND_SETUP" | "CODE_KIND_UNSPECIFIED";
+
+export type SetupStepKind =
+  | "SETUP_STEP_KIND_ADMIN"
+  | "SETUP_STEP_KIND_CODE"
+  | "SETUP_STEP_KIND_NETWORK"
+  | "SETUP_STEP_KIND_PROTECTION"
+  | "SETUP_STEP_KIND_RECOVERY_KEYS"
+  | "SETUP_STEP_KIND_SIGN_IN"
+  | "SETUP_STEP_KIND_UNSPECIFIED";
+
+export interface SetupStep {
+  done?: boolean;
+  kind: SetupStepKind;
+  /** 1 to 6. */
+  number: number;
+  optional?: boolean;
+}
+
 export interface GetSetupResponse {
   adminCount: number;
+  /** The code session's kind; unset for a signed-in admin. */
+  codeKind?: CodeKind;
+  /** The admin an invitation or Recover access code is for; empty when the name is chosen. */
+  codeAdmin?: string;
+  codeSessionExpires?: string;
+  /** The first step not done, 1 to 6; 0 once setup is done. */
+  current?: number;
   done: boolean;
   escrowFile: string;
+  firstAdmin?: string;
   maxRecoveryKeys: number;
   productSetupUrl: string;
-  recoveryKeys: RecoveryKey[];
+  /** Empty lists are left out of the JSON. */
+  recoveryKeys?: RecoveryKey[];
+  /** An admin has signed in with a password and a TOTP code: setup can't finish before. */
+  signedIn?: boolean;
   singleAdminAcknowledged: boolean;
   singleAdminWarning: boolean;
+  steps?: SetupStep[];
+}
+
+export interface RedeemCodeResponse {
+  admin?: string;
+  /** The X-CSRF-Token for the code session's calls that change something. */
+  csrfToken?: string;
+  existingOwners?: string[];
+  expires?: string;
+  kind: CodeKind;
+}
+
+export interface CheckPasswordResponse {
+  breached?: boolean;
+  /** One plain sentence when ok is false. */
+  message?: string;
+  minLength: number;
+  ok?: boolean;
+  tooShort?: boolean;
+}
+
+/** A new authenticator secret, shown once. */
+export interface TotpEnrolment {
+  account: string;
+  algorithm: string;
+  digits: number;
+  expires?: string;
+  id: string;
+  issuer: string;
+  periodSeconds: number;
+  /** Base32, for typing; shown in groups of four. */
+  secret: string;
+  /** The otpauth:// URI for the QR code. */
+  uri: string;
 }
 
 // ---- status ----

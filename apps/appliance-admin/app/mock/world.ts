@@ -233,6 +233,26 @@ export const status: () => GetStatusResponse = () => ({
 
 /** Every mock admin's password. Any 6-digit code but 000000 passes as their TOTP code. */
 export const MOCK_PASSWORD = "correct horse battery staple";
+/** The code the mock console shows for first-boot setup, and carol's invitation code. */
+export const MOCK_SETUP_CODE = "7PQK-NMS9-XD2A-4KJW";
+export const MOCK_INVITE_CODE = "R4WN-8HTE";
+/** Passwords the mock's breached-password check refuses. */
+export const BREACHED_PASSWORDS = ["password1234", "qwertyuiop123", "123456789012"]; // gitleaks:allow (made-up weak passwords)
+
+/** The authenticator secret every mock enrolment hands out. */
+export const TOTP_SECRET = "JBSWY3DPEHPK3PXPGZ4TKNRWMV2X4Y3Q"; // gitleaks:allow (a widely used example secret, not a real one)
+
+export const totpEnrolment = (account: string, id: string) => ({
+  account,
+  algorithm: "SHA1",
+  digits: 6,
+  expires: soon(10),
+  id,
+  issuer: "Sneakers-PAM appliance",
+  periodSeconds: 30,
+  secret: TOTP_SECRET,
+  uri: `otpauth://totp/Sneakers-PAM%20appliance:${encodeURIComponent(account)}?secret=${TOTP_SECRET}&issuer=Sneakers-PAM%20appliance&algorithm=SHA1&digits=6&period=30`,
+});
 export const MOCK_WRONG_CODE = "000000";
 
 export const sessionFor = (admin: Admin, rootOperator = false): Session => ({

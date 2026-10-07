@@ -110,6 +110,21 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   (`app/lib/osadmin/refusal.ts`) turns it into one sentence: the tries left, the lockout's
   end ("until an owner unlocks it" in that lockout mode) or this address's wait. The page
   links to `/setup` for a setup or invitation code.
+- **Setup (`app/routes/setup.tsx`, steps in `app/features/setup/`).** Six steps with a progress
+  line: 1 the console's setup code (16 Crockford base32 characters, `XXXX-XXXX-XXXX-XXXX`, valid for
+  60 minutes; case, dashes and spaces don't matter, and the page only asks for it, never shows
+  it; `RedeemCode` sets a code session cookie), 2 the first
+  admin's name and password, checked as it's typed (`CheckPassword`), then the authenticator
+  (`BeginCredentials` gives the secret for the QR code and the typed key,
+  `CompleteCredentials` checks a code from it and signs the browser in), 3 the recovery keys
+  and the escrow, 4 the network (read only, `AcknowledgeStep`), 5 the protection (read only),
+  6 one sign-in with the password and a code, the single-admin warning, and `Finish`. A reload
+  asks `GetSession` and `GetSetup` and resumes at `current`, the box's first step not done.
+  The same page takes an invitation or a Recover access code (`codeKind`), and then shows only
+  the password and authenticator. Until the admin is signed in, the code session's calls carry
+  the redeemed code's CSRF token (`RedeemCodeResponse.csrfToken`, kept in sessionStorage so a
+  reload can finish; `sessionStore.csrfToken()`), then the session's own. There are no one-time recovery codes: a lost authenticator
+  is reset by an owner, or through Recover access on the console.
 - **One step-up dialog for every page.** A mutating call that answers
   `ACCESS_STEPUP_REQUIRED` (Connect `permission_denied`) doesn't build its own prompt; it calls
   `requestStepUp` (`app/lib/osadmin/stepUpController.ts`) through `runAction`
@@ -149,7 +164,11 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   Apply and Revert are refused without an owner's override), `uploading` and `verifying` (the upload or the
   verification never finishes), `stepup` (the next step-up-gated call is refused once, so the
   dialog asks for a code), `locked`, `locked-until-unlocked` (bob is locked out, for 12
-  minutes or until an owner unlocks him), `throttled` (this address has to wait), `single-admin`, `reset-pending` and
+  minutes or until an owner unlocks him), `throttled` (this address has to wait), `first-boot` (no admin yet; the setup code is
+  `MOCK_SETUP_CODE`), `setup-admin`, `setup-keys`, `setup-network`, `setup-protection` and
+  `setup-finish` (setup part-way, as a reload finds it), `reduced` (no Secure Boot, no TPM),
+  `invited` (carol's invitation, `MOCK_INVITE_CODE`), `signed-in` (the box still knows this
+  browser), `single-admin`, `reset-pending` and
   `reset-countdown`. The mock verifies an upload by its content: one containing "tampered" fails
   the signature, "lab" the channel, and "patch" is a patch for the running version. A key removed
   in the mock lands on its revoked list as revoked by the signed-in admin, as on the box, and the

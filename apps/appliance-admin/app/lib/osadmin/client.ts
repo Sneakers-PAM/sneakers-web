@@ -8,6 +8,7 @@ import type {
   AddonModule,
   BackupPolicy,
   BackupSet,
+  CheckPasswordResponse,
   Certificate,
   ElevationOverride,
   ElevationPolicy,
@@ -28,10 +29,13 @@ import type {
   ListSessionsResponse,
   NetdSettings,
   RecoveryKey,
+  RedeemCodeResponse,
   RunChecksResponse,
   Session,
   SetNetworkResponse,
+  SetupStepKind,
   SignInResponse,
+  TotpEnrolment,
   UpdatePackage,
   UpgradePolicy,
 } from "@/lib/osadmin/types";
@@ -54,6 +58,18 @@ export const signIn = {
 export const setup = {
   acknowledgeSingleAdmin: () =>
     call<Record<string, never>>("SetupService", "AcknowledgeSingleAdmin"),
+  /** Marks the optional network step or the read-only protection step as seen. */
+  acknowledgeStep: (step: SetupStepKind) =>
+    call<Record<string, never>>("SetupService", "AcknowledgeStep", { step }),
+  /** Checks the name and password, and returns a new TOTP secret; nothing is stored yet. */
+  beginCredentials: (admin: string, password: string) =>
+    call<{ totp: TotpEnrolment }>("SetupService", "BeginCredentials", { admin, password }),
+  /** Whether a password would be taken (12+ characters, not breached); nothing is stored. */
+  checkPassword: (password: string, admin: string) =>
+    call<CheckPasswordResponse>("SetupService", "CheckPassword", { admin, password }),
+  /** Checks a code from the new authenticator, stores the credentials and signs the browser in. */
+  completeCredentials: (enrolmentId: string, totpCode: string) =>
+    call<{ session: Session }>("SetupService", "CompleteCredentials", { enrolmentId, totpCode }),
   addRecoveryKey: (publicKey: string, label: string) =>
     call<{ recoveryKey: RecoveryKey }>("SetupService", "AddRecoveryKey", {
       label,
@@ -63,6 +79,8 @@ export const setup = {
     call<{ content: string; fileName: string }>("SetupService", "DownloadEscrow"),
   finish: () => call<{ productSetupUrl: string }>("SetupService", "Finish"),
   get: () => call<GetSetupResponse>("SetupService", "GetSetup"),
+  /** A one-time code: the console's setup code, an invitation or Recover access. */
+  redeemCode: (code: string) => call<RedeemCodeResponse>("SetupService", "RedeemCode", { code }),
   removeRecoveryKey: (fingerprint: string) =>
     call<Record<string, never>>("SetupService", "RemoveRecoveryKey", { fingerprint }),
 };

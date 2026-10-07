@@ -46,6 +46,30 @@ const FRAME = [
 // Pages shot again with the mock box in a scenario (`?mockScenario=`, app/mock/edge.mock.ts),
 // for the states a fresh mock box doesn't show. The name is the shot's file prefix.
 const SCENARIOS = [{ name: "updates-elevated", route: "/updates", scenario: "staged,elevated" }];
+// Signed-out pages in a scenario: the setup stepper's steps as a reload finds them, each with
+// an optional `act` that drives the page further before the shot.
+const SIGNED_OUT_SCENARIOS = [
+  { name: "setup-1-code", route: "/setup", scenario: "first-boot" },
+  { name: "setup-2-admin", route: "/setup", scenario: "setup-admin" },
+  {
+    act: async (page) => {
+      await page.getByLabel("Admin name").fill("alice");
+      await page.getByLabel("Password", { exact: true }).fill("correct horse battery staple");
+      await page.getByLabel("Password again", { exact: true }).fill("correct horse battery staple");
+      await page.getByText("Strong enough.").waitFor();
+      await page.getByRole("button", { name: "Continue" }).click();
+      await page.getByText("Add your authenticator").waitFor();
+    },
+    name: "setup-2-authenticator",
+    route: "/setup",
+    scenario: "setup-admin",
+  },
+  { name: "setup-3-recovery-keys", route: "/setup", scenario: "setup-keys" },
+  { name: "setup-4-network", route: "/setup", scenario: "setup-network" },
+  { name: "setup-5-protection", route: "/setup", scenario: "setup-protection" },
+  { name: "setup-5-protection-reduced", route: "/setup", scenario: "setup-protection,reduced" },
+  { name: "setup-6-finish", route: "/setup", scenario: "setup-finish" },
+];
 const READY_TIMEOUT_MS = 15_000;
 // The marker has to hold this long: a page that answers one call and starts the next would
 // otherwise look ready in between.
@@ -203,6 +227,12 @@ try {
     for (const route of SIGNED_OUT) {
       await page.goto(`${base}${route}`);
       await shoot(page, shots, size, route);
+    }
+    for (const { act, name, route, scenario } of SIGNED_OUT_SCENARIOS) {
+      await page.goto(`${base}${route}?mockScenario=${scenario}`);
+      await waitForReady(page, route);
+      if (act) await act(page);
+      await shoot(page, shots, size, route, name, `${route} (${name})`);
     }
     // The dev quick login opens a Radix select, so the run also covers its scroll lock.
     await page.goto(`${base}/`);
