@@ -41,11 +41,23 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Typecheck
+        run: npm run typecheck
+
       - name: Test
         run: npm test
 
       - name: Build
         run: npm run build
+
+      # The committed clients in packages/api-client/src/generated must match what
+      # schema-refs.env's pinned gateway ref generates; a stale client is a bug, not
+      # a format detail, so this fails the build rather than warning in review.
+      - name: Generated client is up to date
+        if: matrix.node-version == 'lts/*'
+        run: |
+          npm run schema:generate
+          git diff --exit-code -- packages/api-client/src/generated
 
       # A release build carries no mock code and can't turn on the dev quick login.
       - name: No mock code in live builds
