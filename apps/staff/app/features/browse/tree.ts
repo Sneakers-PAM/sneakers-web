@@ -113,6 +113,12 @@ export const secretDestinations = (folders: NavFolder[], from: NavFolder): Desti
     .filter((f) => f.canManage)
     .map((f) => ({ folder: f, label: folderLabel(folders, f), self: f.id === from.id }));
 
+/** Where a new folder can be created: any folder the user manages. Nothing is "self" yet. */
+export const creatableFolders = (folders: NavFolder[]): Destination[] =>
+  treeOrder(folders)
+    .filter((f) => f.canManage)
+    .map((f) => ({ folder: f, label: folderLabel(folders, f), self: false }));
+
 /** Where a deleted folder's contents can go: same realm, outside the folder, managed. */
 export const reassignTargets = (folders: NavFolder[], folder: NavFolder): Destination[] => {
   const below = subtreeIds(folders, folder.id);

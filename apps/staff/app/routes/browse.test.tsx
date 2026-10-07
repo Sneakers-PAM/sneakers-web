@@ -235,6 +235,38 @@ describe("folder operations", () => {
     );
   });
 
+  it("creates a folder under a different folder you manage, picked in the dialog", async () => {
+    open("/browse/mock-folder-platform");
+    const user = await folderMenu("New folder…");
+    const dialog = await screen.findByRole("dialog", { name: "New folder" });
+    await user.click(within(dialog).getByRole("radio", { name: "Finance" }));
+    await user.type(within(dialog).getByLabelText("Name"), "Invoices");
+    await user.click(within(dialog).getByRole("button", { name: "Create" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(mockState.world.folders.find((f) => f.name === "Invoices")?.parentId).toBe(
+      "mock-folder-finance",
+    );
+  });
+
+  it("offers the shared top level to a site admin, as a parent choice", async () => {
+    open("/browse/mock-folder-platform");
+    const user = await folderMenu("New folder…");
+    const dialog = await screen.findByRole("dialog", { name: "New folder" });
+    await user.click(within(dialog).getByRole("radio", { name: "Shared · top level" }));
+    await user.type(within(dialog).getByLabelText("Name"), "Legal");
+    await user.click(within(dialog).getByRole("button", { name: "Create" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(mockState.world.folders.find((f) => f.name === "Legal")?.parentId).toBeUndefined();
+  });
+
+  it("hides the shared top level from a non-admin creating a folder", async () => {
+    open("/browse/mock-folder-archive", "mock-user-bob");
+    await folderMenu("New folder…");
+    const dialog = await screen.findByRole("dialog", { name: "New folder" });
+    expect(within(dialog).queryByRole("radio", { name: "Shared · top level" })).toBeNull();
+    expect(within(dialog).queryByRole("radio", { name: /Platform/ })).toBeNull();
+  });
+
   it("shows the gateway's refusal in the dialog", async () => {
     open("/browse/mock-folder-databases");
     const user = await folderMenu("Rename…");

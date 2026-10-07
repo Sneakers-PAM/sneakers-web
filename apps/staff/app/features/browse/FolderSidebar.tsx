@@ -10,6 +10,7 @@ import { type FolderAction } from "@/features/browse/folderActions";
 import { FolderNav } from "@/features/browse/FolderNav";
 import { MoveFlow } from "@/features/browse/MoveFlow";
 import { NameDialog } from "@/features/browse/NameDialog";
+import { NewFolderDialog } from "@/features/browse/NewFolderDialog";
 import { activeFolderId, folderLabel, reordered } from "@/features/browse/tree";
 import { useBrowseAction } from "@/features/browse/useBrowseAction";
 
@@ -95,21 +96,12 @@ export const FolderSidebar = ({
         </p>
       )}
       {dialog?.kind === "create" && (
-        <NameDialog
+        <NewFolderDialog
           action={action}
-          description={
-            dialog.parent ? (
-              <>
-                In <b className="text-ink">{folderLabel(folders, dialog.parent)}</b>
-              </>
-            ) : (
-              "At the top of the shared folders."
-            )
-          }
-          fields={{ intent: "create", parentId: dialog.parent?.id ?? "" }}
+          folders={folders}
+          isAdmin={isAdmin}
           onClose={close}
-          submitLabel="Create"
-          title="New folder"
+          parent={dialog.parent}
         />
       )}
       {dialog?.kind === "rename" && (
