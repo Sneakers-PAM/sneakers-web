@@ -183,6 +183,8 @@ export interface MockTarget {
   id: string;
   kind?: string;
   name: string;
+  /** The key a fresh scan reports the host offers; unset derives a stable one from the id. */
+  offeredHostKey?: string;
   ownerUserId?: string;
   realm?: string;
   sshHostKeys: string[];
@@ -584,6 +586,7 @@ const TARGETS: MockTarget[] = [
     id: "mock-target-build1",
     kind: "linux",
     name: "Build host",
+    offeredHostKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockBuild1HostKeyNotReal build1",
     ownerUserId: ALICE,
     sshHostKeys: ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockBuild1HostKeyNotReal build1"],
   },

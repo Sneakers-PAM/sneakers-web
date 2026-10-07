@@ -9,6 +9,11 @@ export {
 export { handleRequest, streamTimeout } from "#shell/server/entry.server";
 export { frameData, type FrameData } from "#shell/server/frame.server";
 export { gatewayFor, relayCookies } from "#shell/server/gateway.server";
+export {
+  hostKeyPinAction,
+  type HostKeyPinState,
+  type HostKeyScanView,
+} from "#shell/server/hostKeyPin.server";
 export { appBase, appPath, pathInApp, safeNext } from "#shell/server/paths.server";
 export {
   displayAction,

@@ -5,8 +5,8 @@ import {
   AdminTargetsDocument,
   GraphQLRequestError,
 } from "@sneakers-web/api-client";
-import { type Refusal, refusalMessage, refusalOf } from "@sneakers-web/shell";
-import { guard, requireUser } from "@sneakers-web/shell/server";
+import { HostKeyPinDialog, type Refusal, refusalMessage, refusalOf } from "@sneakers-web/shell";
+import { guard, isAdmin, requireUser } from "@sneakers-web/shell/server";
 import { Alert, Button, Field, Input, PageHeader, plural, Textarea } from "@sneakers-web/ui";
 import { useState } from "react";
 import {
@@ -36,7 +36,7 @@ export interface TargetDraft {
 }
 
 export const loader = ({ params, request }: LoaderFunctionArgs) =>
-  adminLoad(request, async (gw) => {
+  adminLoad(request, async (gw, user) => {
     const d = await gw.gql(AdminTargetsDocument);
     const connections = d.connections.map((c) => ({
       label: `${c.name} (${c.protocol}${c.port ? `:${c.port}` : ""})`,
@@ -54,7 +54,7 @@ export const loader = ({ params, request }: LoaderFunctionArgs) =>
         realm: "",
         sshHostKeys: "",
       };
-      return { connections, draft, target: null };
+      return { canPinHostKey: isAdmin(user), connections, draft, target: null };
     }
     const t = d.targets.find((x) => x.id === params.id);
     if (!t)
@@ -72,6 +72,7 @@ export const loader = ({ params, request }: LoaderFunctionArgs) =>
       sshHostKeys: t.sshHostKeys.join("\n"),
     };
     return {
+      canPinHostKey: isAdmin(user),
       connections,
       draft,
       target: { id: t.id, ownerUserId: t.ownerUserId, secretCount: t.secretCount },
@@ -129,11 +130,12 @@ export const meta = ({ data: d }: { data?: Awaited<ReturnType<typeof loader>> })
 const KINDS = ["active-directory", "linux", "windows", "network", "postgres"];
 
 const TargetEditor = () => {
-  const { connections, draft: saved, target } = useLoaderData<typeof loader>();
+  const { canPinHostKey, connections, draft: saved, target } = useLoaderData<typeof loader>();
   const result = useActionData<typeof action>();
   const busy = useNavigation().state === "submitting";
   const [d, setD] = useState<TargetDraft>(result?.draft ?? saved);
   const [tried, setTried] = useState(false);
+  const [pinOpen, setPinOpen] = useState(false);
   const set = (patch: Partial<TargetDraft>) => setD((current) => ({ ...current, ...patch }));
   const protocol = connections.find((c) => c.value === d.connectionId)?.protocol ?? "";
   const ssh = protocol === "ssh";
@@ -285,7 +287,38 @@ const TargetEditor = () => {
             value={d.sshHostKeys}
           />
         </Field>
+        {ssh && target && (
+          <>
+            {canPinHostKey ? (
+              <Button
+                className="self-start"
+                onClick={() => setPinOpen(true)}
+                type="button"
+                variant="secondary"
+              >
+                Scan and pin…
+              </Button>
+            ) : (
+              <span className="text-small text-muted">
+                Ask a site admin to scan and pin this host&apos;s key.
+              </span>
+            )}
+          </>
+        )}
       </Panel>
+      {target && (
+        <HostKeyPinDialog
+          hostname={d.hostname}
+          onOpenChange={setPinOpen}
+          onPinned={(publicKey) => {
+            if (!lines(d.sshHostKeys).includes(publicKey)) {
+              set({ sshHostKeys: [...lines(d.sshHostKeys), publicKey].join("\n") });
+            }
+          }}
+          open={pinOpen}
+          targetId={target.id}
+        />
+      )}
     </Form>
   );
 };

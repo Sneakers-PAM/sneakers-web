@@ -6,7 +6,7 @@ import {
   TargetsTerminalFieldsDocument,
 } from "@sneakers-web/api-client";
 import { type Refusal, refusalOf } from "@sneakers-web/shell";
-import { guard, requireUser } from "@sneakers-web/shell/server";
+import { guard, isAdmin, requireUser } from "@sneakers-web/shell/server";
 
 const log = createLogger("terminal");
 
@@ -26,14 +26,21 @@ export interface TerminalData {
  * why not. `pinned` false means the broker will refuse the host (no pinned host key).
  */
 export type TerminalSession =
-  | { hostname: string; kind: "ready"; pinned: boolean; username: string }
+  | {
+      canPinHostKey: boolean;
+      hostname: string;
+      kind: "ready";
+      pinned: boolean;
+      targetId: string;
+      username: string;
+    }
   | { kind: "locked" }
   | { kind: "not-ssh" }
   | { kind: "retired" };
 
 /** U-12: the secret, its SSH target and the username. The key itself never leaves the vault. */
 export const loadTerminal = async (request: Request, id: string): Promise<TerminalData> => {
-  const { gw } = await requireUser(request);
+  const { gw, user } = await requireUser(request);
   log.debug("terminal load", { secretId: id });
   return guard(request, async () => {
     const d = await gw.gql(TargetsTerminalDocument, { id });
@@ -57,9 +64,11 @@ export const loadTerminal = async (request: Request, id: string): Promise<Termin
     return {
       secret,
       session: {
+        canPinHostKey: isAdmin(user),
         hostname: target.hostname,
         kind: "ready",
         pinned: target.sshHostKeys.length > 0,
+        targetId: target.id,
         username,
       },
     };

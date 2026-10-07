@@ -4,7 +4,9 @@ import {
   TargetsDeleteDocument,
   TargetsListDocument,
   TargetsOpenSshSessionDocument,
+  TargetsPinHostKeyDocument,
   TargetsSaveDocument,
+  TargetsScanHostKeyDocument,
   TargetsTerminalDocument,
   TargetsTerminalFieldsDocument,
 } from "@sneakers-web/api-client";
@@ -19,6 +21,7 @@ import type {
 
 import { isSiteAdmin, refusal } from "#mock/admin/refuse";
 import { api, asUser } from "#mock/handlers/graphql";
+import { fingerprintOf, offeredKeyLine, parseKeyLine } from "#mock/handlers/hostKeyScan";
 import { canRead, canSee, secretById } from "#mock/handlers/staff/access";
 import { mockState, newToken } from "#mock/state";
 
@@ -109,6 +112,20 @@ const sameList = (a: string[], b: string[]) =>
 const noEdit = () => refusal("PERMISSION_DENIED", "not permitted to edit this target");
 const noPins = () =>
   refusal("PERMISSION_DENIED", "only a site admin may change a target's SSH host keys");
+
+const protocolOf = (connectionId: string) =>
+  world().connections.find((c) => c.id === connectionId)?.protocol;
+
+/** The target's SSH connection id: the default connection when it's SSH, otherwise the first
+ * SSH one. Undefined when the target has none. */
+const sshConnectionIdOf = (t: MockTarget): string | undefined => {
+  const conns = connectionsOf(t);
+  const defaultConnection = conns.find((c) => c.isDefault);
+  if (defaultConnection && protocolOf(defaultConnection.connectionId) === "ssh") {
+    return defaultConnection.connectionId;
+  }
+  return conns.find((c) => protocolOf(c.connectionId) === "ssh")?.connectionId;
+};
 
 const nonSensitive = (s: MockSecret) => {
   const type = world().secretTypes.find((t) => t.id === s.typeId);
@@ -253,6 +270,47 @@ export const targetsHandlers: RequestHandler[] = [
           wsUrl: "mock-ssh://mock-gateway.example.invalid/ssh/session",
         },
       });
+    }),
+  ),
+
+  api.query(TargetsScanHostKeyDocument, ({ request, variables }) =>
+    asUser(request, (userId) => {
+      const t = world().targets.find((x) => x.id === variables.targetId && visible(userId, x));
+      if (!t) return refusal("NOT_FOUND", "target not found");
+      if (!isSiteAdmin(userId)) return noPins();
+      if (!sshConnectionIdOf(t))
+        return refusal("FAILED_PRECONDITION", "target has no SSH connection");
+      const line = offeredKeyLine(t);
+      const { keyType, publicKey } = parseKeyLine(line);
+      return ok({
+        scanTargetHostKey: {
+          fingerprint: fingerprintOf(line),
+          keyType,
+          pinned: t.sshHostKeys.includes(line),
+          publicKey,
+          targetId: t.id,
+        },
+      });
+    }),
+  ),
+
+  api.mutation(TargetsPinHostKeyDocument, ({ request, variables }) =>
+    asUser(request, (userId) => {
+      const t = world().targets.find((x) => x.id === variables.targetId && visible(userId, x));
+      if (!t) return refusal("NOT_FOUND", "target not found");
+      if (!isSiteAdmin(userId)) return noPins();
+      if (!sshConnectionIdOf(t))
+        return refusal("FAILED_PRECONDITION", "target has no SSH connection");
+      const line = offeredKeyLine(t);
+      if (fingerprintOf(line) !== variables.fingerprint) {
+        return refusal(
+          "FAILED_PRECONDITION",
+          "the host key has changed since it was scanned",
+          "HOST_KEY_CHANGED",
+        );
+      }
+      if (!t.sshHostKeys.includes(line)) t.sshHostKeys = [...t.sshHostKeys, line];
+      return ok({ pinTargetHostKey: targetView(t) });
     }),
   ),
 ];

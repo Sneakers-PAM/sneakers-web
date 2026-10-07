@@ -35,12 +35,20 @@ describe("the terminal loader", () => {
     expect(d).toEqual({
       secret: { id: KEY, name: "Build host deploy key" },
       session: {
+        canPinHostKey: true,
         hostname: "build1.example.org",
         kind: "ready",
         pinned: true,
+        targetId: "mock-target-build1",
         username: "deploy",
       },
     });
+  });
+
+  it("only lets a site admin or root pin the host key", async () => {
+    mockState.world.targets.find((t) => t.id === "mock-target-build1")!.ownerUserId = undefined;
+    const session = await sessionOf(KEY, "mock-user-bob");
+    expect(session).toMatchObject({ canPinHostKey: false, kind: "ready" });
   });
 
   it("says when a secret isn't an SSH key bound to an SSH target", async () => {

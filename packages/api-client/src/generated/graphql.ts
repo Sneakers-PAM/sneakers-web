@@ -2873,6 +2873,29 @@ export type TargetsOpenSshSessionMutation = {
   openSshSession: { wsUrl: string; ticket: string; sessionId: string; expiresInSeconds: number };
 };
 
+export type TargetsScanHostKeyQueryVariables = Exact<{
+  targetId: string;
+}>;
+
+export type TargetsScanHostKeyQuery = {
+  scanTargetHostKey: {
+    targetId: string;
+    keyType: string;
+    publicKey: string;
+    fingerprint: string;
+    pinned: boolean;
+  };
+};
+
+export type TargetsPinHostKeyMutationVariables = Exact<{
+  targetId: string;
+  fingerprint: string;
+}>;
+
+export type TargetsPinHostKeyMutation = {
+  pinTargetHostKey: { id: string; sshHostKeys: Array<string> };
+};
+
 export class TypedDocumentString<TResult, TVariables>
   extends String
   implements DocumentTypeDecoration<TResult, TVariables>
@@ -6095,4 +6118,26 @@ export const TargetsOpenSshSessionDocument = new TypedDocumentString(`
     `) as unknown as TypedDocumentString<
   TargetsOpenSshSessionMutation,
   TargetsOpenSshSessionMutationVariables
+>;
+export const TargetsScanHostKeyDocument = new TypedDocumentString(`
+    query TargetsScanHostKey($targetId: ID!) {
+  scanTargetHostKey(targetId: $targetId) {
+    targetId
+    keyType
+    publicKey
+    fingerprint
+    pinned
+  }
+}
+    `) as unknown as TypedDocumentString<TargetsScanHostKeyQuery, TargetsScanHostKeyQueryVariables>;
+export const TargetsPinHostKeyDocument = new TypedDocumentString(`
+    mutation TargetsPinHostKey($targetId: ID!, $fingerprint: String!) {
+  pinTargetHostKey(targetId: $targetId, fingerprint: $fingerprint) {
+    id
+    sshHostKeys
+  }
+}
+    `) as unknown as TypedDocumentString<
+  TargetsPinHostKeyMutation,
+  TargetsPinHostKeyMutationVariables
 >;

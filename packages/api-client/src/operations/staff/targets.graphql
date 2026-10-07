@@ -85,3 +85,22 @@ mutation TargetsOpenSshSession($secretId: ID!) {
     expiresInSeconds
   }
 }
+
+# Trust-on-first-use host-key pinning (U-12's "not pinned" card). A scan never pins; only a
+# confirmed pinTargetHostKey call does.
+query TargetsScanHostKey($targetId: ID!) {
+  scanTargetHostKey(targetId: $targetId) {
+    targetId
+    keyType
+    publicKey
+    fingerprint
+    pinned
+  }
+}
+
+mutation TargetsPinHostKey($targetId: ID!, $fingerprint: String!) {
+  pinTargetHostKey(targetId: $targetId, fingerprint: $fingerprint) {
+    id
+    sshHostKeys
+  }
+}
