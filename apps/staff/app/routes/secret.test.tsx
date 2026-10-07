@@ -51,6 +51,13 @@ describe("the secret detail page", () => {
     expect(within(card("History")).getByText("Active")).toBeInTheDocument();
   });
 
+  it("shows the AD logon format fields, data-driven and unset on an older secret", async () => {
+    open("mock-secret-acme-vpn");
+    await screen.findByRole("heading", { level: 1, name: /Acme VPN/ });
+    expect(within(row("Logon format")).getByText("—")).toBeInTheDocument();
+    expect(within(row("UPN suffix")).getByText("—")).toBeInTheDocument();
+  });
+
   it("ellipsizes a long single-line value, with the full value on hover", async () => {
     open("mock-secret-db-admin");
     await screen.findByRole("heading", { level: 1, name: /DB admin/ });

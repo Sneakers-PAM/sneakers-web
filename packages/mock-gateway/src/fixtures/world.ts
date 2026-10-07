@@ -283,6 +283,15 @@ const SECRET_TYPES: MockSecretType[] = [
     checkout: true,
     fields: [
       { key: "domain", kind: "text", label: "Domain (FQDN)", required: true },
+      // Optional with no default: unset keeps each consumer's existing logon name, so
+      // secrets saved before these fields existed behave as before (vault#132).
+      {
+        key: "logonFormat",
+        kind: "select",
+        label: "Logon format",
+        options: ["NETBIOS", "UPN"],
+      },
+      { key: "upnSuffix", kind: "text", label: "UPN suffix" },
       { key: "username", kind: "text", label: "Account Name", required: true },
       {
         key: "password",
