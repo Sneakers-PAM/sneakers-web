@@ -5,6 +5,12 @@
 // (`data-app-ready` on <html>, app/lib/readiness.ts). Any console error, page error or CSP
 // violation fails the run, and so does a route that never gets ready.
 //
+// A second, "real backend, not implemented" pass (issue #201) shoots the same frame routes
+// from the LIVE build against e2e/applianceRealBackendServer.mjs: a box shaped like a real
+// one today, where TlsService, McpService, BackupService and ModulesService answer
+// "unimplemented" and UpgradeService leaves out an empty history. Those pages have to show
+// "Not available in this release" instead of crashing or staying blank.
+//
 //   npm run gallery:appliance-admin                 # writes apps/appliance-admin/gallery
 //   GALLERY_DIR=/some/folder npm run gallery:appliance-admin
 //
@@ -96,14 +102,25 @@ const waitForReady = async (page, route) => {
   return page.evaluate(() => location.pathname);
 };
 
-const watch = (page, problems, label) => {
+const watch = (page, problems, label, { ignoreFailedResource = false } = {}) => {
   page.on("console", (message) => {
+    // The real-backend pass's 501s show up as their own "failed to load resource" console
+    // error; that is the scenario under test (isNotAvailable's catch is what matters), not a
+    // bug.
+    if (ignoreFailedResource && /failed to load resource/i.test(message.text())) return;
     if (message.type() === "error") problems.push(`${label}: console error: ${message.text()}`);
   });
   page.on("pageerror", (error) => problems.push(`${label}: page error: ${error.message}`));
   page.on("requestfailed", (request) =>
     problems.push(`${label}: request failed: ${request.url()} ${request.failure()?.errorText}`),
   );
+};
+
+/** Waits for BeginSignIn's poll to approve (applianceRealBackendServer.mjs approves on the
+ * first one), the way a real admin's SSH approval eventually would. */
+const waitForLiveSignIn = async (page, realBase) => {
+  await page.goto(realBase);
+  await page.waitForURL(`${realBase}/home`, { timeout: 15_000 });
 };
 
 const shoot = async (page, shots, size, route, name = slug(route), label = route) => {
@@ -159,9 +176,12 @@ try {
   await waitForServer(`${base}/favicon.svg`);
   rmSync(out, { force: true, recursive: true });
   mkdirSync(out, { recursive: true });
-  browser = await chromium.launch(
-    process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {},
-  );
+  browser = await chromium.launch({
+    // Without these, a screenshot hangs forever on a host with no GPU (a container, most
+    // CI runners): Chrome's compositor never finishes the frame it's handed to.
+    args: ["--disable-gpu", "--disable-software-rasterizer"],
+    ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}),
+  });
   for (const size of WIDTHS) {
     const context = await browser.newContext({
       viewport: { height: size.height, width: size.width },
@@ -198,6 +218,34 @@ try {
     }
     await context.close();
   }
+
+  // Second pass: the LIVE build (not mock) against a backend shaped like a real box today
+  // (issue #201's "real backend, not implemented"). Desktop only, to keep this cheap; the
+  // first pass above already covers both widths and every other state.
+  const port2 = await freePort();
+  const base2 = `http://127.0.0.1:${port2}`;
+  const server2 = spawn(process.execPath, [path.join(root, "e2e/applianceRealBackendServer.mjs")], {
+    env: { ...process.env, APP_BUILD_DIR: "build", PORT: String(port2) },
+    stdio: "inherit",
+  });
+  try {
+    await waitForServer(`${base2}/favicon.svg`);
+    const context = await browser.newContext({
+      viewport: { height: WIDTHS[0].height, width: WIDTHS[0].width },
+    });
+    const page = await context.newPage();
+    watch(page, problems, "real backend", { ignoreFailedResource: true });
+    await waitForLiveSignIn(page, base2);
+    for (const route of FRAME) {
+      await page.evaluate((to) => globalThis.__reactRouterDataRouter.navigate(to), route);
+      await page.waitForURL(`${base2}${route}`);
+      await shoot(page, shots, WIDTHS[0], route, `real-${slug(route)}`, `${route} (real backend)`);
+    }
+    await context.close();
+  } finally {
+    server2.kill();
+  }
+
   writeFileSync(path.join(out, "index.html"), indexPage(shots));
 } finally {
   await browser?.close();

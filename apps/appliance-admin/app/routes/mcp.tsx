@@ -3,14 +3,30 @@ import { useEffect, useState } from "react";
 
 import type { GetMcpResponse } from "@/lib/osadmin/types";
 
+import { NotAvailable } from "@/components/NotAvailable";
 import { runAction } from "@/lib/osadmin/action";
 import { mcp } from "@/lib/osadmin/client";
+import { isNotAvailable } from "@/lib/osadmin/errors";
 
 export default function Mcp() {
   const [data, setData] = useState<GetMcpResponse>();
-  const reload = () => void mcp.get().then(setData);
+  const [unavailable, setUnavailable] = useState(false);
+  const reload = () =>
+    void mcp
+      .get()
+      .then(setData)
+      .catch((error: unknown) => {
+        if (isNotAvailable(error)) setUnavailable(true);
+      });
   useEffect(reload, []);
 
+  if (unavailable) {
+    return (
+      <div className="p-5.5">
+        <NotAvailable name="MCP" />
+      </div>
+    );
+  }
   if (!data) return null;
 
   return (

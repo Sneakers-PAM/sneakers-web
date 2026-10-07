@@ -17,8 +17,10 @@ import { Link } from "react-router";
 
 import type { GetBackupsResponse, RecoveryKey } from "@/lib/osadmin/types";
 
+import { NotAvailable } from "@/components/NotAvailable";
 import { runAction } from "@/lib/osadmin/action";
 import { backup, setup } from "@/lib/osadmin/client";
+import { isNotAvailable } from "@/lib/osadmin/errors";
 
 export default function Backups() {
   const [data, setData] = useState<GetBackupsResponse>();
@@ -26,17 +28,30 @@ export default function Backups() {
   const [schedule, setSchedule] = useState("");
   const [retentionDays, setRetentionDays] = useState(30);
   const [targets, setTargets] = useState("");
+  const [unavailable, setUnavailable] = useState(false);
 
   const reload = () =>
-    void backup.get().then((response) => {
-      setData(response);
-      setSchedule(response.policy?.schedule ?? "");
-      setRetentionDays(response.policy?.retentionDays ?? 30);
-      setTargets((response.policy?.targets ?? []).join(", "));
-    });
+    void backup
+      .get()
+      .then((response) => {
+        setData(response);
+        setSchedule(response.policy?.schedule ?? "");
+        setRetentionDays(response.policy?.retentionDays ?? 30);
+        setTargets((response.policy?.targets ?? []).join(", "));
+      })
+      .catch((error: unknown) => {
+        if (isNotAvailable(error)) setUnavailable(true);
+      });
   useEffect(reload, []);
   useEffect(() => void setup.get().then((response) => setRecoveryKeys(response.recoveryKeys)), []);
 
+  if (unavailable) {
+    return (
+      <div className="p-5.5">
+        <NotAvailable name="Backups" />
+      </div>
+    );
+  }
   if (!data) return null;
 
   return (

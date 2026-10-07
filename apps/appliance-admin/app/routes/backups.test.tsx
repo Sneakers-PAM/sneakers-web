@@ -1,6 +1,8 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import { backup } from "@/lib/osadmin/client";
+import { OsadminError } from "@/lib/osadmin/errors";
 import Backups from "@/routes/backups";
 import { renderPage } from "@/test/renderPage";
 
@@ -10,6 +12,14 @@ describe("Backups", () => {
     expect(await screen.findByText("Backups")).toBeInTheDocument();
     expect(screen.getByDisplayValue("02:00")).toBeInTheDocument();
     expect(screen.getByText("bk-20261006")).toBeInTheDocument();
+  });
+
+  it("says it isn't available when the box's backup backend isn't there", async () => {
+    vi.spyOn(backup, "get").mockRejectedValueOnce(
+      new OsadminError("unimplemented", "BackupService isn't on this box"),
+    );
+    renderPage(Backups);
+    expect(await screen.findByText("Backups: not available in this release")).toBeInTheDocument();
   });
 
   it("runs a backup now and adds a new set", async () => {

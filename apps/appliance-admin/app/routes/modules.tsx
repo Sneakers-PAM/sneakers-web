@@ -16,15 +16,31 @@ import { useEffect, useRef, useState } from "react";
 
 import type { ListModulesResponse } from "@/lib/osadmin/types";
 
+import { NotAvailable } from "@/components/NotAvailable";
 import { runAction } from "@/lib/osadmin/action";
 import { modules } from "@/lib/osadmin/client";
+import { isNotAvailable } from "@/lib/osadmin/errors";
 
 export default function Modules() {
   const [data, setData] = useState<ListModulesResponse>();
+  const [unavailable, setUnavailable] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
-  const reload = () => void modules.list().then(setData);
+  const reload = () =>
+    void modules
+      .list()
+      .then(setData)
+      .catch((error: unknown) => {
+        if (isNotAvailable(error)) setUnavailable(true);
+      });
   useEffect(reload, []);
 
+  if (unavailable) {
+    return (
+      <div className="p-5.5">
+        <NotAvailable name="Add-on modules" />
+      </div>
+    );
+  }
   if (!data) return null;
 
   return (
