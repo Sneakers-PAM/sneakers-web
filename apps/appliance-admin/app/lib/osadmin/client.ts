@@ -10,6 +10,7 @@ import type {
   BackupSet,
   BeginSignInResponse,
   Certificate,
+  ElevationOverride,
   ElevationPolicy,
   FactoryReset,
   GetBackupsResponse,
@@ -132,11 +133,14 @@ export const backup = {
 };
 
 export const upgrade = {
-  apply: () => call<Record<string, never>>("UpgradeService", "ApplyUpdate"),
+  /** With an override, the named elevated shell is ended first (owner, step-up). */
+  apply: (elevationOverride?: ElevationOverride) =>
+    call<Record<string, never>>("UpgradeService", "ApplyUpdate", { elevationOverride }),
   fetch: (fileName: string) =>
     call<{ uploadId: string }>("UpgradeService", "FetchUpdate", { fileName }),
   get: () => call<GetUpgradesResponse>("UpgradeService", "GetUpgrades"),
-  revert: () => call<Record<string, never>>("UpgradeService", "RevertUpdate"),
+  revert: (elevationOverride?: ElevationOverride) =>
+    call<Record<string, never>>("UpgradeService", "RevertUpdate", { elevationOverride }),
   setPolicy: (policy: UpgradePolicy) =>
     call<Record<string, never>>("UpgradeService", "SetUpgradePolicy", { policy }),
   /** Verifies the upload's signature, channel and hash, and only then unpacks and stages it. */

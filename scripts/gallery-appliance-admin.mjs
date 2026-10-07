@@ -37,6 +37,9 @@ const FRAME = [
   "/logs",
   "/power",
 ];
+// Pages shot again with the mock box in a scenario (`?mockScenario=`, app/mock/edge.mock.ts),
+// for the states a fresh mock box doesn't show. The name is the shot's file prefix.
+const SCENARIOS = [{ name: "updates-elevated", route: "/updates", scenario: "staged,elevated" }];
 const READY_TIMEOUT_MS = 15_000;
 // The marker has to hold this long: a page that answers one call and starts the next would
 // otherwise look ready in between.
@@ -68,6 +71,13 @@ const waitForServer = async (url) => {
 
 const slug = (route) => (route === "/" ? "status" : route.slice(1).replaceAll("/", "-"));
 
+/** Signs in with the dev quick login's first user, on a sign-in page already loaded. */
+const quickLogin = async (page) => {
+  await waitForReady(page, "/sign-in");
+  await page.getByRole("combobox").click();
+  await page.getByRole("option").first().click();
+};
+
 /** Waits for the app's own ready marker on the page it landed on, and returns that path. */
 const waitForReady = async (page, route) => {
   try {
@@ -96,11 +106,11 @@ const watch = (page, problems, label) => {
   );
 };
 
-const shoot = async (page, shots, size, route) => {
+const shoot = async (page, shots, size, route, name = slug(route), label = route) => {
   const landed = await waitForReady(page, route);
-  const file = `${slug(route)}-${size.name}.png`;
+  const file = `${name}-${size.name}.png`;
   await page.screenshot({ fullPage: true, path: path.join(out, file) });
-  shots.push({ file, landed, route, size: size.name });
+  shots.push({ file, landed, path: route, route: label, size: size.name });
   console.log(
     `gallery: ${route} at ${size.width}px${landed === route ? "" : ` (landed on ${landed})`}`,
   );
@@ -114,7 +124,7 @@ const indexPage = (shots) => {
         .filter((s) => s.route === route)
         .map(
           (s) =>
-            `<figure><a href="${s.file}"><img alt="${route} ${s.size}" src="${s.file}"></a><figcaption>${s.size}${s.landed === route ? "" : `, landed on ${s.landed}`}</figcaption></figure>`,
+            `<figure><a href="${s.file}"><img alt="${route} ${s.size}" src="${s.file}"></a><figcaption>${s.size}${s.landed === s.path ? "" : `, landed on ${s.landed}`}</figcaption></figure>`,
         )
         .join("");
       return `<section><h2>${route}</h2><div class="row">${cells}</div></section>`;
@@ -171,13 +181,20 @@ try {
     }
     // The dev quick login opens a Radix select, so the run also covers its scroll lock.
     await page.goto(`${base}/sign-in`);
-    await waitForReady(page, "/sign-in");
-    await page.getByRole("combobox").click();
-    await page.getByRole("option").first().click();
+    await quickLogin(page);
     for (const route of FRAME) {
       await page.evaluate((to) => globalThis.__reactRouterDataRouter.navigate(to), route);
       await page.waitForURL(`${base}${route}`);
       await shoot(page, shots, size, route);
+    }
+    // A scenario is read when the app loads, and the session lives in memory, so each one is a
+    // fresh load of the sign-in page with the scenario, then the quick login again.
+    for (const { name, route, scenario } of SCENARIOS) {
+      await page.goto(`${base}/sign-in?mockScenario=${scenario}`);
+      await quickLogin(page);
+      await page.evaluate((to) => globalThis.__reactRouterDataRouter.navigate(to), route);
+      await page.waitForURL(`${base}${route}`);
+      await shoot(page, shots, size, route, name, `${route} (${scenario})`);
     }
     await context.close();
   }

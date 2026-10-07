@@ -4,6 +4,7 @@ import type { Edge } from "@/lib/osadmin/edgeTypes";
 import type {
   Admin,
   BackupPolicy,
+  ElevationOverride,
   ElevationPolicy,
   FactoryReset,
   NetdSettings,
@@ -75,12 +76,17 @@ const STEP_UP_METHODS = new Set([
   "UpgradeService/StageUpdate",
 ]);
 
-const historyEntry = (action: "apply" | "fetch" | "revert" | "stage", version: string, code = "") =>
+const historyEntry = (
+  action: "apply" | "fetch" | "revert" | "stage",
+  version: string,
+  code = "",
+  detail = "",
+) =>
   upgradeHistory.unshift({
     action,
     actor: caller(),
     code,
-    detail: "",
+    detail,
     outcome: code ? "failed" : "ok",
     time: new Date().toISOString(),
     version,
@@ -120,6 +126,52 @@ const verify = async (uploadId: string): Promise<UpdatePackage> => {
     uploadId,
     version: patch ? "0.1.1" : "0.2.0",
   };
+};
+
+const isOwner = (name: string) => findAdmin(name)?.role === "ROLE_OWNER";
+
+// Apply and Revert refuse while an elevated shell is open, unless an owner's override names it
+// with the typed "<admin> <id>" and a reason; the shell is ended before the update goes ahead,
+// as on the box. Returns the history line's detail.
+const holdForElevation = (what: string, override?: ElevationOverride): string => {
+  const open = elevations.filter((item) => item.state === "active");
+  const other = open.find((item) => item.id !== override?.elevationId);
+  if (other)
+    throw new OsadminError(
+      "failed_precondition",
+      `UPGRADE_ELEVATED: ${other.admin} has an elevated shell open (${other.id}); it must end, or an owner ends it with an override, before the ${what}`,
+    );
+  const held = open.find((item) => item.id === override?.elevationId);
+  if (!held || !override) return "";
+  if (!isOwner(caller()))
+    throw new OsadminError(
+      "permission_denied",
+      "ACCESS_FORBIDDEN: only an owner can end an elevated shell to apply or revert",
+    );
+  const want = `${held.admin} ${held.id}`;
+  if (override.confirm.trim() !== want)
+    throw new OsadminError(
+      "invalid_argument",
+      `ACCESS_CONFIRM: type "${want}" to confirm ending ${held.admin}'s elevated shell`,
+    );
+  if (!override.reason.trim())
+    throw new OsadminError(
+      "invalid_argument",
+      `ACCESS_CONFIRM: say why ${held.admin}'s elevated shell is ended, in at most 500 characters`,
+    );
+  held.state = "ended";
+  auditEvents.unshift({
+    action: "elevation.terminate",
+    actor: caller(),
+    code: "",
+    detail: { admin: held.admin, for: what, reason: override.reason.trim() },
+    keyFingerprint: "",
+    outcome: "ok",
+    sourceAddress: "192.0.2.10",
+    target: held.id,
+    time: new Date().toISOString(),
+  });
+  return `ended elevated shell ${held.id}`;
 };
 
 const powerState = () => {
@@ -501,7 +553,11 @@ const route = async (service: string, method: string, body: Record<string, unkno
     case "UpgradeService/ApplyUpdate": {
       if (!stagedVersion)
         throw new OsadminError("failed_precondition", "UPGRADE_NOT_STAGED: no release is staged");
-      historyEntry("apply", stagedVersion);
+      const detail = holdForElevation(
+        "update applies",
+        body.elevationOverride as ElevationOverride | undefined,
+      );
+      historyEntry("apply", stagedVersion, "", detail);
       runningVersion = stagedVersion;
       stagedVersion = "";
       return {};
@@ -528,6 +584,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
     }
     case "UpgradeService/GetUpgrades": {
       return {
+        activeElevations: structuredClone(elevations.filter((item) => item.state === "active")),
         airGapped: !upgradePolicy.mirrorUrl,
         failedVersion,
         history: structuredClone(upgradeHistory),
@@ -537,7 +594,11 @@ const route = async (service: string, method: string, body: Record<string, unkno
       };
     }
     case "UpgradeService/RevertUpdate": {
-      historyEntry("revert", "");
+      const detail = holdForElevation(
+        "update reverts",
+        body.elevationOverride as ElevationOverride | undefined,
+      );
+      historyEntry("revert", "", "", detail);
       return {};
     }
     case "UpgradeService/SetUpgradePolicy": {
@@ -614,6 +675,7 @@ const refill = <T>(target: T[], source: readonly T[]) => {
 
 export type MockScenario =
   | "air-gapped"
+  | "elevated"
   | "failed"
   | "manual"
   | "reset-countdown"
@@ -644,6 +706,11 @@ export const applyMockScenario = (scenario: MockScenario): void => {
   switch (scenario) {
     case "air-gapped": {
       upgradePolicy = { ...upgradePolicy, mirrorUrl: "" };
+      break;
+    }
+    case "elevated": {
+      if (!elevations.some((item) => item.id === world.ACTIVE_ELEVATION.id))
+        elevations.push(structuredClone(world.ACTIVE_ELEVATION));
       break;
     }
     case "failed": {
@@ -694,6 +761,7 @@ export const applyMockScenario = (scenario: MockScenario): void => {
 
 const SCENARIOS = new Set<string>([
   "air-gapped",
+  "elevated",
   "failed",
   "manual",
   "reset-countdown",

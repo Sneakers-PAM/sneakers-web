@@ -97,6 +97,19 @@ export const ELEVATIONS: Elevation[] = [
   },
 ];
 
+/** The "elevated" scenario's open shell: bob's, approved and connected. */
+export const ACTIVE_ELEVATION: Elevation = {
+  admin: "bob",
+  id: "E-9M4T",
+  keyFingerprint: bobKey.fingerprint,
+  minutes: 30,
+  reason: "check the kubelet logs",
+  requested: soon(-12),
+  sourceAddress: "192.0.2.50",
+  started: soon(-10),
+  state: "active",
+};
+
 export const BACKUP_POLICY: BackupPolicy = {
   retentionDays: 30,
   schedule: "02:00",

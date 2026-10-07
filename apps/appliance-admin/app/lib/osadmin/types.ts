@@ -181,6 +181,7 @@ export interface Elevation {
   reason: string;
   requested?: string;
   sourceAddress: string;
+  started?: string;
   state: ElevationState;
 }
 
@@ -312,7 +313,20 @@ export interface UpgradeEvent {
   version: string;
 }
 
+/**
+ * An owner's override of an open elevated shell on Apply or Revert: the session is ended,
+ * audited with the reason, and the update goes ahead once its end is reported.
+ */
+export interface ElevationOverride {
+  /** Typed by the owner: the session's admin, a space and the request id ("bob E-7KQ2"). */
+  confirm: string;
+  elevationId: string;
+  reason: string;
+}
+
 export interface GetUpgradesResponse {
+  /** The elevated shells open now; Apply and Revert are refused while there is one. */
+  activeElevations?: Elevation[];
   airGapped: boolean;
   failedVersion: string;
   history: UpgradeEvent[];
