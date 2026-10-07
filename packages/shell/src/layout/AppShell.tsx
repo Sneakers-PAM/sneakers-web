@@ -6,6 +6,7 @@ import { Link, useLocation } from "react-router";
 
 import { EnvironmentBadge } from "#shell/gate/Frames";
 import { EdgeBanner } from "#shell/layout/EdgeBanner";
+import { useRootData } from "#shell/root/useRootData";
 
 export interface AppShellProps {
   account: ReactNode;
@@ -39,6 +40,7 @@ export const AppShell = ({
   sidebar,
   variant = "staff",
 }: AppShellProps) => {
+  const { storagePrefix } = useRootData();
   const bp = useBreakpoint();
   // A fixed rail needs real desktop width: an iPad Pro 13 (1024 or 1366 wide) still reads as
   // "desktop" from useBreakpoint, but has no room for a permanent sidebar next to the content.
@@ -125,7 +127,7 @@ export const AppShell = ({
         </main>
       </div>
       <div className="fixed right-4 bottom-4 z-(--z-a11y) tablet:right-5 tablet:bottom-5">
-        <DisplayPanel />
+        <DisplayPanel storagePrefix={storagePrefix} />
       </div>
       {narrow && (
         <DialogPrimitive.Root onOpenChange={setDrawer} open={drawer}>
