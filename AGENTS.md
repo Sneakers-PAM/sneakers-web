@@ -99,14 +99,23 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   and `resetMockWorld()` (called from `app/test/setup.ts` after every test) puts them back.
 - **Sessions live in memory, not a readable cookie.** `__Host-osadmin-session` is `HttpOnly`;
   the browser never reads it. `app/lib/osadmin/sessionStore.ts` holds the `Session` the last
-  `PollSignIn` or `GetSession` call returned (admin, role, CSRF token, step-up expiry), and
+  `SignIn`, `StepUp` or `GetSession` call returned (admin, role, root operator, CSRF token,
+  step-up expiry), and
   `app/frame/AppFrame.tsx` calls `GetSession` once on mount to find out whether the box still
   knows this browser.
+- **Sign-in (`app/routes/sign-in.tsx`).** The admin's name, password and a 6-digit code from
+  their authenticator (`SignInService.SignIn`). A refusal carries a `SignInRefusal` error
+  detail; `refusalOf` (`app/lib/osadmin/errors.ts`) reads it from the detail's JSON `debug`
+  form or, failing that, decodes its binary value, and `refusalMessage`
+  (`app/lib/osadmin/refusal.ts`) turns it into one sentence: the tries left, the lockout's
+  end ("until an owner unlocks it" in that lockout mode) or this address's wait. The page
+  links to `/setup` for a setup or invitation code.
 - **One step-up dialog for every page.** A mutating call that answers
   `ACCESS_STEPUP_REQUIRED` (Connect `permission_denied`) doesn't build its own prompt; it calls
   `requestStepUp` (`app/lib/osadmin/stepUpController.ts`) through `runAction`
   (`app/lib/osadmin/action.ts`), which queues the retry behind the one `<StepUpDialog>` mounted
-  in `AppFrame`. A Connect `unimplemented` (a page's backend isn't on the box yet) becomes "Not
+  in `AppFrame`. The dialog asks for a fresh TOTP code (`SignInService.StepUp`), keeps a
+  refusal in place, and retries the action once the box takes the code. A Connect `unimplemented` (a page's backend isn't on the box yet) becomes "Not
   available in this release" (`app/components/NotAvailable.tsx`); the Updates page shows it in
   full when `GetUpgrades` answers that way.
 - **Updates (`app/routes/updates.tsx`).** Owners upload a `.bin` (`edge.upload`, an
@@ -138,12 +147,15 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   mock build's URL, puts the mock box into a state for the tests and the review screen list:
   `air-gapped`, `staged`, `failed`, `manual`, `elevated` (bob has an elevated shell open, so
   Apply and Revert are refused without an owner's override), `uploading` and `verifying` (the upload or the
-  verification never finishes), `stepup` (the next step-up-gated call is refused once, and the
-  fresh sign-in is never approved, so the dialog stays up), `single-admin`, `reset-pending` and
+  verification never finishes), `stepup` (the next step-up-gated call is refused once, so the
+  dialog asks for a code), `locked`, `locked-until-unlocked` (bob is locked out, for 12
+  minutes or until an owner unlocks him), `throttled` (this address has to wait), `single-admin`, `reset-pending` and
   `reset-countdown`. The mock verifies an upload by its content: one containing "tampered" fails
   the signature, "lab" the channel, and "patch" is a patch for the running version. A key removed
   in the mock lands on its revoked list as revoked by the signed-in admin, as on the box, and the
-  world starts with one key alice revoked.
+  world starts with one key alice revoked. Every mock admin's password is `MOCK_PASSWORD`
+  (`app/mock/world.ts`), any 6-digit code but `000000` passes as their TOTP code, and 3 wrong
+  tries lock the admin for 15 minutes, as on the box.
 - **Advanced disclosure.** The trust/PKI details on Certificates, the whole Add-on modules page
   and the Logs page's support bundle sit behind `app/components/Advanced.tsx`, a plain
   `<details>` -- no new kit component needed for a collapsed-by-default section.

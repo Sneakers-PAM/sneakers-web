@@ -27,7 +27,6 @@ describe("AppFrame", () => {
     setSession({
       admin: "alice",
       csrfToken: "test-csrf",
-      keyFingerprint: "SHA256:test",
       role: "ROLE_OWNER",
     });
     stub("/home");
@@ -39,7 +38,6 @@ describe("AppFrame", () => {
     setSession({
       admin: "alice",
       csrfToken: "test-csrf",
-      keyFingerprint: "SHA256:test",
       role: "ROLE_OWNER",
     });
     const user = userEvent.setup();
@@ -52,5 +50,18 @@ describe("AppFrame", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("alice (owner)")).toBeInTheDocument();
     expect(screen.queryByText(/gateway/i)).not.toBeInTheDocument();
+  });
+
+  it("tells the admin the box's notices after signing in", async () => {
+    setSession({
+      admin: "alice",
+      csrfToken: "test-csrf",
+      notices: ["Recover access was used on the console at 14:03."],
+      role: "ROLE_OWNER",
+    });
+    stub("/home");
+    expect(
+      await screen.findByText("Recover access was used on the console at 14:03."),
+    ).toBeInTheDocument();
   });
 });

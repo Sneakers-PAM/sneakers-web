@@ -7,34 +7,23 @@ export type Role = "ROLE_ADMIN" | "ROLE_OWNER" | "ROLE_UNSPECIFIED";
 
 // ---- signin ----
 
-export type SignInState =
-  | "SIGN_IN_STATE_APPROVED"
-  | "SIGN_IN_STATE_EXPIRED"
-  | "SIGN_IN_STATE_PENDING"
-  | "SIGN_IN_STATE_UNSPECIFIED";
-
 export interface Session {
   admin: string;
   csrfToken: string;
   expires?: string;
   idleExpires?: string;
-  keyFingerprint: string;
+  /** Things to tell the admin once after signing in, such as a console Recover access. */
+  notices?: string[];
   role: Role;
+  /** On the root-operator roster: may get root-shell codes. */
+  rootOperator?: boolean;
   signedIn?: string;
+  /** Until when sensitive actions go ahead without a fresh TOTP code (StepUp). */
   stepUpUntil?: string;
 }
 
-export interface BeginSignInResponse {
-  code: string;
-  expires?: string;
-  pollToken: string;
-  sourceAddress: string;
-  userAgent: string;
-}
-
-export interface PollSignInResponse {
-  session?: Session;
-  state: SignInState;
+export interface SignInResponse {
+  session: Session;
 }
 
 // ---- setup ----
@@ -98,7 +87,10 @@ export interface FactoryReset {
   runsAt?: string;
   started?: string;
   startedBy: string;
-  state: "FACTORY_RESET_STATE_COUNTDOWN" | "FACTORY_RESET_STATE_PENDING" | "FACTORY_RESET_STATE_UNSPECIFIED";
+  state:
+    | "FACTORY_RESET_STATE_COUNTDOWN"
+    | "FACTORY_RESET_STATE_PENDING"
+    | "FACTORY_RESET_STATE_UNSPECIFIED";
 }
 
 export interface GetStatusResponse {

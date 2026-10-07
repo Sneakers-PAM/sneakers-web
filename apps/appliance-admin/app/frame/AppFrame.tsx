@@ -99,6 +99,11 @@ export const AppFrame = () => {
       }
       banners={
         <>
+          {session.notices?.map((notice) => (
+            <Alert key={notice} role="status" tone="info">
+              {notice}
+            </Alert>
+          ))}
           {setupDone === false && location.pathname === "/setup" && (
             <Alert role="status" tone="warn">
               First-boot setup isn&apos;t finished yet.

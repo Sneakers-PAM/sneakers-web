@@ -2,7 +2,7 @@ import type { Session } from "@/lib/osadmin/types";
 
 // The signed-in session, held in memory only (an osadmin restart or a page reload signs
 // everyone out anyway, since the cookie is __Host-osadmin-session, HttpOnly, and the CSRF
-// token lives only in the PollSignIn/GetSession response). A plain module-level store, read
+// token lives only in the SignIn/StepUp/GetSession response). A plain module-level store, read
 // by the transport for the CSRF header and by the session hook for the UI.
 
 let current: null | Session = null;

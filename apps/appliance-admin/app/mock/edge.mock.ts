@@ -20,7 +20,72 @@ import * as world from "@/mock/world";
 /** The banner every screen shows while the app runs against the mock transport. */
 export const MOCK_BANNER = `MOCK DATA, not a real box (${MOCK_MARKER})`;
 
-let pollAttempts = new Map<string, number>();
+export { MOCK_PASSWORD, MOCK_WRONG_CODE } from "@/mock/world";
+
+const REFUSAL_TYPE = "sneakers.appliance.osadmin.v1.SignInRefusal";
+
+/** A refusal with a SignInRefusal detail in its JSON debug form, as connect-go sends it. */
+const refused = (
+  message: string,
+  refusal: {
+    attemptsLeft?: number;
+    lockedUntil?: string;
+    lockedUntilUnlocked?: boolean;
+    retryAfter?: string;
+  },
+) =>
+  new OsadminError("unauthenticated", message, undefined, [
+    { debug: { attemptsLeft: 0, ...refusal }, type: REFUSAL_TYPE, value: "" },
+  ]);
+
+/** Checks the TOTP code (and the password, for a sign-in) and counts a failure toward the lockout. */
+const checkCredentials = (name: string, password: null | string, code: string): void => {
+  if (throttledUntil && Date.parse(throttledUntil) > Date.now())
+    throw refused("SIGNIN_THROTTLED: too many tries from this address", {
+      retryAfter: throttledUntil,
+    });
+  const lock = locks.get(name);
+  if (lock && (lock.untilUnlocked || (lock.until && Date.parse(lock.until) > Date.now())))
+    throw refused("SIGNIN_LOCKED: the account is locked", {
+      lockedUntil: lock.until,
+      lockedUntilUnlocked: lock.untilUnlocked,
+    });
+  const admin = findAdmin(name);
+  const ok =
+    !!admin &&
+    (password === null || password === world.MOCK_PASSWORD) &&
+    /^\d{6}$/.test(code) &&
+    code !== world.MOCK_WRONG_CODE;
+  if (ok) {
+    failures.delete(name);
+    locks.delete(name);
+    return;
+  }
+  if (!admin)
+    throw refused("SIGNIN_REFUSED: the name, the password or the code is wrong", {
+      attemptsLeft: MAX_FAILURES - 1,
+    });
+  const failed = (failures.get(name) ?? 0) + 1;
+  failures.set(name, failed);
+  if (failed >= MAX_FAILURES) {
+    const untilUnlocked = lockoutMode === "LOCKOUT_MODE_UNTIL_UNLOCKED";
+    const until = untilUnlocked
+      ? undefined
+      : new Date(Date.now() + LOCK_MINUTES * 60_000).toISOString();
+    locks.set(name, { until, untilUnlocked });
+    throw refused("SIGNIN_LOCKED: the account is locked", {
+      lockedUntil: until,
+      lockedUntilUnlocked: untilUnlocked,
+    });
+  }
+  throw refused("SIGNIN_REFUSED: the name, the password or the code is wrong", {
+    attemptsLeft: MAX_FAILURES - failed,
+  });
+};
+
+/** The session a real box keeps in its HttpOnly cookie, for GetSession after a reload. */
+let cookieSession: null | Session = null;
+
 let networkPending: { settings: NetdSettings; token: string } | null = null;
 const modules = structuredClone(world.MODULES);
 const recoveryKeys = structuredClone(world.RECOVERY_KEYS);
@@ -51,8 +116,13 @@ let uploadCount = 0;
 let uploadStalls = false;
 let verifyStalls = false;
 let stepUpOnce = false;
-/** With the "stepup" scenario the fresh sign-in is never approved, so the dialog stays up. */
-let signInHolds = false;
+/** Sign-in failures in the current window, and the lockouts they caused, by admin. */
+const failures = new Map<string, number>();
+const locks = new Map<string, { until?: string; untilUnlocked: boolean }>();
+/** While set, this browser's address is throttled until then. */
+let throttledUntil = "";
+const MAX_FAILURES = 3;
+const LOCK_MINUTES = 15;
 
 const RESET_DELAY_MS = 10 * 60_000;
 const RESET_PENDING_MS = 30 * 60_000;
@@ -67,6 +137,11 @@ const findAdmin = (name: string) => admins.find((a) => a.name === name);
 const never = () => new Promise<never>(() => {});
 
 const caller = (): string => getSession()?.admin ?? "";
+
+let lockoutMode: "LOCKOUT_MODE_TIMED" | "LOCKOUT_MODE_UNTIL_UNLOCKED" = "LOCKOUT_MODE_TIMED";
+
+const sessionOf = (admin: Admin): Session =>
+  world.sessionFor(admin, quorum.members.includes(admin.name));
 
 /** The step-up-gated methods refuse once after the "stepup" scenario, as a stale sign-in would. */
 const STEP_UP_METHODS = new Set([
@@ -540,32 +615,29 @@ const route = async (service: string, method: string, body: Record<string, unkno
       if (index !== -1) recoveryKeys.splice(index, 1);
       return {};
     }
-    case "SignInService/BeginSignIn": {
-      const token = Math.random().toString(36).slice(2);
-      pollAttempts.set(token, 0);
-      return {
-        code: "ABCD-1234",
-        expires: new Date(Date.now() + 5 * 60_000).toISOString(),
-        pollToken: token,
-        sourceAddress: "192.0.2.10",
-        userAgent: "Mozilla/5.0 (mock)",
-      };
-    }
     case "SignInService/GetSession": {
-      return { session: undefined };
+      return { session: cookieSession ?? undefined };
     }
-    case "SignInService/PollSignIn": {
-      const token = body.pollToken as string;
-      if (signInHolds) return { state: "SIGN_IN_STATE_PENDING" };
-      const attempts = (pollAttempts.get(token) ?? 0) + 1;
-      pollAttempts.set(token, attempts);
-      if (attempts < 2) return { state: "SIGN_IN_STATE_PENDING" };
-      const admin = admins[0];
+    case "SignInService/SignIn": {
+      const name = String(body.admin ?? "").trim();
+      checkCredentials(name, String(body.password ?? ""), String(body.totpCode ?? ""));
+      const admin = findAdmin(name);
       if (!admin) throw notFound("no admin");
-      return { session: world.sessionFor(admin), state: "SIGN_IN_STATE_APPROVED" };
+      cookieSession = sessionOf(admin);
+      return { session: cookieSession };
     }
     case "SignInService/SignOut": {
+      cookieSession = null;
       return {};
+    }
+    case "SignInService/StepUp": {
+      const current = getSession();
+      if (!current)
+        throw new OsadminError("unauthenticated", "ACCESS_UNAUTHENTICATED: sign in first");
+      checkCredentials(current.admin, null, String(body.totpCode ?? ""));
+      const session = { ...current, stepUpUntil: new Date(Date.now() + 5 * 60_000).toISOString() };
+      cookieSession = session;
+      return { session };
     }
     case "StatusService/GetStatus": {
       powerState();
@@ -695,7 +767,7 @@ export const edge: Edge = {
   quickLogin: {
     signIn: (adminName: string): null | Session => {
       const admin = findAdmin(adminName);
-      return admin ? world.sessionFor(admin) : null;
+      return admin ? sessionOf(admin) : null;
     },
     users: () =>
       admins.map((a) => ({
@@ -728,12 +800,15 @@ export type MockScenario =
   | "air-gapped"
   | "elevated"
   | "failed"
+  | "locked-until-unlocked"
+  | "locked"
   | "manual"
   | "reset-countdown"
   | "reset-pending"
   | "single-admin"
   | "staged"
   | "stepup"
+  | "throttled"
   | "uploading"
   | "verifying";
 
@@ -768,6 +843,17 @@ export const applyMockScenario = (scenario: MockScenario): void => {
       failedVersion = "0.2.0";
       break;
     }
+    case "locked": {
+      locks.set("bob", {
+        until: new Date(Date.now() + 12 * 60_000).toISOString(),
+        untilUnlocked: false,
+      });
+      break;
+    }
+    case "locked-until-unlocked": {
+      locks.set("bob", { untilUnlocked: true });
+      break;
+    }
     case "manual": {
       upgradePolicy = { ...upgradePolicy, mode: "manual" };
       break;
@@ -796,7 +882,10 @@ export const applyMockScenario = (scenario: MockScenario): void => {
     }
     case "stepup": {
       stepUpOnce = true;
-      signInHolds = true;
+      break;
+    }
+    case "throttled": {
+      throttledUntil = new Date(Date.now() + 4 * 60_000).toISOString();
       break;
     }
     case "uploading": {
@@ -814,12 +903,15 @@ const SCENARIOS = new Set<string>([
   "air-gapped",
   "elevated",
   "failed",
+  "locked",
+  "locked-until-unlocked",
   "manual",
   "reset-countdown",
   "reset-pending",
   "single-admin",
   "staged",
   "stepup",
+  "throttled",
   "uploading",
   "verifying",
 ] satisfies MockScenario[]);
@@ -842,9 +934,12 @@ export const resetMockWorld = (): void => {
   uploadStalls = false;
   verifyStalls = false;
   stepUpOnce = false;
-  signInHolds = false;
+  failures.clear();
+  locks.clear();
+  throttledUntil = "";
+  cookieSession = null;
+  lockoutMode = "LOCKOUT_MODE_TIMED";
   refill(upgradeHistory, world.UPGRADE_HISTORY);
-  pollAttempts = new Map();
   networkPending = null;
   singleAdminAcknowledged = false;
   setupDone = true;

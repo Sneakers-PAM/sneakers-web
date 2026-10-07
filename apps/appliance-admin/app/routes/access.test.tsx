@@ -16,7 +16,6 @@ const signInAsOwner = () =>
   setSession({
     admin: "alice",
     csrfToken: "test-csrf",
-    keyFingerprint: "SHA256:test",
     role: "ROLE_OWNER",
     stepUpUntil: new Date(Date.now() + 5 * 60_000).toISOString(),
   });

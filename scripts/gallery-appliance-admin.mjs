@@ -116,10 +116,15 @@ const watch = (page, problems, label, { ignoreFailedResource = false } = {}) => 
   );
 };
 
-/** Waits for BeginSignIn's poll to approve (applianceRealBackendServer.mjs approves on the
- * first one), the way a real admin's SSH approval eventually would. */
-const waitForLiveSignIn = async (page, realBase) => {
+/** Signs in through the form (applianceRealBackendServer.mjs takes any name, password and
+ * code), the way an admin does on a real box. */
+const liveSignIn = async (page, realBase) => {
   await page.goto(realBase);
+  await waitForReady(page, "/");
+  await page.getByLabel("Admin name").fill("owner");
+  await page.getByLabel("Password", { exact: true }).fill("any password at all");
+  await page.getByLabel("Authenticator code").first().fill("123456");
+  await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL(`${realBase}/home`, { timeout: 15_000 });
 };
 
@@ -235,7 +240,7 @@ try {
     });
     const page = await context.newPage();
     watch(page, problems, "real backend", { ignoreFailedResource: true });
-    await waitForLiveSignIn(page, base2);
+    await liveSignIn(page, base2);
     for (const route of FRAME) {
       await page.evaluate((to) => globalThis.__reactRouterDataRouter.navigate(to), route);
       await page.waitForURL(`${base2}${route}`);

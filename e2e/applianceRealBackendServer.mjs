@@ -5,8 +5,8 @@
 // sparse, mostly-empty replies from a freshly provisioned single-owner box, and TlsService,
 // McpService, BackupService and ModulesService answering "unimplemented" the way
 // osadminv1connect.Unimplemented*ServiceHandler does (server.go registers them with no
-// implementation behind them). SignIn approves on the first poll, so the suite never needs a
-// real SSH round trip.
+// implementation behind them). SignIn takes any name, password and code, so the suite signs in
+// through the form.
 import { createReadStream, statSync } from "node:fs";
 import { createServer } from "node:http";
 import path from "node:path";
@@ -31,8 +31,8 @@ const NOT_AVAILABLE = { code: "unimplemented", message: "Not available in this r
 const SESSION = {
   admin: "owner",
   csrfToken: "test-csrf",
-  keyFingerprint: "SHA256:fingerprint",
   role: "ROLE_OWNER",
+  rootOperator: true,
   signedIn: new Date().toISOString(),
 };
 
@@ -109,18 +109,8 @@ const api = {
     singleAdminAcknowledged: true,
     singleAdminWarning: true,
   }),
-  "/sneakers.appliance.osadmin.v1.SignInService/BeginSignIn": () => ({
-    code: "ABCD-EFGH",
-    pollToken: "poll-token",
-    sourceAddress: "192.0.2.10",
-    userAgent: "the test browser",
-  }),
   "/sneakers.appliance.osadmin.v1.SignInService/GetSession": () => ({ session: SESSION }),
-  // Approved on the first poll: the suite never has to approve a real SSH login.
-  "/sneakers.appliance.osadmin.v1.SignInService/PollSignIn": () => ({
-    session: SESSION,
-    state: "SIGN_IN_STATE_APPROVED",
-  }),
+  "/sneakers.appliance.osadmin.v1.SignInService/SignIn": () => ({ session: SESSION }),
   "/sneakers.appliance.osadmin.v1.SignInService/SignOut": ok,
   // A box that's never had an update event leaves history out of the reply entirely (an empty
   // repeated field isn't sent); this is the exact shape that crashed Updates (issue #201).

@@ -231,13 +231,17 @@ export const status: () => GetStatusResponse = () => ({
   ],
 });
 
-export const sessionFor = (admin: Admin): Session => ({
+/** Every mock admin's password. Any 6-digit code but 000000 passes as their TOTP code. */
+export const MOCK_PASSWORD = "correct horse battery staple";
+export const MOCK_WRONG_CODE = "000000";
+
+export const sessionFor = (admin: Admin, rootOperator = false): Session => ({
   admin: admin.name,
   csrfToken: `mock-csrf-${admin.name}`,
   expires: soon(8 * 60),
   idleExpires: soon(15),
-  keyFingerprint: admin.keys[0]?.fingerprint ?? "",
   role: admin.role,
+  rootOperator,
   signedIn: now(),
   stepUpUntil: soon(5),
 });

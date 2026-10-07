@@ -8,7 +8,6 @@ import type {
   AddonModule,
   BackupPolicy,
   BackupSet,
-  BeginSignInResponse,
   Certificate,
   ElevationOverride,
   ElevationPolicy,
@@ -28,11 +27,11 @@ import type {
   ListModulesResponse,
   ListSessionsResponse,
   NetdSettings,
-  PollSignInResponse,
   RecoveryKey,
   RunChecksResponse,
   Session,
   SetNetworkResponse,
+  SignInResponse,
   UpdatePackage,
   UpgradePolicy,
 } from "@/lib/osadmin/types";
@@ -43,11 +42,13 @@ const call = <Result>(service: string, method: string, body: unknown = {}): Prom
   trackRequest(edge.request<Result>(service, method, body));
 
 export const signIn = {
-  begin: () => call<BeginSignInResponse>("SignInService", "BeginSignIn"),
   getSession: () => call<{ session?: Session }>("SignInService", "GetSession"),
-  poll: (pollToken: string) =>
-    call<PollSignInResponse>("SignInService", "PollSignIn", { pollToken }),
+  /** The name, the password and a code from the admin's authenticator. */
+  signIn: (admin: string, password: string, totpCode: string) =>
+    call<SignInResponse>("SignInService", "SignIn", { admin, password, totpCode }),
   signOut: () => call<Record<string, never>>("SignInService", "SignOut"),
+  /** A fresh TOTP code (one never used before) opens 5 more minutes for sensitive actions. */
+  stepUp: (totpCode: string) => call<SignInResponse>("SignInService", "StepUp", { totpCode }),
 };
 
 export const setup = {
@@ -112,8 +113,7 @@ export const network = {
 };
 
 export const tls = {
-  createCsr: (names: string[]) =>
-    call<{ csrPem: string }>("TlsService", "CreateCsr", { names }),
+  createCsr: (names: string[]) => call<{ csrPem: string }>("TlsService", "CreateCsr", { names }),
   get: () => call<GetTlsResponse>("TlsService", "GetTls"),
   setAdminCertificate: (useProduct: boolean) =>
     call<Record<string, never>>("TlsService", "SetAdminCertificate", { useProduct }),
@@ -129,8 +129,7 @@ export const mcp = {
 
 export const backup = {
   get: () => call<GetBackupsResponse>("BackupService", "GetBackups"),
-  restore: (setId: string) =>
-    call<Record<string, never>>("BackupService", "Restore", { setId }),
+  restore: (setId: string) => call<Record<string, never>>("BackupService", "Restore", { setId }),
   run: () => call<Record<string, never>>("BackupService", "RunBackup"),
   setPolicy: (policy: BackupPolicy) =>
     call<Record<string, never>>("BackupService", "SetBackupPolicy", { policy }),

@@ -56,7 +56,7 @@ describe("live edge upload", () => {
 
   it("posts the raw file with the CSRF header and reports progress", async () => {
     const csrfToken = ["csrf", String(Date.now())].join("-");
-    setSession({ admin: "alice", csrfToken, keyFingerprint: "", role: "ROLE_OWNER" });
+    setSession({ admin: "alice", csrfToken, role: "ROLE_OWNER" });
     const file = new Blob(["bin"]);
     const seen: number[] = [];
     const pending = edge.upload(file, (fraction) => seen.push(fraction));
