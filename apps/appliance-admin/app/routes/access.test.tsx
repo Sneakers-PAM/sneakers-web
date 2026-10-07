@@ -104,6 +104,21 @@ describe("Access", () => {
     expect(revoked.getByRole("row", { name: /SHA256:oLd9Q7h5z1s/ })).toBeInTheDocument();
   });
 
+  it("gives the add-admin Name field most of the row and labels the narrow Role control", async () => {
+    signInAsOwner();
+    renderPage(Access);
+    const form = within(await screen.findByRole("form", { name: "Add an admin" }));
+    expect(form.getByText("Role")).toBeInTheDocument();
+    expect(form.getByRole("textbox", { name: "Name" })).toBeInTheDocument();
+    expect(form.getByRole("combobox", { name: "Role" })).toBeInTheDocument();
+  });
+
+  it("labels the Admin control on the add-a-login-key row", async () => {
+    renderPage(Access);
+    const group = within(await screen.findByRole("group", { name: "Add a login key" }));
+    expect(group.getByRole("combobox", { name: "Admin" })).toBeInTheDocument();
+  });
+
   it("shows other roles the revoked keys but no un-revoke", async () => {
     signInAs("bob");
     renderPage(Access);

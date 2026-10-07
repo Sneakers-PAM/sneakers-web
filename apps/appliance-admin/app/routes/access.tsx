@@ -28,7 +28,7 @@ import {
   TableHeaderCell,
   TableRow,
 } from "@sneakers-web/ui";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 import type { Admin, Elevation, ListAdminsResponse, RevokedKey } from "@/lib/osadmin/types";
 
@@ -39,6 +39,8 @@ import { useSession } from "@/lib/useSession";
 
 export default function Access() {
   const { isOwner } = useSession();
+  const roleLabelId = useId();
+  const newKeyAdminLabelId = useId();
   const [data, setData] = useState<ListAdminsResponse>();
   const [elevations, setElevations] = useState<Elevation[]>();
   const [name, setName] = useState("");
@@ -134,28 +136,38 @@ export default function Access() {
             ))}
           </TableBody>
         </Table>
-        <div className="flex flex-col gap-3 border-t border-border p-5.5">
+        <div
+          aria-label="Add a login key"
+          className="flex flex-col gap-3 border-t border-border p-5.5"
+          role="group"
+        >
           <p className="eyebrow">Add a login key</p>
-          <div className="flex gap-2">
-            <Select onValueChange={setNewKeyAdmin} value={newKeyAdmin}>
-              <SelectTrigger aria-label="Admin">
-                <SelectValue placeholder="Admin" />
-              </SelectTrigger>
-              <SelectContent>
-                {data.admins.map((admin) => (
-                  <SelectItem key={admin.name} value={admin.name}>
-                    {admin.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              mono
-              onChange={(event) => setNewKey(event.target.value)}
-              placeholder="ssh-ed25519 AAAA..."
-              value={newKey}
-            />
+          <div className="flex flex-col gap-2 tablet:flex-row">
+            <div className="flex w-full flex-col gap-2 tablet:w-40 tablet:shrink-0">
+              <Label id={newKeyAdminLabelId}>Admin</Label>
+              <Select onValueChange={setNewKeyAdmin} value={newKeyAdmin}>
+                <SelectTrigger aria-labelledby={newKeyAdminLabelId}>
+                  <SelectValue placeholder="Admin" />
+                </SelectTrigger>
+                <SelectContent>
+                  {data.admins.map((admin) => (
+                    <SelectItem key={admin.name} value={admin.name}>
+                      {admin.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Field className="w-full tablet:flex-1" label="Key">
+              <Input
+                mono
+                onChange={(event) => setNewKey(event.target.value)}
+                placeholder="ssh-ed25519 AAAA..."
+                value={newKey}
+              />
+            </Field>
             <Button
+              className="self-end"
               disabled={!newKeyAdmin || !newKey}
               onClick={() =>
                 void runAction(() => access.addKey(newKeyAdmin, newKey), {
@@ -172,6 +184,7 @@ export default function Access() {
         </div>
         {isOwner && (
           <form
+            aria-label="Add an admin"
             className="flex flex-col gap-3 border-t border-border p-5.5"
             onSubmit={(event) => {
               event.preventDefault();
@@ -184,19 +197,22 @@ export default function Access() {
             }}
           >
             <p className="eyebrow">Add an admin</p>
-            <div className="flex gap-2">
-              <Field className="flex-1" label="Name">
+            <div className="flex flex-col gap-2 tablet:flex-row">
+              <Field className="w-full tablet:flex-1" label="Name">
                 <Input onChange={(event) => setName(event.target.value)} value={name} />
               </Field>
-              <Select onValueChange={(v) => setRole(v as Admin["role"])} value={role}>
-                <SelectTrigger aria-label="Role">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ROLE_ADMIN">admin</SelectItem>
-                  <SelectItem value="ROLE_OWNER">owner</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex w-full flex-col gap-2 tablet:w-32 tablet:shrink-0">
+                <Label id={roleLabelId}>Role</Label>
+                <Select onValueChange={(v) => setRole(v as Admin["role"])} value={role}>
+                  <SelectTrigger aria-labelledby={roleLabelId}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ROLE_ADMIN">admin</SelectItem>
+                    <SelectItem value="ROLE_OWNER">owner</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <Button disabled={!name} type="submit">
               Add admin
