@@ -124,7 +124,8 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   the override stays in the dialog.
 - **Access (`app/routes/access.tsx`).** Besides the admins, keys, host keys, elevation policy,
   quorum and elevation requests, it lists the revoked login keys (`ListAdmins.revokedKeys`: whose
-  key it was, the fingerprint, the type and when it was revoked). Owners get Un-revoke
+  key it was, the fingerprint, the type, when it was revoked and who revoked it, from `revokedBy`:
+  an admin's name or `console`, shown as `unknown` when the box didn't record it). Owners get Un-revoke
   (`UnrevokeKey`, step-up) behind a confirmation dialog, which keeps the box's refusal in place.
 - **Factory reset (`app/routes/power.tsx`).** Owner only, after typing the box's host name; not
   offered when `GetPower` says it's unavailable (a single admin), with the reason. A request shows
@@ -141,7 +142,8 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   fresh sign-in is never approved, so the dialog stays up), `single-admin`, `reset-pending` and
   `reset-countdown`. The mock verifies an upload by its content: one containing "tampered" fails
   the signature, "lab" the channel, and "patch" is a patch for the running version. A key removed
-  in the mock lands on its revoked list, as on the box, and the world starts with one revoked key.
+  in the mock lands on its revoked list as revoked by the signed-in admin, as on the box, and the
+  world starts with one key alice revoked.
 - **Advanced disclosure.** The trust/PKI details on Certificates, the whole Add-on modules page
   and the Logs page's support bundle sit behind `app/components/Advanced.tsx`, a plain
   `<details>` -- no new kit component needed for a collapsed-by-default section.
@@ -234,23 +236,23 @@ be read by tools, not people. It never ships in a release.
 
 The shared reference for every product's web repo: keep the keys and their order identical.
 
-| Key | Type | Meaning |
-|---|---|---|
-| `v` | int | Schema version, `1`. |
-| `product` | string | `"sneakers"`. |
-| `app` | string | The app name (`staff` or `admin`). |
-| `sha` | string | The commit the build came from (`__APP_COMMIT__`: `APP_COMMIT`, else `GITHUB_SHA`, else `"unknown"`). |
-| `route` | string | The router route id (`useMatches().at(-1)?.id`). |
-| `path` | string | The route pattern, not the concrete URL (e.g. `/secret/:id`). An unmatched URL is `"*"`. |
-| `params` | object | Route params (`useParams()`), kept only when the value is a ULID or a UUID; anything else is dropped. |
-| `role` | string | The signed-in user's role (`"root"` or the first of `roles`). No username, display name or email. |
-| `vw` / `vh` / `dpr` | int / int / number | Viewport width and height in CSS px, and the device pixel ratio. |
-| `ua` | string | `navigator.userAgent`. |
-| `t` | string | The copy time as ISO 8601 with the US Eastern offset. |
-| `theme` / `locale` | string | The active theme (`useDisplay().settings.theme`) and locale (`navigator.language`). |
-| `clicked` | string | The last clicked element: its `data-testid` when it has one, otherwise a short CSS selector. Never its text content. |
-| `lastErr` | object | The most recent client-side error: `m` (message, at most 200 chars), `src` (`render`, `fetch`, `window` or `promise`) and `at` (ET time). |
-| `recentErrors` | array | Up to 4 earlier errors in the same shape, newest first (the ring buffer holds 5 in total; `lastErr` is the newest). |
+| Key                 | Type               | Meaning                                                                                                                                   |
+| ------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `v`                 | int                | Schema version, `1`.                                                                                                                      |
+| `product`           | string             | `"sneakers"`.                                                                                                                             |
+| `app`               | string             | The app name (`staff` or `admin`).                                                                                                        |
+| `sha`               | string             | The commit the build came from (`__APP_COMMIT__`: `APP_COMMIT`, else `GITHUB_SHA`, else `"unknown"`).                                     |
+| `route`             | string             | The router route id (`useMatches().at(-1)?.id`).                                                                                          |
+| `path`              | string             | The route pattern, not the concrete URL (e.g. `/secret/:id`). An unmatched URL is `"*"`.                                                  |
+| `params`            | object             | Route params (`useParams()`), kept only when the value is a ULID or a UUID; anything else is dropped.                                     |
+| `role`              | string             | The signed-in user's role (`"root"` or the first of `roles`). No username, display name or email.                                         |
+| `vw` / `vh` / `dpr` | int / int / number | Viewport width and height in CSS px, and the device pixel ratio.                                                                          |
+| `ua`                | string             | `navigator.userAgent`.                                                                                                                    |
+| `t`                 | string             | The copy time as ISO 8601 with the US Eastern offset.                                                                                     |
+| `theme` / `locale`  | string             | The active theme (`useDisplay().settings.theme`) and locale (`navigator.language`).                                                       |
+| `clicked`           | string             | The last clicked element: its `data-testid` when it has one, otherwise a short CSS selector. Never its text content.                      |
+| `lastErr`           | object             | The most recent client-side error: `m` (message, at most 200 chars), `src` (`render`, `fetch`, `window` or `promise`) and `at` (ET time). |
+| `recentErrors`      | array              | Up to 4 earlier errors in the same shape, newest first (the ring buffer holds 5 in total; `lastErr` is the newest).                       |
 
 Never included: secret values, tokens, cookies, headers, query strings, form contents,
 usernames, display names or emails.

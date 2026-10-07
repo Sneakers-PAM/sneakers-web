@@ -168,6 +168,8 @@ export interface RevokedKey {
   admin: string;
   fingerprint: string;
   revoked?: string;
+  /** Who removed the key or its admin: an admin's name, or "console". */
+  revokedBy?: string;
   type: string;
 }
 

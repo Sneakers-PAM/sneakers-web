@@ -138,6 +138,7 @@ const removeKeys = (admin: Admin, fingerprints: string[]) => {
       admin: admin.name,
       fingerprint: key.fingerprint,
       revoked: new Date().toISOString(),
+      revokedBy: caller() || "console",
       type: key.type,
     });
   admin.keys = admin.keys.filter((k) => !fingerprints.includes(k.fingerprint));
