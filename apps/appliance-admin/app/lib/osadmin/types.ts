@@ -124,6 +124,9 @@ export type WarningKind =
   | "WARNING_KIND_NTP_UNSYNCED"
   | "WARNING_KIND_REDUCED_PROTECTION"
   | "WARNING_KIND_SELF_SIGNED_TLS"
+  | "WARNING_KIND_TLS_EXPIRED"
+  | "WARNING_KIND_TLS_EXPIRING"
+  | "WARNING_KIND_TLS_NAMES"
   | "WARNING_KIND_UNSPECIFIED";
 
 export interface Warning {
@@ -392,11 +395,114 @@ export interface Certificate {
   subject: string;
 }
 
-export interface GetTlsResponse {
-  adminUsesProduct: boolean;
-  caBundle: Certificate[];
-  product?: Certificate;
-  source: "acme" | "self-signed" | "uploaded";
+export type CertificateSource =
+  | "CERTIFICATE_SOURCE_ACME"
+  | "CERTIFICATE_SOURCE_CSR_SIGNED"
+  | "CERTIFICATE_SOURCE_SELF_SIGNED"
+  | "CERTIFICATE_SOURCE_UPLOADED";
+
+/** A certificate in the box's store; its key stays sealed on the box. */
+export interface StoredCertificate {
+  added?: string;
+  certificatePem: string;
+  /** Each certificate's subject, the leaf first. */
+  chain: string[];
+  csrId?: string;
+  fingerprint: string;
+  id: string;
+  issuer: string;
+  keyType: string;
+  names: string[];
+  notAfter: string;
+  notBefore: string;
+  source: CertificateSource;
+  subject: string;
+  /** The endpoint ids that serve it. */
+  usedBy?: string[];
+}
+
+export interface PendingCsr {
+  created?: string;
+  csrPem: string;
+  id: string;
+  keyType: string;
+  names: string[];
+  subject: string;
+}
+
+export type EndpointSource =
+  "ENDPOINT_SOURCE_ACME" | "ENDPOINT_SOURCE_ASSIGNED" | "ENDPOINT_SOURCE_SELF_SIGNED";
+
+export type EndpointState =
+  | "ENDPOINT_STATE_EXPIRED"
+  | "ENDPOINT_STATE_EXPIRING"
+  | "ENDPOINT_STATE_NAMES_NOT_COVERED"
+  | "ENDPOINT_STATE_OK"
+  | "ENDPOINT_STATE_SELF_SIGNED"
+  | "ENDPOINT_STATE_UNAVAILABLE";
+
+export interface CertEndpoint {
+  available: boolean;
+  certificateId?: string;
+  expires?: string;
+  id: string;
+  name: string;
+  names?: string[];
+  servingFingerprint?: string;
+  source?: EndpointSource;
+  state: EndpointState;
+  stateDetail?: string;
+  unavailableReason?: string;
+}
+
+export interface AcmeState {
+  available: boolean;
+  reason?: string;
+}
+
+export interface ValidationCheck {
+  detail: string;
+  /** key, usage, chain, names or validity. */
+  name: string;
+  passed: boolean;
+}
+
+export interface GetCertificateStoreResponse {
+  acme?: AcmeState;
+  certificates: StoredCertificate[];
+  csrs?: PendingCsr[];
+  endpoints: CertEndpoint[];
+}
+
+/** The key a CSR is made with; RSA 4096 is the default. */
+export type KeyType =
+  "KEY_TYPE_ECDSA_P256" | "KEY_TYPE_ECDSA_P384" | "KEY_TYPE_RSA_3072" | "KEY_TYPE_RSA_4096";
+
+export interface GenerateCsrRequest {
+  commonName?: string;
+  country?: string;
+  keyType: KeyType;
+  locality?: string;
+  /** At most one extra name; wildcards are refused. */
+  names: string[];
+  organization?: string;
+  organizationalUnit?: string;
+  province?: string;
+}
+
+export interface ImportCertificateRequest {
+  certificatePem?: string;
+  chainPem?: string;
+  keyPem?: string;
+  /** The PFX file, base64. */
+  pkcs12?: string;
+  pkcs12Password?: string;
+  rootPem?: string;
+}
+
+export interface AddedCertificate {
+  certificate: StoredCertificate;
+  checks: ValidationCheck[];
 }
 
 // ---- mcp ----

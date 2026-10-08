@@ -12,6 +12,17 @@ npm run dev:appliance-admin:mock   # against the in-memory mock, http://localhos
 npm run build -w @sneakers-web/appliance-admin   # the live build, in build/client
 ```
 
+## Certificates
+
+The Certificates page runs the box's certificate store (`TlsService`): the certificates with
+where each is used, the endpoints (:8443 and Product (443)), ACME (Not available yet) and the
+status. **Add certificate** is a stepper with three ways in, in this order: Upload PFX (the
+certificate, its key and the full chain; the password is write-only), Upload PEM, and a
+single-name request made on the box (RSA 4096 by default, no wildcards). Each one validates,
+lists every check, then applies to :8443 live. Every change needs an owner and a recent sign-in.
+The mock box's states are `cert-assigned`, `cert-csr-pending`, `cert-expiring` and
+`cert-not-served` (`?mockScenario=` on a mock build).
+
 ## Review gallery
 
 ```sh
@@ -23,7 +34,8 @@ other headers, page routes falling back to `index.html`) and opens it in headles
 shoots the signed-out pages, signs in with the dev quick login, then shoots every page in the
 frame, at 1280 and 390 px, then the pages again in the mock states a fresh box doesn't show
 (`SCENARIOS` and `SIGNED_OUT_SCENARIOS` in `scripts/gallery-appliance-admin.mjs`, such as
-Updates with an elevated shell open, or each setup step). Each shot waits for the running app's ready marker
+Updates with an elevated shell open, each setup step, or Certificates with an assigned, an
+expiring or a pending certificate). Each shot waits for the running app's ready marker
 (`data-app-ready` on `<html>`, set once the route has rendered and its API calls have
 answered), so a build that never starts can't pass.
 
