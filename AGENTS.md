@@ -160,13 +160,22 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   text) or fetch one from the mirror, which is hidden on an air-gapped box (no mirror set).
   `UpgradeService.StageUpdate` is one call that verifies the signature, channel and hash and only
   then unpacks and stages, so the page shows "Verifying" while it runs, then either the verified
-  header or the refusal's reason in place (never a toast). Apply needs the staged version typed;
-  apply, revert, stage and the update window are owner and step-up. Admins see the state only.
+  header or the refusal's reason in place (never a toast). Apply, Revert, Install product and
+  Revert product each need the version typed (the running one for a base revert) and a fresh
+  authenticator code in the same dialog, every time (`totpCode`; the box checks it on every call,
+  not the step-up window), and a refused code stays in the dialog with the tries left. Stage and
+  the update window are owner and step-up. Admins see the state only. A base apply or revert
+  swaps the page for the shared restart page (`app/components/BoxRestarting.tsx`): it waits for
+  the box to go down, asks the public `GetPhase` every 2 seconds (no answer: down), then
+  `GetSession`, until :8443 answers without the old session (sessions don't survive a restart;
+  `app/lib/osadmin/restart.ts`), then loads the
+  sign-in page in full, on a new TLS session. After 10 minutes it offers a reload, which is how
+  the browser gets to check a certificate that changed.
   While an elevated shell is open (`GetUpgrades.activeElevations`) the page names who holds it,
   and an apply or revert the box refuses with `UPGRADE_ELEVATED` stays on the page with the
   holder. From there an owner can end the shell: the override dialog takes a reason and the
-  session's admin and id typed (`bob E-9M4T`), and sends them as `elevationOverride` on the same
-  Apply or Revert; the box ends the session, audited, before the update goes ahead. A refusal of
+  session's admin and id typed (`bob E-9M4T`) and a fresh code, and sends them as
+  `elevationOverride` on the same Apply or Revert; the box ends the session, audited, before the update goes ahead. A refusal of
   the override stays in the dialog.
 - **Access (`app/routes/access.tsx`, parts in `app/features/access/`).** The admins, each with
   the role, a root-operator badge, the sign-in state (active, locked until when or until an

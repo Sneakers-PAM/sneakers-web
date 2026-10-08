@@ -201,6 +201,23 @@ const newer = (a: string, b: string) => {
   return false;
 };
 let failedVersion = "";
+/** While set, the mock box is restarting: :8443 doesn't answer until then, and the restart ends
+ * every session. */
+let restartingUntil = 0;
+const RESTART_MS = 3000;
+const restart = () => {
+  restartingUntil = Date.now() + RESTART_MS;
+};
+/** Apply and Revert take a fresh authenticator code on every call, not the step-up window. */
+const checkCallCode = (code: unknown): void => {
+  const value = typeof code === "string" ? code.trim() : "";
+  if (!value)
+    throw new OsadminError(
+      "invalid_argument",
+      "ACCESS_CONFIRM: type a new code from your authenticator to confirm",
+    );
+  checkCredentials(caller(), null, value);
+};
 const uploads = new Map<string, Blob>();
 let uploadCount = 0;
 /** Scenario switches for the review screen list and the tests (see applyMockScenario). */
@@ -249,8 +266,6 @@ const STEP_UP_METHODS = new Set([
   "TlsService/GenerateCsr",
   "TlsService/ImportCertificate",
   "TlsService/RevertToSelfSigned",
-  "UpgradeService/ApplyUpdate",
-  "UpgradeService/RevertUpdate",
   "UpgradeService/SetUpgradePolicy",
   "UpgradeService/StageUpdate",
 ]);
@@ -970,6 +985,12 @@ const route = async (service: string, method: string, body: Record<string, unkno
       return {};
     }
     case "SignInService/GetSession": {
+      if (restartingUntil) {
+        if (Date.now() < restartingUntil)
+          throw new OsadminError("unavailable", "The appliance didn't answer.");
+        restartingUntil = 0;
+        cookieSession = null;
+      }
       return { session: cookieSession ?? undefined };
     }
     case "SignInService/SignIn": {
@@ -994,6 +1015,11 @@ const route = async (service: string, method: string, body: Record<string, unkno
       cookieSession = session;
       return { session };
     }
+    case "StatusService/GetPhase": {
+      if (restartingUntil && Date.now() < restartingUntil)
+        throw new OsadminError("unavailable", "The appliance didn't answer.");
+      return { phase: setupDone ? "normal" : "firstboot" };
+    }
     case "StatusService/GetStatus": {
       powerState();
       return {
@@ -1016,6 +1042,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
       return {};
     }
     case "UpgradeService/ApplyUpdate": {
+      checkCallCode(body.totpCode);
       if (isProduct(body.target)) {
         if (!product.stagedVersion)
           throw new OsadminError("failed_precondition", "UPGRADE_NOT_STAGED: no product is staged");
@@ -1041,6 +1068,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
       historyEntry("apply", stagedVersion, "", detail);
       runningVersion = stagedVersion;
       stagedVersion = "";
+      restart();
       return {};
     }
     case "UpgradeService/FetchUpdate": {
@@ -1097,6 +1125,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
       return { baseVersion: runningVersion, versions };
     }
     case "UpgradeService/RevertUpdate": {
+      checkCallCode(body.totpCode);
       if (isProduct(body.target)) {
         if (!product.previousVersion)
           throw new OsadminError(
@@ -1121,6 +1150,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
         body.elevationOverride as ElevationOverride | undefined,
       );
       historyEntry("revert", "", "", detail);
+      restart();
       return {};
     }
     case "UpgradeService/SetUpgradePolicy": {
@@ -1418,6 +1448,7 @@ export const resetMockWorld = (): void => {
   stagedVersion = "";
   product = structuredClone(world.PRODUCT_SLOTS);
   failedVersion = "";
+  restartingUntil = 0;
   uploads.clear();
   uploadCount = 0;
   uploadStalls = false;
