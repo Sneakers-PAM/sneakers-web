@@ -11,6 +11,7 @@ import type {
   NetdSettings,
   Session,
   UpdatePackage,
+  UpdateTarget,
   UpgradePolicy,
 } from "@/lib/osadmin/types";
 
@@ -180,6 +181,18 @@ let upgradePolicy = structuredClone(world.UPGRADE_POLICY);
 const upgradeHistory = structuredClone(world.UPGRADE_HISTORY);
 let runningVersion = "0.1.0";
 let stagedVersion = "";
+/** The product bundle's slots on the state volume. */
+let product = structuredClone(world.PRODUCT_SLOTS);
+/** This build has a release source to fetch from directly. */
+const DIRECT_AVAILABLE = true;
+const isAirGapped = () => !upgradePolicy.mirrorUrl && !upgradePolicy.direct;
+const isProduct = (target: unknown) => target === "UPDATE_TARGET_PRODUCT";
+const newer = (a: string, b: string) => {
+  const [x, y] = [a, b].map((v) => v.split(".").map(Number));
+  for (let index = 0; index < 3; index++)
+    if ((x?.[index] ?? 0) !== (y?.[index] ?? 0)) return (x?.[index] ?? 0) > (y?.[index] ?? 0);
+  return false;
+};
 let failedVersion = "";
 const uploads = new Map<string, Blob>();
 let uploadCount = 0;
@@ -233,6 +246,7 @@ const historyEntry = (
   version: string,
   code = "",
   detail = "",
+  target: UpdateTarget = "UPDATE_TARGET_BASE",
 ) =>
   upgradeHistory.unshift({
     action,
@@ -240,6 +254,7 @@ const historyEntry = (
     code,
     detail,
     outcome: code ? "failed" : "ok",
+    target,
     time: new Date().toISOString(),
     version,
   });
@@ -265,6 +280,22 @@ const verify = async (uploadId: string): Promise<UpdatePackage> => {
       "UPGRADE_CHANNEL: a lab package never installs on a production box",
     );
   }
+  if (content.includes("product")) {
+    const version = /\d+\.\d+\.\d+/.exec(content)?.[0] ?? "0.2.0";
+    return {
+      arch: "amd64",
+      bases: [runningVersion],
+      channel: "stable",
+      kind: "full",
+      sha256: Array.from({ length: 32 }, (_, index) =>
+        (index * 5 + 3).toString(16).padStart(2, "0"),
+      ).join(""),
+      size: String(blob.size),
+      target: "UPDATE_TARGET_PRODUCT",
+      uploadId,
+      version,
+    };
+  }
   const patch = content.includes("patch");
   return {
     arch: "amd64",
@@ -275,6 +306,7 @@ const verify = async (uploadId: string): Promise<UpdatePackage> => {
       (index * 7 + 11).toString(16).padStart(2, "0"),
     ).join(""),
     size: String(blob.size),
+    target: "UPDATE_TARGET_BASE",
     uploadId,
     version: patch ? "0.1.1" : "0.2.0",
   };
@@ -964,6 +996,22 @@ const route = async (service: string, method: string, body: Record<string, unkno
       return {};
     }
     case "UpgradeService/ApplyUpdate": {
+      if (isProduct(body.target)) {
+        if (!product.stagedVersion)
+          throw new OsadminError("failed_precondition", "UPGRADE_NOT_STAGED: no product is staged");
+        const detail = holdForElevation(
+          "product installs",
+          body.elevationOverride as ElevationOverride | undefined,
+        );
+        historyEntry("apply", product.stagedVersion, "", detail, "UPDATE_TARGET_PRODUCT");
+        product = {
+          installedVersion: product.stagedVersion,
+          previousVersion: product.installedVersion,
+          running: true,
+          stagedVersion: "",
+        };
+        return {};
+      }
       if (!stagedVersion)
         throw new OsadminError("failed_precondition", "UPGRADE_NOT_STAGED: no release is staged");
       const detail = holdForElevation(
@@ -976,12 +1024,19 @@ const route = async (service: string, method: string, body: Record<string, unkno
       return {};
     }
     case "UpgradeService/FetchUpdate": {
-      if (!upgradePolicy.mirrorUrl)
+      if (isAirGapped())
         throw new OsadminError(
           "failed_precondition",
           "UPGRADE_AIR_GAPPED: no mirror is configured, so this box never fetches; upload the .bin instead",
         );
       const fileName = body.fileName as string;
+      const productFile = /^sneakers-product-(\d+\.\d+\.\d+)-(amd64|arm64)\.bin$/.exec(fileName);
+      if (productFile) {
+        const uploadId = `fetch-${String(++uploadCount)}`;
+        uploads.set(uploadId, new Blob([`signed product ${productFile[1] ?? ""}`]));
+        historyEntry("fetch", productFile[1] ?? "", "", "", "UPDATE_TARGET_PRODUCT");
+        return { source: upgradePolicy.mirrorUrl ? "mirror" : "direct", uploadId };
+      }
       if (!/^sneakers-appliance-\d+\.\d+\.\d+(-[\w.]+)?-(amd64|arm64)\.bin$/.test(fileName))
         throw new OsadminError(
           "failed_precondition",
@@ -998,15 +1053,49 @@ const route = async (service: string, method: string, body: Record<string, unkno
     case "UpgradeService/GetUpgrades": {
       return {
         activeElevations: structuredClone(elevations.filter((item) => item.state === "active")),
-        airGapped: !upgradePolicy.mirrorUrl,
+        airGapped: isAirGapped(),
+        directAvailable: DIRECT_AVAILABLE,
         failedVersion,
         history: structuredClone(upgradeHistory),
         policy: structuredClone(upgradePolicy),
+        product: structuredClone(product),
         runningVersion,
         stagedVersion,
       };
     }
+    case "UpgradeService/ListProductVersions": {
+      if (isAirGapped())
+        throw new OsadminError(
+          "failed_precondition",
+          "UPGRADE_AIR_GAPPED: no mirror or release source is set; upload the product bundle instead",
+        );
+      const versions = world.PRODUCT_VERSIONS.filter(
+        (v) =>
+          v.bases.includes(runningVersion) &&
+          (!product.installedVersion || newer(v.version, product.installedVersion)),
+      ).map((v) => ({ ...v, source: upgradePolicy.mirrorUrl ? "mirror" : "direct" }));
+      return { baseVersion: runningVersion, versions };
+    }
     case "UpgradeService/RevertUpdate": {
+      if (isProduct(body.target)) {
+        if (!product.previousVersion)
+          throw new OsadminError(
+            "failed_precondition",
+            "UPGRADE_NO_PREVIOUS: there is no previous product slot to go back to",
+          );
+        const detail = holdForElevation(
+          "product reverts",
+          body.elevationOverride as ElevationOverride | undefined,
+        );
+        historyEntry("revert", product.previousVersion, "", detail, "UPDATE_TARGET_PRODUCT");
+        product = {
+          installedVersion: product.previousVersion,
+          previousVersion: product.installedVersion,
+          running: true,
+          stagedVersion: "",
+        };
+        return {};
+      }
       const detail = holdForElevation(
         "update reverts",
         body.elevationOverride as ElevationOverride | undefined,
@@ -1033,8 +1122,9 @@ const route = async (service: string, method: string, body: Record<string, unkno
       const uploadId = body.uploadId as string;
       try {
         const updatePackage = await verify(uploadId);
-        stagedVersion = updatePackage.version;
-        historyEntry("stage", updatePackage.version);
+        if (isProduct(updatePackage.target)) product.stagedVersion = updatePackage.version;
+        else stagedVersion = updatePackage.version;
+        historyEntry("stage", updatePackage.version, "", "", updatePackage.target);
         return { package: updatePackage };
       } catch (error) {
         historyEntry("stage", "", error instanceof OsadminError ? (error.symbol ?? "") : "");
@@ -1095,6 +1185,8 @@ const MOCK_SCENARIOS = [
   "locked",
   "locked-until-unlocked",
   "manual",
+  "no-product",
+  "product-staged",
   "reduced",
   "reset-countdown",
   "reset-pending",
@@ -1218,6 +1310,14 @@ export const applyMockScenario = (scenario: MockScenario): void => {
       upgradePolicy = { ...upgradePolicy, mode: "manual" };
       break;
     }
+    case "no-product": {
+      product = { installedVersion: "", previousVersion: "", running: false, stagedVersion: "" };
+      break;
+    }
+    case "product-staged": {
+      product = { ...product, previousVersion: "0.0.9", stagedVersion: "0.2.0" };
+      break;
+    }
     case "reduced": {
       secureBootOn = false;
       custodyMode = "keyfile";
@@ -1291,6 +1391,7 @@ export const resetMockWorld = (): void => {
   upgradePolicy = structuredClone(world.UPGRADE_POLICY);
   runningVersion = "0.1.0";
   stagedVersion = "";
+  product = structuredClone(world.PRODUCT_SLOTS);
   failedVersion = "";
   uploads.clear();
   uploadCount = 0;

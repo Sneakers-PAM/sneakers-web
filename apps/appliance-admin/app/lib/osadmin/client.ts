@@ -26,6 +26,7 @@ import type {
   IssueSshKeyResponse,
   ListAdminsResponse,
   ListElevationsResponse,
+  ListProductVersionsResponse,
   ListEventsResponse,
   ListModulesResponse,
   ListSessionsResponse,
@@ -39,6 +40,7 @@ import type {
   SignInResponse,
   TotpEnrolment,
   UpdatePackage,
+  UpdateTarget,
   UpgradePolicy,
 } from "@/lib/osadmin/types";
 
@@ -193,14 +195,21 @@ export const backup = {
 };
 
 export const upgrade = {
-  /** With an override, the named elevated shell is ended first (owner, step-up). */
-  apply: (elevationOverride?: ElevationOverride) =>
-    call<Record<string, never>>("UpgradeService", "ApplyUpdate", { elevationOverride }),
+  /**
+   * Boots the staged base release, or for the product switches to its staged slot and restarts
+   * the product services (no reboot). With an override, the named root shell is ended first.
+   */
+  apply: (elevationOverride?: ElevationOverride, target: UpdateTarget = "UPDATE_TARGET_BASE") =>
+    call<Record<string, never>>("UpgradeService", "ApplyUpdate", { elevationOverride, target }),
+  /** A base .bin or a product bundle, from the mirror, then the release source if allowed. */
   fetch: (fileName: string) =>
-    call<{ uploadId: string }>("UpgradeService", "FetchUpdate", { fileName }),
+    call<{ source?: string; uploadId: string }>("UpgradeService", "FetchUpdate", { fileName }),
   get: () => call<GetUpgradesResponse>("UpgradeService", "GetUpgrades"),
-  revert: (elevationOverride?: ElevationOverride) =>
-    call<Record<string, never>>("UpgradeService", "RevertUpdate", { elevationOverride }),
+  /** The stable product versions that fit the running base, newer than the installed one. */
+  listProductVersions: () =>
+    call<ListProductVersionsResponse>("UpgradeService", "ListProductVersions"),
+  revert: (elevationOverride?: ElevationOverride, target: UpdateTarget = "UPDATE_TARGET_BASE") =>
+    call<Record<string, never>>("UpgradeService", "RevertUpdate", { elevationOverride, target }),
   setPolicy: (policy: UpgradePolicy) =>
     call<Record<string, never>>("UpgradeService", "SetUpgradePolicy", { policy }),
   /** Verifies the upload's signature, channel and hash, and only then unpacks and stages it. */

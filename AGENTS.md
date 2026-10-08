@@ -133,7 +133,17 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   refusal in place, and retries the action once the box takes the code. A Connect `unimplemented` (a page's backend isn't on the box yet) becomes "Not
   available in this release" (`app/components/NotAvailable.tsx`); the Updates page shows it in
   full when `GetUpgrades` answers that way.
-- **Updates (`app/routes/updates.tsx`).** Owners upload a `.bin` (`edge.upload`, an
+- **Updates (`app/routes/updates.tsx`).** One flow for both targets: the base image (its slots
+  and a reboot) and the product bundle (k0s, its images and Sneakers-PAM, in their own slots,
+  with no reboot). The Product card shows the installed, staged and previous product versions
+  (`GetUpgrades.product`; hidden when a box from before product bundles leaves it out), with
+  Install product (`ApplyUpdate{target: PRODUCT}`, after the version is typed) and Revert
+  product (`RevertUpdate{target: PRODUCT}`). The Install card lists the product versions that
+  fit the running base (`ListProductVersions`, newest first): pick one and Fetch it, then
+  Verify and stage as for a base `.bin`. An air-gapped box (`UPGRADE_AIR_GAPPED`: no mirror and
+  direct fetches off) uploads the product bundle instead. Owners can allow direct fetches from
+  the release source (`UpgradePolicy.direct`) on a build that has one (`directAvailable`).
+  Owners upload a `.bin` (`edge.upload`, an
   `XMLHttpRequest` because only XHR reports upload progress; `/upload` answers errors as plain
   text) or fetch one from the mirror, which is hidden on an air-gapped box (no mirror set).
   `UpgradeService.StageUpdate` is one call that verifies the signature, channel and hash and only
@@ -178,7 +188,8 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   progress.
 - **Mock scenarios.** `applyMockScenario` (`app/mock/edge.mock.ts`), or `?mockScenario=a,b` on a
   mock build's URL, puts the mock box into a state for the tests and the review screen list:
-  `air-gapped`, `staged`, `failed`, `manual`, `elevated` (bob has an elevated shell open, so
+  `air-gapped`, `staged`, `failed`, `manual`, `no-product` (before the first product
+  install), `product-staged` (0.2.0 staged, 0.0.9 in the previous slot), `elevated` (bob has an elevated shell open, so
   Apply and Revert are refused without an owner's override), `uploading` and `verifying` (the upload or the
   verification never finishes), `stepup` (the next step-up-gated call is refused once, so the
   dialog asks for a code), `locked`, `locked-until-unlocked` (bob is locked out, for 12

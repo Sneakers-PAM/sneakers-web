@@ -430,13 +430,51 @@ export interface GetBackupsResponse {
 // ---- upgrade ----
 
 export interface UpgradePolicy {
-  /** The HTTPS base .bin files are fetched from; empty means air-gapped (upload only). */
+  /** Fetch from the release source when no mirror is set or the mirror fails. Off by default. */
+  direct?: boolean;
+  /** The HTTPS base .bin files are fetched from; empty, with direct off, means air-gapped. */
   mirrorUrl: string;
   /** automatic applies a staged release inside the daily window; manual waits for an owner. */
   mode: "automatic" | "manual";
   windowMinutes: number;
   /** HH:MM local. */
   windowStart: string;
+}
+
+/** What an update changes: the base image (its slots and a reboot) or the product bundle. */
+export type UpdateTarget =
+  "UPDATE_TARGET_BASE" | "UPDATE_TARGET_PRODUCT" | "UPDATE_TARGET_UNSPECIFIED";
+
+/** The product bundle's slots (k0s, its images and the product) on the state volume. */
+export interface ProductSlots {
+  /** Empty before the first install. */
+  installedVersion?: string;
+  /** The slot a revert goes back to; empty when there is none. */
+  previousVersion?: string;
+  /** The product services (k0s) are running. */
+  running?: boolean;
+  stagedVersion?: string;
+}
+
+/** One product bundle a source offers. */
+export interface ProductVersion {
+  arch: string;
+  /** The base versions the bundle fits. */
+  bases: string[];
+  channel: string;
+  /** What FetchUpdate takes, such as sneakers-product-0.2.0-amd64.bin. */
+  fileName: string;
+  size: string;
+  /** mirror or direct: where the index came from. */
+  source: string;
+  version: string;
+}
+
+export interface ListProductVersionsResponse {
+  /** The running base they were matched against. */
+  baseVersion: string;
+  /** Newest first. Empty lists are left out of the JSON. */
+  versions?: ProductVersion[];
 }
 
 /** A verified .bin's signed header, as StageUpdate returns it. */
@@ -447,6 +485,7 @@ export interface UpdatePackage {
   kind: "full" | "patch";
   sha256: string;
   size: string;
+  target?: UpdateTarget;
   uploadId: string;
   version: string;
 }
@@ -457,6 +496,7 @@ export interface UpgradeEvent {
   code: string;
   detail: string;
   outcome: "failed" | "ok";
+  target?: UpdateTarget;
   time?: string;
   version: string;
 }
@@ -476,10 +516,14 @@ export interface GetUpgradesResponse {
   /** The elevated shells open now; Apply and Revert are refused while there is one. */
   activeElevations?: Elevation[];
   airGapped: boolean;
+  /** This build has a release source to fetch from directly (production builds). */
+  directAvailable?: boolean;
   failedVersion: string;
   /** Empty lists are left out of the JSON: a box with no update event yet leaves this out. */
   history?: UpgradeEvent[];
   policy?: UpgradePolicy;
+  /** The product bundle's slots; left out by a box from before product bundles. */
+  product?: ProductSlots;
   runningVersion: string;
   stagedVersion: string;
 }

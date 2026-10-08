@@ -13,6 +13,8 @@ import type {
   Key,
   ListModulesResponse,
   NetdSettings,
+  ProductSlots,
+  ProductVersion,
   Quorum,
   RecoveryKey,
   RevokedKey,
@@ -313,7 +315,29 @@ export const SESSIONS: ActiveSession[] = [
   },
 ];
 
+/** The mock box runs product 0.1.0, with nothing staged and no previous slot. */
+export const PRODUCT_SLOTS: ProductSlots = {
+  installedVersion: "0.1.0",
+  previousVersion: "",
+  running: true,
+  stagedVersion: "",
+};
+
+/** The release index's stable product bundles, newest first; 0.3.0 needs base 0.2.0. */
+export const PRODUCT_VERSIONS: ProductVersion[] = ["0.3.0", "0.2.0", "0.1.1", "0.1.0"].map(
+  (version) => ({
+    arch: "amd64",
+    bases: version === "0.3.0" ? ["0.2.0"] : ["0.1.0"],
+    channel: "stable",
+    fileName: `sneakers-product-${version}-amd64.bin`,
+    size: "734003200",
+    source: "mirror",
+    version,
+  }),
+);
+
 export const UPGRADE_POLICY: UpgradePolicy = {
+  direct: false,
   mirrorUrl: "https://mirror.example.org/sneakers-appliance",
   mode: "automatic",
   windowMinutes: 120,

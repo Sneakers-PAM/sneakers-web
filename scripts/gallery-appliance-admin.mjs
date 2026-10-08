@@ -48,6 +48,9 @@ const FRAME = [
 // for the states a fresh mock box doesn't show. The name is the shot's file prefix.
 const SCENARIOS = [
   { name: "updates-elevated", route: "/updates", scenario: "staged,elevated" },
+  { name: "updates-first-product", route: "/updates", scenario: "no-product" },
+  { name: "updates-product-staged", route: "/updates", scenario: "product-staged" },
+  { name: "updates-air-gapped", route: "/updates", scenario: "air-gapped" },
   { name: "access-locked-invited", route: "/access", scenario: "locked,invited,elevated" },
   {
     act: async (page) => {
