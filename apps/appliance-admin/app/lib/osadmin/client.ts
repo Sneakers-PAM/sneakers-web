@@ -363,11 +363,11 @@ export const upgrade = {
     call<Record<string, never>>("UpgradeService", "SetUpgradePolicy", { policy }),
   /** Verifies the upload's signature, channel and hash, and only then unpacks and stages it. */
   stage: (uploadId: string) =>
-    call<{ package: UpdatePackage }>(
+    call<{ package: UpdatePackage; slot?: string }>(
       "UpgradeService",
       "StageUpdate",
       { uploadId },
-      wire.withPackage,
+      wire.stageUpdate,
     ),
   upload: (file: Blob, onProgress?: (fraction: number) => void) => edge.upload(file, onProgress),
 };

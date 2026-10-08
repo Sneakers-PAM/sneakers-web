@@ -1194,7 +1194,9 @@ const route = async (service: string, method: string, body: Record<string, unkno
         if (isProduct(updatePackage.target)) product.stagedVersion = updatePackage.version;
         else stagedVersion = updatePackage.version;
         historyEntry("stage", updatePackage.version, "", "", updatePackage.target);
-        return { package: updatePackage };
+        return isProduct(updatePackage.target)
+          ? { package: updatePackage }
+          : { package: updatePackage, slot: "B" };
       } catch (error) {
         historyEntry("stage", "", error instanceof OsadminError ? (error.symbol ?? "") : "");
         throw error;

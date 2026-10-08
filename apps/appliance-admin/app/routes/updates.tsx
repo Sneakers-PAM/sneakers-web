@@ -26,7 +26,7 @@ import {
   TableHeaderCell,
   TableRow,
 } from "@sneakers-web/ui";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import type {
   Elevation,
@@ -88,7 +88,7 @@ type Step =
   | { fileName: string; kind: "received"; uploadId: string; via: "Fetched" | "Uploaded" }
   | { fileName: string; kind: "refused"; reason: string }
   | { fileName: string; kind: "uploading"; progress: number }
-  | { fileName: string; kind: "verified"; updatePackage: UpdatePackage }
+  | { fileName: string; kind: "verified"; slot?: string; updatePackage: UpdatePackage }
   | { fileName: string; kind: "verifying"; uploadId: string }
   | { kind: "idle" };
 
@@ -225,7 +225,7 @@ export default function Updates() {
       {
         onSuccess: (result) => {
           if (!result) return;
-          setStep({ fileName, kind: "verified", updatePackage: result.package });
+          setStep({ fileName, kind: "verified", slot: result.slot, updatePackage: result.package });
           reload();
         },
       },
@@ -780,21 +780,12 @@ const UpdateStep = ({
       );
     }
     case "verified": {
-      const { updatePackage } = step;
       return (
-        <section
-          aria-label="Verify result"
-          className="flex flex-col gap-1 border-t border-border pt-4"
-        >
-          <p>
-            <Badge tone="ok">verified</Badge> {step.fileName}: {describePackage(updatePackage)},{" "}
-            {updatePackage.arch}
-          </p>
-          <p>Signature: verified against this appliance&apos;s release key</p>
-          <p>Channel: {updatePackage.channel}</p>
-          <p className="font-mono break-all">SHA-256: {updatePackage.sha256}</p>
-          <p>Staged into the other slot.</p>
-        </section>
+        <VerifiedPanel
+          fileName={step.fileName}
+          slot={step.slot}
+          updatePackage={step.updatePackage}
+        />
       );
     }
     case "verifying": {
@@ -806,6 +797,61 @@ const UpdateStep = ({
       );
     }
   }
+};
+
+/** The verified file: what it is, that its signature checked out, its hash, and where it went. */
+const VerifiedPanel = ({
+  fileName,
+  slot,
+  updatePackage,
+}: {
+  fileName: string;
+  slot?: string;
+  updatePackage: UpdatePackage;
+}) => {
+  const product = updatePackage.target === PRODUCT;
+  const rows: [string, ReactNode][] = [
+    ["File", fileName],
+    ["Version", describePackage(updatePackage)],
+    ["Architecture", updatePackage.arch],
+    ["Signature", "Verified against this appliance's release key"],
+    ["Channel", updatePackage.channel],
+    [
+      "SHA-256",
+      <span className="flex flex-wrap items-center gap-2" key="sha">
+        <code className="font-mono break-all">{updatePackage.sha256}</code>
+        <Button
+          onClick={() => void navigator.clipboard.writeText(updatePackage.sha256)}
+          size="sm"
+          variant="secondary"
+        >
+          Copy
+        </Button>
+      </span>,
+    ],
+    [
+      "Staged",
+      product
+        ? "Staged into the product's other slot"
+        : slot
+          ? `Staged into slot ${slot}`
+          : "Staged into the other slot",
+    ],
+  ];
+  return (
+    <section aria-label="Verify result" className="border-t border-border pt-4">
+      <Alert title="Verified" tone="ok">
+        <dl className="m-0 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5">
+          {rows.map(([label, value]) => (
+            <div className="contents" key={label}>
+              <dt className="font-bold">{label}</dt>
+              <dd className="m-0 min-w-0">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </Alert>
+    </section>
+  );
 };
 
 /**

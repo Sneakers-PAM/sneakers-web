@@ -45,10 +45,30 @@ describe("Updates", () => {
     expect(screen.queryByText(/Signature: verified/)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Verify and stage" }));
     const result = await screen.findByRole("region", { name: "Verify result" });
-    expect(within(result).getByText(/Signature: verified/)).toBeInTheDocument();
-    expect(within(result).getByText(/Channel: stable/)).toBeInTheDocument();
-    expect(within(result).getByText(/SHA-256: [0-9a-f]{64}/)).toBeInTheDocument();
-    expect(within(result).getByText(/full release 0.2.0/)).toBeInTheDocument();
+    expect(within(result).getByText("Verified")).toBeInTheDocument();
+    const terms = within(result)
+      .getAllByRole("term")
+      .map((term) => term.textContent);
+    expect(terms).toEqual([
+      "File",
+      "Version",
+      "Architecture",
+      "Signature",
+      "Channel",
+      "SHA-256",
+      "Staged",
+    ]);
+    const values = within(result)
+      .getAllByRole("definition")
+      .map((value) => value.textContent);
+    expect(values[0]).toBe("sneakers-appliance-0.2.0-amd64.bin");
+    expect(values[1]).toBe("full release 0.2.0");
+    expect(values[2]).toBe("amd64");
+    expect(values[3]).toBe("Verified against this appliance's release key");
+    expect(values[4]).toBe("stable");
+    expect(values[5]).toMatch(/^[0-9a-f]{64}Copy$/);
+    expect(values[6]).toBe("Staged into slot B");
+    expect(within(result).getByRole("button", { name: "Copy" })).toBeInTheDocument();
     expect(await screen.findByText(/Other slot: staged 0.2.0/)).toBeInTheDocument();
   });
 

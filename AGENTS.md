@@ -162,8 +162,9 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   `XMLHttpRequest` because only XHR reports upload progress; `/upload` answers errors as plain
   text) or fetch one from the mirror, which is hidden on an air-gapped box (no mirror set).
   `UpgradeService.StageUpdate` is one call that verifies the signature, channel and hash and only
-  then unpacks and stages, so the page shows "Verifying" while it runs, then either the verified
-  header or the refusal's reason in place (never a toast). Apply, Revert, Install product and
+  then unpacks and stages, so the page shows "Verifying" while it runs, then either a green
+  "Verified" panel (file, version, architecture, signature, channel, SHA-256 with Copy, and the
+  slot it went into, `StageUpdateResponse.slot`) or the refusal's reason in place (never a toast). Apply, Revert, Install product and
   Revert product each need the version typed (the running one for a base revert) and a fresh
   authenticator code in the same dialog, every time (`totpCode`; the box checks it on every call,
   not the step-up window), and a refused code stays in the dialog with the tries left. Stage and

@@ -517,8 +517,12 @@ const updatePackage = (w: Wire<UpdatePackage> = {}): UpdatePackage => ({
   version: w.version ?? "",
 });
 
-export const withPackage = (w: Wire<{ package: UpdatePackage }>): { package: UpdatePackage } => ({
+/** StageUpdate's answer: the package, and for a base release the slot it went into. */
+export const stageUpdate = (
+  w: Wire<{ package: UpdatePackage; slot?: string }>,
+): { package: UpdatePackage; slot?: string } => ({
   package: updatePackage(w.package),
+  ...(w.slot ? { slot: w.slot } : {}),
 });
 
 export const fetched = (
