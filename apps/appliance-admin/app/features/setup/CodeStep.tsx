@@ -3,10 +3,22 @@ import { useState } from "react";
 
 import type { RedeemCodeResponse } from "@/lib/osadmin/types";
 
+import { groupsOfFour } from "@/components/TotpEnrolmentPanel";
 import { setup } from "@/lib/osadmin/client";
 import { refusalOf } from "@/lib/osadmin/errors";
 import { refusalMessage } from "@/lib/osadmin/refusal";
 import { setCodeCsrfToken } from "@/lib/osadmin/sessionStore";
+
+/** What the console and an invitation or Recover access code look like as it's typed: capitals,
+ * grouped in fours with dashes, whether or not the dashes were typed. */
+export const formatSetupCode = (value: string): string =>
+  groupsOfFour(
+    value
+      .toUpperCase()
+      .replaceAll(/[^0-9A-Z]/g, "")
+      .slice(0, 16),
+    "-",
+  );
 
 /** What a refused code means: the tries left before the console shows a new one. */
 const codeRefusal = (error: unknown): string => {
@@ -64,8 +76,11 @@ export const CodeStep = ({
         <Input
           autoCapitalize="characters"
           autoComplete="one-time-code"
+          maxLength={19}
           mono
-          onChange={(event) => setCode(event.target.value)}
+          // A controlled input's own re-render puts the caret at the end, which is where
+          // typing (and most paste) continues from.
+          onChange={(event) => setCode(formatSetupCode(event.target.value))}
           placeholder="XXXX-XXXX-XXXX-XXXX"
           spellCheck={false}
           value={code}

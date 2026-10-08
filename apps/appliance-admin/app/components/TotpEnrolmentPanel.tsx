@@ -2,8 +2,9 @@ import { CodeInput, Field, QrBlock } from "@sneakers-web/ui";
 
 import type { TotpEnrolment } from "@/lib/osadmin/types";
 
-/** The base32 secret in groups of four, easier to type and to read aloud. */
-export const groupsOfFour = (value: string): string => value.match(/.{1,4}/g)?.join(" ") ?? "";
+/** Groups of four, easier to type and to read aloud. */
+export const groupsOfFour = (value: string, separator = " "): string =>
+  value.match(/.{1,4}/g)?.join(separator) ?? "";
 
 /**
  * A new authenticator: the QR code for the app, the key typed by hand for an app that
