@@ -176,6 +176,9 @@ export interface FactoryReset {
 /** StatusService.GetPhase: "firstboot" until setup's Finish, then "normal". */
 export interface GetPhaseResponse {
   phase: string;
+  /** An update's steps while one runs and for 15 minutes after, for the restart page before
+   * anyone signs in: the steps' ids, labels and states only, with no version, detail or code. */
+  upgradeProgress?: UpgradeProgress;
 }
 
 export interface GetStatusResponse {
@@ -206,6 +209,8 @@ export interface GetStatusResponse {
   tlsExpires?: string;
   tlsFingerprint: string;
   tlsSelfSigned: boolean;
+  /** The last stage, apply or revert, step by step; left out when the box has made none. */
+  upgradeProgress?: UpgradeProgress;
   version: string;
   /** Empty lists are left out of the JSON: a box with nothing to warn about leaves this out. */
   warnings?: Warning[];
@@ -644,6 +649,46 @@ export interface UpdatePackage {
   version: string;
 }
 
+export type UpgradeStepState =
+  | "UPGRADE_STEP_STATE_ACTIVE"
+  | "UPGRADE_STEP_STATE_DONE"
+  | "UPGRADE_STEP_STATE_FAILED"
+  | "UPGRADE_STEP_STATE_PENDING"
+  | "UPGRADE_STEP_STATE_UNSPECIFIED";
+
+/** One step of a stage, apply or revert. */
+export interface UpgradeStep {
+  /** What an active step is doing or waiting for, or why a failed step failed. */
+  detail: string;
+  /** Bytes written of totalBytes where the step has a progress (the root image going into the
+   * slot); int64, so a string. totalBytes is "0" otherwise. */
+  doneBytes: string;
+  /** verify, stage, switch, reboot, health or mark_good; verify, stage, switch or restart for a
+   * product bundle. */
+  id: string;
+  /** The step as the screens show it, such as "Staging into slot B". */
+  label: string;
+  state: UpgradeStepState;
+  totalBytes: string;
+}
+
+/** The box's last stage, apply or revert, step by step. A base apply's steps after the reboot
+ * (checking health, marking good) come from the release the box booted. */
+export interface UpgradeProgress {
+  action: "" | "apply" | "revert" | "stage";
+  /** The failure's code, such as UPGRADE_SIGNATURE, when a step failed with one. */
+  code: string;
+  failed: boolean;
+  inProgress: boolean;
+  startedAt?: string;
+  /** In order: done, then the active or failed one, then pending. */
+  steps: UpgradeStep[];
+  target?: UpdateTarget;
+  updatedAt?: string;
+  /** The release staged or applied, or the one a revert goes back to. */
+  version: string;
+}
+
 export interface UpgradeEvent {
   action: "apply" | "fetch" | "revert" | "stage";
   actor: string;
@@ -692,6 +737,8 @@ export interface GetUpgradesResponse {
   revertedVersion?: string;
   runningVersion: string;
   stagedVersion: string;
+  /** The last stage, apply or revert, step by step; left out when the box has made none. */
+  upgradeProgress?: UpgradeProgress;
 }
 
 // ---- modules ----

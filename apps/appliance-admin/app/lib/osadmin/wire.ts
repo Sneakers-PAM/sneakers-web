@@ -60,6 +60,8 @@ import type {
   UpdatePackage,
   UpgradeEvent,
   UpgradePolicy,
+  UpgradeProgress,
+  UpgradeStep,
   ValidationCheck,
   Warning,
 } from "@/lib/osadmin/types";
@@ -215,6 +217,7 @@ export const withFactoryReset = (
 
 export const getPhase = (w: Wire<GetPhaseResponse>): GetPhaseResponse => ({
   phase: w.phase ?? "",
+  upgradeProgress: optional(w.upgradeProgress, upgradeProgress),
 });
 
 export const getStatus = (w: Wire<GetStatusResponse>): GetStatusResponse => ({
@@ -237,6 +240,7 @@ export const getStatus = (w: Wire<GetStatusResponse>): GetStatusResponse => ({
   stagedVersion: w.stagedVersion ?? "",
   tlsFingerprint: w.tlsFingerprint ?? "",
   tlsSelfSigned: w.tlsSelfSigned ?? false,
+  upgradeProgress: optional(w.upgradeProgress, upgradeProgress),
   version: w.version ?? "",
   warnings: list(w.warnings, warning),
 });
@@ -554,6 +558,25 @@ const upgradeEvent = (w: Wire<UpgradeEvent>): UpgradeEvent => ({
   version: w.version ?? "",
 });
 
+const upgradeStep = (w: Wire<UpgradeStep>): UpgradeStep => ({
+  detail: w.detail ?? "",
+  doneBytes: w.doneBytes ?? "0",
+  id: w.id ?? "",
+  label: w.label ?? "",
+  state: w.state ?? "UPGRADE_STEP_STATE_UNSPECIFIED",
+  totalBytes: w.totalBytes ?? "0",
+});
+
+export const upgradeProgress = (w: Wire<UpgradeProgress>): UpgradeProgress => ({
+  ...w,
+  action: word(w.action),
+  code: w.code ?? "",
+  failed: w.failed ?? false,
+  inProgress: w.inProgress ?? false,
+  steps: list(w.steps, upgradeStep),
+  version: w.version ?? "",
+});
+
 export const getUpgrades = (w: Wire<GetUpgradesResponse>): GetUpgradesResponse => ({
   ...w,
   activeElevations: list(w.activeElevations, elevation),
@@ -567,6 +590,7 @@ export const getUpgrades = (w: Wire<GetUpgradesResponse>): GetUpgradesResponse =
   product: optional(w.product, productSlots),
   runningVersion: w.runningVersion ?? "",
   stagedVersion: w.stagedVersion ?? "",
+  upgradeProgress: optional(w.upgradeProgress, upgradeProgress),
 });
 
 // ---- modules ----

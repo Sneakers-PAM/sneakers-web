@@ -2,6 +2,8 @@
 // without a session, so no answer from it means the box is down. Sessions live in osadmin's
 // memory and never survive a restart: a box that answers GetSession without the session this
 // tab had has restarted, while one that still has it hasn't started the reboot yet.
+import type { GetPhaseResponse } from "@/lib/osadmin/types";
+
 import { signIn, status } from "@/lib/osadmin/client";
 import { OsadminError } from "@/lib/osadmin/errors";
 
@@ -11,9 +13,13 @@ export type BoxAnswer = "down" | "session" | "signed-out";
 /** Connect codes osadmin itself answers with; anything else (a proxy page, no answer) is down. */
 const SIGNED_OUT = new Set(["permission_denied", "unauthenticated"]);
 
-export const boxAnswer = async (): Promise<BoxAnswer> => {
+/** onPhase gets the public phase's answer, with an update's steps when one is under way. */
+export const boxAnswer = async (
+  onPhase?: (phase: GetPhaseResponse) => void,
+): Promise<BoxAnswer> => {
   try {
-    await status.getPhase();
+    const phase = await status.getPhase();
+    onPhase?.(phase);
   } catch {
     return "down";
   }
