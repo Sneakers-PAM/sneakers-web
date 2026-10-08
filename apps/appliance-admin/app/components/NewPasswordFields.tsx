@@ -2,6 +2,7 @@ import { Field } from "@sneakers-web/ui";
 import { useEffect, useState } from "react";
 
 import { PasswordInput } from "@/components/PasswordInput";
+import { noAutofill } from "@/lib/noAutofill";
 import { setup } from "@/lib/osadmin/client";
 
 const CHECK_DELAY_MS = 250;
@@ -76,7 +77,7 @@ export const NewPasswordFields = ({
         label={label}
       >
         <PasswordInput
-          autoComplete="new-password"
+          {...noAutofill("new-password")}
           onChange={(next) => onChange({ again, password: next })}
           value={password}
         />
@@ -86,7 +87,7 @@ export const NewPasswordFields = ({
         label={`${label} again`}
       >
         <PasswordInput
-          autoComplete="new-password"
+          {...noAutofill("new-password")}
           label="the password again"
           onChange={(next) => onChange({ again: next, password })}
           value={again}

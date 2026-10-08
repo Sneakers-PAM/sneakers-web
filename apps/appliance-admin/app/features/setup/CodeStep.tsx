@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { RedeemCodeResponse } from "@/lib/osadmin/types";
 
 import { groupsOfFour } from "@/components/TotpEnrolmentPanel";
+import { noAutofill } from "@/lib/noAutofill";
 import { setup } from "@/lib/osadmin/client";
 import { refusalOf } from "@/lib/osadmin/errors";
 import { refusalMessage } from "@/lib/osadmin/refusal";
@@ -74,8 +75,8 @@ export const CodeStep = ({
         label="Setup code"
       >
         <Input
+          {...noAutofill()}
           autoCapitalize="characters"
-          autoComplete="one-time-code"
           maxLength={19}
           mono
           // A controlled input's own re-render puts the caret at the end, which is where

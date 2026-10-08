@@ -13,7 +13,7 @@ export const PasswordInput = ({
   value,
   ...wiring
 }: {
-  autoComplete?: "current-password" | "new-password";
+  autoComplete?: string;
   label?: string;
   onChange: (value: string) => void;
   value: string;

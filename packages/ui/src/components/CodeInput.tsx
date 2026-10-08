@@ -4,6 +4,11 @@ import { cn } from "#ui/lib/cn";
 
 export interface CodeInputProps {
   "aria-describedby"?: string;
+  autoComplete?: string;
+  "data-1p-ignore"?: boolean;
+  "data-bwignore"?: boolean;
+  "data-form-type"?: string;
+  "data-lpignore"?: string;
   disabled?: boolean;
   id?: string;
   invalid?: boolean;
@@ -25,6 +30,11 @@ export interface CodeInputProps {
 export const CodeInput = forwardRef<HTMLInputElement, CodeInputProps>(function CodeInput(
   {
     "aria-describedby": describedBy,
+    autoComplete = "one-time-code",
+    "data-1p-ignore": onePasswordIgnore,
+    "data-bwignore": bitwardenIgnore,
+    "data-form-type": formType,
+    "data-lpignore": lastPassIgnore,
     disabled,
     id,
     invalid,
@@ -66,8 +76,12 @@ export const CodeInput = forwardRef<HTMLInputElement, CodeInputProps>(function C
         aria-describedby={describedBy}
         aria-invalid={invalid || undefined}
         aria-label={label}
-        autoComplete="one-time-code"
+        autoComplete={autoComplete}
         className="absolute inset-0 cursor-text text-base opacity-0"
+        data-1p-ignore={onePasswordIgnore}
+        data-bwignore={bitwardenIgnore}
+        data-form-type={formType}
+        data-lpignore={lastPassIgnore}
         disabled={disabled}
         id={id}
         inputMode="numeric"

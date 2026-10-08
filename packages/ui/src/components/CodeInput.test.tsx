@@ -28,4 +28,24 @@ describe("CodeInput", () => {
     render(<CodeInput invalid onChange={() => {}} value="000000" />);
     expect(screen.getByLabelText("6-digit code")).toHaveAttribute("aria-invalid", "true");
   });
+
+  it("takes an autoComplete override and passes password-manager ignore attributes through", () => {
+    render(
+      <CodeInput
+        autoComplete="off"
+        data-1p-ignore
+        data-bwignore
+        data-form-type="other"
+        data-lpignore="true"
+        onChange={() => {}}
+        value=""
+      />,
+    );
+    const input = screen.getByLabelText("6-digit code");
+    expect(input).toHaveAttribute("autocomplete", "off");
+    expect(input).toHaveAttribute("data-1p-ignore", "true");
+    expect(input).toHaveAttribute("data-lpignore", "true");
+    expect(input).toHaveAttribute("data-bwignore", "true");
+    expect(input).toHaveAttribute("data-form-type", "other");
+  });
 });

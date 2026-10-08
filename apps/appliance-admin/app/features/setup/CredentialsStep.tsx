@@ -5,6 +5,7 @@ import type { CodeKind, Session, TotpEnrolment } from "@/lib/osadmin/types";
 
 import { type NewPassword, NewPasswordFields } from "@/components/NewPasswordFields";
 import { TotpEnrolmentPanel } from "@/components/TotpEnrolmentPanel";
+import { noAutofill } from "@/lib/noAutofill";
 import { setup } from "@/lib/osadmin/client";
 import { refusalOf } from "@/lib/osadmin/errors";
 import { refusalMessage } from "@/lib/osadmin/refusal";
@@ -143,8 +144,8 @@ export const CredentialsStep = ({
         label="Admin name"
       >
         <Input
+          {...noAutofill()}
           autoCapitalize="none"
-          autoComplete="username"
           onChange={(event) => setAdmin(event.target.value)}
           readOnly={!!fixedAdmin}
           spellCheck={false}
