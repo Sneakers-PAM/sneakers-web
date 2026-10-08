@@ -8,19 +8,23 @@ import type {
   AddonModule,
   BackupPolicy,
   BackupSet,
+  AddedCertificate,
   BeginSignInResponse,
+  CertEndpoint,
   Certificate,
   ElevationOverride,
   ElevationPolicy,
   FactoryReset,
+  GenerateCsrRequest,
   GetBackupsResponse,
+  GetCertificateStoreResponse,
   GetMcpResponse,
   GetNetworkResponse,
   GetPowerResponse,
   GetSetupResponse,
   GetStatusResponse,
-  GetTlsResponse,
   GetUpgradesResponse,
+  ImportCertificateRequest,
   Key,
   ListAdminsResponse,
   ListElevationsResponse,
@@ -28,6 +32,7 @@ import type {
   ListModulesResponse,
   ListSessionsResponse,
   NetdSettings,
+  PendingCsr,
   PollSignInResponse,
   RecoveryKey,
   RunChecksResponse,
@@ -112,13 +117,30 @@ export const network = {
 };
 
 export const tls = {
-  createCsr: (names: string[]) =>
-    call<{ csrPem: string }>("TlsService", "CreateCsr", { names }),
-  get: () => call<GetTlsResponse>("TlsService", "GetTls"),
-  setAdminCertificate: (useProduct: boolean) =>
-    call<Record<string, never>>("TlsService", "SetAdminCertificate", { useProduct }),
-  uploadCertificate: (certificatePem: string, chainPem = "") =>
-    call<Record<string, never>>("TlsService", "UploadCertificate", { certificatePem, chainPem }),
+  assign: (endpointId: string, certificateId: string) =>
+    call<{ endpoint: CertEndpoint }>("TlsService", "AssignCertificate", {
+      certificateId,
+      endpointId,
+    }),
+  completeCsr: (csrId: string, certificatePem: string, chainPem = "", rootPem = "") =>
+    call<AddedCertificate>("TlsService", "CompleteCsr", {
+      certificatePem,
+      chainPem,
+      csrId,
+      rootPem,
+    }),
+  delete: (certificateId: string) =>
+    call<Record<string, never>>("TlsService", "DeleteCertificate", { certificateId }),
+  discardCsr: (csrId: string) =>
+    call<Record<string, never>>("TlsService", "DiscardCsr", { csrId }),
+  generateCsr: (request: GenerateCsrRequest) =>
+    call<{ csr: PendingCsr }>("TlsService", "GenerateCsr", request),
+  get: () => call<GetCertificateStoreResponse>("TlsService", "GetCertificateStore"),
+  /** A PFX (pkcs12, base64, with its password) or PEM; the password is never stored. */
+  importCertificate: (request: ImportCertificateRequest) =>
+    call<AddedCertificate>("TlsService", "ImportCertificate", request),
+  revert: (endpointId: string) =>
+    call<{ endpoint: CertEndpoint }>("TlsService", "RevertToSelfSigned", { endpointId }),
 };
 
 export const mcp = {

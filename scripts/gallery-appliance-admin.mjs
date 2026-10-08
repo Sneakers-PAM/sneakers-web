@@ -7,7 +7,7 @@
 //
 // A second, "real backend, not implemented" pass (issue #201) shoots the same frame routes
 // from the LIVE build against e2e/applianceRealBackendServer.mjs: a box shaped like a real
-// one today, where TlsService, McpService, BackupService and ModulesService answer
+// one today, where McpService, BackupService and ModulesService answer
 // "unimplemented" and UpgradeService leaves out an empty history. Those pages have to show
 // "Not available in this release" instead of crashing or staying blank.
 //
@@ -45,7 +45,12 @@ const FRAME = [
 ];
 // Pages shot again with the mock box in a scenario (`?mockScenario=`, app/mock/edge.mock.ts),
 // for the states a fresh mock box doesn't show. The name is the shot's file prefix.
-const SCENARIOS = [{ name: "updates-elevated", route: "/updates", scenario: "staged,elevated" }];
+const SCENARIOS = [
+  { name: "updates-elevated", route: "/updates", scenario: "staged,elevated" },
+  { name: "certificates-assigned", route: "/certificates", scenario: "cert-assigned" },
+  { name: "certificates-csr-pending", route: "/certificates", scenario: "cert-csr-pending" },
+  { name: "certificates-expiring", route: "/certificates", scenario: "cert-expiring" },
+];
 const READY_TIMEOUT_MS = 15_000;
 // The marker has to hold this long: a page that answers one call and starts the next would
 // otherwise look ready in between.

@@ -13,19 +13,18 @@ const navigate = (page: Page, to: string) =>
   );
 
 // The built, LIVE appliance admin (no mock) against a backend shaped like the real box's
-// current state (e2e/applianceRealBackendServer.mjs): TlsService, McpService, BackupService
-// and ModulesService answer "unimplemented", and UpgradeService leaves out an empty
+// current state (e2e/applianceRealBackendServer.mjs): McpService, BackupService and
+// ModulesService answer "unimplemented", and UpgradeService leaves out an empty
 // `history`. Issue #201: those pages used to crash or stay blank. Every page here has to
 // render -- with "Not available in this release" where the box doesn't have it yet -- and
 // never throw a console or page error.
 const UNAVAILABLE = [
-  { heading: "Certificates", name: "Certificates", route: "/certificates" },
   { heading: "Backups", name: "Backups", route: "/backups" },
   { heading: "MCP", name: "MCP", route: "/mcp" },
   { heading: "Add-on modules", name: "Add-on modules", route: "/modules" },
 ] as const;
 
-const AVAILABLE = ["/home", "/network", "/access", "/logs", "/power"] as const;
+const AVAILABLE = ["/home", "/network", "/access", "/certificates", "/logs", "/power"] as const;
 
 test("every page renders against a real-shaped backend, with unimplemented pages showing Not available", async ({
   page,

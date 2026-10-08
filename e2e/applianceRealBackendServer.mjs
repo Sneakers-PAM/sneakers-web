@@ -2,7 +2,8 @@
 // serves it on a real box today: osadmin's security headers (SecurityHeaders in
 // sneakers-appliance internal/osadmin/server.go), files from build/client with page routes
 // falling back to index.html, and a Connect API shaped like the real box's current state --
-// sparse, mostly-empty replies from a freshly provisioned single-owner box, and TlsService,
+// sparse, mostly-empty replies from a freshly provisioned single-owner box (TlsService has
+// only its certificate store), and TlsService's old product-certificate methods,
 // McpService, BackupService and ModulesService answering "unimplemented" the way
 // osadminv1connect.Unimplemented*ServiceHandler does (server.go registers them with no
 // implementation behind them). SignIn approves on the first poll, so the suite never needs a
@@ -140,6 +141,48 @@ const api = {
     version: "0.1.0",
   }),
   "/sneakers.appliance.osadmin.v1.TlsService/CreateCsr": unimplemented,
+  "/sneakers.appliance.osadmin.v1.TlsService/GetCertificateStore": () => ({
+    acme: {
+      available: false,
+      reason: "Not available yet: ACME through cert-manager comes with the product bundle.",
+    },
+    certificates: [
+      {
+        certificatePem: "",
+        chain: ["appliance01"],
+        fingerprint: "AA:BB:CC",
+        id: "self-signed",
+        issuer: "CN=appliance01,O=Sneakers-PAM appliance admin",
+        keyType: "ECDSA P-256",
+        names: ["appliance01", "192.0.2.10"],
+        notAfter: new Date(Date.now() + 300 * 86_400_000).toISOString(),
+        notBefore: new Date().toISOString(),
+        source: "CERTIFICATE_SOURCE_SELF_SIGNED",
+        subject: "CN=appliance01,O=Sneakers-PAM appliance admin",
+        usedBy: ["admin"],
+      },
+    ],
+    endpoints: [
+      {
+        available: true,
+        certificateId: "self-signed",
+        id: "admin",
+        name: ":8443 admin",
+        servingFingerprint: "AA:BB:CC",
+        source: "ENDPOINT_SOURCE_SELF_SIGNED",
+        state: "ENDPOINT_STATE_SELF_SIGNED",
+        stateDetail: "The box's own self-signed certificate; check its fingerprint.",
+      },
+      {
+        available: false,
+        id: "product",
+        name: "Product (443)",
+        source: "ENDPOINT_SOURCE_ASSIGNED",
+        state: "ENDPOINT_STATE_UNAVAILABLE",
+        unavailableReason: "Available when the product is installed.",
+      },
+    ],
+  }),
   "/sneakers.appliance.osadmin.v1.TlsService/GetTls": unimplemented,
   "/sneakers.appliance.osadmin.v1.TlsService/SetAdminCertificate": unimplemented,
   "/sneakers.appliance.osadmin.v1.TlsService/UploadCertificate": unimplemented,
