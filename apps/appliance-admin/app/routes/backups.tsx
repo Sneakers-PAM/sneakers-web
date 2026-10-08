@@ -43,7 +43,15 @@ export default function Backups() {
         if (isNotAvailable(error)) setUnavailable(true);
       });
   useEffect(reload, []);
-  useEffect(() => void setup.get().then((response) => setRecoveryKeys(response.recoveryKeys)), []);
+  // A refused GetSetup (an old box, or a session that just ended) leaves the keys unlisted.
+  useEffect(
+    () =>
+      void setup
+        .get()
+        .then((response) => setRecoveryKeys(response.recoveryKeys))
+        .catch(() => null),
+    [],
+  );
 
   if (unavailable) {
     return (

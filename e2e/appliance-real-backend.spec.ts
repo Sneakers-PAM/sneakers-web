@@ -43,7 +43,11 @@ test("every page renders against a real-shaped backend, with unimplemented pages
 
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
-  // SignInService/PollSignIn approves on the first poll (every 2s, useSignInCode.ts).
+  // The test server's SignIn takes any name, password and code.
+  await page.getByLabel("Admin name").fill("owner");
+  await page.getByLabel("Password", { exact: true }).fill("any password at all");
+  await page.getByLabel("Authenticator code").first().fill("123456");
+  await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL("**/home", { timeout: 15_000 });
 
   for (const route of AVAILABLE) {

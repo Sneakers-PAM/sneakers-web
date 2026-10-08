@@ -27,7 +27,6 @@ describe("AppFrame", () => {
     setSession({
       admin: "alice",
       csrfToken: "test-csrf",
-      keyFingerprint: "SHA256:test",
       role: "ROLE_OWNER",
     });
     stub("/home");
@@ -39,7 +38,6 @@ describe("AppFrame", () => {
     setSession({
       admin: "alice",
       csrfToken: "test-csrf",
-      keyFingerprint: "SHA256:test",
       role: "ROLE_OWNER",
     });
     const user = userEvent.setup();
@@ -52,5 +50,43 @@ describe("AppFrame", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("alice (owner)")).toBeInTheDocument();
     expect(screen.queryByText(/gateway/i)).not.toBeInTheDocument();
+  });
+
+  it("tells the admin the box's notices after signing in", async () => {
+    setSession({
+      admin: "alice",
+      csrfToken: "test-csrf",
+      notices: ["Recover access was used on the console at 14:03."],
+      role: "ROLE_OWNER",
+    });
+    stub("/home");
+    expect(
+      await screen.findByText("Recover access was used on the console at 14:03."),
+    ).toBeInTheDocument();
+  });
+
+  it("shows Root shell in the nav to root operators only", async () => {
+    // The sidebar shows at desktop width; at phone width it sits behind the menu button.
+    vi.spyOn(globalThis, "matchMedia").mockImplementation(
+      (query: string) =>
+        ({
+          addEventListener: () => {},
+          addListener: () => {},
+          dispatchEvent: () => false,
+          matches: /min-width/.test(query),
+          media: query,
+          onchange: null,
+          removeEventListener: () => {},
+          removeListener: () => {},
+        }) as MediaQueryList,
+    );
+    setSession({ admin: "alice", csrfToken: "c", role: "ROLE_OWNER", rootOperator: true });
+    const { unmount } = stub("/home");
+    expect(await screen.findByRole("link", { name: "Root shell" })).toBeInTheDocument();
+    unmount();
+    setSession({ admin: "carol", csrfToken: "c", role: "ROLE_ADMIN", rootOperator: false });
+    stub("/home");
+    await screen.findByText("Status page");
+    expect(screen.queryByRole("link", { name: "Root shell" })).not.toBeInTheDocument();
   });
 });

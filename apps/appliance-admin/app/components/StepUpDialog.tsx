@@ -1,64 +1,86 @@
 import {
+  Alert,
   Button,
+  CodeInput,
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  Spinner,
+  Field,
 } from "@sneakers-web/ui";
-import { useEffect, useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 
+import { signIn } from "@/lib/osadmin/client";
+import { refusalMessage } from "@/lib/osadmin/refusal";
+import { setSession } from "@/lib/osadmin/sessionStore";
 import {
   cancelStepUp,
   resumeStepUp,
   stepUpPending,
   subscribeStepUp,
 } from "@/lib/osadmin/stepUpController";
-import { useSignInCode } from "@/lib/osadmin/useSignInCode";
 
 /**
- * The one step-up prompt every sensitive action shares: a fresh sign-in code, the SSH
- * instruction, and a poll. On approval it resumes the action that asked for it.
+ * The one step-up prompt every sensitive action shares: a fresh code from the admin's
+ * authenticator (StepUp). Once the box takes it, the action that asked is retried.
  */
 export const StepUpDialog = () => {
   const open = useSyncExternalStore(subscribeStepUp, stepUpPending);
-  const code = useSignInCode(open);
-  useEffect(() => {
-    if (open && code.state === "signed-in") resumeStepUp();
-  }, [open, code.state]);
   return (
     <Dialog onOpenChange={(next) => !next && cancelStepUp()} open={open}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Sign in again to continue</DialogTitle>
-          <DialogDescription>
-            This action needs a sign-in no older than 5 minutes.
-          </DialogDescription>
-        </DialogHeader>
-        {code.state === "starting" && <Spinner />}
-        {code.begun && code.state === "pending" && (
-          <div className="flex flex-col gap-3">
-            <p className="font-mono text-[1.5rem] font-bold tracking-widest">{code.begun.code}</p>
-            <p className="text-small text-muted">
-              Run{" "}
-              <code>
-                ssh admin@{code.begun.sourceAddress} login {code.begun.code}
-              </code>{" "}
-              from a session you trust, and approve the sign-in shown as {code.begun.userAgent} from{" "}
-              {code.begun.sourceAddress}.
-            </p>
-          </div>
-        )}
-        {code.state === "expired" && (
-          <Button onClick={code.restart} variant="secondary">
-            Get a new code
-          </Button>
-        )}
-        <Button onClick={cancelStepUp} variant="secondary">
+      <DialogContent>{open && <StepUpForm />}</DialogContent>
+    </Dialog>
+  );
+};
+
+/** Mounted only while the dialog is open, so every request starts with an empty code. */
+const StepUpForm = () => {
+  const [code, setCode] = useState("");
+  const [refusal, setRefusal] = useState("");
+  const [busy, setBusy] = useState(false);
+  const confirm = () => {
+    setBusy(true);
+    setRefusal("");
+    signIn
+      .stepUp(code)
+      .then((response) => {
+        setSession(response.session);
+        resumeStepUp();
+      })
+      .catch((error: unknown) => {
+        setRefusal(refusalMessage(error, { what: "code" }));
+        setCode("");
+      })
+      .finally(() => setBusy(false));
+  };
+  return (
+    <form
+      className="flex flex-col gap-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        confirm();
+      }}
+    >
+      <DialogHeader>
+        <DialogTitle>Confirm it&apos;s you</DialogTitle>
+        <DialogDescription>
+          This is a sensitive change. Type a new code from your authenticator.
+        </DialogDescription>
+      </DialogHeader>
+      {refusal && <Alert tone="danger">{refusal}</Alert>}
+      <Field label="Authenticator code">
+        <CodeInput label="Authenticator code" onChange={setCode} size="md" value={code} />
+      </Field>
+      <DialogFooter>
+        <Button onClick={cancelStepUp} type="button" variant="secondary">
           Cancel
         </Button>
-      </DialogContent>
-    </Dialog>
+        <Button disabled={busy || code.length !== 6} type="submit">
+          Confirm
+        </Button>
+      </DialogFooter>
+    </form>
   );
 };

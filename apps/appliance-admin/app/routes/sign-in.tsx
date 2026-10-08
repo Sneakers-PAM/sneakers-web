@@ -1,38 +1,32 @@
 import { edge } from "@sneakers-web/edge";
 import { CenteredFrame, FrameTitle } from "@sneakers-web/shell";
 import {
+  Alert,
   Badge,
   Button,
+  CodeInput,
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  Field,
+  Input,
   Label,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Spinner,
-  toast,
 } from "@sneakers-web/ui";
-import { Copy } from "lucide-react";
-import { useId } from "react";
-import { Navigate } from "react-router";
+import { useId, useState } from "react";
+import { Link, Navigate, useNavigate } from "react-router";
 
-import type { BeginSignInResponse } from "@/lib/osadmin/types";
-
+import { PasswordInput } from "@/components/PasswordInput";
+import { signIn } from "@/lib/osadmin/client";
+import { refusalMessage } from "@/lib/osadmin/refusal";
 import { setSession } from "@/lib/osadmin/sessionStore";
-import { useSignInCode } from "@/lib/osadmin/useSignInCode";
 import { useSession } from "@/lib/useSession";
-
-/** The Recover access docs, for an admin who no longer holds a key. */
-const RECOVER_ACCESS_URL = "https://docs.sneakers-pam.com/appliance/recover-access";
-
-const commandFor = (begun: BeginSignInResponse): string =>
-  `ssh <you>@${begun.sourceAddress} login ${begun.code}`;
 
 const DevelopmentQuickLogin = () => {
   const id = useId();
@@ -62,90 +56,109 @@ const DevelopmentQuickLogin = () => {
   );
 };
 
-/** The explanation behind the "How does sign-in work?" link, opened from a dialog, not inline. */
-const HowSignInWorksDialog = ({ begun }: { begun: BeginSignInResponse }) => (
+/** The short help behind "Help with signing in", in a dialog rather than inline. */
+const SignInHelpDialog = () => (
   <Dialog>
     <DialogTrigger asChild>
-      <Button variant="link">How does sign-in work?</Button>
+      <Button className="self-start" variant="link">
+        Help with signing in
+      </Button>
     </DialogTrigger>
     <DialogContent>
       <DialogHeader>
-        <DialogTitle>How signing in works</DialogTitle>
+        <DialogTitle>Signing in</DialogTitle>
       </DialogHeader>
-      <ol className="flex flex-col gap-2.5 pl-5 text-body leading-[1.5]">
-        <li>This code is valid for 5 minutes and works once.</li>
+      <ul className="flex flex-col gap-2.5 pl-5 text-body leading-[1.5]">
         <li>
-          Run <code className="font-mono">{commandFor(begun)}</code> from your own machine, or type{" "}
-          <code className="font-mono">login {begun.code}</code> in the closed shell.
+          Use your admin name, your password and the 6-digit code from your authenticator app.
         </li>
-        <li>Your SSH key proves who you are, and it can be a hardware key.</li>
-        <li>Confirm the browser address and agent shown in the prompt.</li>
-        <li>This page signs in by itself.</li>
-      </ol>
-      <p className="m-0 text-small text-muted">
-        There are no passwords on this box. Sessions end after 15 minutes idle or 8 hours. Removing
-        your key ends your sessions.
-      </p>
-      <DialogFooter>
-        <Button asChild variant="link">
-          <a href={RECOVER_ACCESS_URL} rel="noreferrer" target="_blank">
-            Recover access
-          </a>
-        </Button>
-      </DialogFooter>
+        <li>3 wrong tries in 15 minutes lock the account. An owner can unlock it on Access.</li>
+        <li>
+          Lost your authenticator? Another owner can reset it. If no admin can sign in, use Recover
+          access on the appliance&apos;s console.
+        </li>
+        <li>
+          For SSH, get an SSH key on the Access page once you&apos;re signed in. SSH asks for your
+          TOTP code after login.
+        </li>
+      </ul>
+      <p className="m-0 text-small text-muted">Sessions end after 15 minutes idle or 8 hours.</p>
     </DialogContent>
   </Dialog>
 );
 
-const SignInCode = ({ begun }: { begun: BeginSignInResponse }) => {
-  const command = commandFor(begun);
-  return (
-    <>
-      <p
-        aria-label={`Sign-in code ${begun.code}`}
-        className="rounded-md border-[1.5px] border-control bg-sunken py-4 text-center font-mono text-[1.75rem] font-bold tracking-[0.2em]"
-      >
-        {begun.code}
-      </p>
-      <div className="flex items-center justify-between gap-2">
-        <code className="min-w-0 flex-1 truncate text-small">{command}</code>
-        <Button
-          onClick={() => void navigator.clipboard?.writeText(command).then(() => toast("Copied."))}
-          size="sm"
-          variant="secondary"
-        >
-          <Copy aria-hidden />
-          Copy
-        </Button>
-      </div>
-      <HowSignInWorksDialog begun={begun} />
-    </>
-  );
-};
-
 export default function SignIn() {
   const { session } = useSession();
-  const code = useSignInCode(!session);
-  if (session || code.state === "signed-in") return <Navigate replace to="/home" />;
+  const navigate = useNavigate();
+  const [admin, setAdmin] = useState("");
+  const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [refusal, setRefusal] = useState("");
+  const [busy, setBusy] = useState(false);
+  if (session) return <Navigate replace to="/home" />;
+
+  const submit = () => {
+    setBusy(true);
+    setRefusal("");
+    signIn
+      .signIn(admin.trim(), password, code)
+      .then((response) => {
+        setSession(response.session);
+        navigate("/home", { replace: true });
+      })
+      .catch((error: unknown) => {
+        setRefusal(refusalMessage(error, { what: "sign-in", who: admin.trim() }));
+        setPassword("");
+        setCode("");
+      })
+      .finally(() => setBusy(false));
+  };
+
   return (
     <CenteredFrame>
-      <FrameTitle body="The :8443 appliance admin" title="Sign in" />
-      {code.state === "starting" && (
-        <div className="flex items-center justify-center py-6">
-          <Spinner />
-        </div>
+      <FrameTitle body="The appliance admin" title="Sign in" />
+      {refusal && (
+        <Alert role="alert" tone="danger">
+          {refusal}
+        </Alert>
       )}
-      {code.state === "error" && (
-        <p className="text-small text-danger">Couldn&apos;t reach the appliance. Try again.</p>
-      )}
-      {code.begun && (code.state === "pending" || code.state === "expired") && (
-        <SignInCode begun={code.begun} />
-      )}
-      {code.state === "expired" && (
-        <Button onClick={code.restart} variant="secondary">
-          Get a new code
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          submit();
+        }}
+      >
+        <Field label="Admin name">
+          <Input
+            autoCapitalize="none"
+            autoComplete="username"
+            onChange={(event) => setAdmin(event.target.value)}
+            spellCheck={false}
+            value={admin}
+          />
+        </Field>
+        <Field label="Password">
+          <PasswordInput onChange={setPassword} value={password} />
+        </Field>
+        <Field label="Authenticator code">
+          <CodeInput label="Authenticator code" onChange={setCode} size="md" value={code} />
+        </Field>
+        <Button
+          disabled={busy || !admin.trim() || !password || code.length !== 6}
+          size="lg"
+          type="submit"
+        >
+          Sign in
         </Button>
-      )}
+      </form>
+      <SignInHelpDialog />
+      <p className="m-0 text-small text-muted">
+        Setting up this box, or added as a new admin?{" "}
+        <Link className="text-primary underline" to="/setup">
+          Enter a setup or invitation code
+        </Link>
+      </p>
       <DevelopmentQuickLogin />
     </CenteredFrame>
   );

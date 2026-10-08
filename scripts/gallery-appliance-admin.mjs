@@ -36,6 +36,7 @@ const FRAME = [
   "/updates",
   "/network",
   "/access",
+  "/root-shell",
   "/certificates",
   "/backups",
   "/mcp",
@@ -45,7 +46,70 @@ const FRAME = [
 ];
 // Pages shot again with the mock box in a scenario (`?mockScenario=`, app/mock/edge.mock.ts),
 // for the states a fresh mock box doesn't show. The name is the shot's file prefix.
-const SCENARIOS = [{ name: "updates-elevated", route: "/updates", scenario: "staged,elevated" }];
+const SCENARIOS = [
+  { name: "updates-elevated", route: "/updates", scenario: "staged,elevated" },
+  { name: "updates-first-product", route: "/updates", scenario: "no-product" },
+  { name: "updates-product-staged", route: "/updates", scenario: "product-staged" },
+  { name: "updates-air-gapped", route: "/updates", scenario: "air-gapped" },
+  { name: "access-locked-invited", route: "/access", scenario: "locked,invited,elevated" },
+  {
+    act: async (page) => {
+      await page.getByRole("button", { name: "Get an SSH key" }).click();
+      await page.getByRole("dialog").getByLabel("Label").fill("work laptop");
+      await page.getByRole("button", { name: "Make the key" }).click();
+      await page.getByText("This is shown once").waitFor();
+    },
+    name: "access-ssh-key",
+    route: "/access",
+    scenario: "",
+  },
+  {
+    act: async (page) => {
+      const form = page.getByRole("form", { name: "Add an admin" });
+      await form.getByRole("textbox", { name: "Name" }).fill("carol");
+      await form.getByRole("button", { name: "Add admin" }).click();
+      await page.getByText("Invitation for carol").waitFor();
+    },
+    name: "access-invitation",
+    route: "/access",
+    scenario: "",
+  },
+  {
+    act: async (page) => {
+      await page.getByLabel("Challenge from the SSH menu").fill("K3M9-7PQX-2HDW-R4TE");
+      await page.getByLabel("Authenticator code").first().fill("314159");
+      await page.getByRole("button", { name: "Get the code" }).click();
+      await page.getByLabel("Root-shell code", { exact: true }).waitFor();
+    },
+    name: "root-shell-code",
+    route: "/root-shell",
+    scenario: "",
+  },
+];
+// Signed-out pages in a scenario: the setup stepper's steps as a reload finds them, each with
+// an optional `act` that drives the page further before the shot.
+const SIGNED_OUT_SCENARIOS = [
+  { name: "setup-1-code", route: "/setup", scenario: "first-boot" },
+  { name: "setup-2-admin", route: "/setup", scenario: "setup-admin" },
+  {
+    act: async (page) => {
+      await page.getByLabel("Admin name").fill("alice");
+      await page.getByLabel("Password", { exact: true }).fill("correct horse battery staple");
+      await page.getByLabel("Password again", { exact: true }).fill("correct horse battery staple");
+      await page.getByText("Strong enough.").waitFor();
+      await page.getByRole("button", { name: "Continue" }).click();
+      await page.getByText("Add your authenticator").waitFor();
+    },
+    name: "setup-2-authenticator",
+    route: "/setup",
+    scenario: "setup-admin",
+  },
+  { name: "setup-3-recovery-keys", route: "/setup", scenario: "setup-keys" },
+  { name: "setup-4-network", route: "/setup", scenario: "setup-network" },
+  { name: "setup-5-protection", route: "/setup", scenario: "setup-protection" },
+  { name: "setup-5-protection-reduced", route: "/setup", scenario: "setup-protection,reduced" },
+  { name: "setup-6-finish", route: "/setup", scenario: "setup-finish" },
+];
 const READY_TIMEOUT_MS = 15_000;
 // The marker has to hold this long: a page that answers one call and starts the next would
 // otherwise look ready in between.
@@ -116,10 +180,15 @@ const watch = (page, problems, label, { ignoreFailedResource = false } = {}) => 
   );
 };
 
-/** Waits for BeginSignIn's poll to approve (applianceRealBackendServer.mjs approves on the
- * first one), the way a real admin's SSH approval eventually would. */
-const waitForLiveSignIn = async (page, realBase) => {
+/** Signs in through the form (applianceRealBackendServer.mjs takes any name, password and
+ * code), the way an admin does on a real box. */
+const liveSignIn = async (page, realBase) => {
   await page.goto(realBase);
+  await waitForReady(page, "/");
+  await page.getByLabel("Admin name").fill("owner");
+  await page.getByLabel("Password", { exact: true }).fill("any password at all");
+  await page.getByLabel("Authenticator code").first().fill("123456");
+  await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL(`${realBase}/home`, { timeout: 15_000 });
 };
 
@@ -199,6 +268,12 @@ try {
       await page.goto(`${base}${route}`);
       await shoot(page, shots, size, route);
     }
+    for (const { act, name, route, scenario } of SIGNED_OUT_SCENARIOS) {
+      await page.goto(`${base}${route}?mockScenario=${scenario}`);
+      await waitForReady(page, route);
+      if (act) await act(page);
+      await shoot(page, shots, size, route, name, `${route} (${name})`);
+    }
     // The dev quick login opens a Radix select, so the run also covers its scroll lock.
     await page.goto(`${base}/`);
     await quickLogin(page);
@@ -209,12 +284,16 @@ try {
     }
     // A scenario is read when the app loads, and the session lives in memory, so each one is a
     // fresh load of the sign-in page with the scenario, then the quick login again.
-    for (const { name, route, scenario } of SCENARIOS) {
+    for (const { act, name, route, scenario } of SCENARIOS) {
       await page.goto(`${base}/?mockScenario=${scenario}`);
       await quickLogin(page);
       await page.evaluate((to) => globalThis.__reactRouterDataRouter.navigate(to), route);
       await page.waitForURL(`${base}${route}`);
-      await shoot(page, shots, size, route, name, `${route} (${scenario})`);
+      if (act) {
+        await waitForReady(page, route);
+        await act(page);
+      }
+      await shoot(page, shots, size, route, name, `${route} (${scenario || name})`);
     }
     await context.close();
   }
@@ -235,7 +314,7 @@ try {
     });
     const page = await context.newPage();
     watch(page, problems, "real backend", { ignoreFailedResource: true });
-    await waitForLiveSignIn(page, base2);
+    await liveSignIn(page, base2);
     for (const route of FRAME) {
       await page.evaluate((to) => globalThis.__reactRouterDataRouter.navigate(to), route);
       await page.waitForURL(`${base2}${route}`);

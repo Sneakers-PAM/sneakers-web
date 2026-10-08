@@ -3,15 +3,15 @@
 import { edge } from "@sneakers-web/edge";
 
 import type {
+  AccessPolicy,
   ActiveSession,
   Admin,
   AddonModule,
   BackupPolicy,
   BackupSet,
-  BeginSignInResponse,
+  CheckPasswordResponse,
   Certificate,
   ElevationOverride,
-  ElevationPolicy,
   FactoryReset,
   GetBackupsResponse,
   GetMcpResponse,
@@ -21,19 +21,26 @@ import type {
   GetStatusResponse,
   GetTlsResponse,
   GetUpgradesResponse,
-  Key,
+  Invitation,
+  IssueRootShellCodeResponse,
+  IssueSshKeyResponse,
   ListAdminsResponse,
   ListElevationsResponse,
+  ListProductVersionsResponse,
   ListEventsResponse,
   ListModulesResponse,
   ListSessionsResponse,
   NetdSettings,
-  PollSignInResponse,
   RecoveryKey,
+  RedeemCodeResponse,
   RunChecksResponse,
   Session,
   SetNetworkResponse,
+  SetupStepKind,
+  SignInResponse,
+  TotpEnrolment,
   UpdatePackage,
+  UpdateTarget,
   UpgradePolicy,
 } from "@/lib/osadmin/types";
 
@@ -43,16 +50,30 @@ const call = <Result>(service: string, method: string, body: unknown = {}): Prom
   trackRequest(edge.request<Result>(service, method, body));
 
 export const signIn = {
-  begin: () => call<BeginSignInResponse>("SignInService", "BeginSignIn"),
   getSession: () => call<{ session?: Session }>("SignInService", "GetSession"),
-  poll: (pollToken: string) =>
-    call<PollSignInResponse>("SignInService", "PollSignIn", { pollToken }),
+  /** The name, the password and a code from the admin's authenticator. */
+  signIn: (admin: string, password: string, totpCode: string) =>
+    call<SignInResponse>("SignInService", "SignIn", { admin, password, totpCode }),
   signOut: () => call<Record<string, never>>("SignInService", "SignOut"),
+  /** A fresh TOTP code (one never used before) opens 5 more minutes for sensitive actions. */
+  stepUp: (totpCode: string) => call<SignInResponse>("SignInService", "StepUp", { totpCode }),
 };
 
 export const setup = {
   acknowledgeSingleAdmin: () =>
     call<Record<string, never>>("SetupService", "AcknowledgeSingleAdmin"),
+  /** Marks the optional network step or the read-only protection step as seen. */
+  acknowledgeStep: (step: SetupStepKind) =>
+    call<Record<string, never>>("SetupService", "AcknowledgeStep", { step }),
+  /** Checks the name and password, and returns a new TOTP secret; nothing is stored yet. */
+  beginCredentials: (admin: string, password: string) =>
+    call<{ totp: TotpEnrolment }>("SetupService", "BeginCredentials", { admin, password }),
+  /** Whether a password would be taken (12+ characters, not breached); nothing is stored. */
+  checkPassword: (password: string, admin: string) =>
+    call<CheckPasswordResponse>("SetupService", "CheckPassword", { admin, password }),
+  /** Checks a code from the new authenticator, stores the credentials and signs the browser in. */
+  completeCredentials: (enrolmentId: string, totpCode: string) =>
+    call<{ session: Session }>("SetupService", "CompleteCredentials", { enrolmentId, totpCode }),
   addRecoveryKey: (publicKey: string, label: string) =>
     call<{ recoveryKey: RecoveryKey }>("SetupService", "AddRecoveryKey", {
       label,
@@ -62,6 +83,8 @@ export const setup = {
     call<{ content: string; fileName: string }>("SetupService", "DownloadEscrow"),
   finish: () => call<{ productSetupUrl: string }>("SetupService", "Finish"),
   get: () => call<GetSetupResponse>("SetupService", "GetSetup"),
+  /** A one-time code: the console's setup code, an invitation or Recover access. */
+  redeemCode: (code: string) => call<RedeemCodeResponse>("SetupService", "RedeemCode", { code }),
   removeRecoveryKey: (fingerprint: string) =>
     call<Record<string, never>>("SetupService", "RemoveRecoveryKey", { fingerprint }),
 };
@@ -73,33 +96,70 @@ export const status = {
 };
 
 export const access = {
-  addAdmin: (name: string, role: Admin["role"], publicKey?: string) =>
-    call<{ admin: Admin }>("AccessService", "AddAdmin", { name, publicKey, role }),
-  addKey: (admin: string, publicKey: string) =>
-    call<{ key: Key }>("AccessService", "AddKey", { admin, publicKey }),
+  /** A new admin with no password yet; the answer carries the one-time invitation code. */
+  addAdmin: (name: string, role: Admin["role"], rootOperator: boolean) =>
+    call<{ admin: Admin; invitation: Invitation }>("AccessService", "AddAdmin", {
+      name,
+      role,
+      rootOperator,
+    }),
+  /** A new authenticator secret for the caller; nothing changes until it's completed. */
+  beginTotpReplacement: () =>
+    call<{ totp: TotpEnrolment }>("AccessService", "BeginTotpReplacement"),
+  /** The caller's new password; the current one is checked first. */
+  changePassword: (currentPassword: string, newPassword: string) =>
+    call<Record<string, never>>("AccessService", "ChangePassword", {
+      currentPassword,
+      newPassword,
+    }),
+  completeTotpReplacement: (enrolmentId: string, totpCode: string) =>
+    call<Record<string, never>>("AccessService", "CompleteTotpReplacement", {
+      enrolmentId,
+      totpCode,
+    }),
+  /**
+   * The box makes an ed25519 key pair for the caller, signed by its root key. The private key
+   * is in the answer once and never kept.
+   */
+  issueSshKey: (label: string, validDays = 0) =>
+    call<IssueSshKeyResponse>("AccessService", "IssueSshKey", { label, validDays }),
   list: () => call<ListAdminsResponse>("AccessService", "ListAdmins"),
+  /** Clears the admin's password and authenticator, ends their sessions, and gives a new code. */
+  reinviteAdmin: (name: string) =>
+    call<{ invitation: Invitation }>("AccessService", "ReinviteAdmin", { name }),
   removeAdmin: (name: string) =>
     call<Record<string, never>>("AccessService", "RemoveAdmin", { name }),
+  /** Revokes an issued key: its certificate joins the revocation list at once. */
   removeKey: (admin: string, fingerprint: string) =>
     call<Record<string, never>>("AccessService", "RemoveKey", { admin, fingerprint }),
-  setElevationPolicy: (policy: ElevationPolicy) =>
-    call<Record<string, never>>("AccessService", "SetElevationPolicy", { policy }),
+  setAccessPolicy: (policy: AccessPolicy) =>
+    call<Record<string, never>>("AccessService", "SetAccessPolicy", { policy }),
+  /** The root-operator roster, and the approvals (M) a factory reset needs. */
   setQuorum: (members: string[], required: number) =>
     call<Record<string, never>>("AccessService", "SetQuorum", { members, required }),
   setRole: (name: string, role: Admin["role"]) =>
     call<Record<string, never>>("AccessService", "SetRole", { name, role }),
+  unlockAdmin: (name: string) =>
+    call<Record<string, never>>("AccessService", "UnlockAdmin", { name }),
   /** Takes a removed key off sshd's revocation list, so it can be added to an admin again. */
   unrevokeKey: (fingerprint: string) =>
     call<Record<string, never>>("AccessService", "UnrevokeKey", { fingerprint }),
 };
 
 export const elevation = {
-  approve: (id: string, minutes = 0) =>
-    call<Record<string, never>>("ElevationService", "ApproveElevation", { id, minutes }),
-  deny: (id: string) => call<Record<string, never>>("ElevationService", "DenyElevation", { id }),
   list: () => call<ListElevationsResponse>("ElevationService", "ListElevations"),
+  /** Ends an open root shell at once. */
   terminate: (id: string) =>
     call<Record<string, never>>("ElevationService", "TerminateElevation", { id }),
+};
+
+export const rootShell = {
+  /** Answers the SSH menu's challenge, with a fresh TOTP code; root operators only. */
+  issueCode: (challenge: string, totpCode: string) =>
+    call<IssueRootShellCodeResponse>("RootShellService", "IssueRootShellCode", {
+      challenge,
+      totpCode,
+    }),
 };
 
 export const network = {
@@ -112,8 +172,7 @@ export const network = {
 };
 
 export const tls = {
-  createCsr: (names: string[]) =>
-    call<{ csrPem: string }>("TlsService", "CreateCsr", { names }),
+  createCsr: (names: string[]) => call<{ csrPem: string }>("TlsService", "CreateCsr", { names }),
   get: () => call<GetTlsResponse>("TlsService", "GetTls"),
   setAdminCertificate: (useProduct: boolean) =>
     call<Record<string, never>>("TlsService", "SetAdminCertificate", { useProduct }),
@@ -129,22 +188,28 @@ export const mcp = {
 
 export const backup = {
   get: () => call<GetBackupsResponse>("BackupService", "GetBackups"),
-  restore: (setId: string) =>
-    call<Record<string, never>>("BackupService", "Restore", { setId }),
+  restore: (setId: string) => call<Record<string, never>>("BackupService", "Restore", { setId }),
   run: () => call<Record<string, never>>("BackupService", "RunBackup"),
   setPolicy: (policy: BackupPolicy) =>
     call<Record<string, never>>("BackupService", "SetBackupPolicy", { policy }),
 };
 
 export const upgrade = {
-  /** With an override, the named elevated shell is ended first (owner, step-up). */
-  apply: (elevationOverride?: ElevationOverride) =>
-    call<Record<string, never>>("UpgradeService", "ApplyUpdate", { elevationOverride }),
+  /**
+   * Boots the staged base release, or for the product switches to its staged slot and restarts
+   * the product services (no reboot). With an override, the named root shell is ended first.
+   */
+  apply: (elevationOverride?: ElevationOverride, target: UpdateTarget = "UPDATE_TARGET_BASE") =>
+    call<Record<string, never>>("UpgradeService", "ApplyUpdate", { elevationOverride, target }),
+  /** A base .bin or a product bundle, from the mirror, then the release source if allowed. */
   fetch: (fileName: string) =>
-    call<{ uploadId: string }>("UpgradeService", "FetchUpdate", { fileName }),
+    call<{ source?: string; uploadId: string }>("UpgradeService", "FetchUpdate", { fileName }),
   get: () => call<GetUpgradesResponse>("UpgradeService", "GetUpgrades"),
-  revert: (elevationOverride?: ElevationOverride) =>
-    call<Record<string, never>>("UpgradeService", "RevertUpdate", { elevationOverride }),
+  /** The stable product versions that fit the running base, newer than the installed one. */
+  listProductVersions: () =>
+    call<ListProductVersionsResponse>("UpgradeService", "ListProductVersions"),
+  revert: (elevationOverride?: ElevationOverride, target: UpdateTarget = "UPDATE_TARGET_BASE") =>
+    call<Record<string, never>>("UpgradeService", "RevertUpdate", { elevationOverride, target }),
   setPolicy: (policy: UpgradePolicy) =>
     call<Record<string, never>>("UpgradeService", "SetUpgradePolicy", { policy }),
   /** Verifies the upload's signature, channel and hash, and only then unpacks and stages it. */

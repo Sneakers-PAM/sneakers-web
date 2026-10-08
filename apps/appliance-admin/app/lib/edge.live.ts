@@ -1,5 +1,5 @@
 import type { Edge } from "@/lib/osadmin/edgeTypes";
-import { getSession } from "@/lib/osadmin/sessionStore";
+import { csrfToken } from "@/lib/osadmin/sessionStore";
 import { OsadminError, parseOsadminError, symbolOf } from "@/lib/osadmin/errors";
 
 const uploadError = (status: number, text: string): OsadminError => {
@@ -24,9 +24,9 @@ export const edge: Edge = {
   },
   mode: "live" as const,
   async request<Result>(service: string, method: string, body: unknown): Promise<Result> {
-    const session = getSession();
     const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (session?.csrfToken) headers["X-CSRF-Token"] = session.csrfToken;
+    const csrf = csrfToken();
+    if (csrf) headers["X-CSRF-Token"] = csrf;
     const response = await fetch(`/sneakers.appliance.osadmin.v1.${service}/${method}`, {
       body: JSON.stringify(body ?? {}),
       credentials: "same-origin",
@@ -43,7 +43,7 @@ export const edge: Edge = {
       const request = new XMLHttpRequest();
       request.open("POST", "/upload");
       request.withCredentials = true;
-      const csrf = getSession()?.csrfToken;
+      const csrf = csrfToken();
       if (csrf) request.setRequestHeader("X-CSRF-Token", csrf);
       request.upload.addEventListener("progress", (event) => {
         if (event.lengthComputable) onProgress?.(event.loaded / event.total);

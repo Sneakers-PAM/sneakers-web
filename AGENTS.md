@@ -99,17 +99,51 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   and `resetMockWorld()` (called from `app/test/setup.ts` after every test) puts them back.
 - **Sessions live in memory, not a readable cookie.** `__Host-osadmin-session` is `HttpOnly`;
   the browser never reads it. `app/lib/osadmin/sessionStore.ts` holds the `Session` the last
-  `PollSignIn` or `GetSession` call returned (admin, role, CSRF token, step-up expiry), and
+  `SignIn`, `StepUp` or `GetSession` call returned (admin, role, root operator, CSRF token,
+  step-up expiry), and
   `app/frame/AppFrame.tsx` calls `GetSession` once on mount to find out whether the box still
   knows this browser.
+- **Sign-in (`app/routes/sign-in.tsx`).** The admin's name, password and a 6-digit code from
+  their authenticator (`SignInService.SignIn`). A refusal carries a `SignInRefusal` error
+  detail; `refusalOf` (`app/lib/osadmin/errors.ts`) reads it from the detail's JSON `debug`
+  form or, failing that, decodes its binary value, and `refusalMessage`
+  (`app/lib/osadmin/refusal.ts`) turns it into one sentence: the tries left, the lockout's
+  end ("until an owner unlocks it" in that lockout mode) or this address's wait. The page
+  links to `/setup` for a setup or invitation code.
+- **Setup (`app/routes/setup.tsx`, steps in `app/features/setup/`).** Six steps with a progress
+  line: 1 the console's setup code (16 Crockford base32 characters, `XXXX-XXXX-XXXX-XXXX`, valid for
+  60 minutes; case, dashes and spaces don't matter, and the page only asks for it, never shows
+  it; `RedeemCode` sets a code session cookie), 2 the first
+  admin's name and password, checked as it's typed (`CheckPassword`), then the authenticator
+  (`BeginCredentials` gives the secret for the QR code and the typed key,
+  `CompleteCredentials` checks a code from it and signs the browser in), 3 the recovery keys
+  and the escrow, 4 the network (read only, `AcknowledgeStep`), 5 the protection (read only),
+  6 one sign-in with the password and a code, the single-admin warning, and `Finish`. A reload
+  asks `GetSession` and `GetSetup` and resumes at `current`, the box's first step not done.
+  The same page takes an invitation or a Recover access code (`codeKind`), and then shows only
+  the password and authenticator. Until the admin is signed in, the code session's calls carry
+  the redeemed code's CSRF token (`RedeemCodeResponse.csrfToken`, kept in sessionStorage so a
+  reload can finish; `sessionStore.csrfToken()`), then the session's own. There are no one-time recovery codes: a lost authenticator
+  is reset by an owner, or through Recover access on the console.
 - **One step-up dialog for every page.** A mutating call that answers
   `ACCESS_STEPUP_REQUIRED` (Connect `permission_denied`) doesn't build its own prompt; it calls
   `requestStepUp` (`app/lib/osadmin/stepUpController.ts`) through `runAction`
   (`app/lib/osadmin/action.ts`), which queues the retry behind the one `<StepUpDialog>` mounted
-  in `AppFrame`. A Connect `unimplemented` (a page's backend isn't on the box yet) becomes "Not
+  in `AppFrame`. The dialog asks for a fresh TOTP code (`SignInService.StepUp`), keeps a
+  refusal in place, and retries the action once the box takes the code. A Connect `unimplemented` (a page's backend isn't on the box yet) becomes "Not
   available in this release" (`app/components/NotAvailable.tsx`); the Updates page shows it in
   full when `GetUpgrades` answers that way.
-- **Updates (`app/routes/updates.tsx`).** Owners upload a `.bin` (`edge.upload`, an
+- **Updates (`app/routes/updates.tsx`).** One flow for both targets: the base image (its slots
+  and a reboot) and the product bundle (k0s, its images and Sneakers-PAM, in their own slots,
+  with no reboot). The Product card shows the installed, staged and previous product versions
+  (`GetUpgrades.product`; hidden when a box from before product bundles leaves it out), with
+  Install product (`ApplyUpdate{target: PRODUCT}`, after the version is typed) and Revert
+  product (`RevertUpdate{target: PRODUCT}`). The Install card lists the product versions that
+  fit the running base (`ListProductVersions`, newest first): pick one and Fetch it, then
+  Verify and stage as for a base `.bin`. An air-gapped box (`UPGRADE_AIR_GAPPED`: no mirror and
+  direct fetches off) uploads the product bundle instead. Owners can allow direct fetches from
+  the release source (`UpgradePolicy.direct`) on a build that has one (`directAvailable`).
+  Owners upload a `.bin` (`edge.upload`, an
   `XMLHttpRequest` because only XHR reports upload progress; `/upload` answers errors as plain
   text) or fetch one from the mirror, which is hidden on an air-gapped box (no mirror set).
   `UpgradeService.StageUpdate` is one call that verifies the signature, channel and hash and only
@@ -122,11 +156,29 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   session's admin and id typed (`bob E-9M4T`), and sends them as `elevationOverride` on the same
   Apply or Revert; the box ends the session, audited, before the update goes ahead. A refusal of
   the override stays in the dialog.
-- **Access (`app/routes/access.tsx`).** Besides the admins, keys, host keys, elevation policy,
-  quorum and elevation requests, it lists the revoked login keys (`ListAdmins.revokedKeys`: whose
-  key it was, the fingerprint, the type, when it was revoked and who revoked it, from `revokedBy`:
-  an admin's name or `console`, shown as `unknown` when the box didn't record it). Owners get Un-revoke
-  (`UnrevokeKey`, step-up) behind a confirmation dialog, which keeps the box's refusal in place.
+- **Access (`app/routes/access.tsx`, parts in `app/features/access/`).** The admins, each with
+  the role, a root-operator badge, the sign-in state (active, locked until when or until an
+  owner unlocks, an open invitation) and the issued SSH keys. Owners unlock (`UnlockAdmin`),
+  re-invite (`ReinviteAdmin`: the password and authenticator are cleared and a new code is
+  shown) and remove admins, and Add admin (`AddAdmin`, optionally a root operator) shows the
+  one-time invitation code the new admin types on `/setup`. Your account: change the password
+  (`ChangePassword`, checked as it's typed), replace the authenticator
+  (`Begin`/`CompleteTotpReplacement`), and "Get an SSH key" (`IssueSshKey`): the box makes the
+  key pair and signs it with its root key, and the dialog shows the private key once, with
+  downloads for the key and its `-cert.pub` certificate; SSH asks for the TOTP code after
+  login. Owners set the access settings (`SetAccessPolicy`: the lockout mode, the root-shell
+  code and session minutes, 10 by default, and the SSH key validity) and the root-operator
+  roster (`SetQuorum`; the same roster approves a factory reset). The page also lists the
+  revoked login keys (`ListAdmins.revokedKeys`: whose key it was, the fingerprint, the type,
+  when and who revoked it, `unknown` when the box didn't record it; owners un-revoke behind a
+  confirmation dialog), the root key's and the host keys' fingerprints, and the root shells
+  (`ListElevations`; an owner ends an open one). Owner-approved elevation and adding a key an
+  admin brings are gone.
+- **Root shell (`app/routes/root-shell.tsx`).** Root operators only (`Session.rootOperator`; the
+  nav item shows only for them). The admin pastes the challenge their SSH menu shows and a fresh
+  TOTP code (`RootShellService.IssueRootShellCode`), and the page shows the one-use code with
+  its expiry (a countdown), the root shell's time limit, and the SSH address the challenge came
+  from, to check. A refusal stays on the page.
 - **Factory reset (`app/routes/power.tsx`).** Owner only, after typing the box's host name; not
   offered when `GetPower` says it's unavailable (a single admin), with the reason. A request shows
   M of N and each roster member's approval; a member who hasn't approved gets Approve (the server
@@ -136,14 +188,22 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   progress.
 - **Mock scenarios.** `applyMockScenario` (`app/mock/edge.mock.ts`), or `?mockScenario=a,b` on a
   mock build's URL, puts the mock box into a state for the tests and the review screen list:
-  `air-gapped`, `staged`, `failed`, `manual`, `elevated` (bob has an elevated shell open, so
+  `air-gapped`, `staged`, `failed`, `manual`, `no-product` (before the first product
+  install), `product-staged` (0.2.0 staged, 0.0.9 in the previous slot), `elevated` (bob has an elevated shell open, so
   Apply and Revert are refused without an owner's override), `uploading` and `verifying` (the upload or the
-  verification never finishes), `stepup` (the next step-up-gated call is refused once, and the
-  fresh sign-in is never approved, so the dialog stays up), `single-admin`, `reset-pending` and
+  verification never finishes), `stepup` (the next step-up-gated call is refused once, so the
+  dialog asks for a code), `locked`, `locked-until-unlocked` (bob is locked out, for 12
+  minutes or until an owner unlocks him), `throttled` (this address has to wait), `first-boot` (no admin yet; the setup code is
+  `MOCK_SETUP_CODE`), `setup-admin`, `setup-keys`, `setup-network`, `setup-protection` and
+  `setup-finish` (setup part-way, as a reload finds it), `reduced` (no Secure Boot, no TPM),
+  `invited` (carol's invitation, `MOCK_INVITE_CODE`), `signed-in` (the box still knows this
+  browser), `single-admin`, `reset-pending` and
   `reset-countdown`. The mock verifies an upload by its content: one containing "tampered" fails
   the signature, "lab" the channel, and "patch" is a patch for the running version. A key removed
   in the mock lands on its revoked list as revoked by the signed-in admin, as on the box, and the
-  world starts with one key alice revoked.
+  world starts with one key alice revoked. Every mock admin's password is `MOCK_PASSWORD`
+  (`app/mock/world.ts`), any 6-digit code but `000000` passes as their TOTP code, and 3 wrong
+  tries lock the admin for 15 minutes, as on the box.
 - **Advanced disclosure.** The trust/PKI details on Certificates, the whole Add-on modules page
   and the Logs page's support bundle sit behind `app/components/Advanced.tsx`, a plain
   `<details>` -- no new kit component needed for a collapsed-by-default section.

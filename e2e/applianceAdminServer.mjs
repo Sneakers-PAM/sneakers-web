@@ -1,13 +1,13 @@
 // Serves the built appliance admin the way sneakers-osadmin does on :8443: the same security
 // headers (SecurityHeaders in sneakers-appliance internal/osadmin/server.go), files from
 // build/client with page routes falling back to index.html, and the Connect API at the same
-// origin. Only the two sign-in calls answer, with a fixed pending code; everything else is a
+// origin. Only SignIn answers, refusing with the tries left; everything else is a
 // Connect "unimplemented", which the pages show as "Not available".
 import { createReadStream, statSync } from "node:fs";
 import { createServer } from "node:http";
 import path from "node:path";
 
-import { OSADMIN_CSP, SIGN_IN_CODE } from "./applianceCsp.ts";
+import { OSADMIN_CSP, SIGN_IN_TRIES_LEFT } from "./applianceCsp.ts";
 
 const client = path.resolve(
   import.meta.dirname,
@@ -23,15 +23,22 @@ const types = {
   ".svg": "image/svg+xml",
 };
 
+// Every sign-in is refused with the tries left, so the spec sees the bundle run the form, call
+// the API and show the refusal, all under the CSP.
 const api = {
-  "/sneakers.appliance.osadmin.v1.SignInService/BeginSignIn": () => ({
-    code: SIGN_IN_CODE,
-    pollToken: "poll-token",
-    sourceAddress: "192.0.2.10",
-    userAgent: "the test browser",
-  }),
-  "/sneakers.appliance.osadmin.v1.SignInService/PollSignIn": () => ({
-    state: "SIGN_IN_STATE_PENDING",
+  "/sneakers.appliance.osadmin.v1.SignInService/SignIn": () => ({
+    error: {
+      code: "unauthenticated",
+      details: [
+        {
+          debug: { attemptsLeft: SIGN_IN_TRIES_LEFT },
+          type: "sneakers.appliance.osadmin.v1.SignInRefusal",
+          value: "",
+        },
+      ],
+      message: "SIGNIN_REFUSED: the name, the password or the code is wrong",
+    },
+    status: 401,
   }),
 };
 
@@ -60,8 +67,10 @@ createServer((request, response) => {
   if (request.method === "POST" && pathname.startsWith("/sneakers.appliance.osadmin.v1.")) {
     const answer = api[pathname];
     request.resume();
-    if (answer) json(response, 200, answer());
-    else json(response, 501, { code: "unimplemented", message: "not in this test server" });
+    if (answer) {
+      const { error, status } = answer();
+      json(response, status, error);
+    } else json(response, 501, { code: "unimplemented", message: "not in this test server" });
     return;
   }
   if (request.method !== "GET" && request.method !== "HEAD") {

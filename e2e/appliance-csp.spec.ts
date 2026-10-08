@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { OSADMIN_CSP, SIGN_IN_CODE } from "./applianceCsp";
+import { OSADMIN_CSP, SIGN_IN_TRIES_LEFT } from "./applianceCsp";
 
 // The built appliance admin, served with osadmin's real Content-Security-Policy. Component
 // tests never apply the header, so only a real browser shows a blocked script or style.
@@ -22,7 +22,12 @@ test("the sign-in page renders and runs under osadmin's CSP", async ({ page }) =
   expect(response?.headers()["content-security-policy"]).toBe(OSADMIN_CSP);
 
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
-  // The code comes from BeginSignIn, so it only shows once the bundle has run and called the API.
-  await expect(page.getByLabel(`Sign-in code ${SIGN_IN_CODE}`)).toBeVisible();
+  // The refusal comes from SignIn, so it only shows once the bundle has run the form and
+  // called the API.
+  await page.getByLabel("Admin name").fill("alice");
+  await page.getByLabel("Password", { exact: true }).fill("not the password");
+  await page.getByLabel("Authenticator code").first().fill("123456");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByText(`${String(SIGN_IN_TRIES_LEFT)} tries left`)).toBeVisible();
   expect(violations).toEqual([]);
 });

@@ -27,7 +27,11 @@ describe("buildApplianceReport", () => {
   it("reports this build, with no gateway section", () => {
     const report = buildApplianceReport({ admin: { name: "alice", role: "ROLE_OWNER" }, status });
     const { app } = report;
-    expect(app).toEqual({ commit: __APP_COMMIT__, name: "appliance-admin", version: __APP_VERSION__ });
+    expect(app).toEqual({
+      commit: __APP_COMMIT__,
+      name: "appliance-admin",
+      version: __APP_VERSION__,
+    });
     expect(report).not.toHaveProperty("gateway");
   });
 

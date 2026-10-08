@@ -7,34 +7,23 @@ export type Role = "ROLE_ADMIN" | "ROLE_OWNER" | "ROLE_UNSPECIFIED";
 
 // ---- signin ----
 
-export type SignInState =
-  | "SIGN_IN_STATE_APPROVED"
-  | "SIGN_IN_STATE_EXPIRED"
-  | "SIGN_IN_STATE_PENDING"
-  | "SIGN_IN_STATE_UNSPECIFIED";
-
 export interface Session {
   admin: string;
   csrfToken: string;
   expires?: string;
   idleExpires?: string;
-  keyFingerprint: string;
+  /** Things to tell the admin once after signing in, such as a console Recover access. */
+  notices?: string[];
   role: Role;
+  /** On the root-operator roster: may get root-shell codes. */
+  rootOperator?: boolean;
   signedIn?: string;
+  /** Until when sensitive actions go ahead without a fresh TOTP code (StepUp). */
   stepUpUntil?: string;
 }
 
-export interface BeginSignInResponse {
-  code: string;
-  expires?: string;
-  pollToken: string;
-  sourceAddress: string;
-  userAgent: string;
-}
-
-export interface PollSignInResponse {
-  session?: Session;
-  state: SignInState;
+export interface SignInResponse {
+  session: Session;
 }
 
 // ---- setup ----
@@ -47,15 +36,81 @@ export interface RecoveryKey {
   type: string;
 }
 
+/** A one-time code's purpose: the console's setup code, an invitation, or Recover access. */
+export type CodeKind =
+  "CODE_KIND_INVITE" | "CODE_KIND_RECOVER" | "CODE_KIND_SETUP" | "CODE_KIND_UNSPECIFIED";
+
+export type SetupStepKind =
+  | "SETUP_STEP_KIND_ADMIN"
+  | "SETUP_STEP_KIND_CODE"
+  | "SETUP_STEP_KIND_NETWORK"
+  | "SETUP_STEP_KIND_PROTECTION"
+  | "SETUP_STEP_KIND_RECOVERY_KEYS"
+  | "SETUP_STEP_KIND_SIGN_IN"
+  | "SETUP_STEP_KIND_UNSPECIFIED";
+
+export interface SetupStep {
+  done?: boolean;
+  kind: SetupStepKind;
+  /** 1 to 6. */
+  number: number;
+  optional?: boolean;
+}
+
 export interface GetSetupResponse {
   adminCount: number;
+  /** The code session's kind; unset for a signed-in admin. */
+  codeKind?: CodeKind;
+  /** The admin an invitation or Recover access code is for; empty when the name is chosen. */
+  codeAdmin?: string;
+  codeSessionExpires?: string;
+  /** The first step not done, 1 to 6; 0 once setup is done. */
+  current?: number;
   done: boolean;
   escrowFile: string;
+  firstAdmin?: string;
   maxRecoveryKeys: number;
   productSetupUrl: string;
-  recoveryKeys: RecoveryKey[];
+  /** Empty lists are left out of the JSON. */
+  recoveryKeys?: RecoveryKey[];
+  /** An admin has signed in with a password and a TOTP code: setup can't finish before. */
+  signedIn?: boolean;
   singleAdminAcknowledged: boolean;
   singleAdminWarning: boolean;
+  steps?: SetupStep[];
+}
+
+export interface RedeemCodeResponse {
+  admin?: string;
+  /** The X-CSRF-Token for the code session's calls that change something. */
+  csrfToken?: string;
+  existingOwners?: string[];
+  expires?: string;
+  kind: CodeKind;
+}
+
+export interface CheckPasswordResponse {
+  breached?: boolean;
+  /** One plain sentence when ok is false. */
+  message?: string;
+  minLength: number;
+  ok?: boolean;
+  tooShort?: boolean;
+}
+
+/** A new authenticator secret, shown once. */
+export interface TotpEnrolment {
+  account: string;
+  algorithm: string;
+  digits: number;
+  expires?: string;
+  id: string;
+  issuer: string;
+  periodSeconds: number;
+  /** Base32, for typing; shown in groups of four. */
+  secret: string;
+  /** The otpauth:// URI for the QR code. */
+  uri: string;
 }
 
 // ---- status ----
@@ -98,7 +153,10 @@ export interface FactoryReset {
   runsAt?: string;
   started?: string;
   startedBy: string;
-  state: "FACTORY_RESET_STATE_COUNTDOWN" | "FACTORY_RESET_STATE_PENDING" | "FACTORY_RESET_STATE_UNSPECIFIED";
+  state:
+    | "FACTORY_RESET_STATE_COUNTDOWN"
+    | "FACTORY_RESET_STATE_PENDING"
+    | "FACTORY_RESET_STATE_UNSPECIFIED";
 }
 
 export interface GetStatusResponse {
@@ -127,23 +185,42 @@ export interface GetStatusResponse {
 
 // ---- access ----
 
+/** An SSH key the box issued to an admin: an ed25519 key with a certificate from the root key. */
 export interface Key {
   added?: string;
   addedBy: string;
+  /** The label the admin gave it. */
   comment: string;
   fingerprint: string;
   lastUsed?: string;
+  /** The certificate's serial, the one the revocation list names. */
+  serial?: string;
   type: string;
+  /** When the certificate stops working. */
+  validBefore?: string;
   via: string;
 }
 
 export interface Admin {
-  approvalHoldUntil?: string;
   created?: string;
   createdBy: string;
+  /** False while an invitation is open: no password and authenticator yet. */
+  credentialsSet?: boolean;
+  failedAttempts?: number;
+  /** When an open invitation's code stops working. */
+  inviteExpires?: string;
   keys: Key[];
+  lastSignIn?: string;
+  /** When a timed lockout ends. */
+  lockedUntil?: string;
+  /** Locked until an owner unlocks the account. */
+  lockedUntilUnlocked?: boolean;
   name: string;
+  passwordChanged?: string;
   role: Role;
+  /** On the root-operator roster. */
+  rootOperator?: boolean;
+  totpAdded?: string;
   uid: number;
 }
 
@@ -152,12 +229,10 @@ export interface HostKey {
   type: string;
 }
 
-export interface ElevationPolicy {
-  defaultMinutes: number;
-  maxMinutes: number;
-  selfApprovalWhenSingleOwner: boolean;
-}
-
+/**
+ * The root-operator roster: who may open the root shell, and whose approvals count for a
+ * factory reset.
+ */
 export interface Quorum {
   configured: boolean;
   members: string[];
@@ -175,25 +250,83 @@ export interface RevokedKey {
   type: string;
 }
 
+/** What 3 consecutive failures in 15 minutes do (NIST SP 800-53 AC-7). */
+export type LockoutMode =
+  "LOCKOUT_MODE_TIMED" | "LOCKOUT_MODE_UNSPECIFIED" | "LOCKOUT_MODE_UNTIL_UNLOCKED";
+
+export interface AccessPolicy {
+  lockoutMode: LockoutMode;
+  /** How long a root-shell code works, 1 to 60 minutes (default 10). */
+  rootCodeMinutes: number;
+  /** The longest a root shell stays open, 1 to 60 minutes (default 10). */
+  rootSessionMinutes: number;
+  /** An issued SSH key's default validity, 1 to 1825 days (default 365). */
+  sshKeyValidDays: number;
+}
+
 export interface ListAdminsResponse {
+  accessPolicy?: AccessPolicy;
   admins: Admin[];
-  elevationPolicy?: ElevationPolicy;
   hostKeys: HostKey[];
   quorum?: Quorum;
   /** Empty lists are left out of the JSON. */
   revokedKeys?: RevokedKey[];
+  /** The box's root key (it never leaves the box): its type and fingerprint. */
+  rootKey?: HostKey;
 }
 
-// ---- elevation ----
+/** A one-time code for an admin to set a password and an authenticator. Shown once. */
+export interface Invitation {
+  admin: string;
+  /** XXXX-XXXX. */
+  code: string;
+  expires?: string;
+}
 
-export type ElevationState = "active" | "approved" | "denied" | "ended" | "expired" | "pending";
+export interface IssueSshKeyResponse {
+  /** The OpenSSH certificate line, saved next to the key as <fileName>-cert.pub. */
+  certificate: string;
+  /** A suggested name for the private key file. */
+  fileName: string;
+  key: Key;
+  /** The OpenSSH private key, shown once and never kept by the box. */
+  privateKey: string;
+  publicKey: string;
+}
 
+// ---- root shell ----
+
+export interface IssueRootShellCodeResponse {
+  /** XXXX-XXXX, typed into the SSH session; it works once, for this challenge only. */
+  code: string;
+  expires?: string;
+  /** How long the root shell may stay open. */
+  sessionMinutes: number;
+  /** The SSH client the challenge came from, to check. */
+  sourceAddress: string;
+}
+
+// ---- elevation (root shells) ----
+
+/** issued: a code is out; active: the shell is open; ended or expired after. */
+export type ElevationState = "active" | "ended" | "expired" | "issued";
+
+/** One root shell: its challenge, its code and its session. */
 export interface Elevation {
   admin: string;
+  approved?: string;
+  /** The root operator the code was issued to. */
+  approvedBy?: string;
+  ended?: string;
+  /** exit, idle, time-box, terminated or expired. */
+  endReason?: string;
   id: string;
+  /** The SSH key the login used. */
   keyFingerprint: string;
+  /** The session limit the code carries. */
   minutes: number;
   reason: string;
+  /** When the SSH menu showed the challenge. */
   requested?: string;
   sourceAddress: string;
   started?: string;
@@ -297,13 +430,51 @@ export interface GetBackupsResponse {
 // ---- upgrade ----
 
 export interface UpgradePolicy {
-  /** The HTTPS base .bin files are fetched from; empty means air-gapped (upload only). */
+  /** Fetch from the release source when no mirror is set or the mirror fails. Off by default. */
+  direct?: boolean;
+  /** The HTTPS base .bin files are fetched from; empty, with direct off, means air-gapped. */
   mirrorUrl: string;
   /** automatic applies a staged release inside the daily window; manual waits for an owner. */
   mode: "automatic" | "manual";
   windowMinutes: number;
   /** HH:MM local. */
   windowStart: string;
+}
+
+/** What an update changes: the base image (its slots and a reboot) or the product bundle. */
+export type UpdateTarget =
+  "UPDATE_TARGET_BASE" | "UPDATE_TARGET_PRODUCT" | "UPDATE_TARGET_UNSPECIFIED";
+
+/** The product bundle's slots (k0s, its images and the product) on the state volume. */
+export interface ProductSlots {
+  /** Empty before the first install. */
+  installedVersion?: string;
+  /** The slot a revert goes back to; empty when there is none. */
+  previousVersion?: string;
+  /** The product services (k0s) are running. */
+  running?: boolean;
+  stagedVersion?: string;
+}
+
+/** One product bundle a source offers. */
+export interface ProductVersion {
+  arch: string;
+  /** The base versions the bundle fits. */
+  bases: string[];
+  channel: string;
+  /** What FetchUpdate takes, such as sneakers-product-0.2.0-amd64.bin. */
+  fileName: string;
+  size: string;
+  /** mirror or direct: where the index came from. */
+  source: string;
+  version: string;
+}
+
+export interface ListProductVersionsResponse {
+  /** The running base they were matched against. */
+  baseVersion: string;
+  /** Newest first. Empty lists are left out of the JSON. */
+  versions?: ProductVersion[];
 }
 
 /** A verified .bin's signed header, as StageUpdate returns it. */
@@ -314,6 +485,7 @@ export interface UpdatePackage {
   kind: "full" | "patch";
   sha256: string;
   size: string;
+  target?: UpdateTarget;
   uploadId: string;
   version: string;
 }
@@ -324,6 +496,7 @@ export interface UpgradeEvent {
   code: string;
   detail: string;
   outcome: "failed" | "ok";
+  target?: UpdateTarget;
   time?: string;
   version: string;
 }
@@ -343,10 +516,14 @@ export interface GetUpgradesResponse {
   /** The elevated shells open now; Apply and Revert are refused while there is one. */
   activeElevations?: Elevation[];
   airGapped: boolean;
+  /** This build has a release source to fetch from directly (production builds). */
+  directAvailable?: boolean;
   failedVersion: string;
   /** Empty lists are left out of the JSON: a box with no update event yet leaves this out. */
   history?: UpgradeEvent[];
   policy?: UpgradePolicy;
+  /** The product bundle's slots; left out by a box from before product bundles. */
+  product?: ProductSlots;
   runningVersion: string;
   stagedVersion: string;
 }

@@ -297,4 +297,95 @@ describe("Updates", () => {
       screen.queryByRole("button", { name: "Revert to the other slot" }),
     ).not.toBeInTheDocument();
   });
+
+  describe("the product bundle", () => {
+    it("shows the installed, staged and previous product versions", async () => {
+      applyMockScenario("product-staged");
+      await openPage();
+      const product = within(screen.getByRole("region", { name: "Product" }));
+      expect(product.getByText("Installed 0.1.0")).toBeInTheDocument();
+      expect(product.getByText("Staged 0.2.0")).toBeInTheDocument();
+      expect(product.getByText("Previous 0.0.9")).toBeInTheDocument();
+      expect(product.getByText("running")).toBeInTheDocument();
+    });
+
+    it("lists only the product versions that fit this base, newest first", async () => {
+      await openPage();
+      const versions = within(await screen.findByRole("radiogroup", { name: "Product versions" }));
+      const options = versions.getAllByRole("radio");
+      expect(options.map((o) => o.getAttribute("value"))).toEqual(["0.2.0", "0.1.1"]);
+      expect(screen.getByText(/fit base 0.1.0/)).toBeInTheDocument();
+    });
+
+    it("installs the first product: pick a version, fetch, verify and stage, then install", async () => {
+      applyMockScenario("no-product");
+      const user = userEvent.setup();
+      await openPage();
+      const product = within(screen.getByRole("region", { name: "Product" }));
+      expect(product.getByText(/Not installed yet/)).toBeInTheDocument();
+      await user.click(await screen.findByRole("radio", { name: /0\.2\.0/ }));
+      await user.click(screen.getByRole("button", { name: "Fetch 0.2.0" }));
+      expect(
+        await screen.findByText(/Fetched sneakers-product-0.2.0-amd64.bin/),
+      ).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Verify and stage" }));
+      const result = await screen.findByRole("region", { name: "Verify result" });
+      expect(within(result).getByText(/product bundle 0.2.0/)).toBeInTheDocument();
+      expect(await product.findByText("Staged 0.2.0")).toBeInTheDocument();
+      await user.click(product.getByRole("button", { name: "Install product 0.2.0" }));
+      const dialog = within(await screen.findByRole("dialog"));
+      expect(dialog.getByText(/no reboot/)).toBeInTheDocument();
+      await user.type(dialog.getByLabelText("Type 0.2.0 to confirm"), "0.2.0");
+      await user.click(dialog.getByRole("button", { name: "Install and restart the product" }));
+      expect(await screen.findByText("Installing product 0.2.0")).toBeInTheDocument();
+      const after = await upgrade.get();
+      expect(after.product).toMatchObject({ installedVersion: "0.2.0", stagedVersion: "" });
+    });
+
+    it("reverts the product to the previous slot", async () => {
+      applyMockScenario("product-staged");
+      const user = userEvent.setup();
+      await openPage();
+      const product = within(screen.getByRole("region", { name: "Product" }));
+      await user.click(product.getByRole("button", { name: "Revert product to 0.0.9" }));
+      await user.click(
+        within(await screen.findByRole("dialog")).getByRole("button", {
+          name: "Revert the product",
+        }),
+      );
+      expect(await screen.findByText("Reverting the product to 0.0.9")).toBeInTheDocument();
+      const after = await upgrade.get();
+      expect(after.product?.installedVersion).toBe("0.0.9");
+    });
+
+    it("says to upload the product bundle on an air-gapped box", async () => {
+      applyMockScenario("air-gapped");
+      await openPage();
+      expect(
+        await screen.findByText(/upload the product bundle's \.bin above/),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("radiogroup", { name: "Product versions" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("lets an owner allow fetches from the release source", async () => {
+      const user = userEvent.setup();
+      await openPage();
+      await user.click(screen.getByRole("checkbox", { name: /release source/ }));
+      await user.click(screen.getByRole("button", { name: "Save update window" }));
+      await vi.waitFor(async () => {
+        const after = await upgrade.get();
+        expect(after.policy?.direct).toBe(true);
+      });
+    });
+
+    it("hides the product when the box's backend doesn't report one", async () => {
+      const { product, ...rest } = await upgrade.get();
+      expect(product).toBeDefined();
+      vi.spyOn(upgrade, "get").mockResolvedValue(rest as Awaited<ReturnType<typeof upgrade.get>>);
+      await openPage();
+      expect(screen.queryByRole("region", { name: "Product" })).not.toBeInTheDocument();
+    });
+  });
 });

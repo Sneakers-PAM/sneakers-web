@@ -31,13 +31,25 @@ import {
   TableHead,
   TableHeaderCell,
   TableRow,
+  timeAgo,
   useBreakpoint,
 } from "@sneakers-web/ui";
 import { MoreVertical } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 
-import type { Admin, Elevation, ListAdminsResponse, RevokedKey } from "@/lib/osadmin/types";
+import type {
+  Admin,
+  Elevation,
+  Invitation,
+  ListAdminsResponse,
+  RevokedKey,
+} from "@/lib/osadmin/types";
 
+import { AccessSettingsCard } from "@/features/access/AccessSettingsCard";
+import { AccountCard } from "@/features/access/AccountCard";
+import { adminStatus } from "@/features/access/adminStatus";
+import { InvitationDialog } from "@/features/access/InvitationDialog";
+import { RootShellsCard } from "@/features/access/RootShellsCard";
 import { runAction } from "@/lib/osadmin/action";
 import { access, elevation as elevationClient } from "@/lib/osadmin/client";
 import { isStepUpRequired } from "@/lib/osadmin/errors";
@@ -46,24 +58,24 @@ import { useSession } from "@/lib/useSession";
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(Math.max(value, min), max);
 
+/** The fewest approvals a roster of `members` may ask for: 2 once there are two members. */
+const leastRequired = (members: number): number => Math.min(2, Math.max(1, members));
+
 export default function Access() {
-  const { isOwner } = useSession();
+  const { isOwner, session } = useSession();
   const phone = useBreakpoint() === "phone";
   const roleLabelId = useId();
-  const newKeyAdminLabelId = useId();
   const [data, setData] = useState<ListAdminsResponse>();
   const [elevations, setElevations] = useState<Elevation[]>();
   const [name, setName] = useState("");
   const [role, setRole] = useState<Admin["role"]>("ROLE_ADMIN");
-  const [newKeyAdmin, setNewKeyAdmin] = useState("");
-  const [newKey, setNewKey] = useState("");
+  const [newRootOperator, setNewRootOperator] = useState(false);
   const [quorumMembers, setQuorumMembers] = useState<string[]>([]);
   const [quorumRequired, setQuorumRequired] = useState(2);
   const [removedFromRoster, setRemovedFromRoster] = useState<null | string>(null);
-  const [maxMinutes, setMaxMinutes] = useState(240);
-  const [defaultMinutes, setDefaultMinutes] = useState(60);
-  const [selfApproval, setSelfApproval] = useState(false);
   const [unrevoking, setUnrevoking] = useState<null | RevokedKey>(null);
+  const [invitation, setInvitation] = useState<Invitation | null>(null);
+  const [reinviting, setReinviting] = useState<null | string>(null);
 
   const reload = () =>
     void access.list().then((response) => {
@@ -72,10 +84,13 @@ export default function Access() {
         response.admins.some((admin) => admin.name === m),
       );
       setQuorumMembers(members);
-      setQuorumRequired(clamp(response.quorum?.required ?? 2, 2, Math.max(2, members.length)));
-      setMaxMinutes(response.elevationPolicy?.maxMinutes ?? 240);
-      setDefaultMinutes(response.elevationPolicy?.defaultMinutes ?? 60);
-      setSelfApproval(response.elevationPolicy?.selfApprovalWhenSingleOwner ?? false);
+      setQuorumRequired(
+        clamp(
+          response.quorum?.required ?? 2,
+          leastRequired(members.length),
+          Math.max(2, members.length),
+        ),
+      );
     });
   const reloadElevations = () =>
     void elevationClient.list().then((r) => setElevations(r.elevations));
@@ -86,6 +101,23 @@ export default function Access() {
 
   if (!data) return null;
   const revokedKeys = data.revokedKeys ?? [];
+  const me = data.admins.find((admin) => admin.name === session?.admin);
+  const unlock = (admin: Admin) =>
+    void runAction(() => access.unlockAdmin(admin.name), {
+      onSuccess: reload,
+      successMessage: `${admin.name} is unlocked.`,
+    });
+  const removeAdmin = (admin: Admin) => {
+    const onRoster = quorumMembers.includes(admin.name);
+    void runAction(() => access.removeAdmin(admin.name), {
+      onSuccess: () => {
+        reload();
+        if (onRoster) setRemovedFromRoster(admin.name);
+      },
+    });
+  };
+  const removeKey = (admin: Admin, fingerprint: string) =>
+    void runAction(() => access.removeKey(admin.name, fingerprint), { onSuccess: reload });
 
   return (
     <div className="flex flex-col gap-5 p-5.5">
@@ -98,21 +130,12 @@ export default function Access() {
               <AdminCard
                 admin={admin}
                 isOwner={isOwner}
+                isSelf={admin.name === session?.admin}
                 key={admin.name}
-                onRemoveAdmin={() => {
-                  const onRoster = quorumMembers.includes(admin.name);
-                  void runAction(() => access.removeAdmin(admin.name), {
-                    onSuccess: () => {
-                      reload();
-                      if (onRoster) setRemovedFromRoster(admin.name);
-                    },
-                  });
-                }}
-                onRemoveKey={(fingerprint) =>
-                  void runAction(() => access.removeKey(admin.name, fingerprint), {
-                    onSuccess: reload,
-                  })
-                }
+                onReinvite={() => setReinviting(admin.name)}
+                onRemoveAdmin={() => removeAdmin(admin)}
+                onRemoveKey={(fingerprint) => removeKey(admin, fingerprint)}
+                onUnlock={() => unlock(admin)}
               />
             ))}
           </ul>
@@ -122,121 +145,109 @@ export default function Access() {
               <TableRow>
                 <TableHeaderCell>Name</TableHeaderCell>
                 <TableHeaderCell>Role</TableHeaderCell>
-                <TableHeaderCell>Keys</TableHeaderCell>
+                <TableHeaderCell>Sign-in</TableHeaderCell>
+                <TableHeaderCell>SSH keys</TableHeaderCell>
                 <TableHeaderCell />
               </TableRow>
             </TableHead>
             <TableBody>
-              {data.admins.map((admin) => (
-                <TableRow key={admin.name}>
-                  <TableCell>{admin.name}</TableCell>
-                  <TableCell>
-                    <Badge tone={admin.role === "ROLE_OWNER" ? "primary" : "neutral"}>
-                      {admin.role === "ROLE_OWNER" ? "owner" : "admin"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <ul className="flex flex-col gap-1">
-                      {admin.keys.map((key) => (
-                        <li
-                          className="flex items-center gap-2 font-mono text-[0.8125rem]"
-                          key={key.fingerprint}
-                        >
-                          {key.fingerprint} ({key.type})
-                          <Button
-                            onClick={() =>
-                              void runAction(() => access.removeKey(admin.name, key.fingerprint), {
-                                onSuccess: reload,
-                              })
-                            }
-                            size="xs"
-                            variant="secondary"
+              {data.admins.map((admin) => {
+                const status = adminStatus(admin);
+                const self = admin.name === session?.admin;
+                return (
+                  <TableRow key={admin.name}>
+                    <TableCell>{admin.name}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1.5">
+                        <Badge tone={admin.role === "ROLE_OWNER" ? "primary" : "neutral"}>
+                          {admin.role === "ROLE_OWNER" ? "owner" : "admin"}
+                        </Badge>
+                        {admin.rootOperator && <Badge tone="warn">root operator</Badge>}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <Badge className="w-max" tone={status.tone}>
+                          {status.label}
+                        </Badge>
+                        {admin.lastSignIn && (
+                          <span className="text-small text-muted">
+                            Last signed in {timeAgo(admin.lastSignIn)}
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <ul className="flex flex-col gap-1">
+                        {admin.keys.map((key) => (
+                          <li
+                            className="flex items-center gap-2 font-mono text-[0.8125rem]"
+                            key={key.fingerprint}
                           >
-                            Remove
-                          </Button>
-                        </li>
-                      ))}
-                    </ul>
-                  </TableCell>
-                  <TableCell>
-                    {isOwner && (
-                      <Button
-                        onClick={() => {
-                          const onRoster = quorumMembers.includes(admin.name);
-                          void runAction(() => access.removeAdmin(admin.name), {
-                            onSuccess: () => {
-                              reload();
-                              if (onRoster) setRemovedFromRoster(admin.name);
-                            },
-                          });
-                        }}
-                        size="sm"
-                        variant="secondary"
-                      >
-                        Remove admin
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+                            <span className="min-w-0 truncate">
+                              {key.comment ? `${key.comment}: ` : ""}
+                              {key.fingerprint}
+                              {key.validBefore ? ` (until ${shortDate(key.validBefore)})` : ""}
+                            </span>
+                            {(isOwner || self) && (
+                              <Button
+                                onClick={() => removeKey(admin, key.fingerprint)}
+                                size="xs"
+                                variant="secondary"
+                              >
+                                Remove
+                              </Button>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </TableCell>
+                    <TableCell>
+                      {isOwner && (
+                        <div className="flex flex-wrap justify-end gap-2">
+                          {status.locked && (
+                            <Button onClick={() => unlock(admin)} size="sm">
+                              Unlock
+                            </Button>
+                          )}
+                          {!self && (
+                            <Button
+                              onClick={() => setReinviting(admin.name)}
+                              size="sm"
+                              variant="secondary"
+                            >
+                              Re-invite
+                            </Button>
+                          )}
+                          {!self && (
+                            <Button
+                              onClick={() => removeAdmin(admin)}
+                              size="sm"
+                              variant="secondary"
+                            >
+                              Remove admin
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}
-        <div
-          aria-label="Add a login key"
-          className="flex flex-col gap-3 border-t border-border p-5.5"
-          role="group"
-        >
-          <p className="eyebrow">Add a login key</p>
-          <div className="flex flex-col gap-2 tablet:flex-row">
-            <div className="flex w-full flex-col gap-2 tablet:w-40 tablet:shrink-0">
-              <Label id={newKeyAdminLabelId}>Admin</Label>
-              <Select onValueChange={setNewKeyAdmin} value={newKeyAdmin}>
-                <SelectTrigger aria-labelledby={newKeyAdminLabelId}>
-                  <SelectValue placeholder="Admin" />
-                </SelectTrigger>
-                <SelectContent>
-                  {data.admins.map((admin) => (
-                    <SelectItem key={admin.name} value={admin.name}>
-                      {admin.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Field className="w-full tablet:flex-1" label="Key">
-              <Input
-                mono
-                onChange={(event) => setNewKey(event.target.value)}
-                placeholder="ssh-ed25519 AAAA..."
-                value={newKey}
-              />
-            </Field>
-            <Button
-              className="self-end"
-              disabled={!newKeyAdmin || !newKey}
-              onClick={() =>
-                void runAction(() => access.addKey(newKeyAdmin, newKey), {
-                  onSuccess: () => {
-                    setNewKey("");
-                    reload();
-                  },
-                })
-              }
-            >
-              Add
-            </Button>
-          </div>
-        </div>
         {isOwner && (
           <form
             aria-label="Add an admin"
             className="flex flex-col gap-3 border-t border-border p-5.5"
             onSubmit={(event) => {
               event.preventDefault();
-              void runAction(() => access.addAdmin(name, role), {
-                onSuccess: () => {
+              void runAction(() => access.addAdmin(name.trim(), role, newRootOperator), {
+                onSuccess: (response) => {
                   setName("");
+                  setNewRootOperator(false);
+                  setInvitation(response.invitation);
                   reload();
                 },
               });
@@ -260,12 +271,42 @@ export default function Access() {
                 </Select>
               </div>
             </div>
-            <Button disabled={!name} type="submit">
+            <Label className="flex items-center gap-2">
+              <Checkbox
+                checked={newRootOperator}
+                onCheckedChange={(checked) => setNewRootOperator(checked === true)}
+              />
+              Make them a root operator (they may open the root shell)
+            </Label>
+            <p className="m-0 text-small text-muted">
+              The new admin gets a one-time invitation code to set their own password and
+              authenticator.
+            </p>
+            <Button disabled={!name.trim()} type="submit">
               Add admin
             </Button>
           </form>
         )}
       </Card>
+      <Dialog onOpenChange={(open) => !open && setInvitation(null)} open={!!invitation}>
+        {invitation && (
+          <InvitationDialog invitation={invitation} onDone={() => setInvitation(null)} />
+        )}
+      </Dialog>
+      <Dialog onOpenChange={(open) => !open && setReinviting(null)} open={!!reinviting}>
+        {reinviting && (
+          <ReinviteDialog
+            admin={reinviting}
+            onCancel={() => setReinviting(null)}
+            onDone={(next) => {
+              setReinviting(null);
+              setInvitation(next);
+              reload();
+            }}
+          />
+        )}
+      </Dialog>
+      {me && <AccountCard me={me} onChanged={reload} />}
       <Card>
         <CardHeader title="Revoked login keys" />
         <p className="px-5.5 pt-4 text-small text-muted">
@@ -339,61 +380,24 @@ export default function Access() {
         )}
       </Dialog>
       <Card>
-        <CardHeader title="Host key fingerprints" />
+        <CardHeader title="Key fingerprints" />
         <div className="flex flex-col gap-1 p-5.5 font-mono text-[0.8125rem]">
+          {data.rootKey && (
+            <p>
+              Root key {data.rootKey.type} {data.rootKey.fingerprint}
+            </p>
+          )}
           {data.hostKeys.map((key) => (
             <p key={key.fingerprint}>
-              {key.type} {key.fingerprint}
+              SSH host key {key.type} {key.fingerprint}
             </p>
           ))}
         </div>
       </Card>
+      {isOwner && <AccessSettingsCard onSaved={reload} policy={data.accessPolicy} />}
       {isOwner && (
         <Card>
-          <CardHeader title="Elevation policy" />
-          <form
-            className="flex flex-col gap-3 p-5.5"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void runAction(
-                () =>
-                  access.setElevationPolicy({
-                    defaultMinutes,
-                    maxMinutes,
-                    selfApprovalWhenSingleOwner: selfApproval,
-                  }),
-                { onSuccess: reload },
-              );
-            }}
-          >
-            <Field label="Default minutes">
-              <Input
-                onChange={(event) => setDefaultMinutes(Number(event.target.value))}
-                type="number"
-                value={defaultMinutes}
-              />
-            </Field>
-            <Field label="Maximum minutes">
-              <Input
-                onChange={(event) => setMaxMinutes(Number(event.target.value))}
-                type="number"
-                value={maxMinutes}
-              />
-            </Field>
-            <Label className="flex items-center gap-2">
-              <Checkbox
-                checked={selfApproval}
-                onCheckedChange={(checked) => setSelfApproval(checked === true)}
-              />
-              A single owner may self-approve elevation
-            </Label>
-            <Button type="submit">Save policy</Button>
-          </form>
-        </Card>
-      )}
-      {isOwner && (
-        <Card>
-          <CardHeader title="Factory-reset quorum" />
+          <CardHeader title="Root operators" />
           <form
             className="flex flex-col gap-3 p-5.5"
             onSubmit={(event) => {
@@ -403,9 +407,13 @@ export default function Access() {
               });
             }}
           >
+            <p className="m-0 text-small text-muted">
+              Root operators may open the root shell, with a code from the Root shell page. The same
+              roster approves a factory reset.
+            </p>
             {removedFromRoster && (
               <Alert tone="info">
-                {removedFromRoster} was removed from the factory-reset quorum roster.
+                {removedFromRoster} was removed from the root-operator roster.
               </Alert>
             )}
             {data.admins.length < 2 && (
@@ -423,96 +431,43 @@ export default function Access() {
                           ? [...quorumMembers, admin.name]
                           : quorumMembers.filter((m) => m !== admin.name);
                       setQuorumMembers(next);
-                      setQuorumRequired((required) => clamp(required, 2, Math.max(2, next.length)));
+                      setQuorumRequired((required) =>
+                        clamp(required, leastRequired(next.length), Math.max(2, next.length)),
+                      );
                     }}
                   />
                   {admin.name} ({admin.role === "ROLE_OWNER" ? "owner" : "admin"})
                 </Label>
               ))}
             </fieldset>
-            <Field label="Approvals required">
+            <Field hint="For a factory reset" label="Approvals required">
               <Input
                 max={Math.max(2, quorumMembers.length)}
-                min={2}
+                min={leastRequired(quorumMembers.length)}
                 onChange={(event) =>
                   setQuorumRequired(
-                    clamp(Number(event.target.value), 2, Math.max(2, quorumMembers.length)),
+                    clamp(
+                      Number(event.target.value),
+                      leastRequired(quorumMembers.length),
+                      Math.max(2, quorumMembers.length),
+                    ),
                   )
                 }
                 type="number"
                 value={quorumRequired}
               />
             </Field>
-            <Button disabled={quorumMembers.length < 2} type="submit">
-              Save quorum
+            <Button disabled={quorumMembers.length === 0} type="submit">
+              Save roster
             </Button>
           </form>
         </Card>
       )}
-      <Card>
-        <CardHeader title="Shell elevation requests" />
-        <Table aria-label="Shell elevation requests">
-          <TableHead>
-            <TableRow>
-              <TableHeaderCell>Admin</TableHeaderCell>
-              <TableHeaderCell>Reason</TableHeaderCell>
-              <TableHeaderCell>Minutes</TableHeaderCell>
-              <TableHeaderCell>State</TableHeaderCell>
-              <TableHeaderCell />
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {(elevations ?? []).map((request) => (
-              <TableRow key={request.id}>
-                <TableCell>{request.admin}</TableCell>
-                <TableCell>{request.reason}</TableCell>
-                <TableCell>{request.minutes}</TableCell>
-                <TableCell>{request.state}</TableCell>
-                <TableCell>
-                  {request.state === "pending" && isOwner && (
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() =>
-                          void runAction(() => elevationClient.approve(request.id), {
-                            onSuccess: reloadElevations,
-                          })
-                        }
-                        size="sm"
-                      >
-                        Approve
-                      </Button>
-                      <Button
-                        onClick={() =>
-                          void runAction(() => elevationClient.deny(request.id), {
-                            onSuccess: reloadElevations,
-                          })
-                        }
-                        size="sm"
-                        variant="secondary"
-                      >
-                        Deny
-                      </Button>
-                    </div>
-                  )}
-                  {request.state === "active" && isOwner && (
-                    <Button
-                      onClick={() =>
-                        void runAction(() => elevationClient.terminate(request.id), {
-                          onSuccess: reloadElevations,
-                        })
-                      }
-                      size="sm"
-                      variant="danger"
-                    >
-                      Terminate
-                    </Button>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
+      <RootShellsCard
+        elevations={elevations ?? []}
+        isOwner={isOwner}
+        onChanged={reloadElevations}
+      />
     </div>
   );
 }
@@ -521,58 +476,116 @@ export default function Access() {
 const AdminCard = ({
   admin,
   isOwner,
+  isSelf,
+  onReinvite,
   onRemoveAdmin,
   onRemoveKey,
+  onUnlock,
 }: {
   admin: Admin;
   isOwner: boolean;
+  isSelf: boolean;
+  onReinvite: () => void;
   onRemoveAdmin: () => void;
   onRemoveKey: (fingerprint: string) => void;
-}) => (
-  <li
-    aria-label={admin.name}
-    className="flex flex-col gap-2 rounded-lg border border-border p-4"
-    role="group"
-  >
-    <div className="flex items-start justify-between gap-2">
-      <div className="flex flex-col gap-1.5">
-        <b className="text-body-lg">{admin.name}</b>
-        <Badge className="w-max" tone={admin.role === "ROLE_OWNER" ? "primary" : "neutral"}>
-          {admin.role === "ROLE_OWNER" ? "owner" : "admin"}
-        </Badge>
+  onUnlock: () => void;
+}) => {
+  const status = adminStatus(admin);
+  return (
+    <li
+      aria-label={admin.name}
+      className="flex flex-col gap-2 rounded-lg border border-border p-4"
+      role="group"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex flex-col gap-1.5">
+          <b className="text-body-lg">{admin.name}</b>
+          <div className="flex flex-wrap gap-1.5">
+            <Badge className="w-max" tone={admin.role === "ROLE_OWNER" ? "primary" : "neutral"}>
+              {admin.role === "ROLE_OWNER" ? "owner" : "admin"}
+            </Badge>
+            {admin.rootOperator && <Badge tone="warn">root operator</Badge>}
+            <Badge tone={status.tone}>{status.label}</Badge>
+          </div>
+        </div>
+        {(isOwner || admin.keys.length > 0) && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button aria-label={`Actions for ${admin.name}`} size="icon-sm" variant="secondary">
+                <MoreVertical aria-hidden />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              {admin.keys.map((key) => (
+                <DropdownMenuItem
+                  key={key.fingerprint}
+                  onSelect={() => onRemoveKey(key.fingerprint)}
+                >
+                  Remove the {key.type} key
+                </DropdownMenuItem>
+              ))}
+              {isOwner && status.locked && (
+                <DropdownMenuItem onSelect={onUnlock}>Unlock</DropdownMenuItem>
+              )}
+              {isOwner && !isSelf && (
+                <DropdownMenuItem onSelect={onReinvite}>Re-invite</DropdownMenuItem>
+              )}
+              {isOwner && !isSelf && (
+                <DropdownMenuItem onSelect={onRemoveAdmin} tone="danger">
+                  Remove admin
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
-      {(isOwner || admin.keys.length > 0) && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button aria-label={`Actions for ${admin.name}`} size="icon-sm" variant="secondary">
-              <MoreVertical aria-hidden />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            {admin.keys.map((key) => (
-              <DropdownMenuItem key={key.fingerprint} onSelect={() => onRemoveKey(key.fingerprint)}>
-                Remove the {key.type} key
-              </DropdownMenuItem>
-            ))}
-            {isOwner && (
-              <DropdownMenuItem onSelect={onRemoveAdmin} tone="danger">
-                Remove admin
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+      {admin.keys.length > 0 && (
+        <ul className="flex flex-col gap-1">
+          {admin.keys.map((key) => (
+            <li className="truncate font-mono text-[0.8125rem] text-muted" key={key.fingerprint}>
+              {key.fingerprint} ({key.type})
+            </li>
+          ))}
+        </ul>
       )}
-    </div>
-    {admin.keys.length > 0 && (
-      <ul className="flex flex-col gap-1">
-        {admin.keys.map((key) => (
-          <li className="truncate font-mono text-[0.8125rem] text-muted" key={key.fingerprint}>
-            {key.fingerprint} ({key.type})
-          </li>
-        ))}
-      </ul>
-    )}
-  </li>
+    </li>
+  );
+};
+
+/** Owner, step-up: clears the admin's password and authenticator, and gives a new code. */
+const ReinviteDialog = ({
+  admin,
+  onCancel,
+  onDone,
+}: {
+  admin: string;
+  onCancel: () => void;
+  onDone: (invitation: Invitation) => void;
+}) => (
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Re-invite {admin}</DialogTitle>
+      <DialogDescription>
+        {admin}&apos;s password and authenticator are cleared and their sessions end. They set new
+        ones with the invitation code. Use this when they lost their authenticator.
+      </DialogDescription>
+    </DialogHeader>
+    <DialogFooter>
+      <Button onClick={onCancel} variant="secondary">
+        Cancel
+      </Button>
+      <Button
+        onClick={() =>
+          void runAction(() => access.reinviteAdmin(admin), {
+            onSuccess: (response) => onDone(response.invitation),
+          })
+        }
+        variant="danger"
+      >
+        Re-invite {admin}
+      </Button>
+    </DialogFooter>
+  </DialogContent>
 );
 
 /** A revoked key's row as a card, for phone widths. */

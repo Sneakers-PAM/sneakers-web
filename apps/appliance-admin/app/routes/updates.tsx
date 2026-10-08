@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   CardHeader,
+  Checkbox,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -12,6 +13,7 @@ import {
   DialogTitle,
   Field,
   Input,
+  Label,
   PageHeader,
   Segmented,
   shortDate,
@@ -29,7 +31,9 @@ import type {
   Elevation,
   ElevationOverride,
   GetUpgradesResponse,
+  ListProductVersionsResponse,
   UpdatePackage,
+  UpdateTarget,
   UpgradePolicy,
 } from "@/lib/osadmin/types";
 
@@ -43,10 +47,25 @@ import { useSession } from "@/lib/useSession";
 interface Held {
   action: "apply" | "revert";
   message: string;
+  target: UpdateTarget;
   version: string;
 }
 
-type Rebooting = { kind: "applying"; version: string } | { kind: "reverting" } | null;
+const PRODUCT: UpdateTarget = "UPDATE_TARGET_PRODUCT";
+const BASE: UpdateTarget = "UPDATE_TARGET_BASE";
+
+/** The product versions to offer: the list, the box is air-gapped, or the box can't list. */
+type Offer =
+  | { kind: "air-gapped" }
+  | { kind: "listed"; list: ListProductVersionsResponse }
+  | { kind: "unavailable" };
+
+type Rebooting =
+  | { kind: "applying"; version: string }
+  | { kind: "installing"; version: string }
+  | { kind: "reverting-product"; version: string }
+  | { kind: "reverting" }
+  | null;
 
 /** True when the box refused an apply or revert because an elevated shell is open. */
 const isElevated = (error: unknown): boolean =>
@@ -69,10 +88,13 @@ const describePolicy = (policy: UpgradePolicy): string =>
     ? "Manual only: an owner applies each update."
     : `Daily at ${policy.windowStart} for ${String(policy.windowMinutes)} minutes: a staged release applies in the window.`;
 
-const describePackage = (updatePackage: UpdatePackage): string =>
-  updatePackage.kind === "patch"
+const describePackage = (updatePackage: UpdatePackage): string => {
+  if (updatePackage.target === PRODUCT)
+    return `product bundle ${updatePackage.version}, fits base ${updatePackage.bases.join(", ")}`;
+  return updatePackage.kind === "patch"
     ? `patch ${updatePackage.version} for ${updatePackage.bases.join(", ")}`
     : `full release ${updatePackage.version}`;
+};
 
 const errorText = (error: unknown): string =>
   error instanceof Error ? error.message : "The appliance refused the file.";
@@ -82,8 +104,15 @@ export default function Updates() {
   const [data, setData] = useState<GetUpgradesResponse>();
   const [step, setStep] = useState<Step>({ kind: "idle" });
   const [mirrorFile, setMirrorFile] = useState("");
-  const [confirmApply, setConfirmApply] = useState<null | string>(null);
+  const [confirmApply, setConfirmApply] = useState<{
+    target: UpdateTarget;
+    version: string;
+  } | null>(null);
   const [confirmRevert, setConfirmRevert] = useState(false);
+  const [confirmProductRevert, setConfirmProductRevert] = useState<null | string>(null);
+  const [offer, setOffer] = useState<Offer>({ kind: "unavailable" });
+  const [picked, setPicked] = useState("");
+  const [direct, setDirect] = useState(false);
   const [rebooting, setRebooting] = useState<Rebooting>(null);
   const [held, setHeld] = useState<Held | null>(null);
   const [override, setOverride] = useState<{ elevation: Elevation; held: Held } | null>(null);
@@ -104,11 +133,32 @@ export default function Updates() {
           setWindowStart(response.policy.windowStart);
           setWindowMinutes(response.policy.windowMinutes);
           setMirrorUrl(response.policy.mirrorUrl);
+          setDirect(response.policy.direct ?? false);
         }
+        if (response.product) loadOffer();
       })
       .catch((error: unknown) => {
         if (isNotAvailable(error)) setUnavailable(true);
       });
+  // The box answers UPGRADE_AIR_GAPPED when it has no mirror and no release source to list.
+  const loadOffer = () =>
+    void upgrade
+      .listProductVersions()
+      .then((list) => {
+        setOffer({ kind: "listed", list });
+        setPicked((current) =>
+          (list.versions ?? []).some((v) => v.version === current)
+            ? current
+            : (list.versions?.[0]?.version ?? ""),
+        );
+      })
+      .catch((error: unknown) =>
+        setOffer(
+          error instanceof OsadminError && error.symbol === "UPGRADE_AIR_GAPPED"
+            ? { kind: "air-gapped" }
+            : { kind: "unavailable" },
+        ),
+      );
   useEffect(reload, []);
 
   const sendFile = () => {
@@ -127,8 +177,8 @@ export default function Updates() {
       );
   };
 
-  const fetchFile = () => {
-    const fileName = mirrorFile.trim();
+  const fetchFile = (name = mirrorFile) => {
+    const fileName = name.trim();
     if (!fileName) return;
     void runAction(() => upgrade.fetch(fileName), {
       onSuccess: ({ uploadId }) => {
@@ -166,23 +216,33 @@ export default function Updates() {
     );
   };
 
-  const started = (action: Held["action"], version: string) => {
+  const started = (action: Held["action"], version: string, target: UpdateTarget) => {
     setHeld(null);
     setOverride(null);
+    if (target === PRODUCT) {
+      setRebooting(
+        action === "apply"
+          ? { kind: "installing", version }
+          : { kind: "reverting-product", version },
+      );
+      reload();
+      return;
+    }
     setRebooting(action === "apply" ? { kind: "applying", version } : { kind: "reverting" });
   };
 
   // An open elevated shell refuses the update; the refusal stays on the page with who holds the
   // shell (re-read from GetUpgrades), and an owner can end it from there.
-  const runUpdate = (action: Held["action"], version: string) =>
+  const runUpdate = (action: Held["action"], version: string, target: UpdateTarget) =>
     void runAction(
       async () => {
         try {
-          await (action === "apply" ? upgrade.apply() : upgrade.revert());
+          const update = action === "apply" ? upgrade.apply : upgrade.revert;
+          await update(undefined, target);
           return true;
         } catch (error) {
           if (!isElevated(error)) throw error;
-          setHeld({ action, message: errorText(error), version });
+          setHeld({ action, message: errorText(error), target, version });
           reload();
           return false;
         }
@@ -191,17 +251,25 @@ export default function Updates() {
         onSuccess: (done) => {
           setConfirmApply(null);
           setConfirmRevert(false);
-          if (done) started(action, version);
+          setConfirmProductRevert(null);
+          if (done) started(action, version, target);
         },
       },
     );
 
-  const apply = (version: string) => runUpdate("apply", version);
-  const revert = () => runUpdate("revert", "");
+  const apply = (version: string, target: UpdateTarget) => runUpdate("apply", version, target);
+  const revert = () => runUpdate("revert", "", BASE);
 
   const savePolicy = () =>
     void runAction(
-      () => upgrade.setPolicy({ mirrorUrl: mirrorUrl.trim(), mode, windowMinutes, windowStart }),
+      () =>
+        upgrade.setPolicy({
+          direct,
+          mirrorUrl: mirrorUrl.trim(),
+          mode,
+          windowMinutes,
+          windowStart,
+        }),
       { onSuccess: reload, successMessage: "Update window saved." },
     );
 
@@ -216,6 +284,8 @@ export default function Updates() {
 
   const staged = data.stagedVersion;
   const openShells = data.activeElevations ?? [];
+  const product = data.product;
+  const versions = offer.kind === "listed" ? (offer.list.versions ?? []) : [];
 
   return (
     <div className="flex flex-col gap-5 p-5.5">
@@ -229,6 +299,17 @@ export default function Updates() {
       {rebooting?.kind === "reverting" && (
         <Alert title="Reverting to the other slot" tone="warn">
           The appliance is rebooting into the previous release. Sign in again when it&apos;s back.
+        </Alert>
+      )}
+      {rebooting?.kind === "installing" && (
+        <Alert title={`Installing product ${rebooting.version}`} tone="info">
+          The product services restart on the new version. The box doesn&apos;t reboot, and this
+          page stays signed in.
+        </Alert>
+      )}
+      {rebooting?.kind === "reverting-product" && (
+        <Alert title={`Reverting the product to ${rebooting.version}`} tone="info">
+          The product services restart on the previous version. The box doesn&apos;t reboot.
         </Alert>
       )}
       {held && (
@@ -279,7 +360,7 @@ export default function Updates() {
       )}
 
       <Card>
-        <CardHeader title="Version" />
+        <CardHeader title="Base system" />
         <div className="flex flex-col gap-2 p-5.5 text-small">
           <p className="font-bold">Running {data.runningVersion} in the active slot</p>
           <p>{staged ? `Other slot: staged ${staged}` : "Other slot: empty"}</p>
@@ -287,7 +368,11 @@ export default function Updates() {
         {isOwner && (
           <div className="flex flex-wrap gap-3 border-t border-border p-5.5">
             {staged && (
-              <Button onClick={() => setConfirmApply(staged)} size="lg" variant="primary">
+              <Button
+                onClick={() => setConfirmApply({ target: BASE, version: staged })}
+                size="lg"
+                variant="primary"
+              >
                 Apply {staged}
               </Button>
             )}
@@ -298,6 +383,57 @@ export default function Updates() {
         )}
       </Card>
 
+      {product && (
+        <section aria-label="Product">
+          <Card>
+            <CardHeader subtitle="k0s and Sneakers-PAM, without a reboot" title="Product" />
+            <div className="flex flex-col gap-2 p-5.5 text-small">
+              {product.installedVersion ? (
+                <p className="flex items-center gap-2 font-bold">
+                  <span>Installed {product.installedVersion}</span>
+                  <Badge tone={product.running ? "ok" : "warn"}>
+                    {product.running ? "running" : "stopped"}
+                  </Badge>
+                </p>
+              ) : (
+                <p className="font-bold">
+                  Not installed yet. Sneakers-PAM starts once you install it below.
+                </p>
+              )}
+              <p>{product.stagedVersion ? `Staged ${product.stagedVersion}` : "Nothing staged"}</p>
+              <p>
+                {product.previousVersion
+                  ? `Previous ${product.previousVersion}`
+                  : "No previous version to go back to"}
+              </p>
+            </div>
+            {isOwner && (product.stagedVersion || product.previousVersion) && (
+              <div className="flex flex-wrap gap-3 border-t border-border p-5.5">
+                {product.stagedVersion && (
+                  <Button
+                    onClick={() =>
+                      setConfirmApply({ target: PRODUCT, version: product.stagedVersion ?? "" })
+                    }
+                    size="lg"
+                  >
+                    Install product {product.stagedVersion}
+                  </Button>
+                )}
+                {product.previousVersion && (
+                  <Button
+                    onClick={() => setConfirmProductRevert(product.previousVersion ?? "")}
+                    size="lg"
+                    variant="secondary"
+                  >
+                    Revert product to {product.previousVersion}
+                  </Button>
+                )}
+              </div>
+            )}
+          </Card>
+        </section>
+      )}
+
       {!isOwner && <Alert tone="info">Only an owner can install, apply or revert updates.</Alert>}
 
       {isOwner && (
@@ -305,9 +441,10 @@ export default function Updates() {
           <CardHeader title="Install an update" />
           <div className="flex flex-col gap-4 p-5.5 text-small">
             <p className="text-muted">
-              A signed release <code>.bin</code> or a patch <code>.bin</code>. The appliance checks
-              its signature, channel and hash before it unpacks anything; a file that fails is
-              deleted and nothing is staged.
+              A signed base release or patch <code>.bin</code>, or a product bundle{" "}
+              <code>.bin</code>. The appliance checks its signature, channel and hash (and, for a
+              product bundle, that it fits this base) before it unpacks anything; a file that fails
+              is deleted and nothing is staged.
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <input accept=".bin" aria-label="Update .bin file" ref={fileInput} type="file" />
@@ -331,9 +468,64 @@ export default function Updates() {
                     value={mirrorFile}
                   />
                 </Field>
-                <Button onClick={fetchFile} variant="secondary">
+                <Button onClick={() => fetchFile()} variant="secondary">
                   Fetch
                 </Button>
+              </div>
+            )}
+            {product && offer.kind === "air-gapped" && (
+              <p className="text-muted">
+                To install or upgrade the product, upload the product bundle&apos;s .bin above.
+              </p>
+            )}
+            {product && offer.kind === "listed" && (
+              <div className="flex flex-col gap-3 border-t border-border pt-4">
+                {versions.length === 0 ? (
+                  <p>No newer product version fits base {offer.list.baseVersion} yet.</p>
+                ) : (
+                  <>
+                    <fieldset
+                      aria-label="Product versions"
+                      className="m-0 flex flex-col gap-2 border-0 p-0"
+                      role="radiogroup"
+                    >
+                      <legend className="mb-1 text-[0.875rem] font-bold text-ink">
+                        Product versions that fit base {offer.list.baseVersion}
+                      </legend>
+                      {versions.map((v) => (
+                        <label
+                          className="flex items-center gap-2.5 rounded-md border border-border p-3"
+                          key={v.version}
+                        >
+                          <input
+                            checked={picked === v.version}
+                            className="size-4 accent-primary"
+                            name="product-version"
+                            onChange={() => setPicked(v.version)}
+                            type="radio"
+                            value={v.version}
+                          />
+                          <span className="font-bold">{v.version}</span>
+                          <span className="text-muted">
+                            {v.channel}, {v.arch}, {Math.round(Number(v.size) / 1_048_576)} MB, from
+                            the {v.source === "direct" ? "release source" : "mirror"}
+                          </span>
+                        </label>
+                      ))}
+                    </fieldset>
+                    <div>
+                      <Button
+                        disabled={!picked}
+                        onClick={() =>
+                          fetchFile(versions.find((v) => v.version === picked)?.fileName ?? "")
+                        }
+                        variant="secondary"
+                      >
+                        Fetch {picked}
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
             <UpdateStep onVerify={verifyAndStage} step={step} />
@@ -376,6 +568,15 @@ export default function Updates() {
               <Field hint="An https:// URL, or empty for upload only (air-gapped)" label="Mirror">
                 <Input onChange={(event) => setMirrorUrl(event.target.value)} value={mirrorUrl} />
               </Field>
+              {data.directAvailable && (
+                <Label className="flex items-center gap-2">
+                  <Checkbox
+                    checked={direct}
+                    onCheckedChange={(checked) => setDirect(checked === true)}
+                  />
+                  Fetch from the release source when no mirror is set or the mirror fails
+                </Label>
+              )}
               <div>
                 <Button onClick={savePolicy}>Save update window</Button>
               </div>
@@ -400,7 +601,9 @@ export default function Updates() {
             {(data.history ?? []).map((event, index) => (
               <TableRow key={`${event.time ?? ""}-${String(index)}`}>
                 <TableCell>{event.time ? shortDate(event.time) : ""}</TableCell>
-                <TableCell>{event.action}</TableCell>
+                <TableCell>
+                  {event.target === PRODUCT ? `${event.action} (product)` : event.action}
+                </TableCell>
                 <TableCell>{event.version}</TableCell>
                 <TableCell>{event.actor}</TableCell>
                 <TableCell>
@@ -417,9 +620,10 @@ export default function Updates() {
       <Dialog onOpenChange={(open) => !open && setConfirmApply(null)} open={!!confirmApply}>
         {confirmApply && (
           <ApplyDialog
-            onApply={() => apply(confirmApply)}
+            onApply={() => apply(confirmApply.version, confirmApply.target)}
             onCancel={() => setConfirmApply(null)}
-            version={confirmApply}
+            target={confirmApply.target}
+            version={confirmApply.version}
           />
         )}
       </Dialog>
@@ -430,10 +634,39 @@ export default function Updates() {
             action={override.held.action}
             elevation={override.elevation}
             onCancel={() => setOverride(null)}
-            onDone={() => started(override.held.action, override.held.version)}
+            onDone={() =>
+              started(override.held.action, override.held.version, override.held.target)
+            }
+            target={override.held.target}
             version={override.held.version}
           />
         )}
+      </Dialog>
+
+      <Dialog
+        onOpenChange={(open) => !open && setConfirmProductRevert(null)}
+        open={!!confirmProductRevert}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Revert the product to {confirmProductRevert}</DialogTitle>
+            <DialogDescription>
+              The product services restart on the previous slot&apos;s version. The box doesn&apos;t
+              reboot.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setConfirmProductRevert(null)} variant="secondary">
+              Cancel
+            </Button>
+            <Button
+              onClick={() => runUpdate("revert", confirmProductRevert ?? "", PRODUCT)}
+              variant="danger"
+            >
+              Revert the product
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
 
       <Dialog onOpenChange={setConfirmRevert} open={confirmRevert}>
@@ -538,20 +771,24 @@ const UpdateStep = ({
 const ApplyDialog = ({
   onApply,
   onCancel,
+  target,
   version,
 }: {
   onApply: () => void;
   onCancel: () => void;
+  target: UpdateTarget;
   version: string;
 }) => {
   const [typed, setTyped] = useState("");
+  const product = target === PRODUCT;
   return (
     <DialogContent>
       <DialogHeader>
-        <DialogTitle>Apply {version}</DialogTitle>
+        <DialogTitle>{product ? `Install product ${version}` : `Apply ${version}`}</DialogTitle>
         <DialogDescription>
-          The appliance reboots into {version}. Every session ends, and the box is unavailable until
-          it&apos;s back.
+          {product
+            ? `The product services (k0s and Sneakers-PAM) restart on ${version}, with no reboot. Sneakers-PAM is unavailable until they're back; the previous version stays in the other slot.`
+            : `The appliance reboots into ${version}. Every session ends, and the box is unavailable until it's back.`}
         </DialogDescription>
       </DialogHeader>
       <Field label={`Type ${version} to confirm`}>
@@ -562,7 +799,7 @@ const ApplyDialog = ({
           Cancel
         </Button>
         <Button disabled={typed.trim() !== version} onClick={onApply} variant="danger">
-          Apply and reboot
+          {product ? "Install and restart the product" : "Apply and reboot"}
         </Button>
       </DialogFooter>
     </DialogContent>
@@ -579,12 +816,14 @@ const OverrideDialog = ({
   elevation,
   onCancel,
   onDone,
+  target,
   version,
 }: {
   action: Held["action"];
   elevation: Elevation;
   onCancel: () => void;
   onDone: () => void;
+  target: UpdateTarget;
   version: string;
 }) => {
   const [typed, setTyped] = useState("");
@@ -602,8 +841,8 @@ const OverrideDialog = ({
       async () => {
         try {
           await (action === "apply"
-            ? upgrade.apply(elevationOverride)
-            : upgrade.revert(elevationOverride));
+            ? upgrade.apply(elevationOverride, target)
+            : upgrade.revert(elevationOverride, target));
           return true;
         } catch (error) {
           if (isStepUpRequired(error)) throw error;

@@ -11,6 +11,7 @@ export default [
     route("updates", "routes/updates.tsx"),
     route("network", "routes/network.tsx"),
     route("access", "routes/access.tsx"),
+    route("root-shell", "routes/root-shell.tsx"),
     route("certificates", "routes/certificates.tsx"),
     route("backups", "routes/backups.tsx"),
     route("mcp", "routes/mcp.tsx"),
