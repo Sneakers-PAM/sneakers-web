@@ -437,8 +437,11 @@ describe("Access", () => {
     expect(account.getByText(/SSH asks for your TOTP code after login/)).toBeInTheDocument();
     await user.click(account.getByRole("button", { name: "Get an SSH key" }));
     const dialog = within(await screen.findByRole("dialog"));
+    const make = dialog.getByRole("button", { name: "Make the key" });
     await user.type(dialog.getByLabelText("Label"), "work laptop");
-    await user.click(dialog.getByRole("button", { name: "Make the key" }));
+    expect(make).toBeDisabled();
+    await user.type(dialog.getByLabelText("Authenticator code"), "123456");
+    await user.click(make);
     expect(await dialog.findByText(/This is shown once/)).toBeInTheDocument();
     expect((dialog.getByLabelText("Private key") as HTMLTextAreaElement).value).toContain(
       "BEGIN OPENSSH PRIVATE KEY",
@@ -447,6 +450,24 @@ describe("Access", () => {
     expect(dialog.getByRole("button", { name: /Download the certificate/ })).toBeInTheDocument();
     await user.click(dialog.getByRole("button", { name: "I've saved it" }));
     expect(await account.findByText("work laptop")).toBeInTheDocument();
+  });
+
+  it("asks for a fresh code to issue an SSH key, and keeps a wrong code's refusal in the dialog", async () => {
+    signInAsOwner();
+    await expect(access.issueSshKey("laptop", "")).rejects.toThrow(/ACCESS_CONFIRM/);
+    const user = userEvent.setup();
+    renderPage(Access);
+    const account = within(await screen.findByRole("region", { name: "Your account" }));
+    await user.click(account.getByRole("button", { name: "Get an SSH key" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    await user.type(dialog.getByLabelText("Label"), "work laptop");
+    await user.type(dialog.getByLabelText("Authenticator code"), world.MOCK_WRONG_CODE);
+    await user.click(dialog.getByRole("button", { name: "Make the key" }));
+    expect(await dialog.findByText(/That code didn't work/)).toBeInTheDocument();
+    expect(dialog.getByText(/tries? left/)).toBeInTheDocument();
+    expect(dialog.getByLabelText("Label")).toHaveValue("work laptop");
+    expect(dialog.getByLabelText("Authenticator code")).toHaveValue("");
+    expect(dialog.queryByText(/This is shown once/)).not.toBeInTheDocument();
   });
 
   it("lets an owner set the access settings, with 10-minute root defaults", async () => {

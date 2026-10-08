@@ -204,7 +204,9 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   `ACCESS_LAST_OWNER`); a refusal the box still sends stays above the list, not a toast. Add admin (`AddAdmin`, optionally a root operator) shows the
   one-time invitation code the new admin types on `/setup`. Your account: change the password
   (`ChangePassword`, checked as it's typed), replace the authenticator
-  (`Begin`/`CompleteTotpReplacement`), and "Get an SSH key" (`IssueSshKey`): the box makes the
+  (`Begin`/`CompleteTotpReplacement`), and "Get an SSH key" (`IssueSshKey`): the dialog takes a label and a
+  fresh authenticator code every time (`totpCode`; the box checks it on every call, not the
+  step-up window, and a refused code stays in the dialog with the tries left), the box makes the
   key pair and signs it with its root key, and the dialog shows the private key once, with
   downloads for the key and its `-cert.pub` certificate; SSH asks for the TOTP code after
   login. Owners set the access settings (`SetAccessPolicy`: the lockout mode, the root-shell

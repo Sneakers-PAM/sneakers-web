@@ -260,7 +260,6 @@ const sessionOf = (admin: Admin): Session =>
 /** The step-up-gated methods refuse once after the "stepup" scenario, as a stale sign-in would. */
 const STEP_UP_METHODS = new Set([
   "AccessService/AddAdmin",
-  "AccessService/IssueSshKey",
   "AccessService/UnrevokeKey",
   "PowerService/ApproveFactoryReset",
   "PowerService/EndSession",
@@ -544,6 +543,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
       return {};
     }
     case "AccessService/IssueSshKey": {
+      checkCallCode(body.totpCode);
       const admin = findAdmin(caller());
       if (!admin)
         throw new OsadminError("unauthenticated", "ACCESS_UNAUTHENTICATED: sign in first");
