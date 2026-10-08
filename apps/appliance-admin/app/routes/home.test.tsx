@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { status } from "@/lib/osadmin/client";
@@ -7,6 +7,14 @@ import Home from "@/routes/home";
 import { renderPage } from "@/test/renderPage";
 import { signInAs } from "@/test/session";
 
+/** The paragraph whose whole text is `text`, even when a version chip splits it up. */
+const line = (text: RegExp | string) =>
+  screen.getByText(
+    (_, element) =>
+      element?.tagName === "P" &&
+      (typeof text === "string" ? element.textContent === text : text.test(element.textContent)),
+  );
+
 describe("Home", () => {
   it("shows the version, protection and a TLS warning", async () => {
     renderPage(Home);
@@ -14,6 +22,18 @@ describe("Home", () => {
     expect(await screen.findByText(/Running/)).toBeInTheDocument();
     expect(screen.getByText("Full")).toBeInTheDocument();
     expect(screen.getByText(/self-signed/)).toBeInTheDocument();
+  });
+
+  it("highlights the running version, and a staged one in a quieter tone", async () => {
+    applyMockScenario("staged");
+    renderPage(Home);
+    const running = within(await screen.findByText(/^Running/)).getByText("0.1.0");
+    expect(running).toHaveAttribute("data-version", "running");
+    expect(running).toHaveClass("bg-primary-soft", "text-primary");
+    expect(line(/^Running 0\.1\.0 on /)).toBeInTheDocument();
+    const staged = within(line("Staged: 0.2.0")).getByText("0.2.0");
+    expect(staged).toHaveAttribute("data-version", "staged");
+    expect(staged).toHaveClass("bg-neutral-soft");
   });
 
   it("renders without warnings or health when the box leaves them out of the reply", async () => {

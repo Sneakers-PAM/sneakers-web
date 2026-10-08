@@ -49,10 +49,11 @@ import { AccessSettingsCard } from "@/features/access/AccessSettingsCard";
 import { AccountCard } from "@/features/access/AccountCard";
 import { adminStatus } from "@/features/access/adminStatus";
 import { InvitationDialog } from "@/features/access/InvitationDialog";
+import { removeBlocked } from "@/features/access/removeBlocked";
 import { RootShellsCard } from "@/features/access/RootShellsCard";
 import { runAction } from "@/lib/osadmin/action";
 import { access, elevation as elevationClient } from "@/lib/osadmin/client";
-import { isStepUpRequired } from "@/lib/osadmin/errors";
+import { isNotAvailable, isStepUpRequired, reasonOf } from "@/lib/osadmin/errors";
 import { useSession } from "@/lib/useSession";
 
 const clamp = (value: number, min: number, max: number): number =>
@@ -76,6 +77,9 @@ export default function Access() {
   const [unrevoking, setUnrevoking] = useState<null | RevokedKey>(null);
   const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [reinviting, setReinviting] = useState<null | string>(null);
+  const [removeRefusal, setRemoveRefusal] = useState<{ admin: string; reason: string } | null>(
+    null,
+  );
 
   const reload = () =>
     void access.list().then((response) => {
@@ -107,14 +111,29 @@ export default function Access() {
       onSuccess: reload,
       successMessage: `${admin.name} is unlocked.`,
     });
+  // The box's own refusal (the last owner, say) stays on the page by the list, not a toast.
   const removeAdmin = (admin: Admin) => {
     const onRoster = quorumMembers.includes(admin.name);
-    void runAction(() => access.removeAdmin(admin.name), {
-      onSuccess: () => {
-        reload();
-        if (onRoster) setRemovedFromRoster(admin.name);
+    setRemoveRefusal(null);
+    void runAction(
+      async () => {
+        try {
+          await access.removeAdmin(admin.name);
+          return true;
+        } catch (error) {
+          if (isStepUpRequired(error) || isNotAvailable(error)) throw error;
+          setRemoveRefusal({ admin: admin.name, reason: reasonOf(error) });
+          return false;
+        }
       },
-    });
+      {
+        onSuccess: (removed) => {
+          if (!removed) return;
+          reload();
+          if (onRoster) setRemovedFromRoster(admin.name);
+        },
+      },
+    );
   };
   const removeKey = (admin: Admin, fingerprint: string) =>
     void runAction(() => access.removeKey(admin.name, fingerprint), { onSuccess: reload });
@@ -124,6 +143,13 @@ export default function Access() {
       <PageHeader eyebrow="Appliance" title="Access" />
       <Card>
         <CardHeader title="Admins" />
+        {removeRefusal && (
+          <div className="px-5.5 pt-5.5">
+            <Alert title={`${removeRefusal.admin} wasn't removed`} tone="danger">
+              {removeRefusal.reason}
+            </Alert>
+          </div>
+        )}
         {phone ? (
           <ul className="flex flex-col gap-3 p-5.5">
             {data.admins.map((admin) => (
@@ -136,6 +162,7 @@ export default function Access() {
                 onRemoveAdmin={() => removeAdmin(admin)}
                 onRemoveKey={(fingerprint) => removeKey(admin, fingerprint)}
                 onUnlock={() => unlock(admin)}
+                removeBlocked={removeBlocked(admin, data.admins, session?.admin)}
               />
             ))}
           </ul>
@@ -154,6 +181,8 @@ export default function Access() {
               {data.admins.map((admin) => {
                 const status = adminStatus(admin);
                 const self = admin.name === session?.admin;
+                const blocked = removeBlocked(admin, data.admins, session?.admin);
+                const blockedId = `remove-blocked-${admin.name}`;
                 return (
                   <TableRow key={admin.name}>
                     <TableCell>{admin.name}</TableCell>
@@ -219,15 +248,22 @@ export default function Access() {
                               Re-invite
                             </Button>
                           )}
-                          {!self && (
+                          <div className="flex flex-col items-end gap-1">
                             <Button
+                              aria-describedby={blocked ? blockedId : undefined}
+                              disabled={!!blocked}
                               onClick={() => removeAdmin(admin)}
                               size="sm"
                               variant="secondary"
                             >
                               Remove admin
                             </Button>
-                          )}
+                            {blocked && (
+                              <span className="text-small text-muted" id={blockedId}>
+                                {blocked}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       )}
                     </TableCell>
@@ -481,6 +517,7 @@ const AdminCard = ({
   onRemoveAdmin,
   onRemoveKey,
   onUnlock,
+  removeBlocked: blocked,
 }: {
   admin: Admin;
   isOwner: boolean;
@@ -489,6 +526,8 @@ const AdminCard = ({
   onRemoveAdmin: () => void;
   onRemoveKey: (fingerprint: string) => void;
   onUnlock: () => void;
+  /** Why Remove admin is off for this admin, if it is. */
+  removeBlocked?: string;
 }) => {
   const status = adminStatus(admin);
   return (
@@ -530,9 +569,12 @@ const AdminCard = ({
               {isOwner && !isSelf && (
                 <DropdownMenuItem onSelect={onReinvite}>Re-invite</DropdownMenuItem>
               )}
-              {isOwner && !isSelf && (
-                <DropdownMenuItem onSelect={onRemoveAdmin} tone="danger">
-                  Remove admin
+              {isOwner && (
+                <DropdownMenuItem disabled={!!blocked} onSelect={onRemoveAdmin} tone="danger">
+                  <span className="flex flex-col gap-0.5">
+                    Remove admin
+                    {blocked && <span className="text-small text-muted">{blocked}</span>}
+                  </span>
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>

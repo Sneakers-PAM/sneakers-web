@@ -40,6 +40,7 @@ import type {
 
 import { BoxRestarting } from "@/components/BoxRestarting";
 import { NotAvailable } from "@/components/NotAvailable";
+import { VersionChip } from "@/components/VersionChip";
 import { runAction } from "@/lib/osadmin/action";
 import { upgrade } from "@/lib/osadmin/client";
 import {
@@ -48,8 +49,10 @@ import {
   OsadminError,
   reasonOf,
   refusalOf,
+  symbolOf,
 } from "@/lib/osadmin/errors";
 import { refusalMessage } from "@/lib/osadmin/refusal";
+import { stepUpPending, subscribeStepUp } from "@/lib/osadmin/stepUpController";
 import { useSession } from "@/lib/useSession";
 
 /** An apply or revert the box refused because an elevated shell is open. */
@@ -83,14 +86,27 @@ const isElevated = (error: unknown): boolean =>
 const holder = (elevation: Elevation): string =>
   `${elevation.admin} holds an elevated shell (${elevation.id})${elevation.started ? `, open since ${shortDate(elevation.started)}` : ""}: ${elevation.reason}`;
 
-/** Where the file in hand is: nothing yet, sending, on the box, being verified, or done. */
+/**
+ * Where the file in hand is: nothing yet, sending, on the box, waiting for a fresh code, being
+ * verified, refused, or done. A refused file that's still on the box keeps its upload id, so it
+ * can be verified again.
+ */
 type Step =
-  | { fileName: string; kind: "received"; uploadId: string; via: "Fetched" | "Uploaded" }
-  | { fileName: string; kind: "refused"; reason: string }
+  | {
+      code?: string;
+      fileName: string;
+      kind: "refused";
+      reason: string;
+      retry?: { uploadId: string; via: Via };
+    }
+  | { fileName: string; kind: "held"; uploadId: string; via: Via }
+  | { fileName: string; kind: "received"; uploadId: string; via: Via }
   | { fileName: string; kind: "uploading"; progress: number }
   | { fileName: string; kind: "verified"; slot?: string; updatePackage: UpdatePackage }
   | { fileName: string; kind: "verifying"; uploadId: string }
   | { kind: "idle" };
+
+type Via = "Fetched" | "Uploaded";
 
 const describePolicy = (policy: UpgradePolicy): string =>
   policy.mode === "manual"
@@ -107,6 +123,14 @@ const describePackage = (updatePackage: UpdatePackage): string => {
 
 const errorText = (error: unknown): string =>
   error instanceof Error ? error.message : "The appliance refused the file.";
+
+/** A refusal for the result panel: the box's reason and, apart, the error code it named. */
+const refusedStep = (fileName: string, error: unknown): Step => ({
+  code: symbolOf(errorText(error)),
+  fileName,
+  kind: "refused",
+  reason: error instanceof Error ? reasonOf(error) : errorText(error),
+});
 
 /** True when the box refused the call's own authenticator code: empty, wrong or used already. */
 const isCodeRefusal = (error: unknown): boolean =>
@@ -176,6 +200,25 @@ export default function Updates() {
         ),
       );
   useEffect(reload, []);
+  // A stage held for a fresh code ends as a refusal when the step-up dialog is cancelled; when
+  // the code is taken, the retry moves the step on to verifying in the same update.
+  useEffect(
+    () =>
+      subscribeStepUp(() =>
+        setStep((current) =>
+          current.kind === "held" && !stepUpPending()
+            ? {
+                code: "ACCESS_STEPUP_REQUIRED",
+                fileName: current.fileName,
+                kind: "refused",
+                reason: "The check needs a fresh authenticator code, and none was given.",
+                retry: { uploadId: current.uploadId, via: current.via },
+              }
+            : current,
+        ),
+      ),
+    [],
+  );
 
   const sendFile = () => {
     const file = fileInput.current?.files?.[0];
@@ -188,25 +231,36 @@ export default function Updates() {
       .then(({ uploadId }) =>
         setStep({ fileName: file.name, kind: "received", uploadId, via: "Uploaded" }),
       )
-      .catch((error: unknown) =>
-        setStep({ fileName: file.name, kind: "refused", reason: errorText(error) }),
-      );
+      .catch((error: unknown) => setStep(refusedStep(file.name, error)));
   };
 
   const fetchFile = (name = mirrorFile) => {
     const fileName = name.trim();
     if (!fileName) return;
-    void runAction(() => upgrade.fetch(fileName), {
-      onSuccess: ({ uploadId }) => {
-        setStep({ fileName, kind: "received", uploadId, via: "Fetched" });
-        reload();
+    void runAction(
+      async () => {
+        try {
+          return await upgrade.fetch(fileName);
+        } catch (error) {
+          if (isStepUpRequired(error) || isNotAvailable(error)) throw error;
+          setStep(refusedStep(fileName, error));
+          reload();
+          return null;
+        }
       },
-    });
+      {
+        onSuccess: (result) => {
+          if (!result) return;
+          setStep({ fileName, kind: "received", uploadId: result.uploadId, via: "Fetched" });
+          reload();
+        },
+      },
+    );
   };
 
   // StageUpdate verifies first and only then unpacks; a refused file is deleted on the box.
   // Refusals are shown in place, not as a toast, so the reason stays on screen.
-  const verifyAndStage = (fileName: string, uploadId: string) => {
+  const verifyAndStage = (fileName: string, uploadId: string, via: Via) => {
     void runAction(
       async () => {
         setStep({ fileName, kind: "verifying", uploadId });
@@ -214,10 +268,10 @@ export default function Updates() {
           return await upgrade.stage(uploadId);
         } catch (error) {
           if (isStepUpRequired(error)) {
-            setStep({ fileName, kind: "received", uploadId, via: "Uploaded" });
+            setStep({ fileName, kind: "held", uploadId, via });
             throw error;
           }
-          setStep({ fileName, kind: "refused", reason: errorText(error) });
+          setStep(refusedStep(fileName, error));
           reload();
           return null;
         }
@@ -401,8 +455,16 @@ export default function Updates() {
       <Card>
         <CardHeader title="Base system" />
         <div className="flex flex-col gap-2 p-5.5 text-small">
-          <p className="font-bold">Running {data.runningVersion} in the active slot</p>
-          <p>{staged ? `Other slot: staged ${staged}` : "Other slot: empty"}</p>
+          <p className="flex flex-wrap items-center gap-1.5 font-bold">
+            Running <VersionChip kind="running" version={data.runningVersion} /> in the active slot
+          </p>
+          {staged ? (
+            <p className="flex flex-wrap items-center gap-1.5">
+              Other slot: staged <VersionChip kind="staged" version={staged} />
+            </p>
+          ) : (
+            <p>Other slot: empty</p>
+          )}
         </div>
         {isOwner && (
           <div className="flex flex-wrap gap-3 border-t border-border p-5.5">
@@ -736,47 +798,74 @@ const UpdateStep = ({
   onVerify,
   step,
 }: {
-  onVerify: (fileName: string, uploadId: string) => void;
+  onVerify: (fileName: string, uploadId: string, via: Via) => void;
   step: Step;
 }) => {
   switch (step.kind) {
+    case "held": {
+      return (
+        <ResultPanel title="Waiting for your authenticator code" tone="warn">
+          <p>
+            {step.via} {step.fileName}. Verifying it needs a fresh authenticator code; the check
+            goes ahead once the box takes it.
+          </p>
+        </ResultPanel>
+      );
+    }
     case "idle": {
       return null;
     }
     case "received": {
       return (
-        <div className="flex flex-col gap-3 border-t border-border pt-4">
-          <p>
-            {step.via} {step.fileName}. It hasn&apos;t been checked yet.
-          </p>
-          <div>
-            <Button onClick={() => onVerify(step.fileName, step.uploadId)} size="lg">
-              Verify and stage
-            </Button>
+        <ResultPanel title="Not checked yet" tone="info">
+          <div className="flex flex-col gap-3">
+            <p>
+              {step.via} {step.fileName}. It hasn&apos;t been checked yet.
+            </p>
+            <div>
+              <Button onClick={() => onVerify(step.fileName, step.uploadId, step.via)} size="lg">
+                Verify and stage
+              </Button>
+            </div>
           </div>
-        </div>
+        </ResultPanel>
       );
     }
     case "refused": {
+      const { retry } = step;
       return (
-        <Alert title={`${step.fileName} was refused`} tone="danger">
-          {step.reason} Nothing was staged.
-        </Alert>
+        <ResultPanel title={`${step.fileName} was refused`} tone="danger">
+          <div className="flex flex-col gap-2">
+            <p>{step.reason} Nothing was staged.</p>
+            {step.code && (
+              <p>
+                Error code: <code className="font-mono">{step.code}</code>
+              </p>
+            )}
+            {retry && (
+              <div>
+                <Button
+                  onClick={() => onVerify(step.fileName, retry.uploadId, retry.via)}
+                  size="lg"
+                >
+                  Verify and stage
+                </Button>
+              </div>
+            )}
+          </div>
+        </ResultPanel>
       );
     }
     case "uploading": {
       return (
-        <div className="flex flex-col gap-2 border-t border-border pt-4">
-          <p>
-            Uploading {step.fileName}: {step.progress}%
-          </p>
+        <ResultPanel title={`Uploading ${step.fileName}: ${String(step.progress)}%`} tone="info">
           <progress
             aria-label="Upload progress"
             className="h-3 w-full accent-primary"
             max={100}
             value={step.progress}
           />
-        </div>
+        </ResultPanel>
       );
     }
     case "verified": {
@@ -790,14 +879,37 @@ const UpdateStep = ({
     }
     case "verifying": {
       return (
-        <div className="flex items-center gap-3 border-t border-border pt-4" role="status">
-          <Spinner />
-          <p>Verifying the signature, channel and hash of {step.fileName}.</p>
-        </div>
+        <ResultPanel tone="info">
+          <span className="flex items-center gap-3">
+            <Spinner />
+            Verifying the signature, channel and hash of {step.fileName}.
+          </span>
+        </ResultPanel>
       );
     }
   }
 };
+
+/**
+ * The one place a file's upload, verify and stage result shows, toned by the outcome: info while
+ * it's received, sending or being checked, amber while it waits for a code, green once verified
+ * and red when refused.
+ */
+const ResultPanel = ({
+  children,
+  title,
+  tone,
+}: {
+  children: ReactNode;
+  title?: string;
+  tone: "danger" | "info" | "ok" | "warn";
+}) => (
+  <section aria-label="Verify result" className="border-t border-border pt-4" data-tone={tone}>
+    <Alert title={title} tone={tone}>
+      {children}
+    </Alert>
+  </section>
+);
 
 /** The verified file: what it is, that its signature checked out, its hash, and where it went. */
 const VerifiedPanel = ({
@@ -839,18 +951,16 @@ const VerifiedPanel = ({
     ],
   ];
   return (
-    <section aria-label="Verify result" className="border-t border-border pt-4">
-      <Alert title="Verified" tone="ok">
-        <dl className="m-0 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5">
-          {rows.map(([label, value]) => (
-            <div className="contents" key={label}>
-              <dt className="font-bold">{label}</dt>
-              <dd className="m-0 min-w-0">{value}</dd>
-            </div>
-          ))}
-        </dl>
-      </Alert>
-    </section>
+    <ResultPanel title="Verified" tone="ok">
+      <dl className="m-0 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5">
+        {rows.map(([label, value]) => (
+          <div className="contents" key={label}>
+            <dt className="font-bold">{label}</dt>
+            <dd className="m-0 min-w-0">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </ResultPanel>
   );
 };
 

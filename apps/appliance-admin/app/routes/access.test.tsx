@@ -174,6 +174,84 @@ describe("Access", () => {
     expect(screen.queryByRole("checkbox", { name: /bob/ })).not.toBeInTheDocument();
   });
 
+  it("shows your own Remove admin disabled, with why", async () => {
+    signInAsOwner();
+    renderPage(Access);
+    const admins = within(await screen.findByRole("table", { name: "Admins" }));
+    const remove = within(admins.getByRole("row", { name: /alice/ })).getByRole("button", {
+      name: "Remove admin",
+    });
+    expect(remove).toBeDisabled();
+    expect(remove).toHaveAccessibleDescription(
+      "You can't remove your own account, and at least one owner must remain.",
+    );
+    const bobRemove = within(admins.getByRole("row", { name: /bob/ })).getByRole("button", {
+      name: "Remove admin",
+    });
+    expect(bobRemove).toBeEnabled();
+  });
+
+  it("says another owner can remove you when there is one", async () => {
+    world.ADMINS.push({ ...world.ADMINS[0]!, keys: [], name: "dana", uid: 20_009 });
+    try {
+      resetMockWorld();
+      signInAsOwner();
+      renderPage(Access);
+      const admins = within(await screen.findByRole("table", { name: "Admins" }));
+      const remove = within(admins.getByRole("row", { name: /alice/ })).getByRole("button", {
+        name: "Remove admin",
+      });
+      expect(remove).toBeDisabled();
+      expect(remove).toHaveAccessibleDescription(
+        "You can't remove your own account. Another owner can.",
+      );
+      expect(
+        within(admins.getByRole("row", { name: /dana/ })).getByRole("button", {
+          name: "Remove admin",
+        }),
+      ).toBeEnabled();
+    } finally {
+      world.ADMINS.pop();
+    }
+  });
+
+  it("shows the box's last-owner refusal in place, not only as a toast", async () => {
+    vi.spyOn(access, "removeAdmin").mockRejectedValueOnce(
+      new OsadminError(
+        "failed_precondition",
+        "ACCESS_LAST_OWNER (3104): the box must keep at least one owner",
+      ),
+    );
+    signInAsOwner();
+    const user = userEvent.setup();
+    renderPage(Access);
+    const admins = within(await screen.findByRole("table", { name: "Admins" }));
+    await user.click(
+      within(admins.getByRole("row", { name: /bob/ })).getByRole("button", {
+        name: "Remove admin",
+      }),
+    );
+    const refusal = await screen.findByRole("alert");
+    expect(within(refusal).getByText("bob wasn't removed")).toBeInTheDocument();
+    expect(within(refusal).getByText(/must keep at least one owner/)).toBeInTheDocument();
+    expect(admins.getByText("bob")).toBeInTheDocument();
+  });
+
+  it("shows your own Remove admin disabled with why in the card's menu at phone width", async () => {
+    const restore = atWidth(390);
+    try {
+      signInAsOwner();
+      const user = userEvent.setup();
+      renderPage(Access);
+      await user.click(await screen.findByRole("button", { name: "Actions for alice" }));
+      const item = screen.getByRole("menuitem", { name: /Remove admin/ });
+      expect(item).toHaveAttribute("aria-disabled", "true");
+      expect(item).toHaveTextContent("at least one owner must remain");
+    } finally {
+      restore();
+    }
+  });
+
   it("shows other roles the revoked keys but no un-revoke", async () => {
     signInAs("bob");
     renderPage(Access);

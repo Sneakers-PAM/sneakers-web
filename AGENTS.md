@@ -173,7 +173,11 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   `UpgradeService.StageUpdate` is one call that verifies the signature, channel and hash and only
   then unpacks and stages, so the page shows "Verifying" while it runs, then either a green
   "Verified" panel (file, version, architecture, signature, channel, SHA-256 with Copy, and the
-  slot it went into, `StageUpdateResponse.slot`) or the refusal's reason in place (never a toast). Apply, Revert, Install product and
+  slot it went into, `StageUpdateResponse.slot`) or the refusal's reason in place (never a toast).
+  Every state of the file shows in that one panel (`ResultPanel`, `aria-label="Verify result"`,
+  its tone in `data-tone`): info while uploading, received or verifying, amber while a stage
+  waits for the step-up code, red with the reason and error code for a refused upload, fetch,
+  verify or stage, or a cancelled step-up (which keeps the upload, so it can be verified again). Apply, Revert, Install product and
   Revert product each need the version typed (the running one for a base revert) and a fresh
   authenticator code in the same dialog, every time (`totpCode`; the box checks it on every call,
   not the step-up window), and a refused code stays in the dialog with the tries left. Stage and
@@ -194,7 +198,10 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   the role, a root-operator badge, the sign-in state (active, locked until when or until an
   owner unlocks, an open invitation) and the issued SSH keys. Owners unlock (`UnlockAdmin`),
   re-invite (`ReinviteAdmin`: the password and authenticator are cleared and a new code is
-  shown) and remove admins, and Add admin (`AddAdmin`, optionally a root operator) shows the
+  shown) and remove admins. Remove admin shows, disabled with the reason next to it
+  (`app/features/access/removeBlocked.ts`), on your own row ("You can't remove your own account.
+  Another owner can.") and on the last owner's ("At least one owner must remain", the box's
+  `ACCESS_LAST_OWNER`); a refusal the box still sends stays above the list, not a toast. Add admin (`AddAdmin`, optionally a root operator) shows the
   one-time invitation code the new admin types on `/setup`. Your account: change the password
   (`ChangePassword`, checked as it's typed), replace the authenticator
   (`Begin`/`CompleteTotpReplacement`), and "Get an SSH key" (`IssueSshKey`): the box makes the
