@@ -2,8 +2,11 @@ import { CodeInput, Field, QrBlock } from "@sneakers-web/ui";
 
 import type { TotpEnrolment } from "@/lib/osadmin/types";
 
-/** The base32 secret in groups of four, easier to type and to read aloud. */
-export const groupsOfFour = (value: string): string => value.match(/.{1,4}/g)?.join(" ") ?? "";
+import { noAutofill } from "@/lib/noAutofill";
+
+/** Groups of four, easier to type and to read aloud. */
+export const groupsOfFour = (value: string, separator = " "): string =>
+  value.match(/.{1,4}/g)?.join(separator) ?? "";
 
 /**
  * A new authenticator: the QR code for the app, the key typed by hand for an app that
@@ -33,7 +36,13 @@ export const TotpEnrolmentPanel = ({
       </div>
     </div>
     <Field label="6-digit code from the app">
-      <CodeInput label="6-digit code from the app" onChange={onCode} size="md" value={code} />
+      <CodeInput
+        {...noAutofill("one-time-code")}
+        label="6-digit code from the app"
+        onChange={onCode}
+        size="md"
+        value={code}
+      />
     </Field>
   </div>
 );

@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { GenerateRecoveryKeyResponse, GetSetupResponse } from "@/lib/osadmin/types";
 
 import { saveText } from "@/lib/download";
+import { noAutofill } from "@/lib/noAutofill";
 import { runAction } from "@/lib/osadmin/action";
 import { setup } from "@/lib/osadmin/client";
 
@@ -124,7 +125,11 @@ export const RecoveryKeysStep = ({
                 key to this browser once.
               </p>
               <Field label="Label">
-                <Input onChange={(event) => setLabel(event.target.value)} value={label} />
+                <Input
+                  {...noAutofill()}
+                  onChange={(event) => setLabel(event.target.value)}
+                  value={label}
+                />
               </Field>
               <Button className="self-start" type="submit" variant="secondary">
                 Generate a key pair
@@ -147,6 +152,7 @@ export const RecoveryKeysStep = ({
             >
               <Field hint="ssh-ed25519, or ssh-rsa of 3072 bits or more" label="Public key">
                 <Input
+                  {...noAutofill()}
                   mono
                   onChange={(event) => setPublicKey(event.target.value)}
                   placeholder="ssh-ed25519 AAAA..."
@@ -155,7 +161,11 @@ export const RecoveryKeysStep = ({
                 />
               </Field>
               <Field label="Label">
-                <Input onChange={(event) => setLabel(event.target.value)} value={label} />
+                <Input
+                  {...noAutofill()}
+                  onChange={(event) => setLabel(event.target.value)}
+                  value={label}
+                />
               </Field>
               <Button
                 className="self-start"

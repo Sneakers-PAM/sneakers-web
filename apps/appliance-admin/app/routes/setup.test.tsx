@@ -34,6 +34,14 @@ const redeem = async (user: User, code = MOCK_SETUP_CODE) => {
   await user.click(screen.getByRole("button", { name: "Continue" }));
 };
 
+const expectsNoAutofill = (field: HTMLElement, autoComplete: string) => {
+  expect(field).toHaveAttribute("autocomplete", autoComplete);
+  expect(field).toHaveAttribute("data-1p-ignore", "true");
+  expect(field).toHaveAttribute("data-lpignore", "true");
+  expect(field).toHaveAttribute("data-bwignore", "true");
+  expect(field).toHaveAttribute("data-form-type", "other");
+};
+
 const createAdmin = async (user: User) => {
   await user.type(await screen.findByLabelText("Admin name"), "alice");
   await user.type(screen.getByLabelText("Password"), MOCK_PASSWORD);
@@ -281,5 +289,41 @@ describe("Setup", () => {
     applyMockScenario("signed-in");
     open();
     expect(await screen.findByText("Status page")).toBeInTheDocument();
+  });
+
+  it("keeps a password manager off the setup code field", async () => {
+    applyMockScenario("first-boot");
+    open();
+    expectsNoAutofill(await screen.findByLabelText("Setup code"), "off");
+  });
+
+  it("keeps a password manager off the admin name and password fields", async () => {
+    applyMockScenario("setup-admin");
+    open();
+    expectsNoAutofill(await screen.findByLabelText("Admin name"), "off");
+    expectsNoAutofill(screen.getByLabelText("Password"), "new-password");
+    expectsNoAutofill(screen.getByLabelText("Password again"), "new-password");
+  });
+
+  it("keeps a password manager off the authenticator enrolment code", async () => {
+    applyMockScenario("setup-admin");
+    const user = userEvent.setup();
+    open();
+    await user.type(await screen.findByLabelText("Admin name"), "alice");
+    await user.type(screen.getByLabelText("Password"), MOCK_PASSWORD);
+    await user.type(screen.getByLabelText("Password again"), MOCK_PASSWORD);
+    await screen.findByText("Strong enough.");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expectsNoAutofill(await screen.findByLabelText("6-digit code from the app"), "one-time-code");
+  });
+
+  it("keeps a password manager off the recovery key fields", async () => {
+    applyMockScenario("setup-keys");
+    const user = userEvent.setup();
+    open();
+    expectsNoAutofill(await screen.findByLabelText("Label"), "off");
+    await user.click(screen.getByRole("radio", { name: "Provide your own" }));
+    expectsNoAutofill(screen.getByLabelText("Public key"), "off");
+    expectsNoAutofill(screen.getByLabelText("Label"), "off");
   });
 });
