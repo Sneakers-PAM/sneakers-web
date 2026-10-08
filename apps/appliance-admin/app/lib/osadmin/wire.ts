@@ -20,6 +20,7 @@ import type {
   Disk,
   Elevation,
   FactoryReset,
+  GenerateRecoveryKeyResponse,
   GetBackupsResponse,
   GetCertificateStoreResponse,
   GetMcpResponse,
@@ -110,6 +111,15 @@ export const recoveryKey = (w: Wire<RecoveryKey> = {}): RecoveryKey => ({
 export const withRecoveryKey = (
   w: Wire<{ recoveryKey: RecoveryKey }>,
 ): { recoveryKey: RecoveryKey } => ({ recoveryKey: recoveryKey(w.recoveryKey) });
+
+export const generateRecoveryKey = (
+  w: Wire<GenerateRecoveryKeyResponse>,
+): GenerateRecoveryKeyResponse => ({
+  fileName: w.fileName ?? "",
+  privateKey: w.privateKey ?? "",
+  publicKey: w.publicKey ?? "",
+  recoveryKey: recoveryKey(w.recoveryKey),
+});
 
 const setupStep = (w: Wire<SetupStep>): SetupStep => ({
   ...w,

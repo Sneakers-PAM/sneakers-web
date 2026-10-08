@@ -878,6 +878,30 @@ const route = async (service: string, method: string, body: Record<string, unkno
       setupDone = true;
       return { productSetupUrl: "https://sneakers.example.org/setup" };
     }
+    case "SetupService/GenerateRecoveryKey": {
+      if (recoveryKeys.length >= 3)
+        throw new OsadminError("invalid_argument", "ACCESS_RECOVERY_KEY_LIMIT");
+      const set = new Date().toISOString();
+      const key = {
+        fingerprint: `SHA256:mockGenerated${recoveryKeys.length}`,
+        label: String(body.label ?? "").trim(),
+        set,
+        setBy: caller() || "alice",
+        type: "ssh-ed25519",
+      };
+      recoveryKeys.push(key);
+      return {
+        fileName: `sneakers-recovery-${set.replaceAll(/[-:]|\.\d+/g, "")}`,
+        privateKey: [
+          "-----BEGIN OPENSSH PRIVATE KEY-----", // gitleaks:allow (a placeholder, not a key)
+          "MOCK-RECOVERY-KEY-NOT-A-REAL-KEY-MOCK-RECOVERY-KEY-NOT-A-REAL-KEY",
+          "-----END OPENSSH PRIVATE KEY-----",
+          "",
+        ].join("\n"),
+        publicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMOCKRECOVERYKEYNOTAREALKEY",
+        recoveryKey: key,
+      };
+    }
     case "SetupService/GetSetup": {
       if (!getSession() && !cookieSession && !codeSession)
         throw new OsadminError(

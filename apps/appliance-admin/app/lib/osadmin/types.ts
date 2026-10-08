@@ -36,6 +36,17 @@ export interface RecoveryKey {
   type: string;
 }
 
+/** A recovery key the box made: the private key is in this answer once and never kept. */
+export interface GenerateRecoveryKeyResponse {
+  /** A suggested name for the private key file. */
+  fileName: string;
+  /** The OpenSSH private key. */
+  privateKey: string;
+  /** The OpenSSH public key line the box keeps. */
+  publicKey: string;
+  recoveryKey: RecoveryKey;
+}
+
 /** A one-time code's purpose: the console's setup code, an invitation, or Recover access. */
 export type CodeKind =
   "CODE_KIND_INVITE" | "CODE_KIND_RECOVER" | "CODE_KIND_SETUP" | "CODE_KIND_UNSPECIFIED";

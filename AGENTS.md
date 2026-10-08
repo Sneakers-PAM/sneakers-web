@@ -127,7 +127,9 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   admin's name and password, checked as it's typed (`CheckPassword`), then the authenticator
   (`BeginCredentials` gives the secret for the QR code and the typed key,
   `CompleteCredentials` checks a code from it and signs the browser in), 3 the recovery keys
-  and the escrow, 4 the network (read only, `AcknowledgeStep`), 5 the protection (read only),
+  and the escrow (each key either made on the box, "Generate one here", `GenerateRecoveryKey`,
+  whose private key the browser downloads once and the box never keeps, or "Provide your own", a
+  pasted public key, `AddRecoveryKey`), 4 the network (read only, `AcknowledgeStep`), 5 the protection (read only),
   6 one sign-in with the password and a code, the single-admin warning, and `Finish`. A reload
   asks `GetSession` and `GetSetup` and resumes at `current`, the box's first step not done.
   The same page takes an invitation or a Recover access code (`codeKind`), and then shows only

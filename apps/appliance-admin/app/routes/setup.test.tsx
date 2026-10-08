@@ -162,6 +162,7 @@ describe("Setup", () => {
     expect(await screen.findByText("Step 3 of 6: Add a recovery key")).toBeInTheDocument();
     const next = screen.getByRole("button", { name: "Continue" });
     expect(next).toBeDisabled();
+    await user.click(screen.getByRole("radio", { name: "Provide your own" }));
     await user.type(
       screen.getByLabelText("Public key"),
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAItest",
@@ -172,6 +173,45 @@ describe("Setup", () => {
     expect(
       screen.getByRole("button", { name: /Download the recovery bundle escrow-20261007.age/ }),
     ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByText("Step 4 of 6: Network (optional)")).toBeInTheDocument();
+  });
+
+  it("generates a recovery key on the box and downloads its private key once", async () => {
+    applyMockScenario("setup-keys");
+    const blobs: Blob[] = [];
+    vi.spyOn(URL, "createObjectURL").mockImplementation((object) => {
+      blobs.push(object as Blob);
+      return "blob:recovery-key";
+    });
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    const saved = () =>
+      click.mock.contexts.map((anchor, index) => ({
+        name: (anchor as HTMLAnchorElement).download,
+        text: blobs[index]!.text(),
+      }));
+    const user = userEvent.setup();
+    open();
+    expect(await screen.findByText("Step 3 of 6: Add a recovery key")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Generate one here" })).toBeChecked();
+    expect(screen.queryByLabelText("Public key")).toBeNull();
+    await user.type(screen.getByLabelText("Label"), "offline safe");
+    await user.click(screen.getByRole("button", { name: "Generate a key pair" }));
+
+    expect(await screen.findByText("Save the private key now")).toBeInTheDocument();
+    expect(screen.getByText(/can't show it again/)).toBeInTheDocument();
+    expect(screen.getByText("offline safe")).toBeInTheDocument();
+    expect(saved()).toHaveLength(1);
+    expect(saved()[0]!.name).toMatch(/^sneakers-recovery-/);
+    expect(await saved()[0]!.text).toContain("BEGIN OPENSSH PRIVATE KEY");
+
+    await user.click(screen.getByRole("button", { name: /Download the private key again/ }));
+    expect(saved()).toHaveLength(2);
+    await user.click(screen.getByRole("button", { name: "I saved it" }));
+    expect(screen.queryByText("Save the private key now")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Download the private key/ })).toBeNull();
+
     await user.click(screen.getByRole("button", { name: "Continue" }));
     expect(await screen.findByText("Step 4 of 6: Network (optional)")).toBeInTheDocument();
   });

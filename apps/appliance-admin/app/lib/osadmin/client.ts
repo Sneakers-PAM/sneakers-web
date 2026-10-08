@@ -16,6 +16,7 @@ import type {
   ElevationOverride,
   FactoryReset,
   GenerateCsrRequest,
+  GenerateRecoveryKeyResponse,
   GetBackupsResponse,
   GetCertificateStoreResponse,
   GetMcpResponse,
@@ -129,6 +130,17 @@ export const setup = {
   downloadEscrow: () =>
     call<{ content: string; fileName: string }>("SetupService", "DownloadEscrow", {}, wire.escrow),
   finish: () => call<{ productSetupUrl: string }>("SetupService", "Finish", {}, wire.finish),
+  /**
+   * The box makes an ed25519 key pair and keeps the public half as a recovery key. The private
+   * key is in the answer once and never kept.
+   */
+  generateRecoveryKey: (label: string) =>
+    call<GenerateRecoveryKeyResponse>(
+      "SetupService",
+      "GenerateRecoveryKey",
+      { label },
+      wire.generateRecoveryKey,
+    ),
   get: () => call<GetSetupResponse>("SetupService", "GetSetup", {}, wire.getSetup),
   /** A one-time code: the console's setup code, an invitation or Recover access. */
   redeemCode: (code: string) =>
