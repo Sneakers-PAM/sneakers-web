@@ -30,8 +30,8 @@ const current = () =>
     .getAllByRole("listitem")
     .find((item) => item.getAttribute("aria-current") === "step");
 
-const redeem = async (user: User, code = MOCK_SETUP_CODE) => {
-  await user.type(await screen.findByLabelText("Setup code"), code);
+const redeem = async (user: User, code = MOCK_SETUP_CODE, label = "Setup code") => {
+  await user.type(await screen.findByLabelText(label), code);
   await user.click(screen.getByRole("button", { name: "Continue" }));
 };
 
@@ -291,7 +291,7 @@ describe("Setup", () => {
     applyMockScenario("invited");
     const user = userEvent.setup();
     open();
-    await redeem(user, MOCK_INVITE_CODE);
+    await redeem(user, MOCK_INVITE_CODE, "Invitation or Recover access code");
     expect(
       await screen.findByRole("heading", { name: "Set your password and authenticator" }),
     ).toBeInTheDocument();
@@ -306,6 +306,18 @@ describe("Setup", () => {
     await user.click(screen.getByRole("button", { name: "Continue" }));
     expect(await screen.findByText("Status page")).toBeInTheDocument();
     expect(getSession()?.admin).toBe("carol");
+  });
+
+  it("offers only an invitation or Recover access code once setup is done, with no stepper", async () => {
+    open();
+    expect(
+      await screen.findByRole("heading", { name: "Enter an invitation or Recover access code" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Invitation or Recover access code")).toBeInTheDocument();
+    expect(screen.queryByText(/Step \d of 6/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Setup progress" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Setup code")).not.toBeInTheDocument();
+    expect(screen.queryByText(/code shown on the appliance's console/)).not.toBeInTheDocument();
   });
 
   it("sends a set-up box's signed-in admin to Status", async () => {
