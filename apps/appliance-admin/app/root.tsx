@@ -2,7 +2,12 @@ import type { ReactNode } from "react";
 import type { LinksFunction } from "react-router";
 
 import { edge } from "@sneakers-web/edge";
-import { Document, type RootData, RouteError } from "@sneakers-web/shell";
+import {
+  DiagnosticsCopierProvider,
+  Document,
+  type RootData,
+  RouteError,
+} from "@sneakers-web/shell";
 import {
   type DisplaySettings,
   LiveRegion,
@@ -15,6 +20,7 @@ import { isRouteErrorResponse, Outlet, useRouteError } from "react-router";
 
 import appCss from "@/app.css?url";
 import { AccessScreen, ServerErrorScreen } from "@/components/ErrorScreens";
+import { copyApplianceDiagnostics } from "@/lib/diagnostics/copy";
 import { useReadyMarker } from "@/lib/readiness";
 
 const DISPLAY_KEY = "osadmin_display";
@@ -43,6 +49,11 @@ export const links: LinksFunction = () => [
   { href: `${import.meta.env.BASE_URL}app-icon.svg`, rel: "apple-touch-icon" },
 ];
 
+/** Every Copy diagnostics button copies the appliance report, never the product's. */
+const ApplianceDiagnostics = ({ children }: { children: ReactNode }) => (
+  <DiagnosticsCopierProvider value={copyApplianceDiagnostics}>{children}</DiagnosticsCopierProvider>
+);
+
 export const Layout = ({ children }: { children: ReactNode }) => <Document>{children}</Document>;
 
 export const meta = () => [{ title: "Sneakers-PAM appliance admin" }];
@@ -55,7 +66,9 @@ const Root = () => {
   return (
     <ThemeProvider initial={parseDisplay(localStorage.getItem(DISPLAY_KEY))} onChange={save}>
       <TooltipProvider>
-        <Outlet />
+        <ApplianceDiagnostics>
+          <Outlet />
+        </ApplianceDiagnostics>
         <Toaster />
         <LiveRegion />
       </TooltipProvider>
@@ -70,7 +83,7 @@ export default Root;
  * gateway-unreachable case (503, shell's OfflineScreen) gets "the box had a problem"; every
  * other status or thrown error still goes through shell's RouteError (404, 503, crash).
  */
-export const ErrorBoundary = () => {
+const ErrorScreen = () => {
   const error = useRouteError();
   if (isRouteErrorResponse(error) && (error.status === 401 || error.status === 403)) {
     return <AccessScreen status={error.status} />;
@@ -80,3 +93,9 @@ export const ErrorBoundary = () => {
   }
   return <RouteError />;
 };
+
+export const ErrorBoundary = () => (
+  <ApplianceDiagnostics>
+    <ErrorScreen />
+  </ApplianceDiagnostics>
+);

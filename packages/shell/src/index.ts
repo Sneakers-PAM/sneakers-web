@@ -10,7 +10,11 @@ export {
 } from "#shell/auth/StepUpDialog";
 export { CrashScreen } from "#shell/CrashScreen";
 export { AboutDialog } from "#shell/diagnostics/AboutDialog";
-export { CopyDiagnostics } from "#shell/diagnostics/CopyDiagnostics";
+export {
+  CopyDiagnostics,
+  type DiagnosticsCopier,
+  DiagnosticsCopierProvider,
+} from "#shell/diagnostics/CopyDiagnostics";
 export type { DiagnosticsData, Problem } from "#shell/diagnostics/report";
 export {
   CenteredFrame,

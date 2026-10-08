@@ -53,10 +53,13 @@ export const copyDiagnostics = async ({
   return text;
 };
 
-/** copyDiagnostics, then a toast saying whether it worked. */
-export const copyWithNotice = async (options: Parameters<typeof copyDiagnostics>[0]) => {
+/** copyDiagnostics (or an app's own copier), then a toast saying whether it worked. */
+export const copyWithNotice = async (
+  options: Parameters<typeof copyDiagnostics>[0],
+  copy: (options: Parameters<typeof copyDiagnostics>[0]) => Promise<string> = copyDiagnostics,
+) => {
   try {
-    await copyDiagnostics(options);
+    await copy(options);
     toast("Diagnostics copied. Paste them into your support request.");
   } catch {
     toast("Couldn't copy. Open About and diagnostics in the account menu to see them.");

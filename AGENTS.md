@@ -492,6 +492,13 @@ graphql.ts`, re-exported from `@sneakers-web/mock-gateway`), which resets to a p
 - The account menu of both apps has About and diagnostics (`AboutDialog`): every version and the
   copy button.
 - The mock gateway answers `diagnostics` with `mock-` versions.
+- An app with no `resources/diagnostics` gives its own copier through `DiagnosticsCopierProvider`;
+  every `CopyDiagnostics` below it, the crash, offline and not-found screens included, calls it
+  instead of asking the app server. The appliance admin does this in `root.tsx` (its page and its
+  error boundary): `copyApplianceDiagnostics` (`app/lib/diagnostics/copy.ts`) copies its own
+  report (this build, the signed-in admin, the box and its service health, no gateway) with the
+  page, the problem, the time and the browser added. On the box, the build is stamped by
+  sneakers-appliance's `build/lab/pages.sh`.
 
 ## Agent approvals
 
