@@ -212,7 +212,8 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   progress.
 - **Mock scenarios.** `applyMockScenario` (`app/mock/edge.mock.ts`), or `?mockScenario=a,b` on a
   mock build's URL, puts the mock box into a state for the tests and the review screen list:
-  `air-gapped`, `staged`, `failed`, `manual`, `no-product` (before the first product
+  `air-gapped`, `staged`, `failed` (boot counting fell back from 0.2.0), `reverted` (alice
+  reverted from 0.2.0; Status and Updates say "Reverted from", not "Failed"), `manual`, `no-product` (before the first product
   install), `product-staged` (0.2.0 staged, 0.0.9 in the previous slot), `elevated` (bob has an elevated shell open, so
   Apply and Revert are refused without an owner's override), `uploading` and `verifying` (the upload or the
   verification never finishes), `stepup` (the next step-up-gated call is refused once, so the

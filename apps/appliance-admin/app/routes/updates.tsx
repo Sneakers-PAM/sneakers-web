@@ -392,6 +392,11 @@ export default function Updates() {
           The appliance went back to the release it runs now.
         </Alert>
       )}
+      {data.revertedVersion && (
+        <Alert title={`Reverted from ${data.revertedVersion}`} tone="info">
+          {`By ${data.revertedBy ?? "an admin"}${data.revertedAt ? `, ${shortDate(data.revertedAt)}` : ""}. The appliance runs ${data.runningVersion} again.`}
+        </Alert>
+      )}
 
       <Card>
         <CardHeader title="Base system" />

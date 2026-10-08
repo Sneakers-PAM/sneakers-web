@@ -201,6 +201,10 @@ const newer = (a: string, b: string) => {
   return false;
 };
 let failedVersion = "";
+/** The last base revert an admin asked for: the release reverted from, who, and when. */
+let reverted: { revertedAt: string; revertedBy: string; revertedVersion: string } | null = null;
+/** The release the last base apply moved from, so a revert has somewhere to go back to. */
+let previousVersion = "";
 /** While set, the mock box is restarting: :8443 doesn't answer until then, and the restart ends
  * every session. */
 let restartingUntil = 0;
@@ -1029,6 +1033,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
         custodyMode,
         factoryReset: structuredClone(factoryReset),
         failedVersion,
+        ...reverted,
         protection:
           secureBootOn && custodyMode === "tpm" ? "PROTECTION_FULL" : "PROTECTION_REDUCED",
         protectionReason:
@@ -1068,8 +1073,10 @@ const route = async (service: string, method: string, body: Record<string, unkno
         body.elevationOverride as ElevationOverride | undefined,
       );
       historyEntry("apply", stagedVersion, "", detail);
+      previousVersion = runningVersion;
       runningVersion = stagedVersion;
       stagedVersion = "";
+      reverted = null;
       restart();
       return {};
     }
@@ -1106,6 +1113,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
         airGapped: isAirGapped(),
         directAvailable: DIRECT_AVAILABLE,
         failedVersion,
+        ...reverted,
         history: structuredClone(upgradeHistory),
         policy: structuredClone(upgradePolicy),
         product: structuredClone(product),
@@ -1152,6 +1160,15 @@ const route = async (service: string, method: string, body: Record<string, unkno
         body.elevationOverride as ElevationOverride | undefined,
       );
       historyEntry("revert", "", "", detail);
+      if (previousVersion) {
+        reverted = {
+          revertedAt: new Date().toISOString(),
+          revertedBy: caller(),
+          revertedVersion: runningVersion,
+        };
+        runningVersion = previousVersion;
+        previousVersion = "";
+      }
       restart();
       return {};
     }
@@ -1240,6 +1257,7 @@ const MOCK_SCENARIOS = [
   "no-product",
   "product-staged",
   "reduced",
+  "reverted",
   "reset-countdown",
   "reset-pending",
   "setup-admin",
@@ -1392,6 +1410,14 @@ export const applyMockScenario = (scenario: MockScenario): void => {
       factoryReset = pendingReset();
       break;
     }
+    case "reverted": {
+      reverted = {
+        revertedAt: "2026-10-08T14:05:00Z",
+        revertedBy: "alice",
+        revertedVersion: "0.2.0",
+      };
+      break;
+    }
     case "setup-admin":
     case "setup-finish":
     case "setup-keys":
@@ -1450,6 +1476,8 @@ export const resetMockWorld = (): void => {
   stagedVersion = "";
   product = structuredClone(world.PRODUCT_SLOTS);
   failedVersion = "";
+  reverted = null;
+  previousVersion = "";
   restartingUntil = 0;
   uploads.clear();
   uploadCount = 0;

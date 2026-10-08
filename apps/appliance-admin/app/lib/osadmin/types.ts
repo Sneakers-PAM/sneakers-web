@@ -187,6 +187,10 @@ export interface GetStatusResponse {
   phase: string;
   protection: Protection;
   protectionReason: string;
+  /** When an admin reverted the base release: the release reverted from, who, and when. */
+  revertedAt?: string;
+  revertedBy?: string;
+  revertedVersion?: string;
   runningVersion: string;
   stagedVersion: string;
   tlsExpires?: string;
@@ -643,6 +647,10 @@ export interface GetUpgradesResponse {
   policy?: UpgradePolicy;
   /** The product bundle's slots; left out by a box from before product bundles. */
   product?: ProductSlots;
+  /** When an admin reverted the base release: the release reverted from, who, and when. */
+  revertedAt?: string;
+  revertedBy?: string;
+  revertedVersion?: string;
   runningVersion: string;
   stagedVersion: string;
 }

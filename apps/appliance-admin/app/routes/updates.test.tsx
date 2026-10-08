@@ -278,6 +278,21 @@ describe("Updates", () => {
     expect(within(restarting).getByText(/Reverting to the other slot/)).toBeInTheDocument();
   });
 
+  it("shows a revert an admin asked for as reverted, not failed", async () => {
+    applyMockScenario("reverted");
+    await openPage();
+    expect(screen.getByText("Reverted from 0.2.0")).toBeInTheDocument();
+    expect(screen.getByText(/By alice/)).toBeInTheDocument();
+    expect(screen.queryByText(/failed to boot/)).not.toBeInTheDocument();
+  });
+
+  it("still shows a boot-counting fallback as failed", async () => {
+    applyMockScenario("failed");
+    await openPage();
+    expect(screen.getByText("0.2.0 failed to boot")).toBeInTheDocument();
+    expect(screen.queryByText(/Reverted from/)).not.toBeInTheDocument();
+  });
+
   it("switches the update window to manual only", async () => {
     const user = userEvent.setup();
     await openPage();
