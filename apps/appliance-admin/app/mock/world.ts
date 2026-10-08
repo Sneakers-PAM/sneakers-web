@@ -5,7 +5,6 @@ import type {
   AuditEvent,
   BackupPolicy,
   BackupSet,
-  Certificate,
   Elevation,
   FactoryReset,
   GetStatusResponse,
@@ -216,14 +215,6 @@ export const NETWORK_SETTINGS: NetdSettings = {
   managementInterface: "eth0",
   ntp: ["192.0.2.123"],
   searchDomains: ["example.org"],
-};
-
-export const PRODUCT_CERT: Certificate = {
-  expires: soon(60 * 24 * 60),
-  fingerprint: "SHA256:cK1X8qf9w2v6z4m7h5s1rQwQEuY7zL5mZ8w5z6c1h9",
-  issuer: "appliance.example.org",
-  names: ["appliance.example.org"],
-  subject: "appliance.example.org",
 };
 
 export const status: () => GetStatusResponse = () => ({

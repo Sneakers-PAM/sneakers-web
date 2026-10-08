@@ -17,6 +17,13 @@ import type {
 
 import { OsadminError } from "@/lib/osadmin/errors";
 import { getSession } from "@/lib/osadmin/sessionStore";
+import {
+  applyCertificateScenario,
+  CERTIFICATE_SCENARIOS,
+  type CertificateScenario,
+  certificatesRequest,
+  resetCertificates,
+} from "@/mock/certificates.mock";
 import * as world from "@/mock/world";
 
 /** The banner every screen shows while the app runs against the mock transport. */
@@ -235,6 +242,13 @@ const STEP_UP_METHODS = new Set([
   "PowerService/ApproveFactoryReset",
   "PowerService/EndSession",
   "PowerService/StartFactoryReset",
+  "TlsService/AssignCertificate",
+  "TlsService/CompleteCsr",
+  "TlsService/DeleteCertificate",
+  "TlsService/DiscardCsr",
+  "TlsService/GenerateCsr",
+  "TlsService/ImportCertificate",
+  "TlsService/RevertToSelfSigned",
   "UpgradeService/ApplyUpdate",
   "UpgradeService/RevertUpdate",
   "UpgradeService/SetUpgradePolicy",
@@ -454,6 +468,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
       "ACCESS_STEPUP_REQUIRED: this action needs a sign-in no older than 5 minutes",
     );
   }
+  if (service === "TlsService") return certificatesRequest(method, body);
   switch (key) {
     case "AccessService/AddAdmin": {
       const name = String(body.name ?? "").trim();
@@ -976,25 +991,6 @@ const route = async (service: string, method: string, body: Record<string, unkno
       secureBootOn = body.on as boolean;
       return {};
     }
-    case "TlsService/CreateCsr": {
-      return {
-        csrPem: "-----BEGIN CERTIFICATE REQUEST-----\nmock\n-----END CERTIFICATE REQUEST-----",
-      };
-    }
-    case "TlsService/GetTls": {
-      return {
-        adminUsesProduct: false,
-        caBundle: [],
-        product: world.PRODUCT_CERT,
-        source: "self-signed",
-      };
-    }
-    case "TlsService/SetAdminCertificate": {
-      return {};
-    }
-    case "TlsService/UploadCertificate": {
-      return {};
-    }
     case "UpgradeService/ApplyUpdate": {
       if (isProduct(body.target)) {
         if (!product.stagedVersion)
@@ -1204,7 +1200,7 @@ const MOCK_SCENARIOS = [
   "verifying",
 ] as const;
 
-export type MockScenario = (typeof MOCK_SCENARIOS)[number];
+export type MockScenario = (typeof MOCK_SCENARIOS)[number] | CertificateScenario;
 
 /** A fresh box: no admin, no recovery key, setup not started. */
 const firstBoot = () => {
@@ -1264,6 +1260,10 @@ const pendingReset = (): FactoryReset => ({
  * waiting for its quorum or counting down, and so on.
  */
 export const applyMockScenario = (scenario: MockScenario): void => {
+  if ((CERTIFICATE_SCENARIOS as string[]).includes(scenario)) {
+    applyCertificateScenario(scenario as CertificateScenario);
+    return;
+  }
   switch (scenario) {
     case "air-gapped": {
       upgradePolicy = { ...upgradePolicy, mirrorUrl: "" };
@@ -1377,7 +1377,7 @@ export const applyMockScenario = (scenario: MockScenario): void => {
   }
 };
 
-const SCENARIOS = new Set<string>(MOCK_SCENARIOS);
+const SCENARIOS = new Set<string>([...CERTIFICATE_SCENARIOS, ...MOCK_SCENARIOS]);
 
 /** `?mockScenario=staged,reset-pending` on a mock build's URL, for the review screen list. */
 const scenariosFromUrl = (): void => {
@@ -1388,6 +1388,7 @@ const scenariosFromUrl = (): void => {
 
 /** Resets every mutable piece of the mock world, so tests don't see another test's writes. */
 export const resetMockWorld = (): void => {
+  resetCertificates();
   upgradePolicy = structuredClone(world.UPGRADE_POLICY);
   runningVersion = "0.1.0";
   stagedVersion = "";
