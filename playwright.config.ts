@@ -83,7 +83,7 @@ export default defineConfig({
     },
     {
       name: "appliance-real-backend",
-      testMatch: "appliance-real-backend.spec.ts",
+      testMatch: /appliance-(real-backend|viewport)\.spec\.ts$/,
       use: { ...devices["Desktop Chrome"], baseURL: `http://127.0.0.1:${APPLIANCE_REAL_PORT}` },
     },
   ],
