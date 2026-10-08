@@ -151,6 +151,8 @@ export const setup = {
 
 export const status = {
   get: () => call<GetStatusResponse>("StatusService", "GetStatus", {}, wire.getStatus),
+  /** Public, no session: "firstboot" until setup's Finish, then "normal". */
+  getPhase: () => call<{ phase: string }>("StatusService", "GetPhase"),
   setSecureBoot: (on: boolean, confirmHostname: string) =>
     call<Record<string, never>>("StatusService", "SetSecureBoot", { confirmHostname, on }),
 };
@@ -316,10 +318,19 @@ export const backup = {
 export const upgrade = {
   /**
    * Boots the staged base release, or for the product switches to its staged slot and restarts
-   * the product services (no reboot). With an override, the named root shell is ended first.
+   * the product services (no reboot). Every call takes a fresh code from the owner's
+   * authenticator. With an override, the named root shell is ended first.
    */
-  apply: (elevationOverride?: ElevationOverride, target: UpdateTarget = "UPDATE_TARGET_BASE") =>
-    call<Record<string, never>>("UpgradeService", "ApplyUpdate", { elevationOverride, target }),
+  apply: (
+    totpCode: string,
+    elevationOverride?: ElevationOverride,
+    target: UpdateTarget = "UPDATE_TARGET_BASE",
+  ) =>
+    call<Record<string, never>>("UpgradeService", "ApplyUpdate", {
+      elevationOverride,
+      target,
+      totpCode,
+    }),
   /** A base .bin or a product bundle, from the mirror, then the release source if allowed. */
   fetch: (fileName: string) =>
     call<{ source?: string; uploadId: string }>(
@@ -337,17 +348,26 @@ export const upgrade = {
       {},
       wire.listProductVersions,
     ),
-  revert: (elevationOverride?: ElevationOverride, target: UpdateTarget = "UPDATE_TARGET_BASE") =>
-    call<Record<string, never>>("UpgradeService", "RevertUpdate", { elevationOverride, target }),
+  /** Like apply, a fresh authenticator code on every call. */
+  revert: (
+    totpCode: string,
+    elevationOverride?: ElevationOverride,
+    target: UpdateTarget = "UPDATE_TARGET_BASE",
+  ) =>
+    call<Record<string, never>>("UpgradeService", "RevertUpdate", {
+      elevationOverride,
+      target,
+      totpCode,
+    }),
   setPolicy: (policy: UpgradePolicy) =>
     call<Record<string, never>>("UpgradeService", "SetUpgradePolicy", { policy }),
   /** Verifies the upload's signature, channel and hash, and only then unpacks and stages it. */
   stage: (uploadId: string) =>
-    call<{ package: UpdatePackage }>(
+    call<{ package: UpdatePackage; slot?: string }>(
       "UpgradeService",
       "StageUpdate",
       { uploadId },
-      wire.withPackage,
+      wire.stageUpdate,
     ),
   upload: (file: Blob, onProgress?: (fraction: number) => void) => edge.upload(file, onProgress),
 };

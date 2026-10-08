@@ -6,8 +6,13 @@ import type { GetSetupResponse } from "@/lib/osadmin/types";
 import { PasswordInput } from "@/components/PasswordInput";
 import { runAction } from "@/lib/osadmin/action";
 import { setup, signIn } from "@/lib/osadmin/client";
+import { OsadminError } from "@/lib/osadmin/errors";
 import { refusalMessage } from "@/lib/osadmin/refusal";
 import { setSession } from "@/lib/osadmin/sessionStore";
+
+/** True when the call got no answer from osadmin: the box is going down for its restart. */
+const wentAway = (error: unknown): boolean =>
+  !(error instanceof OsadminError) || error.code === "unavailable" || error.code === "unknown";
 
 /**
  * Step 6: one sign-in with the name, password and code, which shows the admin can get back in,
@@ -38,9 +43,19 @@ export const FinishStep = ({
       .signIn(admin.trim(), password, code)
       .then(async (response) => {
         setSession(response.session);
-        await runAction(() => setup.finish(), {
-          onSuccess: (result) => onFinished(result.productSetupUrl),
-        });
+        await runAction(
+          async () => {
+            try {
+              return await setup.finish();
+            } catch (error) {
+              // The box may start its restart before Finish's answer gets back; that's a
+              // finished setup, and the restart page takes it from there.
+              if (!wentAway(error)) throw error;
+              return { productSetupUrl: "" };
+            }
+          },
+          { onSuccess: (result) => onFinished(result.productSetupUrl) },
+        );
       })
       .catch((error: unknown) => {
         setRefusal(refusalMessage(error, { what: "sign-in", who: admin.trim() }));

@@ -3,7 +3,6 @@ import userEvent from "@testing-library/user-event";
 
 import { elevation, upgrade } from "@/lib/osadmin/client";
 import { OsadminError } from "@/lib/osadmin/errors";
-import { cancelStepUp, stepUpPending } from "@/lib/osadmin/stepUpController";
 import { applyMockScenario } from "@/mock/edge.mock";
 import Updates from "@/routes/updates";
 import { renderPage } from "@/test/renderPage";
@@ -46,10 +45,30 @@ describe("Updates", () => {
     expect(screen.queryByText(/Signature: verified/)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Verify and stage" }));
     const result = await screen.findByRole("region", { name: "Verify result" });
-    expect(within(result).getByText(/Signature: verified/)).toBeInTheDocument();
-    expect(within(result).getByText(/Channel: stable/)).toBeInTheDocument();
-    expect(within(result).getByText(/SHA-256: [0-9a-f]{64}/)).toBeInTheDocument();
-    expect(within(result).getByText(/full release 0.2.0/)).toBeInTheDocument();
+    expect(within(result).getByText("Verified")).toBeInTheDocument();
+    const terms = within(result)
+      .getAllByRole("term")
+      .map((term) => term.textContent);
+    expect(terms).toEqual([
+      "File",
+      "Version",
+      "Architecture",
+      "Signature",
+      "Channel",
+      "SHA-256",
+      "Staged",
+    ]);
+    const values = within(result)
+      .getAllByRole("definition")
+      .map((value) => value.textContent);
+    expect(values[0]).toBe("sneakers-appliance-0.2.0-amd64.bin");
+    expect(values[1]).toBe("full release 0.2.0");
+    expect(values[2]).toBe("amd64");
+    expect(values[3]).toBe("Verified against this appliance's release key");
+    expect(values[4]).toBe("stable");
+    expect(values[5]).toMatch(/^[0-9a-f]{64}Copy$/);
+    expect(values[6]).toBe("Staged into slot B");
+    expect(within(result).getByRole("button", { name: "Copy" })).toBeInTheDocument();
     expect(await screen.findByText(/Other slot: staged 0.2.0/)).toBeInTheDocument();
   });
 
@@ -114,7 +133,7 @@ describe("Updates", () => {
     expect(screen.queryByRole("button", { name: "Fetch" })).not.toBeInTheDocument();
   });
 
-  it("applies the staged release only after its version is typed", async () => {
+  it("applies the staged release only with its version typed and a fresh code", async () => {
     applyMockScenario("staged");
     const user = userEvent.setup();
     await openPage();
@@ -123,21 +142,34 @@ describe("Updates", () => {
     const confirm = within(dialog).getByRole("button", { name: "Apply and reboot" });
     expect(confirm).toBeDisabled();
     await user.type(within(dialog).getByLabelText("Type 0.2.0 to confirm"), "0.2.0");
+    expect(confirm).toBeDisabled();
+    await user.type(within(dialog).getByLabelText("Authenticator code"), "123456");
     expect(confirm).not.toBeDisabled();
     await user.click(confirm);
-    expect(await screen.findByText(/Applying 0.2.0/)).toBeInTheDocument();
+    const restarting = await screen.findByRole("region", { name: "Restarting" });
+    expect(within(restarting).getByText(/Applying 0.2.0/)).toBeInTheDocument();
+    expect(
+      within(restarting).getByRole("heading", { name: "The box is restarting" }),
+    ).toBeInTheDocument();
   });
 
-  it("asks for a fresh sign-in when the apply needs a step-up", async () => {
+  it("keeps a wrong code's refusal in the dialog, with the tries left", async () => {
     applyMockScenario("staged");
-    applyMockScenario("stepup");
     const user = userEvent.setup();
     await openPage();
     await user.click(screen.getByRole("button", { name: "Apply 0.2.0" }));
-    await user.type(screen.getByLabelText("Type 0.2.0 to confirm"), "0.2.0");
-    await user.click(screen.getByRole("button", { name: "Apply and reboot" }));
-    await vi.waitFor(() => expect(stepUpPending()).toBe(true));
-    cancelStepUp();
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByLabelText("Type 0.2.0 to confirm"), "0.2.0");
+    await user.type(within(dialog).getByLabelText("Authenticator code"), "000000");
+    await user.click(within(dialog).getByRole("button", { name: "Apply and reboot" }));
+    expect(await within(dialog).findByText(/That code didn't work/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/tries? left/)).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Restarting" })).not.toBeInTheDocument();
+  });
+
+  it("asks for the code even right after a stage, whatever the step-up window says", async () => {
+    applyMockScenario("staged");
+    await expect(upgrade.apply("")).rejects.toThrow(/ACCESS_CONFIRM/);
   });
 
   it("names who holds an open elevated shell", async () => {
@@ -154,6 +186,7 @@ describe("Updates", () => {
     await openPage();
     await user.click(screen.getByRole("button", { name: "Apply 0.2.0" }));
     await user.type(screen.getByLabelText("Type 0.2.0 to confirm"), "0.2.0");
+    await user.type(screen.getByLabelText("Authenticator code"), "123456");
     await user.click(screen.getByRole("button", { name: "Apply and reboot" }));
     const refusal = await screen.findByRole("region", { name: "Apply refused" });
     expect(within(refusal).getByText(/UPGRADE_ELEVATED/)).toBeInTheDocument();
@@ -167,6 +200,8 @@ describe("Updates", () => {
     await user.type(within(dialog).getByLabelText("Type bob E-9M4T to confirm"), "bob E-9M4");
     expect(go).toBeDisabled();
     await user.type(within(dialog).getByLabelText("Type bob E-9M4T to confirm"), "T");
+    expect(go).toBeDisabled();
+    await user.type(within(dialog).getByLabelText("Authenticator code"), "234567");
     expect(go).not.toBeDisabled();
     await user.click(go);
     expect(await screen.findByText(/Applying 0.2.0/)).toBeInTheDocument();
@@ -179,16 +214,20 @@ describe("Updates", () => {
     applyMockScenario("elevated");
     const order: string[] = [];
     const real = upgrade.apply;
-    vi.spyOn(upgrade, "apply").mockImplementation(async (override) => {
-      const result = await real(override);
+    vi.spyOn(upgrade, "apply").mockImplementation(async (code, override) => {
+      const result = await real(code, override);
       const after = await upgrade.get();
       order.push(
         after.activeElevations?.length ? "applied under a shell" : "shell ended, then applied",
       );
       return result;
     });
-    await expect(upgrade.apply()).rejects.toThrow(/UPGRADE_ELEVATED/);
-    await upgrade.apply({ confirm: "bob E-9M4T", elevationId: "E-9M4T", reason: "patch now" });
+    await expect(upgrade.apply("123456")).rejects.toThrow(/UPGRADE_ELEVATED/);
+    await upgrade.apply("234567", {
+      confirm: "bob E-9M4T",
+      elevationId: "E-9M4T",
+      reason: "patch now",
+    });
     expect(order).toEqual(["shell ended, then applied"]);
     const after = await upgrade.get();
     expect(after.history?.[0]?.detail).toBe("ended elevated shell E-9M4T");
@@ -198,7 +237,11 @@ describe("Updates", () => {
     applyMockScenario("staged");
     applyMockScenario("elevated");
     await expect(
-      upgrade.apply({ confirm: "alice E-9M4T", elevationId: "E-9M4T", reason: "patch now" }),
+      upgrade.apply("123456", {
+        confirm: "alice E-9M4T",
+        elevationId: "E-9M4T",
+        reason: "patch now",
+      }),
     ).rejects.toThrow(/ACCESS_CONFIRM/);
     const { elevations } = await elevation.list();
     expect(elevations.find((item) => item.id === "E-9M4T")?.state).toBe("active");
@@ -209,6 +252,8 @@ describe("Updates", () => {
     const user = userEvent.setup();
     await openPage();
     await user.click(screen.getByRole("button", { name: "Revert to the other slot" }));
+    await user.type(screen.getByLabelText("Type 0.1.0 to confirm"), "0.1.0");
+    await user.type(screen.getByLabelText("Authenticator code"), "123456");
     await user.click(screen.getByRole("button", { name: "Revert and reboot" }));
     const refusal = await screen.findByRole("region", { name: "Revert refused" });
     await user.click(within(refusal).getByRole("button", { name: "End bob's shell and revert" }));
@@ -221,6 +266,7 @@ describe("Updates", () => {
     );
     await user.type(within(dialog).getByLabelText("Reason"), "roll back the bad release");
     await user.type(within(dialog).getByLabelText("Type bob E-9M4T to confirm"), "bob E-9M4T");
+    await user.type(within(dialog).getByLabelText("Authenticator code"), "234567");
     await user.click(within(dialog).getByRole("button", { name: "End the shell and revert" }));
     expect(await within(dialog).findByText(/ACCESS_CONFIRM/)).toBeInTheDocument();
     expect(screen.queryByText(/Reverting to the other slot/)).not.toBeInTheDocument();
@@ -233,17 +279,38 @@ describe("Updates", () => {
     expect(screen.getByRole("region", { name: "Elevated shell open" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /End bob's shell/ })).not.toBeInTheDocument();
     await expect(
-      upgrade.revert({ confirm: "bob E-9M4T", elevationId: "E-9M4T", reason: "mine" }),
+      upgrade.revert("123456", { confirm: "bob E-9M4T", elevationId: "E-9M4T", reason: "mine" }),
     ).rejects.toThrow(/ACCESS_FORBIDDEN/);
   });
 
-  it("reverts to the other slot after a confirmation", async () => {
+  it("reverts to the other slot with the running version typed and a fresh code", async () => {
     const user = userEvent.setup();
     await openPage();
     await user.click(screen.getByRole("button", { name: "Revert to the other slot" }));
     const dialog = await screen.findByRole("dialog");
-    await user.click(within(dialog).getByRole("button", { name: "Revert and reboot" }));
-    expect(await screen.findByText(/Reverting to the other slot/)).toBeInTheDocument();
+    const confirm = within(dialog).getByRole("button", { name: "Revert and reboot" });
+    expect(confirm).toBeDisabled();
+    await user.type(within(dialog).getByLabelText("Type 0.1.0 to confirm"), "0.1.0");
+    expect(confirm).toBeDisabled();
+    await user.type(within(dialog).getByLabelText("Authenticator code"), "123456");
+    await user.click(confirm);
+    const restarting = await screen.findByRole("region", { name: "Restarting" });
+    expect(within(restarting).getByText(/Reverting to the other slot/)).toBeInTheDocument();
+  });
+
+  it("shows a revert an admin asked for as reverted, not failed", async () => {
+    applyMockScenario("reverted");
+    await openPage();
+    expect(screen.getByText("Reverted from 0.2.0")).toBeInTheDocument();
+    expect(screen.getByText(/By alice/)).toBeInTheDocument();
+    expect(screen.queryByText(/failed to boot/)).not.toBeInTheDocument();
+  });
+
+  it("still shows a boot-counting fallback as failed", async () => {
+    applyMockScenario("failed");
+    await openPage();
+    expect(screen.getByText("0.2.0 failed to boot")).toBeInTheDocument();
+    expect(screen.queryByText(/Reverted from/)).not.toBeInTheDocument();
   });
 
   it("switches the update window to manual only", async () => {
@@ -336,6 +403,7 @@ describe("Updates", () => {
       const dialog = within(await screen.findByRole("dialog"));
       expect(dialog.getByText(/no reboot/)).toBeInTheDocument();
       await user.type(dialog.getByLabelText("Type 0.2.0 to confirm"), "0.2.0");
+      await user.type(dialog.getByLabelText("Authenticator code"), "123456");
       await user.click(dialog.getByRole("button", { name: "Install and restart the product" }));
       expect(await screen.findByText("Installing product 0.2.0")).toBeInTheDocument();
       const after = await upgrade.get();
@@ -348,11 +416,10 @@ describe("Updates", () => {
       await openPage();
       const product = within(screen.getByRole("region", { name: "Product" }));
       await user.click(product.getByRole("button", { name: "Revert product to 0.0.9" }));
-      await user.click(
-        within(await screen.findByRole("dialog")).getByRole("button", {
-          name: "Revert the product",
-        }),
-      );
+      const dialog = within(await screen.findByRole("dialog"));
+      await user.type(dialog.getByLabelText("Type 0.0.9 to confirm"), "0.0.9");
+      await user.type(dialog.getByLabelText("Authenticator code"), "123456");
+      await user.click(dialog.getByRole("button", { name: "Revert the product" }));
       expect(await screen.findByText("Reverting the product to 0.0.9")).toBeInTheDocument();
       const after = await upgrade.get();
       expect(after.product?.installedVersion).toBe("0.0.9");

@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createRoutesStub } from "react-router";
 
+import { setup } from "@/lib/osadmin/client";
 import { csrfToken, getSession } from "@/lib/osadmin/sessionStore";
 import {
   applyMockScenario,
@@ -258,10 +259,32 @@ describe("Setup", () => {
     expect(finish).toBeDisabled();
     await user.click(screen.getByRole("checkbox", { name: /Go on with one admin/ }));
     await user.click(finish);
-    expect(await screen.findByText("Setup is complete")).toBeInTheDocument();
-    expect(screen.getByText(/You're signed in as alice/)).toBeInTheDocument();
-    await user.click(screen.getByRole("link", { name: "Go to Updates" }));
-    expect(await screen.findByText("Updates page")).toBeInTheDocument();
+    // The box restarts into normal operation: no links until it answers again.
+    const restarting = await screen.findByRole("region", { name: "Restarting" });
+    expect(
+      within(restarting).getByRole("heading", { name: "The box is restarting" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Go to Updates" })).not.toBeInTheDocument();
+    expect(
+      await screen.findByText("Setup is complete", {}, { timeout: 15_000 }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/every session ended/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Go to Updates" })).toHaveAttribute("href", "/updates");
+    expect(screen.getByRole("link", { name: "Go to Status" })).toHaveAttribute("href", "/home");
+  }, 30_000);
+
+  it("waits out the restart even when the box goes down before Finish answers", async () => {
+    applyMockScenario("setup-finish");
+    vi.spyOn(setup, "finish").mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    const user = userEvent.setup();
+    open();
+    await screen.findByText("Step 6 of 6: Sign in to finish");
+    await user.type(screen.getByLabelText("Password"), MOCK_PASSWORD);
+    await user.type(screen.getByLabelText("Authenticator code"), "135790");
+    const understood = screen.queryByRole("checkbox", { name: /Go on with one admin/ });
+    if (understood) await user.click(understood);
+    await user.click(screen.getByRole("button", { name: "Sign in and finish" }));
+    expect(await screen.findByRole("region", { name: "Restarting" })).toBeInTheDocument();
   });
 
   it("takes an invitation code: the name is fixed, then a password and an authenticator", async () => {

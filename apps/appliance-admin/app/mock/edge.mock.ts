@@ -201,6 +201,27 @@ const newer = (a: string, b: string) => {
   return false;
 };
 let failedVersion = "";
+/** The last base revert an admin asked for: the release reverted from, who, and when. */
+let reverted: { revertedAt: string; revertedBy: string; revertedVersion: string } | null = null;
+/** The release the last base apply moved from, so a revert has somewhere to go back to. */
+let previousVersion = "";
+/** While set, the mock box is restarting: :8443 doesn't answer until then, and the restart ends
+ * every session. */
+let restartingUntil = 0;
+const RESTART_MS = 3000;
+const restart = () => {
+  restartingUntil = Date.now() + RESTART_MS;
+};
+/** Apply and Revert take a fresh authenticator code on every call, not the step-up window. */
+const checkCallCode = (code: unknown): void => {
+  const value = typeof code === "string" ? code.trim() : "";
+  if (!value)
+    throw new OsadminError(
+      "invalid_argument",
+      "ACCESS_CONFIRM: type a new code from your authenticator to confirm",
+    );
+  checkCredentials(caller(), null, value);
+};
 const uploads = new Map<string, Blob>();
 let uploadCount = 0;
 /** Scenario switches for the review screen list and the tests (see applyMockScenario). */
@@ -249,8 +270,6 @@ const STEP_UP_METHODS = new Set([
   "TlsService/GenerateCsr",
   "TlsService/ImportCertificate",
   "TlsService/RevertToSelfSigned",
-  "UpgradeService/ApplyUpdate",
-  "UpgradeService/RevertUpdate",
   "UpgradeService/SetUpgradePolicy",
   "UpgradeService/StageUpdate",
 ]);
@@ -876,6 +895,8 @@ const route = async (service: string, method: string, body: Record<string, unkno
           "SETUP_INCOMPLETE: confirm the single-admin warning",
         );
       setupDone = true;
+      // The box restarts into normal operation after Finish.
+      restart();
       return { productSetupUrl: "https://sneakers.example.org/setup" };
     }
     case "SetupService/GenerateRecoveryKey": {
@@ -970,6 +991,12 @@ const route = async (service: string, method: string, body: Record<string, unkno
       return {};
     }
     case "SignInService/GetSession": {
+      if (restartingUntil) {
+        if (Date.now() < restartingUntil)
+          throw new OsadminError("unavailable", "The appliance didn't answer.");
+        restartingUntil = 0;
+        cookieSession = null;
+      }
       return { session: cookieSession ?? undefined };
     }
     case "SignInService/SignIn": {
@@ -994,6 +1021,11 @@ const route = async (service: string, method: string, body: Record<string, unkno
       cookieSession = session;
       return { session };
     }
+    case "StatusService/GetPhase": {
+      if (restartingUntil && Date.now() < restartingUntil)
+        throw new OsadminError("unavailable", "The appliance didn't answer.");
+      return { phase: setupDone ? "normal" : "firstboot" };
+    }
     case "StatusService/GetStatus": {
       powerState();
       return {
@@ -1001,6 +1033,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
         custodyMode,
         factoryReset: structuredClone(factoryReset),
         failedVersion,
+        ...reverted,
         protection:
           secureBootOn && custodyMode === "tpm" ? "PROTECTION_FULL" : "PROTECTION_REDUCED",
         protectionReason:
@@ -1016,6 +1049,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
       return {};
     }
     case "UpgradeService/ApplyUpdate": {
+      checkCallCode(body.totpCode);
       if (isProduct(body.target)) {
         if (!product.stagedVersion)
           throw new OsadminError("failed_precondition", "UPGRADE_NOT_STAGED: no product is staged");
@@ -1039,8 +1073,11 @@ const route = async (service: string, method: string, body: Record<string, unkno
         body.elevationOverride as ElevationOverride | undefined,
       );
       historyEntry("apply", stagedVersion, "", detail);
+      previousVersion = runningVersion;
       runningVersion = stagedVersion;
       stagedVersion = "";
+      reverted = null;
+      restart();
       return {};
     }
     case "UpgradeService/FetchUpdate": {
@@ -1076,6 +1113,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
         airGapped: isAirGapped(),
         directAvailable: DIRECT_AVAILABLE,
         failedVersion,
+        ...reverted,
         history: structuredClone(upgradeHistory),
         policy: structuredClone(upgradePolicy),
         product: structuredClone(product),
@@ -1097,6 +1135,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
       return { baseVersion: runningVersion, versions };
     }
     case "UpgradeService/RevertUpdate": {
+      checkCallCode(body.totpCode);
       if (isProduct(body.target)) {
         if (!product.previousVersion)
           throw new OsadminError(
@@ -1121,6 +1160,16 @@ const route = async (service: string, method: string, body: Record<string, unkno
         body.elevationOverride as ElevationOverride | undefined,
       );
       historyEntry("revert", "", "", detail);
+      if (previousVersion) {
+        reverted = {
+          revertedAt: new Date().toISOString(),
+          revertedBy: caller(),
+          revertedVersion: runningVersion,
+        };
+        runningVersion = previousVersion;
+        previousVersion = "";
+      }
+      restart();
       return {};
     }
     case "UpgradeService/SetUpgradePolicy": {
@@ -1145,7 +1194,9 @@ const route = async (service: string, method: string, body: Record<string, unkno
         if (isProduct(updatePackage.target)) product.stagedVersion = updatePackage.version;
         else stagedVersion = updatePackage.version;
         historyEntry("stage", updatePackage.version, "", "", updatePackage.target);
-        return { package: updatePackage };
+        return isProduct(updatePackage.target)
+          ? { package: updatePackage }
+          : { package: updatePackage, slot: "B" };
       } catch (error) {
         historyEntry("stage", "", error instanceof OsadminError ? (error.symbol ?? "") : "");
         throw error;
@@ -1208,6 +1259,7 @@ const MOCK_SCENARIOS = [
   "no-product",
   "product-staged",
   "reduced",
+  "reverted",
   "reset-countdown",
   "reset-pending",
   "setup-admin",
@@ -1360,6 +1412,14 @@ export const applyMockScenario = (scenario: MockScenario): void => {
       factoryReset = pendingReset();
       break;
     }
+    case "reverted": {
+      reverted = {
+        revertedAt: "2026-10-08T14:05:00Z",
+        revertedBy: "alice",
+        revertedVersion: "0.2.0",
+      };
+      break;
+    }
     case "setup-admin":
     case "setup-finish":
     case "setup-keys":
@@ -1418,6 +1478,9 @@ export const resetMockWorld = (): void => {
   stagedVersion = "";
   product = structuredClone(world.PRODUCT_SLOTS);
   failedVersion = "";
+  reverted = null;
+  previousVersion = "";
+  restartingUntil = 0;
   uploads.clear();
   uploadCount = 0;
   uploadStalls = false;

@@ -1,4 +1,13 @@
-import { Alert, Badge, Card, CardHeader, PageHeader, Pill, Skeleton } from "@sneakers-web/ui";
+import {
+  Alert,
+  Badge,
+  Card,
+  CardHeader,
+  PageHeader,
+  Pill,
+  shortDate,
+  Skeleton,
+} from "@sneakers-web/ui";
 import { useEffect, useState } from "react";
 
 import type { GetStatusResponse } from "@/lib/osadmin/types";
@@ -74,6 +83,11 @@ export default function Home() {
                   Running <b>{data.runningVersion}</b> on {data.channel}
                 </p>
                 {data.stagedVersion && <p>Staged: {data.stagedVersion}</p>}
+                {data.revertedVersion && (
+                  <p>
+                    {`Reverted from ${data.revertedVersion} (by ${data.revertedBy ?? "an admin"}${data.revertedAt ? `, ${shortDate(data.revertedAt)}` : ""})`}
+                  </p>
+                )}
                 {data.failedVersion && <p className="text-danger">Failed: {data.failedVersion}</p>}
               </div>
             </Card>

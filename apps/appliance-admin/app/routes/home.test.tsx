@@ -29,6 +29,21 @@ describe("Home", () => {
     expect(screen.getByText(/Running/)).toBeInTheDocument();
   });
 
+  it("shows a revert an admin asked for as reverted, in a neutral tone, not as failed", async () => {
+    applyMockScenario("reverted");
+    renderPage(Home);
+    const line = await screen.findByText(/Reverted from 0.2.0/);
+    expect(line).toHaveTextContent(/Reverted from 0.2.0 \(by alice, .+\)/);
+    expect(line).not.toHaveClass("text-danger");
+    expect(screen.queryByText(/Failed:/)).not.toBeInTheDocument();
+  });
+
+  it("keeps Failed for a boot-counting fallback", async () => {
+    applyMockScenario("failed");
+    renderPage(Home);
+    expect(await screen.findByText("Failed: 0.2.0")).toHaveClass("text-danger");
+  });
+
   it("shows a factory reset waiting for its quorum", async () => {
     applyMockScenario("reset-pending");
     renderPage(Home);

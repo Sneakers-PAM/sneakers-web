@@ -5,6 +5,7 @@ import {
   Card,
   CardHeader,
   Checkbox,
+  CodeInput,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -25,7 +26,7 @@ import {
   TableHeaderCell,
   TableRow,
 } from "@sneakers-web/ui";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import type {
   Elevation,
@@ -37,10 +38,18 @@ import type {
   UpgradePolicy,
 } from "@/lib/osadmin/types";
 
+import { BoxRestarting } from "@/components/BoxRestarting";
 import { NotAvailable } from "@/components/NotAvailable";
 import { runAction } from "@/lib/osadmin/action";
 import { upgrade } from "@/lib/osadmin/client";
-import { isNotAvailable, isStepUpRequired, OsadminError } from "@/lib/osadmin/errors";
+import {
+  isNotAvailable,
+  isStepUpRequired,
+  OsadminError,
+  reasonOf,
+  refusalOf,
+} from "@/lib/osadmin/errors";
+import { refusalMessage } from "@/lib/osadmin/refusal";
 import { useSession } from "@/lib/useSession";
 
 /** An apply or revert the box refused because an elevated shell is open. */
@@ -79,7 +88,7 @@ type Step =
   | { fileName: string; kind: "received"; uploadId: string; via: "Fetched" | "Uploaded" }
   | { fileName: string; kind: "refused"; reason: string }
   | { fileName: string; kind: "uploading"; progress: number }
-  | { fileName: string; kind: "verified"; updatePackage: UpdatePackage }
+  | { fileName: string; kind: "verified"; slot?: string; updatePackage: UpdatePackage }
   | { fileName: string; kind: "verifying"; uploadId: string }
   | { kind: "idle" };
 
@@ -99,8 +108,15 @@ const describePackage = (updatePackage: UpdatePackage): string => {
 const errorText = (error: unknown): string =>
   error instanceof Error ? error.message : "The appliance refused the file.";
 
+/** True when the box refused the call's own authenticator code: empty, wrong or used already. */
+const isCodeRefusal = (error: unknown): boolean =>
+  !!refusalOf(error) || (error instanceof OsadminError && error.symbol === "ACCESS_CONFIRM");
+
+/** How an apply or revert ended: started, held by an elevated shell, or its code refused. */
+type Outcome = "held" | "refused" | "started";
+
 export default function Updates() {
-  const { isOwner } = useSession();
+  const { isOwner, session } = useSession();
   const [data, setData] = useState<GetUpgradesResponse>();
   const [step, setStep] = useState<Step>({ kind: "idle" });
   const [mirrorFile, setMirrorFile] = useState("");
@@ -209,7 +225,7 @@ export default function Updates() {
       {
         onSuccess: (result) => {
           if (!result) return;
-          setStep({ fileName, kind: "verified", updatePackage: result.package });
+          setStep({ fileName, kind: "verified", slot: result.slot, updatePackage: result.package });
           reload();
         },
       },
@@ -231,34 +247,47 @@ export default function Updates() {
     setRebooting(action === "apply" ? { kind: "applying", version } : { kind: "reverting" });
   };
 
+  // Every apply or revert carries a fresh authenticator code; a refused code stays in the dialog.
   // An open elevated shell refuses the update; the refusal stays on the page with who holds the
   // shell (re-read from GetUpgrades), and an owner can end it from there.
-  const runUpdate = (action: Held["action"], version: string, target: UpdateTarget) =>
-    void runAction(
-      async () => {
+  const runUpdate = (
+    action: Held["action"],
+    version: string,
+    target: UpdateTarget,
+    code: string,
+    refuse: (text: string) => void,
+  ) =>
+    runAction(
+      async (): Promise<Outcome> => {
         try {
           const update = action === "apply" ? upgrade.apply : upgrade.revert;
-          await update(undefined, target);
-          return true;
+          await update(code, undefined, target);
+          return "started";
         } catch (error) {
+          if (isCodeRefusal(error)) {
+            refuse(
+              refusalOf(error)
+                ? refusalMessage(error, { what: "code", who: session?.admin })
+                : reasonOf(error),
+            );
+            return "refused";
+          }
           if (!isElevated(error)) throw error;
           setHeld({ action, message: errorText(error), target, version });
           reload();
-          return false;
+          return "held";
         }
       },
       {
-        onSuccess: (done) => {
+        onSuccess: (outcome) => {
+          if (outcome === "refused") return;
           setConfirmApply(null);
           setConfirmRevert(false);
           setConfirmProductRevert(null);
-          if (done) started(action, version, target);
+          if (outcome === "started") started(action, version, target);
         },
       },
     );
-
-  const apply = (version: string, target: UpdateTarget) => runUpdate("apply", version, target);
-  const revert = () => runUpdate("revert", "", BASE);
 
   const savePolicy = () =>
     void runAction(
@@ -282,6 +311,21 @@ export default function Updates() {
   }
   if (!data) return null;
 
+  if (rebooting?.kind === "applying" || rebooting?.kind === "reverting") {
+    return (
+      <div className="flex flex-col gap-5 p-5.5">
+        <PageHeader eyebrow="Appliance" title="Updates" />
+        <BoxRestarting>
+          <p className="m-0 font-bold">
+            {rebooting.kind === "applying"
+              ? `Applying ${rebooting.version}. The box reboots into the new release in the other slot.`
+              : "Reverting to the other slot. The box reboots into the previous release."}
+          </p>
+        </BoxRestarting>
+      </div>
+    );
+  }
+
   const staged = data.stagedVersion;
   const openShells = data.activeElevations ?? [];
   const product = data.product;
@@ -291,16 +335,6 @@ export default function Updates() {
     <div className="flex flex-col gap-5 p-5.5">
       <PageHeader eyebrow="Appliance" title="Updates" />
 
-      {rebooting?.kind === "applying" && (
-        <Alert title={`Applying ${rebooting.version}`} tone="warn">
-          The appliance is rebooting into the new release. Sign in again when it&apos;s back.
-        </Alert>
-      )}
-      {rebooting?.kind === "reverting" && (
-        <Alert title="Reverting to the other slot" tone="warn">
-          The appliance is rebooting into the previous release. Sign in again when it&apos;s back.
-        </Alert>
-      )}
       {rebooting?.kind === "installing" && (
         <Alert title={`Installing product ${rebooting.version}`} tone="info">
           The product services restart on the new version. The box doesn&apos;t reboot, and this
@@ -356,6 +390,11 @@ export default function Updates() {
       {data.failedVersion && (
         <Alert title={`${data.failedVersion} failed to boot`} tone="danger">
           The appliance went back to the release it runs now.
+        </Alert>
+      )}
+      {data.revertedVersion && (
+        <Alert title={`Reverted from ${data.revertedVersion}`} tone="info">
+          {`By ${data.revertedBy ?? "an admin"}${data.revertedAt ? `, ${shortDate(data.revertedAt)}` : ""}. The appliance runs ${data.runningVersion} again.`}
         </Alert>
       )}
 
@@ -619,11 +658,27 @@ export default function Updates() {
 
       <Dialog onOpenChange={(open) => !open && setConfirmApply(null)} open={!!confirmApply}>
         {confirmApply && (
-          <ApplyDialog
-            onApply={() => apply(confirmApply.version, confirmApply.target)}
+          <ConfirmUpdateDialog
+            confirmLabel={
+              confirmApply.target === PRODUCT
+                ? "Install and restart the product"
+                : "Apply and reboot"
+            }
+            description={
+              confirmApply.target === PRODUCT
+                ? `The product services (k0s and Sneakers-PAM) restart on ${confirmApply.version}, with no reboot. Sneakers-PAM is unavailable until they're back; the previous version stays in the other slot.`
+                : `The appliance reboots into ${confirmApply.version}. Every session ends, and the box is unavailable until it's back.`
+            }
             onCancel={() => setConfirmApply(null)}
-            target={confirmApply.target}
-            version={confirmApply.version}
+            onConfirm={(code, refuse) =>
+              runUpdate("apply", confirmApply.version, confirmApply.target, code, refuse)
+            }
+            title={
+              confirmApply.target === PRODUCT
+                ? `Install product ${confirmApply.version}`
+                : `Apply ${confirmApply.version}`
+            }
+            word={confirmApply.version}
           />
         )}
       </Dialog>
@@ -647,46 +702,31 @@ export default function Updates() {
         onOpenChange={(open) => !open && setConfirmProductRevert(null)}
         open={!!confirmProductRevert}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Revert the product to {confirmProductRevert}</DialogTitle>
-            <DialogDescription>
-              The product services restart on the previous slot&apos;s version. The box doesn&apos;t
-              reboot.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button onClick={() => setConfirmProductRevert(null)} variant="secondary">
-              Cancel
-            </Button>
-            <Button
-              onClick={() => runUpdate("revert", confirmProductRevert ?? "", PRODUCT)}
-              variant="danger"
-            >
-              Revert the product
-            </Button>
-          </DialogFooter>
-        </DialogContent>
+        {confirmProductRevert && (
+          <ConfirmUpdateDialog
+            confirmLabel="Revert the product"
+            description="The product services restart on the previous slot's version. The box doesn't reboot."
+            onCancel={() => setConfirmProductRevert(null)}
+            onConfirm={(code, refuse) =>
+              runUpdate("revert", confirmProductRevert, PRODUCT, code, refuse)
+            }
+            title={`Revert the product to ${confirmProductRevert}`}
+            word={confirmProductRevert}
+          />
+        )}
       </Dialog>
 
       <Dialog onOpenChange={setConfirmRevert} open={confirmRevert}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Revert to the other slot</DialogTitle>
-            <DialogDescription>
-              The running release is marked bad and the appliance reboots into the previous one.
-              Every session ends.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button onClick={() => setConfirmRevert(false)} variant="secondary">
-              Cancel
-            </Button>
-            <Button onClick={revert} variant="danger">
-              Revert and reboot
-            </Button>
-          </DialogFooter>
-        </DialogContent>
+        {confirmRevert && (
+          <ConfirmUpdateDialog
+            confirmLabel="Revert and reboot"
+            description="The running release is marked bad and the appliance reboots into the previous one. Every session ends."
+            onCancel={() => setConfirmRevert(false)}
+            onConfirm={(code, refuse) => runUpdate("revert", "", BASE, code, refuse)}
+            title="Revert to the other slot"
+            word={data.runningVersion}
+          />
+        )}
       </Dialog>
     </div>
   );
@@ -740,21 +780,12 @@ const UpdateStep = ({
       );
     }
     case "verified": {
-      const { updatePackage } = step;
       return (
-        <section
-          aria-label="Verify result"
-          className="flex flex-col gap-1 border-t border-border pt-4"
-        >
-          <p>
-            <Badge tone="ok">verified</Badge> {step.fileName}: {describePackage(updatePackage)},{" "}
-            {updatePackage.arch}
-          </p>
-          <p>Signature: verified against this appliance&apos;s release key</p>
-          <p>Channel: {updatePackage.channel}</p>
-          <p className="font-mono break-all">SHA-256: {updatePackage.sha256}</p>
-          <p>Staged into the other slot.</p>
-        </section>
+        <VerifiedPanel
+          fileName={step.fileName}
+          slot={step.slot}
+          updatePackage={step.updatePackage}
+        />
       );
     }
     case "verifying": {
@@ -768,38 +799,115 @@ const UpdateStep = ({
   }
 };
 
-const ApplyDialog = ({
-  onApply,
-  onCancel,
-  target,
-  version,
+/** The verified file: what it is, that its signature checked out, its hash, and where it went. */
+const VerifiedPanel = ({
+  fileName,
+  slot,
+  updatePackage,
 }: {
-  onApply: () => void;
+  fileName: string;
+  slot?: string;
+  updatePackage: UpdatePackage;
+}) => {
+  const product = updatePackage.target === PRODUCT;
+  const rows: [string, ReactNode][] = [
+    ["File", fileName],
+    ["Version", describePackage(updatePackage)],
+    ["Architecture", updatePackage.arch],
+    ["Signature", "Verified against this appliance's release key"],
+    ["Channel", updatePackage.channel],
+    [
+      "SHA-256",
+      <span className="flex flex-wrap items-center gap-2" key="sha">
+        <code className="font-mono break-all">{updatePackage.sha256}</code>
+        <Button
+          onClick={() => void navigator.clipboard.writeText(updatePackage.sha256)}
+          size="sm"
+          variant="secondary"
+        >
+          Copy
+        </Button>
+      </span>,
+    ],
+    [
+      "Staged",
+      product
+        ? "Staged into the product's other slot"
+        : slot
+          ? `Staged into slot ${slot}`
+          : "Staged into the other slot",
+    ],
+  ];
+  return (
+    <section aria-label="Verify result" className="border-t border-border pt-4">
+      <Alert title="Verified" tone="ok">
+        <dl className="m-0 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5">
+          {rows.map(([label, value]) => (
+            <div className="contents" key={label}>
+              <dt className="font-bold">{label}</dt>
+              <dd className="m-0 min-w-0">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </Alert>
+    </section>
+  );
+};
+
+/**
+ * Apply or Revert, base or product: the version typed to confirm and a fresh code from the
+ * owner's authenticator, every time. A refused code stays in the dialog with what happens next.
+ */
+const ConfirmUpdateDialog = ({
+  confirmLabel,
+  description,
+  onCancel,
+  onConfirm,
+  title,
+  word,
+}: {
+  confirmLabel: string;
+  description: string;
   onCancel: () => void;
-  target: UpdateTarget;
-  version: string;
+  onConfirm: (code: string, refuse: (text: string) => void) => Promise<void>;
+  title: string;
+  word: string;
 }) => {
   const [typed, setTyped] = useState("");
-  const product = target === PRODUCT;
+  const [code, setCode] = useState("");
+  const [refusal, setRefusal] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = () => {
+    setBusy(true);
+    setRefusal("");
+    void onConfirm(code, (text) => {
+      setRefusal(text);
+      setCode("");
+    }).finally(() => setBusy(false));
+  };
   return (
     <DialogContent>
       <DialogHeader>
-        <DialogTitle>{product ? `Install product ${version}` : `Apply ${version}`}</DialogTitle>
-        <DialogDescription>
-          {product
-            ? `The product services (k0s and Sneakers-PAM) restart on ${version}, with no reboot. Sneakers-PAM is unavailable until they're back; the previous version stays in the other slot.`
-            : `The appliance reboots into ${version}. Every session ends, and the box is unavailable until it's back.`}
-        </DialogDescription>
+        <DialogTitle>{title}</DialogTitle>
+        <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
-      <Field label={`Type ${version} to confirm`}>
+      <Field label={`Type ${word} to confirm`}>
         <Input onChange={(event) => setTyped(event.target.value)} value={typed} />
       </Field>
+      <Field label="Authenticator code">
+        <CodeInput label="Authenticator code" onChange={setCode} size="md" value={code} />
+      </Field>
+      {refusal && <Alert tone="danger">{refusal}</Alert>}
       <DialogFooter>
         <Button onClick={onCancel} variant="secondary">
           Cancel
         </Button>
-        <Button disabled={typed.trim() !== version} onClick={onApply} variant="danger">
-          {product ? "Install and restart the product" : "Apply and reboot"}
+        <Button
+          disabled={busy || typed.trim() !== word || code.length !== 6}
+          onClick={submit}
+          variant="danger"
+        >
+          {confirmLabel}
         </Button>
       </DialogFooter>
     </DialogContent>
@@ -826,8 +934,10 @@ const OverrideDialog = ({
   target: UpdateTarget;
   version: string;
 }) => {
+  const { session } = useSession();
   const [typed, setTyped] = useState("");
   const [reason, setReason] = useState("");
+  const [code, setCode] = useState("");
   const [refusal, setRefusal] = useState("");
   const want = `${elevation.admin} ${elevation.id}`;
   const submit = () => {
@@ -841,12 +951,16 @@ const OverrideDialog = ({
       async () => {
         try {
           await (action === "apply"
-            ? upgrade.apply(elevationOverride, target)
-            : upgrade.revert(elevationOverride, target));
+            ? upgrade.apply(code, elevationOverride, target)
+            : upgrade.revert(code, elevationOverride, target));
           return true;
         } catch (error) {
-          if (isStepUpRequired(error)) throw error;
-          setRefusal(errorText(error));
+          setRefusal(
+            refusalOf(error)
+              ? refusalMessage(error, { what: "code", who: session?.admin })
+              : errorText(error),
+          );
+          setCode("");
           return false;
         }
       },
@@ -872,13 +986,16 @@ const OverrideDialog = ({
       <Field label={`Type ${want} to confirm`}>
         <Input mono onChange={(event) => setTyped(event.target.value)} value={typed} />
       </Field>
+      <Field label="Authenticator code">
+        <CodeInput label="Authenticator code" onChange={setCode} size="md" value={code} />
+      </Field>
       {refusal && <Alert tone="danger">{refusal}</Alert>}
       <DialogFooter>
         <Button onClick={onCancel} variant="secondary">
           Cancel
         </Button>
         <Button
-          disabled={typed.trim() !== want || !reason.trim()}
+          disabled={typed.trim() !== want || !reason.trim() || code.length !== 6}
           onClick={submit}
           variant="danger"
         >

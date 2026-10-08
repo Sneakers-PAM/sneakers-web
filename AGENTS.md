@@ -130,7 +130,10 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   and the escrow (each key either made on the box, "Generate one here", `GenerateRecoveryKey`,
   whose private key the browser downloads once and the box never keeps, or "Provide your own", a
   pasted public key, `AddRecoveryKey`), 4 the network (read only, `AcknowledgeStep`), 5 the protection (read only),
-  6 one sign-in with the password and a code, the single-admin warning, and `Finish`. A reload
+  6 one sign-in with the password and a code, the single-admin warning, and `Finish`. The box
+  restarts into normal operation after Finish, so the page shows the restart page and offers
+  Updates and Status (full page loads, signing in again) only once the box answers; a Finish
+  whose answer is lost to the restart counts as finished. A reload
   asks `GetSession` and `GetSetup` and resumes at `current`, the box's first step not done.
   The same page takes an invitation or a Recover access code (`codeKind`), and then shows only
   the password and authenticator. Until the admin is signed in, the code session's calls carry
@@ -159,14 +162,24 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   `XMLHttpRequest` because only XHR reports upload progress; `/upload` answers errors as plain
   text) or fetch one from the mirror, which is hidden on an air-gapped box (no mirror set).
   `UpgradeService.StageUpdate` is one call that verifies the signature, channel and hash and only
-  then unpacks and stages, so the page shows "Verifying" while it runs, then either the verified
-  header or the refusal's reason in place (never a toast). Apply needs the staged version typed;
-  apply, revert, stage and the update window are owner and step-up. Admins see the state only.
+  then unpacks and stages, so the page shows "Verifying" while it runs, then either a green
+  "Verified" panel (file, version, architecture, signature, channel, SHA-256 with Copy, and the
+  slot it went into, `StageUpdateResponse.slot`) or the refusal's reason in place (never a toast). Apply, Revert, Install product and
+  Revert product each need the version typed (the running one for a base revert) and a fresh
+  authenticator code in the same dialog, every time (`totpCode`; the box checks it on every call,
+  not the step-up window), and a refused code stays in the dialog with the tries left. Stage and
+  the update window are owner and step-up. Admins see the state only. A base apply or revert
+  swaps the page for the shared restart page (`app/components/BoxRestarting.tsx`): it waits for
+  the box to go down, asks the public `GetPhase` every 2 seconds (no answer: down), then
+  `GetSession`, until :8443 answers without the old session (sessions don't survive a restart;
+  `app/lib/osadmin/restart.ts`), then loads the
+  sign-in page in full, on a new TLS session. After 10 minutes it offers a reload, which is how
+  the browser gets to check a certificate that changed.
   While an elevated shell is open (`GetUpgrades.activeElevations`) the page names who holds it,
   and an apply or revert the box refuses with `UPGRADE_ELEVATED` stays on the page with the
   holder. From there an owner can end the shell: the override dialog takes a reason and the
-  session's admin and id typed (`bob E-9M4T`), and sends them as `elevationOverride` on the same
-  Apply or Revert; the box ends the session, audited, before the update goes ahead. A refusal of
+  session's admin and id typed (`bob E-9M4T`) and a fresh code, and sends them as
+  `elevationOverride` on the same Apply or Revert; the box ends the session, audited, before the update goes ahead. A refusal of
   the override stays in the dialog.
 - **Access (`app/routes/access.tsx`, parts in `app/features/access/`).** The admins, each with
   the role, a root-operator badge, the sign-in state (active, locked until when or until an
@@ -200,7 +213,8 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   progress.
 - **Mock scenarios.** `applyMockScenario` (`app/mock/edge.mock.ts`), or `?mockScenario=a,b` on a
   mock build's URL, puts the mock box into a state for the tests and the review screen list:
-  `air-gapped`, `staged`, `failed`, `manual`, `no-product` (before the first product
+  `air-gapped`, `staged`, `failed` (boot counting fell back from 0.2.0), `reverted` (alice
+  reverted from 0.2.0; Status and Updates say "Reverted from", not "Failed"), `manual`, `no-product` (before the first product
   install), `product-staged` (0.2.0 staged, 0.0.9 in the previous slot), `elevated` (bob has an elevated shell open, so
   Apply and Revert are refused without an owner's override), `uploading` and `verifying` (the upload or the
   verification never finishes), `stepup` (the next step-up-gated call is refused once, so the
