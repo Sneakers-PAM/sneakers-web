@@ -5,6 +5,7 @@ import { Navigate, useNavigate } from "react-router";
 
 import type { CodeKind, GetSetupResponse } from "@/lib/osadmin/types";
 
+import { BoxRestarting } from "@/components/BoxRestarting";
 import { StepUpDialog } from "@/components/StepUpDialog";
 import { CodeStep } from "@/features/setup/CodeStep";
 import { CredentialsStep } from "@/features/setup/CredentialsStep";
@@ -25,6 +26,7 @@ type View =
   | { kind: "complete" }
   | { kind: "done" }
   | { kind: "loading" }
+  | { kind: "restarting" }
   | { kind: "step"; number: 3 | 4 | 5 | 6 };
 
 /** Where a reload lands: the box's own idea of the first step not done. */
@@ -192,10 +194,18 @@ export default function Setup() {
             <FinishStep
               data={data}
               onBack={() => goTo(5)}
-              onFinished={() => setView({ kind: "complete" })}
+              onFinished={() => setView({ kind: "restarting" })}
             />
           )}
         </>
+      )}
+      {view.kind === "restarting" && (
+        <BoxRestarting onBack={() => setView({ kind: "complete" })}>
+          <p className="m-0">
+            Setup is closed. The box restarts into normal operation; Updates and Status open once
+            it&apos;s back.
+          </p>
+        </BoxRestarting>
       )}
       {view.kind === "complete" && <SetupComplete />}
       <StepUpDialog />

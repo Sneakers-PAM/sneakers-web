@@ -130,7 +130,10 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   and the escrow (each key either made on the box, "Generate one here", `GenerateRecoveryKey`,
   whose private key the browser downloads once and the box never keeps, or "Provide your own", a
   pasted public key, `AddRecoveryKey`), 4 the network (read only, `AcknowledgeStep`), 5 the protection (read only),
-  6 one sign-in with the password and a code, the single-admin warning, and `Finish`. A reload
+  6 one sign-in with the password and a code, the single-admin warning, and `Finish`. The box
+  restarts into normal operation after Finish, so the page shows the restart page and offers
+  Updates and Status (full page loads, signing in again) only once the box answers; a Finish
+  whose answer is lost to the restart counts as finished. A reload
   asks `GetSession` and `GetSetup` and resumes at `current`, the box's first step not done.
   The same page takes an invitation or a Recover access code (`codeKind`), and then shows only
   the password and authenticator. Until the admin is signed in, the code session's calls carry

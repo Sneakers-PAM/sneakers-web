@@ -891,6 +891,8 @@ const route = async (service: string, method: string, body: Record<string, unkno
           "SETUP_INCOMPLETE: confirm the single-admin warning",
         );
       setupDone = true;
+      // The box restarts into normal operation after Finish.
+      restart();
       return { productSetupUrl: "https://sneakers.example.org/setup" };
     }
     case "SetupService/GenerateRecoveryKey": {
