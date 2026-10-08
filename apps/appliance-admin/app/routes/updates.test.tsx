@@ -1,8 +1,9 @@
-import { screen, within } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { elevation, upgrade } from "@/lib/osadmin/client";
 import { OsadminError } from "@/lib/osadmin/errors";
+import { cancelStepUp, resumeStepUp, stepUpPending } from "@/lib/osadmin/stepUpController";
 import { applyMockScenario } from "@/mock/edge.mock";
 import Updates from "@/routes/updates";
 import { renderPage } from "@/test/renderPage";
@@ -15,6 +16,8 @@ const openPage = async () => {
   renderPage(Updates);
   return screen.findByRole("heading", { name: "Updates" });
 };
+
+const panel = () => screen.findByRole("region", { name: "Verify result" });
 
 const uploadAndVerify = async (user: ReturnType<typeof userEvent.setup>, file: File) => {
   await user.upload(screen.getByLabelText("Update .bin file"), file);
@@ -131,6 +134,125 @@ describe("Updates", () => {
     expect(
       await screen.findByText(/Verifying the signature, channel and hash/),
     ).toBeInTheDocument();
+  });
+
+  describe("the verify result panel", () => {
+    it("shows a received file, not checked yet, in an info panel", async () => {
+      const user = userEvent.setup();
+      await openPage();
+      await user.upload(screen.getByLabelText("Update .bin file"), binFile("signed release"));
+      await user.click(screen.getByRole("button", { name: "Upload" }));
+      const result = await panel();
+      expect(result).toHaveAttribute("data-tone", "info");
+      expect(within(result).getByText(/hasn't been checked yet/)).toBeInTheDocument();
+      expect(within(result).getByRole("button", { name: "Verify and stage" })).toBeInTheDocument();
+    });
+
+    it("shows the upload's progress in an info panel", async () => {
+      applyMockScenario("uploading");
+      const user = userEvent.setup();
+      await openPage();
+      await user.upload(screen.getByLabelText("Update .bin file"), binFile("signed release"));
+      await user.click(screen.getByRole("button", { name: "Upload" }));
+      const result = await panel();
+      expect(result).toHaveAttribute("data-tone", "info");
+      expect(
+        within(result).getByRole("progressbar", { name: "Upload progress" }),
+      ).toBeInTheDocument();
+    });
+
+    it("shows the check running in an info panel", async () => {
+      applyMockScenario("verifying");
+      const user = userEvent.setup();
+      await openPage();
+      await uploadAndVerify(user, binFile("signed release"));
+      const result = await panel();
+      await within(result).findByText(/Verifying the signature, channel and hash/);
+      expect(result).toHaveAttribute("data-tone", "info");
+    });
+
+    it("shows a verified file in a green panel", async () => {
+      const user = userEvent.setup();
+      await openPage();
+      await uploadAndVerify(user, binFile("signed release"));
+      expect(await screen.findByText("Verified")).toBeInTheDocument();
+      expect(await panel()).toHaveAttribute("data-tone", "ok");
+    });
+
+    it("shows a refused verify in a red panel with the reason and the error code", async () => {
+      const user = userEvent.setup();
+      await openPage();
+      await uploadAndVerify(user, binFile("tampered release"));
+      await screen.findByText(/was refused/);
+      const result = await panel();
+      expect(result).toHaveAttribute("data-tone", "danger");
+      expect(
+        within(result).getByText(/isn't signed by this box's release key/),
+      ).toBeInTheDocument();
+      expect(within(result).getByText("UPGRADE_SIGNATURE")).toBeInTheDocument();
+    });
+
+    it("shows a refused upload in a red panel", async () => {
+      vi.spyOn(upgrade, "upload").mockRejectedValueOnce(
+        new Error("UPGRADE_UPLOAD: the file is larger than the box takes"),
+      );
+      const user = userEvent.setup();
+      await openPage();
+      await user.upload(screen.getByLabelText("Update .bin file"), binFile("signed release"));
+      await user.click(screen.getByRole("button", { name: "Upload" }));
+      const result = await panel();
+      expect(result).toHaveAttribute("data-tone", "danger");
+      expect(within(result).getByText(/larger than the box takes/)).toBeInTheDocument();
+      expect(within(result).getByText("UPGRADE_UPLOAD")).toBeInTheDocument();
+    });
+
+    it("shows a refused fetch in a red panel, not a toast", async () => {
+      const user = userEvent.setup();
+      await openPage();
+      await user.type(screen.getByLabelText("File name on the mirror"), "not-an-update.bin");
+      await user.click(screen.getByRole("button", { name: "Fetch" }));
+      const result = await panel();
+      expect(result).toHaveAttribute("data-tone", "danger");
+      expect(within(result).getByText(/not-an-update.bin was refused/)).toBeInTheDocument();
+      expect(within(result).getByText("UPGRADE_UPLOAD")).toBeInTheDocument();
+    });
+
+    it("holds the check in an amber panel while it waits for a fresh code", async () => {
+      applyMockScenario("stepup");
+      const user = userEvent.setup();
+      await openPage();
+      await uploadAndVerify(user, binFile("signed release"));
+      await vi.waitFor(() => expect(stepUpPending()).toBe(true));
+      const result = await panel();
+      expect(result).toHaveAttribute("data-tone", "warn");
+      expect(within(result).getByText("Waiting for your authenticator code")).toBeInTheDocument();
+      cancelStepUp();
+    });
+
+    it("shows a cancelled step-up in a red panel, and the file can still be verified", async () => {
+      applyMockScenario("stepup");
+      const user = userEvent.setup();
+      await openPage();
+      await uploadAndVerify(user, binFile("signed release"));
+      await vi.waitFor(() => expect(stepUpPending()).toBe(true));
+      act(() => cancelStepUp());
+      const result = await panel();
+      await vi.waitFor(() => expect(result).toHaveAttribute("data-tone", "danger"));
+      expect(within(result).getByText("ACCESS_STEPUP_REQUIRED")).toBeInTheDocument();
+      await user.click(within(result).getByRole("button", { name: "Verify and stage" }));
+      expect(await screen.findByText("Verified")).toBeInTheDocument();
+    });
+
+    it("verifies once the step-up code is taken", async () => {
+      applyMockScenario("stepup");
+      const user = userEvent.setup();
+      await openPage();
+      await uploadAndVerify(user, binFile("signed release"));
+      await vi.waitFor(() => expect(stepUpPending()).toBe(true));
+      act(() => resumeStepUp());
+      expect(await screen.findByText("Verified")).toBeInTheDocument();
+      expect(await panel()).toHaveAttribute("data-tone", "ok");
+    });
   });
 
   it("fetches from the configured mirror", async () => {

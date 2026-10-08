@@ -173,7 +173,11 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   `UpgradeService.StageUpdate` is one call that verifies the signature, channel and hash and only
   then unpacks and stages, so the page shows "Verifying" while it runs, then either a green
   "Verified" panel (file, version, architecture, signature, channel, SHA-256 with Copy, and the
-  slot it went into, `StageUpdateResponse.slot`) or the refusal's reason in place (never a toast). Apply, Revert, Install product and
+  slot it went into, `StageUpdateResponse.slot`) or the refusal's reason in place (never a toast).
+  Every state of the file shows in that one panel (`ResultPanel`, `aria-label="Verify result"`,
+  its tone in `data-tone`): info while uploading, received or verifying, amber while a stage
+  waits for the step-up code, red with the reason and error code for a refused upload, fetch,
+  verify or stage, or a cancelled step-up (which keeps the upload, so it can be verified again). Apply, Revert, Install product and
   Revert product each need the version typed (the running one for a base revert) and a fresh
   authenticator code in the same dialog, every time (`totpCode`; the box checks it on every call,
   not the step-up window), and a refused code stays in the dialog with the tries left. Stage and

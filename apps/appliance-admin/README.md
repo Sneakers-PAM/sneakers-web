@@ -29,6 +29,17 @@ Status and Updates show the running version in a chip in the primary colour, and
 version in a quieter grey chip, next to the words "Running" and "Staged" so the colour is never
 the only signal.
 
+A file's upload, verify and stage result shows in one panel under **Install an update**, toned by
+the outcome:
+
+- **Blue (info):** the file is uploading (with its progress), received and not checked yet, or
+  being verified.
+- **Amber:** the check waits for a fresh authenticator code in the step-up dialog.
+- **Green:** verified and staged, with the file, version, signature, channel, SHA-256 and slot.
+- **Red:** refused, wherever it was refused (upload, fetch, verify or stage, or a cancelled
+  step-up), with the box's reason and its error code. Nothing is staged; after a cancelled
+  step-up the file is still on the box and can be verified again.
+
 ## Network
 
 The Network page reads and changes the box's settings (`NetworkService`). An applied change
