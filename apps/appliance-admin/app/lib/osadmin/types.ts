@@ -675,6 +675,9 @@ export interface GetUpgradesResponse {
   failedVersion: string;
   /** Empty lists are left out of the JSON: a box with no update event yet leaves this out. */
   history?: UpgradeEvent[];
+  /** The base releases staging a base update removes, with their files: the revert target, or a
+   * staged release. Staging writes over the other slot, so they go at the stage, not the apply. */
+  nextStageRemoves: string[];
   policy?: UpgradePolicy;
   /** The slot the revert target is in, A or B; empty with no revert target, or when the box
    * can't tell which slot it runs from. */

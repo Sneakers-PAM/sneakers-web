@@ -182,7 +182,11 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   kept for a revert (`previousVersion`, "Other slot: 0.0.9 (revert target)"), or "empty" only
   when there's neither; Revert is offered, as "Revert to <version>", only when there's a revert
   target. Status says the same, and the diagnostics' slot line names it ("0.0.9 in the other
-  slot (B) for a revert", from `previousSlot`). Apply, Revert, Install product and
+  slot (B) for a revert", from `previousSlot`). Staging a base update writes over the other
+  slot, so the release there goes at the stage, not the apply: the Install an update card says
+  "Staging a base update removes <version> and its files." and the panel's Verify and stage step
+  (received, or a refused stage it can retry) says "This removes <version> and its files.", both
+  from `GetUpgrades.nextStageRemoves`; a product bundle's stage names no base release. Apply, Revert, Install product and
   Revert product each need the version typed (the running one for a base revert) and a fresh
   authenticator code in the same dialog, every time (`totpCode`; the box checks it on every call,
   not the step-up window), and a refused code stays in the dialog with the tries left. Stage and
