@@ -395,11 +395,11 @@ const holdForElevation = (what: string, override?: ElevationOverride): string =>
     action: "elevation.terminate",
     actor: caller(),
     code: "",
-    detail: { admin: held.admin, for: what, reason: override.reason.trim() },
+    detail: { admin: held.admin, for: what, id: held.id, reason: override.reason.trim() },
     keyFingerprint: "",
     outcome: "ok",
     sourceAddress: "192.0.2.10",
-    target: held.id,
+    target: `${held.admin}'s elevated shell`,
     time: new Date().toISOString(),
   });
   return `ended elevated shell ${held.id}`;

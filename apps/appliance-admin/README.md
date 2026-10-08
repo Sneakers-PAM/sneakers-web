@@ -35,6 +35,13 @@ left, rather than the browser's network error. **Run checks** shows each check a
 Warning (yellow), Failed (red) or Unknown, with its `NET_*` code and detail. Toasts sit at the
 bottom centre, clear of the accessibility widget.
 
+## Logs and audit
+
+The Logs page lists the box's audit entries (`AuditService`). The target names the thing acted
+on in words (a certificate by its names, a session by its admin and source); the entry's detail
+sits under it, with ids and fingerprints in mono. **Export** downloads the whole log as JSON
+lines, ids included.
+
 ## Review gallery
 
 ```sh
