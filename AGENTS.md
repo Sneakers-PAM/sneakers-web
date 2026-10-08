@@ -140,6 +140,15 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   the redeemed code's CSRF token (`RedeemCodeResponse.csrfToken`, kept in sessionStorage so a
   reload can finish; `sessionStore.csrfToken()`), then the session's own. There are no one-time recovery codes: a lost authenticator
   is reset by an owner, or through Recover access on the console.
+- **The setup phase (`app/lib/phase.ts`).** `StatusService.GetPhase` is public and answers
+  `firstboot` until setup's Finish, then `normal`; once normal it is kept for the page's life.
+  The root `clientLoader` (`app/root.tsx`) redirects every path but `/setup` to `/setup` while the
+  box says `firstboot`, and `shouldRevalidate` reruns it on every navigation until the box says
+  `normal`, so neither a typed URL nor a link reaches sign-in before setup (sneakers-osadmin
+  redirects the page loads too). When the box doesn't answer the page is shown as it is. After
+  setup `/setup` never shows the stepper: an anonymous visitor gets only the invitation or Recover
+  access code form (`CodeStep afterSetup`), and the box refuses the setup-only calls anyway
+  (`SETUP_DONE`).
 - **One step-up dialog for every page.** A mutating call that answers
   `ACCESS_STEPUP_REQUIRED` (Connect `permission_denied`) doesn't build its own prompt; it calls
   `requestStepUp` (`app/lib/osadmin/stepUpController.ts`) through `runAction`

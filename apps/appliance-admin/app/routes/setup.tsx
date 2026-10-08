@@ -18,6 +18,7 @@ import { SetupProgress, STEP_TITLES } from "@/features/setup/SetupProgress";
 import { runAction } from "@/lib/osadmin/action";
 import { setup, signIn } from "@/lib/osadmin/client";
 import { setSession } from "@/lib/osadmin/sessionStore";
+import { getPhase } from "@/lib/phase";
 import { useSession } from "@/lib/useSession";
 
 type View =
@@ -26,6 +27,7 @@ type View =
   | { kind: "complete" }
   | { kind: "done" }
   | { kind: "loading" }
+  | { kind: "redeem" }
   | { kind: "restarting" }
   | { kind: "step"; number: 3 | 4 | 5 | 6 };
 
@@ -60,7 +62,9 @@ const StepTitle = ({
  * The :8443 setup stepper: 1 the console's code, 2 the first admin (password and TOTP), 3 the
  * recovery keys, 4 the network, 5 the protection, 6 one sign-in and Finish. The box keeps
  * where setup is, so a reload resumes at the first step not done. The same page takes an
- * invitation or a Recover access code: then it's only the password and authenticator.
+ * invitation or a Recover access code: then it's only the password and authenticator. Once
+ * setup is done (StatusService.GetPhase) the stepper is never shown: an anonymous visitor gets
+ * only the invitation or Recover access code form.
  */
 export default function Setup() {
   const { session } = useSession();
@@ -75,7 +79,12 @@ export default function Setup() {
         setData(response);
         setView(next ? next(response) : viewFor(response));
       })
-      .catch(() => setView({ kind: "code" }));
+      .catch(
+        async () =>
+          // Once setup is done the stepper is closed: only an invitation or a Recover access
+          // code is taken here.
+          void setView({ kind: (await getPhase()) === "normal" ? "redeem" : "code" }),
+      );
 
   useEffect(() => {
     void signIn
@@ -121,6 +130,22 @@ export default function Setup() {
                       owners: redeemed.existingOwners,
                     },
               )
+            }
+          />
+        </>
+      )}
+      {view.kind === "redeem" && (
+        <>
+          <FrameTitle title="Enter an invitation or Recover access code" />
+          <CodeStep
+            afterSetup
+            onRedeemed={(redeemed) =>
+              void load(() => ({
+                codeKind: redeemed.kind,
+                fixedAdmin: redeemed.admin || undefined,
+                kind: "credentials",
+                owners: redeemed.existingOwners,
+              }))
             }
           />
         </>

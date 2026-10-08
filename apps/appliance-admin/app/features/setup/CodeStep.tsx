@@ -32,10 +32,15 @@ const codeRefusal = (error: unknown): string => {
   return refusalMessage(error, { what: "code" });
 };
 
-/** Step 1, and the way in for an invitation or a Recover access code: one typed code. */
+/**
+ * Step 1, and the way in for an invitation or a Recover access code: one typed code. After
+ * setup (afterSetup) it asks for those two only.
+ */
 export const CodeStep = ({
+  afterSetup = false,
   onRedeemed,
 }: {
+  afterSetup?: boolean;
   onRedeemed: (response: RedeemCodeResponse) => void;
 }) => {
   const [code, setCode] = useState("");
@@ -62,8 +67,9 @@ export const CodeStep = ({
       }}
     >
       <p className="m-0 text-body">
-        Type the code shown on the appliance&apos;s console, or the invitation code an owner gave
-        you.
+        {afterSetup
+          ? "Type the invitation code an owner gave you, or the Recover access code the console shows."
+          : "Type the code shown on the appliance's console, or the invitation code an owner gave you."}
       </p>
       {refusal && (
         <Alert role="alert" tone="danger">
@@ -72,7 +78,7 @@ export const CodeStep = ({
       )}
       <Field
         hint="16 characters, XXXX-XXXX-XXXX-XXXX. Dashes and capital letters don't matter."
-        label="Setup code"
+        label={afterSetup ? "Invitation or Recover access code" : "Setup code"}
       >
         <Input
           {...noAutofill()}
