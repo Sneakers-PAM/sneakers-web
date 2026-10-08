@@ -21,6 +21,7 @@ import type {
   GetCertificateStoreResponse,
   GetMcpResponse,
   GetNetworkResponse,
+  GetPhaseResponse,
   GetPowerResponse,
   GetSetupResponse,
   GetStatusResponse,
@@ -151,8 +152,8 @@ export const setup = {
 
 export const status = {
   get: () => call<GetStatusResponse>("StatusService", "GetStatus", {}, wire.getStatus),
-  /** Public, no session: "firstboot" until setup's Finish, then "normal". */
-  getPhase: () => call<{ phase: string }>("StatusService", "GetPhase"),
+  /** Public: "firstboot" until setup is done, then "normal". */
+  getPhase: () => call<GetPhaseResponse>("StatusService", "GetPhase", {}, wire.getPhase),
   setSecureBoot: (on: boolean, confirmHostname: string) =>
     call<Record<string, never>>("StatusService", "SetSecureBoot", { confirmHostname, on }),
 };

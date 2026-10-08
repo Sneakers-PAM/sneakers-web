@@ -25,6 +25,7 @@ import type {
   GetCertificateStoreResponse,
   GetMcpResponse,
   GetNetworkResponse,
+  GetPhaseResponse,
   GetPowerResponse,
   GetSetupResponse,
   GetStatusResponse,
@@ -211,6 +212,10 @@ export const factoryReset = (w: Wire<FactoryReset> = {}): FactoryReset => ({
 export const withFactoryReset = (
   w: Wire<{ factoryReset: FactoryReset }>,
 ): { factoryReset: FactoryReset } => ({ factoryReset: factoryReset(w.factoryReset) });
+
+export const getPhase = (w: Wire<GetPhaseResponse>): GetPhaseResponse => ({
+  phase: w.phase ?? "",
+});
 
 export const getStatus = (w: Wire<GetStatusResponse>): GetStatusResponse => ({
   ...w,

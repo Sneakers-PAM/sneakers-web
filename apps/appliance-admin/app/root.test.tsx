@@ -1,8 +1,9 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { createRoutesStub } from "react-router";
+import { createRoutesStub, Link, Outlet } from "react-router";
 
-import { ErrorBoundary } from "@/root";
+import { applyMockScenario } from "@/mock/edge.mock";
+import { clientLoader, ErrorBoundary, shouldRevalidate } from "@/root";
 import { signInAs } from "@/test/session";
 
 const stub = (status: number) => {
@@ -90,5 +91,60 @@ describe("the error screens' Copy diagnostics", () => {
     await userEvent.click(buttons.at(-1)!);
     await waitFor(() => expect(writeText).toHaveBeenCalledOnce());
     expect(writeText.mock.calls[0]![0]).toContain("Sneakers-PAM appliance admin diagnostics");
+  });
+});
+
+const phaseStub = (entry: string) => {
+  const Stub = createRoutesStub([
+    {
+      children: [
+        { Component: () => <p>Sign-in page</p>, index: true },
+        {
+          Component: () => (
+            <>
+              <p>Setup page</p>
+              <Link to="/">Sign in</Link>
+              <Link to="/home">Status</Link>
+            </>
+          ),
+          path: "setup",
+        },
+        { Component: () => <p>Status page</p>, path: "home" },
+      ],
+      Component: () => <Outlet />,
+      id: "root",
+      loader: clientLoader,
+      path: "/",
+      shouldRevalidate,
+    },
+  ]);
+  return render(<Stub initialEntries={[entry]} />);
+};
+
+describe("the setup phase", () => {
+  it("sends / and every page to /setup before setup is done", async () => {
+    applyMockScenario("first-boot");
+    for (const entry of ["/", "/home"]) {
+      const { unmount } = phaseStub(entry);
+      expect(await screen.findByText("Setup page")).toBeInTheDocument();
+      expect(screen.queryByText("Sign-in page")).not.toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it("keeps a client-side navigation on /setup before setup is done", async () => {
+    applyMockScenario("first-boot");
+    const user = userEvent.setup();
+    phaseStub("/setup");
+    await user.click(await screen.findByRole("link", { name: "Sign in" }));
+    expect(await screen.findByText("Setup page")).toBeInTheDocument();
+    await user.click(screen.getByRole("link", { name: "Status" }));
+    expect(await screen.findByText("Setup page")).toBeInTheDocument();
+    expect(screen.queryByText("Status page")).not.toBeInTheDocument();
+  });
+
+  it("serves sign-in once setup is done", async () => {
+    phaseStub("/");
+    expect(await screen.findByText("Sign-in page")).toBeInTheDocument();
   });
 });

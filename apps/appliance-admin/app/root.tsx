@@ -1,5 +1,9 @@
 import type { ReactNode } from "react";
-import type { LinksFunction } from "react-router";
+import type {
+  ClientLoaderFunctionArgs,
+  LinksFunction,
+  ShouldRevalidateFunction,
+} from "react-router";
 
 import { edge } from "@sneakers-web/edge";
 import {
@@ -16,16 +20,30 @@ import {
   Toaster,
   TooltipProvider,
 } from "@sneakers-web/ui";
-import { isRouteErrorResponse, Outlet, useRouteError } from "react-router";
+import { isRouteErrorResponse, Outlet, redirect, useRouteError } from "react-router";
 
 import appCss from "@/app.css?url";
 import { AccessScreen, ServerErrorScreen } from "@/components/ErrorScreens";
 import { copyApplianceDiagnostics } from "@/lib/diagnostics/copy";
+import { getPhase, knownNormal } from "@/lib/phase";
 import { useReadyMarker } from "@/lib/readiness";
 
 const DISPLAY_KEY = "osadmin_display";
 
-export const clientLoader = (): RootData => ({
+/** Before setup is done every page but /setup goes there, sign-in included. */
+export const clientLoader = async ({
+  request,
+}: Pick<ClientLoaderFunctionArgs, "request">): Promise<RootData> => {
+  const { pathname } = new URL(request.url);
+  if (pathname !== "/setup" && (await getPhase()) === "firstboot") throw redirect("/setup");
+  return rootData();
+};
+
+/** While setup isn't known to be done, every navigation asks again. */
+export const shouldRevalidate: ShouldRevalidateFunction = ({ defaultShouldRevalidate }) =>
+  !knownNormal() || defaultShouldRevalidate;
+
+const rootData = (): RootData => ({
   banner: edge.banner,
   config: {
     adminUrl: "/",

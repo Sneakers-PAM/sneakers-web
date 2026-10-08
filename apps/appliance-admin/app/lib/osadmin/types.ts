@@ -173,6 +173,11 @@ export interface FactoryReset {
     | "FACTORY_RESET_STATE_UNSPECIFIED";
 }
 
+/** StatusService.GetPhase: "firstboot" until setup's Finish, then "normal". */
+export interface GetPhaseResponse {
+  phase: string;
+}
+
 export interface GetStatusResponse {
   channel: string;
   custodyMode: string;
