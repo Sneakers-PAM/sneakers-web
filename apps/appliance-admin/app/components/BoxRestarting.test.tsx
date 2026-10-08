@@ -1,4 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+
+import type { UpgradeProgress } from "@/lib/osadmin/types";
 
 import { BoxRestarting } from "@/components/BoxRestarting";
 import { signIn, status } from "@/lib/osadmin/client";
@@ -57,5 +59,78 @@ describe("BoxRestarting", () => {
     render(<BoxRestarting onBack={vi.fn()} pollMs={5} slowMs={20} />);
     expect(await screen.findByText("This is taking longer than usual")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reload" })).toBeInTheDocument();
+  });
+});
+
+const steps = (states: string[]): UpgradeProgress => {
+  const ids = ["verify", "stage", "switch", "reboot", "health", "mark_good"];
+  const labels = [
+    "Verifying (signature, channel, SHA-256)",
+    "Staging into slot B",
+    "Switching slots",
+    "Rebooting",
+    "Checking health",
+    "Marking good",
+  ];
+  return {
+    action: "apply",
+    code: "",
+    failed: states.includes("FAILED"),
+    inProgress: states.includes("ACTIVE"),
+    steps: ids.map((id, index) => ({
+      detail: "",
+      doneBytes: "0",
+      id,
+      label: labels[index] ?? id,
+      state:
+        `UPGRADE_STEP_STATE_${states[index] ?? "PENDING"}` as UpgradeProgress["steps"][number]["state"],
+      totalBytes: "0",
+    })),
+    version: "",
+  };
+};
+const rebooting = steps(["DONE", "DONE", "DONE", "ACTIVE"]);
+const checking = steps(["DONE", "DONE", "DONE", "DONE", "ACTIVE"]);
+const marking = steps(["DONE", "DONE", "DONE", "DONE", "DONE", "ACTIVE"]);
+const finished = steps(["DONE", "DONE", "DONE", "DONE", "DONE", "DONE"]);
+const fellBack = steps(["DONE", "DONE", "DONE", "DONE", "FAILED"]);
+const current = () =>
+  screen.getAllByRole("listitem").find((item) => item.getAttribute("aria-current") === "step")
+    ?.textContent;
+
+describe("BoxRestarting with an update's steps", () => {
+  it("shows rebooting while the box is down, then checking health and marking good once it answers, then goes on", async () => {
+    vi.spyOn(status, "getPhase")
+      .mockResolvedValueOnce({ phase: "normal", upgradeProgress: rebooting })
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce({ phase: "normal", upgradeProgress: checking })
+      .mockResolvedValueOnce({ phase: "normal", upgradeProgress: marking })
+      .mockResolvedValue({ phase: "normal", upgradeProgress: finished });
+    vi.spyOn(signIn, "getSession").mockResolvedValueOnce(session).mockRejectedValue(signedOut());
+    const onBack = vi.fn();
+    render(<BoxRestarting onBack={onBack} pollMs={20} />);
+    await waitFor(() => expect(current()).toMatch(/Rebooting/));
+    await screen.findByText(/down while it restarts/);
+    expect(current()).toMatch(/Rebooting/);
+    await waitFor(() => expect(current()).toMatch(/Checking health/));
+    expect(onBack).not.toHaveBeenCalled();
+    await waitFor(() => expect(current()).toMatch(/Marking good/));
+    await waitFor(() => expect(onBack).toHaveBeenCalledTimes(1));
+  });
+
+  it("stops on a failed step, says which, and offers to sign in instead of going on", async () => {
+    vi.spyOn(status, "getPhase")
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValue({ phase: "normal", upgradeProgress: fellBack });
+    vi.spyOn(signIn, "getSession").mockRejectedValue(signedOut());
+    const onBack = vi.fn();
+    render(<BoxRestarting onBack={onBack} pollMs={5} />);
+    expect(
+      await screen.findByRole("heading", { name: "The update didn't finish" }),
+    ).toBeInTheDocument();
+    const failed = screen.getAllByRole("listitem").find((item) => item.dataset.state === "failed");
+    expect(failed).toHaveTextContent("Checking health");
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+    expect(onBack).not.toHaveBeenCalled();
   });
 });

@@ -36,10 +36,12 @@ import type {
   UpdatePackage,
   UpdateTarget,
   UpgradePolicy,
+  UpgradeProgress,
 } from "@/lib/osadmin/types";
 
 import { BoxRestarting } from "@/components/BoxRestarting";
 import { NotAvailable } from "@/components/NotAvailable";
+import { UpgradeSteps } from "@/components/UpgradeSteps";
 import { VersionChip } from "@/components/VersionChip";
 import { runAction } from "@/lib/osadmin/action";
 import { upgrade } from "@/lib/osadmin/client";
@@ -139,6 +141,18 @@ const isCodeRefusal = (error: unknown): boolean =>
 /** How an apply or revert ended: started, held by an elevated shell, or its code refused. */
 type Outcome = "held" | "refused" | "started";
 
+/** How often the page asks for the steps while a stage or an update is under way. */
+export const STEPS_POLL_MS = 1000;
+
+/** What an update in progress, or one that failed, is doing, as its card's title says it. */
+const progressTitle = (progress: UpgradeProgress): string => {
+  if (progress.failed) return "The last update didn't finish";
+  const version = progress.version ? ` ${progress.version}` : "";
+  if (progress.action === "stage") return `Staging${version}`;
+  if (progress.action === "revert") return `Going back to${version}`;
+  return `Updating to${version}`;
+};
+
 export default function Updates() {
   const { isOwner, session } = useSession();
   const [data, setData] = useState<GetUpgradesResponse>();
@@ -161,6 +175,7 @@ export default function Updates() {
   const [windowMinutes, setWindowMinutes] = useState(120);
   const [mirrorUrl, setMirrorUrl] = useState("");
   const [unavailable, setUnavailable] = useState(false);
+  const [restartSteps, setRestartSteps] = useState<UpgradeProgress>();
   const fileInput = useRef<HTMLInputElement>(null);
 
   const reload = () =>
@@ -200,6 +215,23 @@ export default function Updates() {
         ),
       );
   useEffect(reload, []);
+  // While a file stages, or an update is under way (the window's, say), the steps are asked for
+  // each second; only the answer's data is replaced, not the product offer.
+  const watching =
+    !unavailable &&
+    (rebooting?.kind === "applying" || rebooting?.kind === "reverting"
+      ? false
+      : step.kind === "verifying" || !!data?.upgradeProgress?.inProgress);
+  useEffect(() => {
+    if (!watching) return;
+    const poll = setInterval(() => {
+      void upgrade
+        .get()
+        .then(setData)
+        .catch(() => {});
+    }, STEPS_POLL_MS);
+    return () => clearInterval(poll);
+  }, [watching]);
   // A stage held for a fresh code ends as a refusal when the step-up dialog is cancelled; when
   // the code is taken, the retry moves the step on to verifying in the same update.
   useEffect(
@@ -289,6 +321,13 @@ export default function Updates() {
   const started = (action: Held["action"], version: string, target: UpdateTarget) => {
     setHeld(null);
     setOverride(null);
+    if (target !== PRODUCT) {
+      // The box answers for a moment before it goes down: its steps seed the restart page.
+      void upgrade
+        .get()
+        .then((response) => setRestartSteps(response.upgradeProgress))
+        .catch(() => {});
+    }
     if (target === PRODUCT) {
       setRebooting(
         action === "apply"
@@ -369,7 +408,7 @@ export default function Updates() {
     return (
       <div className="flex flex-col gap-5 p-5.5">
         <PageHeader eyebrow="Appliance" title="Updates" />
-        <BoxRestarting>
+        <BoxRestarting initialProgress={restartSteps}>
           <p className="m-0 font-bold">
             {rebooting.kind === "applying"
               ? `Applying ${rebooting.version}. The box reboots into the new release in the other slot.`
@@ -389,6 +428,14 @@ export default function Updates() {
   const openShells = data.activeElevations ?? [];
   const product = data.product;
   const versions = offer.kind === "listed" ? (offer.list.versions ?? []) : [];
+  const progress = data.upgradeProgress;
+  // The file panel shows its own stage; this card is for everything else under way or failed.
+  const showProgress =
+    !!progress &&
+    (progress.inProgress || progress.failed) &&
+    step.kind !== "verifying" &&
+    step.kind !== "refused" &&
+    step.kind !== "verified";
 
   return (
     <div className="flex flex-col gap-5 p-5.5">
@@ -444,6 +491,16 @@ export default function Updates() {
               </p>
             </div>
           </Alert>
+        </section>
+      )}
+      {showProgress && (
+        <section aria-label="Update progress">
+          <Card>
+            <CardHeader title={progressTitle(progress)} />
+            <div className="p-5.5 text-small">
+              <UpgradeSteps progress={progress} />
+            </div>
+          </Card>
         </section>
       )}
       {data.failedVersion && (
@@ -639,7 +696,12 @@ export default function Updates() {
                 )}
               </div>
             )}
-            <UpdateStep onVerify={verifyAndStage} removes={removes} step={step} />
+            <UpdateStep
+              onVerify={verifyAndStage}
+              progress={progress}
+              removes={removes}
+              step={step}
+            />
           </div>
         </Card>
       )}
@@ -806,10 +868,13 @@ export default function Updates() {
 
 const UpdateStep = ({
   onVerify,
+  progress,
   removes,
   step,
 }: {
   onVerify: (fileName: string, uploadId: string, via: Via) => void;
+  /** The box's update steps: while the file stages, they're its stage's. */
+  progress?: UpgradeProgress;
   /** The base releases the stage removes, joined; empty when it removes none. */
   removes: string;
   step: Step;
@@ -900,10 +965,15 @@ const UpdateStep = ({
     case "verifying": {
       return (
         <ResultPanel tone="info">
-          <span className="flex items-center gap-3">
-            <Spinner />
-            Verifying the signature, channel and hash of {step.fileName}.
-          </span>
+          <div className="flex flex-col gap-3">
+            <span className="flex items-center gap-3">
+              <Spinner />
+              Verifying the signature, channel and hash of {step.fileName}, then staging it.
+            </span>
+            {progress?.action === "stage" && progress.inProgress && (
+              <UpgradeSteps progress={progress} />
+            )}
+          </div>
         </ResultPanel>
       );
     }

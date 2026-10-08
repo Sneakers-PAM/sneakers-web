@@ -171,7 +171,10 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   `XMLHttpRequest` because only XHR reports upload progress; `/upload` answers errors as plain
   text) or fetch one from the mirror, which is hidden on an air-gapped box (no mirror set).
   `UpgradeService.StageUpdate` is one call that verifies the signature, channel and hash and only
-  then unpacks and stages, so the page shows "Verifying" while it runs, then either a green
+  then unpacks and stages, so the page shows "Verifying" while it runs, with the update's steps
+  (`GetUpgrades.upgradeProgress`, asked for each second while it runs; `app/components/UpgradeSteps.tsx`:
+  each step done, now, to come or failed, the current one with its detail and, while the release
+  is written into the slot, a progress bar of the bytes), then either a green
   "Verified" panel (file, version, architecture, signature, channel, SHA-256 with Copy, and the
   slot it went into, `StageUpdateResponse.slot`) or the refusal's reason in place (never a toast).
   Every state of the file shows in that one panel (`ResultPanel`, `aria-label="Verify result"`,
@@ -196,7 +199,14 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   `GetSession`, until :8443 answers without the old session (sessions don't survive a restart;
   `app/lib/osadmin/restart.ts`), then loads the
   sign-in page in full, on a new TLS session. After 10 minutes it offers a reload, which is how
-  the browser gets to check a certificate that changed.
+  the browser gets to check a certificate that changed. After an apply or a revert it lists the
+  update's steps, seeded from `GetUpgrades` as the apply returns and then from the public
+  `GetPhase.upgradeProgress` (the steps alone): rebooting while the box is down, then checking
+  health and marking good once :8443 answers, and it goes to sign-in only when they're done. A
+  failed step stops it there ("The update didn't finish", the step marked failed) with a Sign in
+  button. Outside a stage, an update under way (the window's, say) or the last one that failed
+  shows its steps in the "Update progress" card, and the page asks for them each second while one
+  runs.
   While an elevated shell is open (`GetUpgrades.activeElevations`) the page names who holds it,
   and an apply or revert the box refuses with `UPGRADE_ELEVATED` stays on the page with the
   holder. From there an owner can end the shell: the override dialog takes a reason and the

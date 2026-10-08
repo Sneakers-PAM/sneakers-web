@@ -33,6 +33,12 @@ const line = (text: RegExp | string) =>
       (typeof text === "string" ? element.textContent === text : text.test(element.textContent)),
   );
 
+/** The step marked current in scope's step list. */
+const currentStep = (scope: HTMLElement) =>
+  within(scope)
+    .getAllByRole("listitem")
+    .find((item) => item.getAttribute("aria-current") === "step")?.textContent;
+
 describe("Updates", () => {
   beforeEach(() => signInAs("alice"));
 
@@ -134,6 +140,48 @@ describe("Updates", () => {
     expect(
       await screen.findByText(/Verifying the signature, channel and hash/),
     ).toBeInTheDocument();
+  });
+
+  describe("the update's steps", () => {
+    it("lists the steps while the file stages, with the bytes written into the slot", async () => {
+      applyMockScenario("verifying");
+      const user = userEvent.setup();
+      await openPage();
+      await uploadAndVerify(user, binFile("signed release"));
+      const box = await panel();
+      const result = within(box);
+      await result.findByRole("list", { name: "Update steps" });
+      expect(currentStep(box)).toMatch(/Staging into slot B/);
+      expect(result.getByRole("progressbar", { name: "Staging into slot B" })).toHaveAttribute(
+        "value",
+        "50",
+      );
+      expect(result.getByText("Writing the release into slot B.")).toBeInTheDocument();
+    });
+
+    it("says which step a refused file failed at when the page is opened again", async () => {
+      const { uploadId } = await upgrade.upload(binFile("tampered release"));
+      await expect(upgrade.stage(uploadId)).rejects.toThrow();
+      await openPage();
+      const last = within(await screen.findByRole("region", { name: "Update progress" }));
+      expect(last.getByText("The last update didn't finish")).toBeInTheDocument();
+      const failed = last.getAllByRole("listitem").find((item) => item.dataset.state === "failed");
+      expect(failed).toHaveTextContent("Verifying (signature, channel, SHA-256)");
+    });
+
+    it("shows the restart page with the box rebooting into the release", async () => {
+      applyMockScenario("staged");
+      const user = userEvent.setup();
+      await openPage();
+      await user.click(screen.getByRole("button", { name: "Apply 0.2.0" }));
+      const dialog = await screen.findByRole("dialog");
+      await user.type(within(dialog).getByLabelText("Type 0.2.0 to confirm"), "0.2.0");
+      await user.type(within(dialog).getByLabelText("Authenticator code"), "123456");
+      await user.click(within(dialog).getByRole("button", { name: "Apply and reboot" }));
+      const restarting = await screen.findByRole("region", { name: "Restarting" });
+      await within(restarting).findByRole("list", { name: "Update steps" });
+      expect(currentStep(restarting)).toMatch(/Rebooting/);
+    });
   });
 
   describe("the verify result panel", () => {

@@ -13,6 +13,8 @@ import type {
   UpdatePackage,
   UpdateTarget,
   UpgradePolicy,
+  UpgradeProgress,
+  UpgradeStep,
 } from "@/lib/osadmin/types";
 
 import { OsadminError } from "@/lib/osadmin/errors";
@@ -217,6 +219,93 @@ const RESTART_MS = 3000;
 const restart = () => {
   restartingUntil = Date.now() + RESTART_MS;
 };
+/** The last stage, apply or revert, step by step, as osadmin keeps it. */
+let upgradeProgress: undefined | UpgradeProgress;
+/** After a reboot the box checks its health this long before it marks the release good. */
+const CHECK_MS = 1500;
+let checkingUntil = 0;
+const STEP_LABELS: Record<string, string> = {
+  health: "Checking health",
+  mark_good: "Marking good",
+  reboot: "Rebooting",
+  restart: "Restarting the product",
+  switch: "Switching slots",
+  verify: "Verifying (signature, channel, SHA-256)",
+};
+const stepIds = (action: UpgradeProgress["action"], target: UpdateTarget): string[] => {
+  const after =
+    target === "UPDATE_TARGET_PRODUCT"
+      ? ["switch", "restart"]
+      : ["switch", "reboot", "health", "mark_good"];
+  return action === "revert" ? after : ["verify", "stage", ...after];
+};
+/** The steps with `at` in state, the ones before it done and the ones after it pending. */
+const progressAt = (
+  action: UpgradeProgress["action"],
+  target: UpdateTarget,
+  version: string,
+  at: string,
+  state: "ACTIVE" | "DONE" | "FAILED",
+  more: { code?: string; detail?: string; doneBytes?: string; totalBytes?: string } = {},
+): UpgradeProgress => {
+  const ids = stepIds(action, target);
+  const index = ids.indexOf(at);
+  const steps = ids.map((id, index_): UpgradeStep => ({
+    detail: index_ === index ? (more.detail ?? "") : "",
+    doneBytes: index_ === index ? (more.doneBytes ?? "0") : "0",
+    id,
+    label:
+      id === "stage"
+        ? target === "UPDATE_TARGET_PRODUCT"
+          ? "Staging into the free product slot"
+          : "Staging into slot B"
+        : (STEP_LABELS[id] ?? id),
+    state:
+      index_ < index
+        ? "UPGRADE_STEP_STATE_DONE"
+        : index_ === index
+          ? `UPGRADE_STEP_STATE_${state}`
+          : "UPGRADE_STEP_STATE_PENDING",
+    totalBytes: index_ === index ? (more.totalBytes ?? "0") : "0",
+  }));
+  const now = new Date().toISOString();
+  return {
+    action,
+    code: more.code ?? "",
+    failed: state === "FAILED",
+    inProgress: state === "ACTIVE",
+    startedAt: now,
+    steps,
+    target,
+    updatedAt: now,
+    version,
+  };
+};
+const activeStep = (): string =>
+  upgradeProgress?.steps.find((step) => step.state === "UPGRADE_STEP_STATE_ACTIVE")?.id ?? "";
+/** After the reboot the booted release checks its health, then marks itself good. */
+const advanceProgress = () => {
+  if (!upgradeProgress?.inProgress || (restartingUntil && Date.now() < restartingUntil)) return;
+  const { action, target, version } = upgradeProgress;
+  const base = target ?? "UPDATE_TARGET_BASE";
+  if (activeStep() === "reboot") {
+    upgradeProgress = progressAt(action, base, version, "health", "ACTIVE");
+    checkingUntil = Date.now() + CHECK_MS;
+  } else if (activeStep() === "health" && Date.now() >= checkingUntil) {
+    upgradeProgress = progressAt(action, base, version, "mark_good", "DONE");
+  }
+};
+/** The steps alone, as the public GetPhase gives them. */
+const publicProgress = (): undefined | UpgradeProgress =>
+  upgradeProgress && {
+    action: upgradeProgress.action,
+    code: "",
+    failed: upgradeProgress.failed,
+    inProgress: upgradeProgress.inProgress,
+    steps: upgradeProgress.steps.map((step) => ({ ...step, detail: "" })),
+    target: upgradeProgress.target,
+    version: "",
+  };
 /** Apply and Revert take a fresh authenticator code on every call, not the step-up window. */
 const checkCallCode = (code: unknown): void => {
   const value = typeof code === "string" ? code.trim() : "";
@@ -1032,6 +1121,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
       return {};
     }
     case "SignInService/GetSession": {
+      advanceProgress();
       if (restartingUntil) {
         if (Date.now() < restartingUntil)
           throw new OsadminError("unavailable", "The appliance didn't answer.");
@@ -1065,7 +1155,8 @@ const route = async (service: string, method: string, body: Record<string, unkno
     case "StatusService/GetPhase": {
       if (restartingUntil && Date.now() < restartingUntil)
         throw new OsadminError("unavailable", "The appliance didn't answer.");
-      return { phase: setupDone ? "normal" : "firstboot" };
+      advanceProgress();
+      return { phase: setupDone ? "normal" : "firstboot", upgradeProgress: publicProgress() };
     }
     case "StatusService/GetStatus": {
       powerState();
@@ -1084,6 +1175,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
         ...previousSlot(),
         runningVersion,
         stagedVersion,
+        upgradeProgress: structuredClone(upgradeProgress),
       };
     }
     case "StatusService/SetSecureBoot": {
@@ -1100,6 +1192,13 @@ const route = async (service: string, method: string, body: Record<string, unkno
           body.elevationOverride as ElevationOverride | undefined,
         );
         historyEntry("apply", product.stagedVersion, "", detail, "UPDATE_TARGET_PRODUCT");
+        upgradeProgress = progressAt(
+          "apply",
+          "UPDATE_TARGET_PRODUCT",
+          product.stagedVersion,
+          "restart",
+          "DONE",
+        );
         product = {
           installedVersion: product.stagedVersion,
           previousVersion: product.installedVersion,
@@ -1115,6 +1214,16 @@ const route = async (service: string, method: string, body: Record<string, unkno
         body.elevationOverride as ElevationOverride | undefined,
       );
       historyEntry("apply", stagedVersion, "", detail);
+      upgradeProgress = progressAt(
+        "apply",
+        "UPDATE_TARGET_BASE",
+        stagedVersion,
+        "reboot",
+        "ACTIVE",
+        {
+          detail: `The box restarts into ${stagedVersion}.`,
+        },
+      );
       previousVersion = runningVersion;
       runningVersion = stagedVersion;
       stagedVersion = "";
@@ -1150,6 +1259,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
       return { uploadId };
     }
     case "UpgradeService/GetUpgrades": {
+      advanceProgress();
       return {
         activeElevations: structuredClone(elevations.filter((item) => item.state === "active")),
         airGapped: isAirGapped(),
@@ -1164,6 +1274,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
         product: structuredClone(product),
         runningVersion,
         stagedVersion,
+        upgradeProgress: structuredClone(upgradeProgress),
       };
     }
     case "UpgradeService/ListProductVersions": {
@@ -1192,6 +1303,13 @@ const route = async (service: string, method: string, body: Record<string, unkno
           body.elevationOverride as ElevationOverride | undefined,
         );
         historyEntry("revert", product.previousVersion, "", detail, "UPDATE_TARGET_PRODUCT");
+        upgradeProgress = progressAt(
+          "revert",
+          "UPDATE_TARGET_PRODUCT",
+          product.previousVersion,
+          "restart",
+          "DONE",
+        );
         product = {
           installedVersion: product.previousVersion,
           previousVersion: product.installedVersion,
@@ -1210,6 +1328,16 @@ const route = async (service: string, method: string, body: Record<string, unkno
         body.elevationOverride as ElevationOverride | undefined,
       );
       historyEntry("revert", "", "", detail);
+      upgradeProgress = progressAt(
+        "revert",
+        "UPDATE_TARGET_BASE",
+        previousVersion,
+        "reboot",
+        "ACTIVE",
+        {
+          detail: `The box restarts into ${previousVersion}.`,
+        },
+      );
       reverted = {
         revertedAt: new Date().toISOString(),
         revertedBy: caller(),
@@ -1235,10 +1363,24 @@ const route = async (service: string, method: string, body: Record<string, unkno
       return {};
     }
     case "UpgradeService/StageUpdate": {
-      if (verifyStalls) return never();
+      if (verifyStalls) {
+        upgradeProgress = progressAt("stage", "UPDATE_TARGET_BASE", "0.2.0", "stage", "ACTIVE", {
+          detail: "Writing the release into slot B.",
+          doneBytes: String(512 * 2 ** 20),
+          totalBytes: String(2 ** 30),
+        });
+        return never();
+      }
       const uploadId = body.uploadId as string;
       try {
         const updatePackage = await verify(uploadId);
+        upgradeProgress = progressAt(
+          "stage",
+          updatePackage.target ?? "UPDATE_TARGET_BASE",
+          updatePackage.version,
+          "stage",
+          "DONE",
+        );
         if (isProduct(updatePackage.target)) product.stagedVersion = updatePackage.version;
         else {
           stagedVersion = updatePackage.version;
@@ -1249,7 +1391,12 @@ const route = async (service: string, method: string, body: Record<string, unkno
           ? { package: updatePackage }
           : { package: updatePackage, slot: "B" };
       } catch (error) {
-        historyEntry("stage", "", error instanceof OsadminError ? (error.symbol ?? "") : "");
+        const code = error instanceof OsadminError ? (error.symbol ?? "") : "";
+        historyEntry("stage", "", code);
+        upgradeProgress = progressAt("stage", "UPDATE_TARGET_BASE", "", "verify", "FAILED", {
+          code,
+          detail: error instanceof Error ? error.message : "",
+        });
         throw error;
       }
     }
@@ -1540,6 +1687,8 @@ export const resetMockWorld = (): void => {
   reverted = null;
   previousVersion = PREVIOUS_VERSION;
   restartingUntil = 0;
+  upgradeProgress = undefined;
+  checkingUntil = 0;
   uploads.clear();
   uploadCount = 0;
   uploadStalls = false;
