@@ -198,7 +198,10 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   the role, a root-operator badge, the sign-in state (active, locked until when or until an
   owner unlocks, an open invitation) and the issued SSH keys. Owners unlock (`UnlockAdmin`),
   re-invite (`ReinviteAdmin`: the password and authenticator are cleared and a new code is
-  shown) and remove admins, and Add admin (`AddAdmin`, optionally a root operator) shows the
+  shown) and remove admins. Remove admin shows, disabled with the reason next to it
+  (`app/features/access/removeBlocked.ts`), on your own row ("You can't remove your own account.
+  Another owner can.") and on the last owner's ("At least one owner must remain", the box's
+  `ACCESS_LAST_OWNER`); a refusal the box still sends stays above the list, not a toast. Add admin (`AddAdmin`, optionally a root operator) shows the
   one-time invitation code the new admin types on `/setup`. Your account: change the password
   (`ChangePassword`, checked as it's typed), replace the authenticator
   (`Begin`/`CompleteTotpReplacement`), and "Get an SSH key" (`IssueSshKey`): the box makes the
