@@ -463,6 +463,40 @@ describe("Updates", () => {
     expect(screen.queryByRole("button", { name: /^Revert to/ })).not.toBeInTheDocument();
   });
 
+  it("says before the stage which release staging a base update removes", async () => {
+    const user = userEvent.setup();
+    await openPage();
+    expect(line("Staging a base update removes 0.0.9 and its files.")).toBeInTheDocument();
+    await user.upload(screen.getByLabelText("Update .bin file"), binFile("signed release"));
+    await user.click(screen.getByRole("button", { name: "Upload" }));
+    const step = await panel();
+    expect(within(step).getByText("This removes 0.0.9 and its files.")).toBeInTheDocument();
+    expect(within(step).getByRole("button", { name: "Verify and stage" })).toBeInTheDocument();
+  });
+
+  it("names a staged release as the one the next stage removes", async () => {
+    applyMockScenario("staged");
+    await openPage();
+    expect(line("Staging a base update removes 0.2.0 and its files.")).toBeInTheDocument();
+  });
+
+  it("says nothing about a removal when the other slot is empty", async () => {
+    applyMockScenario("no-previous");
+    await openPage();
+    expect(screen.queryByText(/and its files/)).not.toBeInTheDocument();
+  });
+
+  it("doesn't name a base release for a product bundle's stage", async () => {
+    const user = userEvent.setup();
+    await openPage();
+    await user.upload(
+      screen.getByLabelText("Update .bin file"),
+      binFile("signed bundle", "sneakers-product-0.2.0-amd64.bin"),
+    );
+    await user.click(screen.getByRole("button", { name: "Upload" }));
+    expect(within(await panel()).queryByText(/and its files/)).not.toBeInTheDocument();
+  });
+
   it("shows a revert an admin asked for as reverted, not failed", async () => {
     applyMockScenario("reverted");
     await openPage();

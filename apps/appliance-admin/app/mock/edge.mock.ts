@@ -1157,6 +1157,8 @@ const route = async (service: string, method: string, body: Record<string, unkno
         failedVersion,
         ...reverted,
         history: structuredClone(upgradeHistory),
+        // As on the box: staging writes over the other slot, so it removes what's there.
+        nextStageRemoves: [stagedVersion || previousVersion].filter(Boolean),
         policy: structuredClone(upgradePolicy),
         ...previousSlot(),
         product: structuredClone(product),

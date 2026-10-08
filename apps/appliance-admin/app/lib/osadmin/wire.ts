@@ -560,6 +560,7 @@ export const getUpgrades = (w: Wire<GetUpgradesResponse>): GetUpgradesResponse =
   airGapped: w.airGapped ?? false,
   failedVersion: w.failedVersion ?? "",
   history: list(w.history, upgradeEvent),
+  nextStageRemoves: texts(w.nextStageRemoves),
   policy: optional(w.policy, upgradePolicy),
   previousSlot: w.previousSlot ?? "",
   previousVersion: w.previousVersion ?? "",

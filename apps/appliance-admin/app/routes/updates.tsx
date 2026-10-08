@@ -384,6 +384,8 @@ export default function Updates() {
   // Staging a release replaces the one kept for a revert, so there's a revert target only with
   // nothing staged.
   const revertTarget = staged ? "" : data.previousVersion;
+  // Staging writes over the other slot, so the stage is where what's there goes.
+  const removes = data.nextStageRemoves.join(", ");
   const openShells = data.activeElevations ?? [];
   const product = data.product;
   const versions = offer.kind === "listed" ? (offer.list.versions ?? []) : [];
@@ -554,6 +556,7 @@ export default function Updates() {
               product bundle, that it fits this base) before it unpacks anything; a file that fails
               is deleted and nothing is staged.
             </p>
+            {removes && <p>Staging a base update removes {removes} and its files.</p>}
             <div className="flex flex-wrap items-center gap-3">
               <input accept=".bin" aria-label="Update .bin file" ref={fileInput} type="file" />
               <Button disabled={step.kind === "uploading"} onClick={sendFile}>
@@ -636,7 +639,7 @@ export default function Updates() {
                 )}
               </div>
             )}
-            <UpdateStep onVerify={verifyAndStage} step={step} />
+            <UpdateStep onVerify={verifyAndStage} removes={removes} step={step} />
           </div>
         </Card>
       )}
@@ -803,11 +806,19 @@ export default function Updates() {
 
 const UpdateStep = ({
   onVerify,
+  removes,
   step,
 }: {
   onVerify: (fileName: string, uploadId: string, via: Via) => void;
+  /** The base releases the stage removes, joined; empty when it removes none. */
+  removes: string;
   step: Step;
 }) => {
+  // A product bundle has its own slots: only a base update's stage removes a base release.
+  const removal =
+    removes && "fileName" in step && !step.fileName.startsWith("sneakers-product-") ? (
+      <p>This removes {removes} and its files.</p>
+    ) : null;
   switch (step.kind) {
     case "held": {
       return (
@@ -829,6 +840,7 @@ const UpdateStep = ({
             <p>
               {step.via} {step.fileName}. It hasn&apos;t been checked yet.
             </p>
+            {removal}
             <div>
               <Button onClick={() => onVerify(step.fileName, step.uploadId, step.via)} size="lg">
                 Verify and stage
@@ -849,6 +861,7 @@ const UpdateStep = ({
                 Error code: <code className="font-mono">{step.code}</code>
               </p>
             )}
+            {retry && removal}
             {retry && (
               <div>
                 <Button
