@@ -39,6 +39,7 @@ import type {
 } from "@/lib/osadmin/types";
 
 import { AddCertificate } from "@/components/certificates/AddCertificate";
+import { hostnameOf, SetHostnameLink } from "@/components/certificates/Hostname";
 import { NotAvailable } from "@/components/NotAvailable";
 import { saveText } from "@/lib/download";
 import { runAction } from "@/lib/osadmin/action";
@@ -126,6 +127,21 @@ export default function Certificates() {
         >
           {admin.stateDetail}
         </Alert>
+      )}
+      {admin?.available && !hostnameOf(admin) && (
+        <section aria-label="No host name">
+          <Alert role="status" title="No host name" tone="warn">
+            <p>
+              This box has no host name yet, so a certificate is checked against{" "}
+              {(admin.names ?? []).join(", ") || "its addresses"} only. A certificate for a name,
+              such as a wildcard for *.example.org, needs the box&apos;s fully qualified host name
+              (such as appliance.example.org).
+            </p>
+            <p>
+              <SetHostnameLink />, confirm the change, then add the certificate.
+            </p>
+          </Alert>
+        </section>
       )}
       {!isOwner && (
         <Alert role="status" tone="info">
@@ -424,6 +440,9 @@ const EndpointRow = ({
           </Button>
         )}
       </div>
+      {(endpoint.names ?? []).length > 0 && (
+        <p className="font-mono text-small">Checked against: {(endpoint.names ?? []).join(", ")}</p>
+      )}
       {endpoint.stateDetail && <p className="text-small text-muted">{endpoint.stateDetail}</p>}
       <AlertDialog onOpenChange={setReverting} open={reverting}>
         <AlertDialogContent>

@@ -20,8 +20,11 @@ status. **Add certificate** is a stepper with three ways in, in this order: Uplo
 certificate, its key and the full chain; the password is write-only), Upload PEM, and a
 single-name request made on the box (RSA 4096 by default, no wildcards). Each one validates,
 lists every check, then applies to :8443 live. Every change needs an owner and a recent sign-in.
-The mock box's states are `cert-assigned`, `cert-csr-pending`, `cert-expiring` and
-`cert-not-served` (`?mockScenario=` on a mock build).
+Each endpoint lists the names a certificate is checked against: the box's host name and its
+management addresses. When the box has no host name, the page says so and links to Network to set
+it, and a refusal for that reason (`TLS_NO_HOSTNAME`) carries the same link. The mock box's states
+are `cert-assigned`, `cert-csr-pending`, `cert-expiring`, `cert-no-hostname` and `cert-not-served`
+(`?mockScenario=` on a mock build).
 
 ## Updates
 

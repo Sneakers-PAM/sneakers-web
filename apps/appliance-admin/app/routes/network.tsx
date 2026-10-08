@@ -212,7 +212,10 @@ export default function Network() {
             );
           }}
         >
-          <Field label="Hostname">
+          <Field
+            hint="Fully qualified, such as appliance.example.org. Certificates are checked against it."
+            label="Hostname"
+          >
             <Input onChange={(event) => setHostname(event.target.value)} value={hostname} />
           </Field>
           <Field hint="Comma-separated" label="DNS servers">
