@@ -89,6 +89,9 @@ export default function Home() {
                     Staged: <VersionChip kind="staged" version={data.stagedVersion} />
                   </p>
                 )}
+                {!data.stagedVersion && data.previousVersion && (
+                  <p>Other slot: {data.previousVersion} (revert target)</p>
+                )}
                 {data.revertedVersion && (
                   <p>
                     {`Reverted from ${data.revertedVersion} (by ${data.revertedBy ?? "an admin"}${data.revertedAt ? `, ${shortDate(data.revertedAt)}` : ""})`}

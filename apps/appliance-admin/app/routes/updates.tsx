@@ -381,6 +381,9 @@ export default function Updates() {
   }
 
   const staged = data.stagedVersion;
+  // Staging a release replaces the one kept for a revert, so there's a revert target only with
+  // nothing staged.
+  const revertTarget = staged ? "" : data.previousVersion;
   const openShells = data.activeElevations ?? [];
   const product = data.product;
   const versions = offer.kind === "listed" ? (offer.list.versions ?? []) : [];
@@ -462,11 +465,13 @@ export default function Updates() {
             <p className="flex flex-wrap items-center gap-1.5">
               Other slot: staged <VersionChip kind="staged" version={staged} />
             </p>
+          ) : revertTarget ? (
+            <p>Other slot: {revertTarget} (revert target)</p>
           ) : (
             <p>Other slot: empty</p>
           )}
         </div>
-        {isOwner && (
+        {isOwner && (staged || revertTarget) && (
           <div className="flex flex-wrap gap-3 border-t border-border p-5.5">
             {staged && (
               <Button
@@ -477,9 +482,11 @@ export default function Updates() {
                 Apply {staged}
               </Button>
             )}
-            <Button onClick={() => setConfirmRevert(true)} size="lg" variant="secondary">
-              Revert to the other slot
-            </Button>
+            {revertTarget && (
+              <Button onClick={() => setConfirmRevert(true)} size="lg" variant="secondary">
+                Revert to {revertTarget}
+              </Button>
+            )}
           </div>
         )}
       </Card>
@@ -785,7 +792,7 @@ export default function Updates() {
             description="The running release is marked bad and the appliance reboots into the previous one. Every session ends."
             onCancel={() => setConfirmRevert(false)}
             onConfirm={(code, refuse) => runUpdate("revert", "", BASE, code, refuse)}
-            title="Revert to the other slot"
+            title={`Revert to ${revertTarget}`}
             word={data.runningVersion}
           />
         )}

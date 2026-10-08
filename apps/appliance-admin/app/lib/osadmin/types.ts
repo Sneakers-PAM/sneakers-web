@@ -190,6 +190,11 @@ export interface GetStatusResponse {
   managementAddresses: string[];
   ntpSynced: boolean;
   phase: string;
+  /** The slot the revert target is in, A or B; empty with no revert target, or when the box
+   * can't tell which slot it runs from. */
+  previousSlot: string;
+  /** The older release kept in the other slot that a revert boots; empty when there's none. */
+  previousVersion: string;
   protection: Protection;
   protectionReason: string;
   /** When an admin reverted the base release: the release reverted from, who, and when. */
@@ -671,6 +676,11 @@ export interface GetUpgradesResponse {
   /** Empty lists are left out of the JSON: a box with no update event yet leaves this out. */
   history?: UpgradeEvent[];
   policy?: UpgradePolicy;
+  /** The slot the revert target is in, A or B; empty with no revert target, or when the box
+   * can't tell which slot it runs from. */
+  previousSlot: string;
+  /** The older release kept in the other slot that a revert boots; empty when there's none. */
+  previousVersion: string;
   /** The product bundle's slots; left out by a box from before product bundles. */
   product?: ProductSlots;
   /** When an admin reverted the base release: the release reverted from, who, and when. */

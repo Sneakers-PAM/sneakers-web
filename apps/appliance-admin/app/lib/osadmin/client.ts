@@ -189,11 +189,12 @@ export const access = {
    * The box makes an ed25519 key pair for the caller, signed by its root key. The private key
    * is in the answer once and never kept.
    */
-  issueSshKey: (label: string, validDays = 0) =>
+  /** Issuing a key takes a fresh authenticator code every time, whatever the step-up window says. */
+  issueSshKey: (label: string, totpCode: string, validDays = 0) =>
     call<IssueSshKeyResponse>(
       "AccessService",
       "IssueSshKey",
-      { label, validDays },
+      { label, totpCode, validDays },
       wire.issueSshKey,
     ),
   list: () => call<ListAdminsResponse>("AccessService", "ListAdmins", {}, wire.listAdmins),

@@ -14,6 +14,8 @@ const status: GetStatusResponse = {
   ntpSynced: true,
   phase: "normal",
   protection: "PROTECTION_FULL",
+  previousSlot: "",
+  previousVersion: "",
   protectionReason: "",
   runningVersion: "0.1.0",
   stagedVersion: "0.2.0",
@@ -75,6 +77,14 @@ describe("buildApplianceReport", () => {
   it("reports an empty other slot", () => {
     const report = buildApplianceReport({ admin: null, status: { ...status, stagedVersion: "" } });
     expect(report.box?.slot).toBe("running 0.1.0, other slot empty");
+  });
+
+  it("names the release kept in the other slot for a revert", () => {
+    const report = buildApplianceReport({
+      admin: null,
+      status: { ...status, previousSlot: "B", previousVersion: "0.0.9", stagedVersion: "" },
+    });
+    expect(report.box?.slot).toBe("running 0.1.0, 0.0.9 in the other slot (B) for a revert");
   });
 
   it("says the box couldn't be read when there's no status", () => {

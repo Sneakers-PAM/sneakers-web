@@ -3,6 +3,7 @@ import {
   Button,
   Card,
   CardHeader,
+  CodeInput,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -256,6 +257,7 @@ const ReplaceTotpDialog = ({ onDone }: { onDone: () => void }) => {
 
 const IssueSshKeyDialog = ({ admin, onDone }: { admin: string; onDone: () => void }) => {
   const [label, setLabel] = useState("");
+  const [code, setCode] = useState("");
   const [issued, setIssued] = useState<IssueSshKeyResponse>();
   const [refusal, setRefusal] = useState("");
   const host = globalThis.location?.hostname ?? "";
@@ -306,22 +308,33 @@ const IssueSshKeyDialog = ({ admin, onDone }: { admin: string; onDone: () => voi
         onSubmit={(event) => {
           event.preventDefault();
           setRefusal("");
-          inDialog(() => access.issueSshKey(label.trim()), setRefusal, setIssued);
+          inDialog(
+            () => access.issueSshKey(label.trim(), code),
+            (message) => {
+              setRefusal(message);
+              setCode("");
+            },
+            setIssued,
+          );
         }}
       >
         <DialogHeader>
           <DialogTitle>Get an SSH key</DialogTitle>
           <DialogDescription>
             The box makes a new key pair for you and signs it with its root key. You download the
-            private key once; the box never keeps it.
+            private key once; the box never keeps it. A new key takes a fresh code from your
+            authenticator, even right after you signed in.
           </DialogDescription>
         </DialogHeader>
         {refusal && <Alert tone="danger">{refusal}</Alert>}
         <Field hint="Say where it lives, such as a laptop." label="Label">
           <Input onChange={(event) => setLabel(event.target.value)} value={label} />
         </Field>
+        <Field label="Authenticator code">
+          <CodeInput label="Authenticator code" onChange={setCode} size="md" value={code} />
+        </Field>
         <DialogFooter>
-          <Button disabled={!label.trim()} type="submit">
+          <Button disabled={!label.trim() || code.length !== 6} type="submit">
             Make the key
           </Button>
         </DialogFooter>

@@ -177,7 +177,12 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   Every state of the file shows in that one panel (`ResultPanel`, `aria-label="Verify result"`,
   its tone in `data-tone`): info while uploading, received or verifying, amber while a stage
   waits for the step-up code, red with the reason and error code for a refused upload, fetch,
-  verify or stage, or a cancelled step-up (which keeps the upload, so it can be verified again). Apply, Revert, Install product and
+  verify or stage, or a cancelled step-up (which keeps the upload, so it can be verified again).
+  The Base system card reads the other slot from `GetUpgrades`: "staged <version>", the release
+  kept for a revert (`previousVersion`, "Other slot: 0.0.9 (revert target)"), or "empty" only
+  when there's neither; Revert is offered, as "Revert to <version>", only when there's a revert
+  target. Status says the same, and the diagnostics' slot line names it ("0.0.9 in the other
+  slot (B) for a revert", from `previousSlot`). Apply, Revert, Install product and
   Revert product each need the version typed (the running one for a base revert) and a fresh
   authenticator code in the same dialog, every time (`totpCode`; the box checks it on every call,
   not the step-up window), and a refused code stays in the dialog with the tries left. Stage and
@@ -204,7 +209,9 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   `ACCESS_LAST_OWNER`); a refusal the box still sends stays above the list, not a toast. Add admin (`AddAdmin`, optionally a root operator) shows the
   one-time invitation code the new admin types on `/setup`. Your account: change the password
   (`ChangePassword`, checked as it's typed), replace the authenticator
-  (`Begin`/`CompleteTotpReplacement`), and "Get an SSH key" (`IssueSshKey`): the box makes the
+  (`Begin`/`CompleteTotpReplacement`), and "Get an SSH key" (`IssueSshKey`): the dialog takes a label and a
+  fresh authenticator code every time (`totpCode`; the box checks it on every call, not the
+  step-up window, and a refused code stays in the dialog with the tries left), the box makes the
   key pair and signs it with its root key, and the dialog shows the private key once, with
   downloads for the key and its `-cert.pub` certificate; SSH asks for the TOTP code after
   login. Owners set the access settings (`SetAccessPolicy`: the lockout mode, the root-shell
@@ -229,7 +236,8 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   progress.
 - **Mock scenarios.** `applyMockScenario` (`app/mock/edge.mock.ts`), or `?mockScenario=a,b` on a
   mock build's URL, puts the mock box into a state for the tests and the review screen list:
-  `air-gapped`, `staged`, `failed` (boot counting fell back from 0.2.0), `reverted` (alice
+  `air-gapped`, `staged`, `no-previous` (nothing in the other slot; by default 0.0.9 is kept
+  there for a revert), `failed` (boot counting fell back from 0.2.0), `reverted` (alice
   reverted from 0.2.0; Status and Updates say "Reverted from", not "Failed"), `manual`, `no-product` (before the first product
   install), `product-staged` (0.2.0 staged, 0.0.9 in the previous slot), `elevated` (bob has an elevated shell open, so
   Apply and Revert are refused without an owner's override), `uploading` and `verifying` (the upload or the

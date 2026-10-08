@@ -258,6 +258,8 @@ export const status: () => GetStatusResponse = () => ({
   managementAddresses: ["192.0.2.50"],
   ntpSynced: true,
   phase: "normal",
+  previousSlot: "",
+  previousVersion: "",
   protection: "PROTECTION_FULL",
   protectionReason: "",
   runningVersion: "0.1.0",
