@@ -1,8 +1,9 @@
 // The mock box's certificate store (TlsService): the self-signed :8443 certificate, a CSR made
 // on the box, a PFX or PEM upload, the endpoints and their assignments. Its checks follow the
 // box's rules closely enough for the page's states: a wildcard is refused in a CSR, a wrong
-// PFX password and a few marked uploads are refused with a ValidationReport, and assigning
-// to Product (443) answers that the product isn't installed.
+// PFX password and a few marked uploads are refused with a ValidationReport, a wildcard PFX is
+// refused on a box with no host name, and assigning to Product (443) answers that the product
+// isn't installed.
 import type {
   CertEndpoint,
   GenerateCsrRequest,
@@ -40,20 +41,26 @@ const fingerprint = (seed: string): string => {
 const pem = (label: string, body: string) =>
   `-----BEGIN ${label}-----\n${btoa(body)}\n-----END ${label}-----\n`;
 
-const selfSigned = (): StoredCertificate => ({
-  added: at(-30),
-  certificatePem: pem("CERTIFICATE", "self-signed"),
-  chain: [HOST],
-  fingerprint: fingerprint("self-signed"),
-  id: SELF_SIGNED_ID,
-  issuer: `CN=${HOST},O=Sneakers-PAM appliance admin`,
-  keyType: "ECDSA P-256",
-  names: [HOST, ...ADDRESSES],
-  notAfter: at(367),
-  notBefore: at(-30),
-  source: "CERTIFICATE_SOURCE_SELF_SIGNED",
-  subject: `CN=${HOST},O=Sneakers-PAM appliance admin`,
-});
+/** The names the box checks a certificate against: its host name, if it has one, then its addresses. */
+const boxNames = (host: string): string[] => [...(host ? [host] : []), ...ADDRESSES];
+
+const selfSigned = (host = HOST): StoredCertificate => {
+  const cn = host || (ADDRESSES[0] ?? "");
+  return {
+    added: at(-30),
+    certificatePem: pem("CERTIFICATE", "self-signed"),
+    chain: [cn],
+    fingerprint: fingerprint("self-signed"),
+    id: SELF_SIGNED_ID,
+    issuer: `CN=${cn},O=Sneakers-PAM appliance admin`,
+    keyType: "ECDSA P-256",
+    names: boxNames(host),
+    notAfter: at(367),
+    notBefore: at(-30),
+    source: "CERTIFICATE_SOURCE_SELF_SIGNED",
+    subject: `CN=${cn},O=Sneakers-PAM appliance admin`,
+  };
+};
 
 const wildcard = (id: string, notAfter = at(359)): StoredCertificate => ({
   added: at(0),
@@ -83,6 +90,8 @@ interface State {
   certificates: StoredCertificate[];
   count: number;
   csrs: PendingCsr[];
+  /** The box's host name; empty for a box that has none. */
+  host: string;
   notServed: boolean;
 }
 
@@ -91,6 +100,7 @@ const fresh = (): State => ({
   certificates: [selfSigned()],
   count: 0,
   csrs: [],
+  host: HOST,
   notServed: false,
 });
 
@@ -102,12 +112,13 @@ export const resetCertificates = (): void => {
 
 /** The certificate-page scenarios, for the gallery and the tests. */
 export type CertificateScenario =
-  "cert-assigned" | "cert-csr-pending" | "cert-expiring" | "cert-not-served";
+  "cert-assigned" | "cert-csr-pending" | "cert-expiring" | "cert-no-hostname" | "cert-not-served";
 
 export const CERTIFICATE_SCENARIOS: CertificateScenario[] = [
   "cert-assigned",
   "cert-csr-pending",
   "cert-expiring",
+  "cert-no-hostname",
   "cert-not-served",
 ];
 
@@ -127,6 +138,11 @@ export const applyCertificateScenario = (scenario: CertificateScenario): void =>
       state.assigned = "c0ffee000002";
       break;
     }
+    case "cert-no-hostname": {
+      state.host = "";
+      state.certificates = [selfSigned("")];
+      break;
+    }
     case "cert-not-served": {
       state.notServed = true;
       break;
@@ -135,14 +151,14 @@ export const applyCertificateScenario = (scenario: CertificateScenario): void =>
 };
 
 const newCsr = (id: string, name: string, keyType: string): PendingCsr => {
-  const names = [...new Set([name, HOST].filter(Boolean)), ...ADDRESSES];
+  const names = [...new Set([name, state.host].filter(Boolean)), ...ADDRESSES];
   return {
     created: at(0),
     csrPem: pem("CERTIFICATE REQUEST", `csr-${id}`),
     id,
     keyType,
     names,
-    subject: `CN=${name || HOST}`,
+    subject: `CN=${name || state.host || (ADDRESSES[0] ?? "")}`,
   };
 };
 
@@ -156,7 +172,7 @@ const usedBy = (id: string): string[] =>
 
 const adminEndpoint = (): CertEndpoint => {
   const id = state.assigned ?? SELF_SIGNED_ID;
-  const cert = state.certificates.find((c) => c.id === id) ?? selfSigned();
+  const cert = state.certificates.find((c) => c.id === id) ?? selfSigned(state.host);
   const days = Math.floor((Date.parse(cert.notAfter) - Date.now()) / DAY);
   let endpointState: CertEndpoint["state"] = "ENDPOINT_STATE_OK";
   let detail = `${String(days)} days left.`;
@@ -173,7 +189,7 @@ const adminEndpoint = (): CertEndpoint => {
     expires: cert.notAfter,
     id: "admin",
     name: ":8443 admin",
-    names: [HOST, ...ADDRESSES],
+    names: boxNames(state.host),
     servingFingerprint: cert.fingerprint,
     source: state.assigned ? "ENDPOINT_SOURCE_ASSIGNED" : "ENDPOINT_SOURCE_SELF_SIGNED",
     state: endpointState,
@@ -224,6 +240,18 @@ const missingIntermediate = () =>
     ],
   );
 
+const noHostname = () => {
+  const has = wildcard("").names.join(", ");
+  const reason = `this box has no host name yet, so the certificate is checked against ${ADDRESSES.join(", ")} only, and it covers ${has}; set the host name on Network (a fully qualified name such as appliance.example.org), then try again`;
+  return refused("TLS_NO_HOSTNAME", 3815, reason, [
+    { detail: "matches the key in the upload", name: "key", passed: true },
+    { detail: "TLS server", name: "usage", passed: true },
+    { detail: "*.example.org > Example Issuing CA > Example Root CA", name: "chain", passed: true },
+    { detail: reason, name: "names", passed: false },
+    { detail: "valid for 359 days", name: "validity", passed: true },
+  ]);
+};
+
 const generate = (r: GenerateCsrRequest) => {
   const extra = r.names.map((n) => n.trim().toLowerCase()).filter(Boolean);
   const wild = extra.find((n) => n.includes("*"));
@@ -260,6 +288,7 @@ const importCertificate = (r: ImportCertificateRequest) => {
         "failed_precondition",
         "TLS_FORMAT (3802): the PKCS#12 password is wrong",
       );
+    if (!state.host) throw noHostname();
     return add(wildcard(nextId()));
   }
   if (!r.certificatePem?.includes("BEGIN CERTIFICATE"))

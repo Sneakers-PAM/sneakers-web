@@ -186,6 +186,47 @@ describe("Certificates", () => {
     expect(alert).toHaveTextContent(/expires in 1[12] days/);
   });
 
+  it("shows the names the box checks a certificate against", async () => {
+    renderPage(Certificates);
+    const endpoints = await screen.findByRole("region", { name: "Endpoints" });
+    expect(
+      within(endpoints).getByText("Checked against: appliance.example.org, 192.0.2.10"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Set the host name on Network/ })).toBeNull();
+  });
+
+  it("says when the box has no host name, and links to Network to set it", async () => {
+    applyMockScenario("cert-no-hostname");
+    renderPage(Certificates);
+    const notice = await screen.findByRole("region", { name: "No host name" });
+    expect(within(notice).getByRole("status")).toHaveTextContent("No host name");
+    expect(notice).toHaveTextContent(
+      /This box has no host name yet, so a certificate is checked against 192\.0\.2\.10 only/,
+    );
+    expect(
+      within(notice).getByRole("link", { name: "Set the host name on Network" }),
+    ).toHaveAttribute("href", "/network");
+    const endpoints = screen.getByRole("region", { name: "Endpoints" });
+    expect(within(endpoints).getByText("Checked against: 192.0.2.10")).toBeInTheDocument();
+  });
+
+  it("refuses a wildcard PFX on a box with no host name, naming both sides and Network", async () => {
+    applyMockScenario("cert-no-hostname");
+    const user = userEvent.setup();
+    renderPage(Certificates);
+    const dialog = await openAdd(user);
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
+    await user.upload(within(dialog).getByLabelText("PFX file"), new File(["x"], "a.pfx"));
+    await user.type(within(dialog).getByLabelText("Password"), MOCK_PFX_PASSWORD);
+    await user.click(within(dialog).getByRole("button", { name: "Validate and save" }));
+    const refusal = await within(dialog).findByRole("alert");
+    expect(refusal).toHaveTextContent(/checked against 192\.0\.2\.10 only/);
+    expect(refusal).toHaveTextContent(/it covers \*\.example\.org, example\.org/);
+    expect(
+      within(refusal).getByRole("link", { name: "Set the host name on Network" }),
+    ).toHaveAttribute("href", "/network");
+  });
+
   it("lets an admin who isn't an owner look, not change", async () => {
     signInAs("bob");
     renderPage(Certificates);

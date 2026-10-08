@@ -23,10 +23,11 @@ import type {
 } from "@/lib/osadmin/types";
 
 import { Advanced } from "@/components/Advanced";
+import { SetHostnameLink } from "@/components/certificates/Hostname";
 import { ValidationList } from "@/components/certificates/ValidationList";
 import { saveText } from "@/lib/download";
 import { tls } from "@/lib/osadmin/client";
-import { isStepUpRequired, reasonOf, validationChecksOf } from "@/lib/osadmin/errors";
+import { isStepUpRequired, OsadminError, reasonOf, validationChecksOf } from "@/lib/osadmin/errors";
 import { requestStepUp } from "@/lib/osadmin/stepUpController";
 
 type Path = "csr" | "pem" | "pfx";
@@ -80,6 +81,7 @@ const readText = async (file?: File): Promise<string> => (file ? file.text() : "
 interface Failure {
   checks: ValidationCheck[];
   reason: string;
+  symbol?: string;
 }
 
 /**
@@ -124,7 +126,11 @@ export const AddCertificate = ({
         requestStepUp(() => void run(function_));
         return;
       }
-      setFailure({ checks: validationChecksOf(error), reason: reasonOf(error) });
+      setFailure({
+        checks: validationChecksOf(error),
+        reason: reasonOf(error),
+        symbol: error instanceof OsadminError ? error.symbol : undefined,
+      });
     } finally {
       setBusy(false);
     }
@@ -372,6 +378,11 @@ export const AddCertificate = ({
             {failure.checks.length > 0 && <ValidationList checks={failure.checks} passed={false} />}
             <Alert role="alert" title="Not saved" tone="danger">
               <p>{failure.reason}</p>
+              {failure.symbol === "TLS_NO_HOSTNAME" && (
+                <p>
+                  <SetHostnameLink />, confirm the change, then try again.
+                </p>
+              )}
               <p>Nothing was changed; :8443 keeps its current certificate.</p>
             </Alert>
           </div>
