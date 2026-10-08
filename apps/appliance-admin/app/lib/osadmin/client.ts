@@ -22,6 +22,7 @@ import type {
   GetTlsResponse,
   GetUpgradesResponse,
   Invitation,
+  IssueRootShellCodeResponse,
   IssueSshKeyResponse,
   ListAdminsResponse,
   ListElevationsResponse,
@@ -148,6 +149,15 @@ export const elevation = {
   /** Ends an open root shell at once. */
   terminate: (id: string) =>
     call<Record<string, never>>("ElevationService", "TerminateElevation", { id }),
+};
+
+export const rootShell = {
+  /** Answers the SSH menu's challenge, with a fresh TOTP code; root operators only. */
+  issueCode: (challenge: string, totpCode: string) =>
+    call<IssueRootShellCodeResponse>("RootShellService", "IssueRootShellCode", {
+      challenge,
+      totpCode,
+    }),
 };
 
 export const network = {

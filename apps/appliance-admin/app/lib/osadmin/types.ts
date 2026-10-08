@@ -294,6 +294,18 @@ export interface IssueSshKeyResponse {
   publicKey: string;
 }
 
+// ---- root shell ----
+
+export interface IssueRootShellCodeResponse {
+  /** XXXX-XXXX, typed into the SSH session; it works once, for this challenge only. */
+  code: string;
+  expires?: string;
+  /** How long the root shell may stay open. */
+  sessionMinutes: number;
+  /** The SSH client the challenge came from, to check. */
+  sourceAddress: string;
+}
+
 // ---- elevation (root shells) ----
 
 /** issued: a code is out; active: the shell is open; ended or expired after. */

@@ -36,6 +36,7 @@ const FRAME = [
   "/updates",
   "/network",
   "/access",
+  "/root-shell",
   "/certificates",
   "/backups",
   "/mcp",
@@ -68,6 +69,17 @@ const SCENARIOS = [
     },
     name: "access-invitation",
     route: "/access",
+    scenario: "",
+  },
+  {
+    act: async (page) => {
+      await page.getByLabel("Challenge from the SSH menu").fill("K3M9-7PQX-2HDW-R4TE");
+      await page.getByLabel("Authenticator code").first().fill("314159");
+      await page.getByRole("button", { name: "Get the code" }).click();
+      await page.getByLabel("Root-shell code", { exact: true }).waitFor();
+    },
+    name: "root-shell-code",
+    route: "/root-shell",
     scenario: "",
   },
 ];

@@ -723,6 +723,25 @@ const route = async (service: string, method: string, body: Record<string, unkno
         factoryReset: structuredClone(startReset(caller(), body.confirmHostname as string)),
       };
     }
+    case "RootShellService/IssueRootShellCode": {
+      if (!quorum.members.includes(caller()))
+        throw new OsadminError(
+          "permission_denied",
+          "ACCESS_FORBIDDEN: only root operators get root-shell codes",
+        );
+      if (!/^[0-9A-HJKMNP-TV-Z]{16}$/.test(normalCode(String(body.challenge ?? ""))))
+        throw new OsadminError(
+          "invalid_argument",
+          "ROOTSHELL_CHALLENGE: that isn't a challenge from your SSH menu; it looks like XXXX-XXXX-XXXX-XXXX",
+        );
+      checkCredentials(caller(), null, String(body.totpCode ?? ""));
+      return {
+        code: "Q7XD-2PNR",
+        expires: new Date(Date.now() + accessPolicy.rootCodeMinutes * 60_000).toISOString(),
+        sessionMinutes: accessPolicy.rootSessionMinutes,
+        sourceAddress: "192.0.2.50",
+      };
+    }
     case "SetupService/AcknowledgeSingleAdmin": {
       singleAdminAcknowledged = true;
       return {};

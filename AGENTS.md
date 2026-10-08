@@ -164,6 +164,11 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   confirmation dialog), the root key's and the host keys' fingerprints, and the root shells
   (`ListElevations`; an owner ends an open one). Owner-approved elevation and adding a key an
   admin brings are gone.
+- **Root shell (`app/routes/root-shell.tsx`).** Root operators only (`Session.rootOperator`; the
+  nav item shows only for them). The admin pastes the challenge their SSH menu shows and a fresh
+  TOTP code (`RootShellService.IssueRootShellCode`), and the page shows the one-use code with
+  its expiry (a countdown), the root shell's time limit, and the SSH address the challenge came
+  from, to check. A refusal stays on the page.
 - **Factory reset (`app/routes/power.tsx`).** Owner only, after typing the box's host name; not
   offered when `GetPower` says it's unavailable (a single admin), with the reason. A request shows
   M of N and each roster member's approval; a member who hasn't approved gets Approve (the server

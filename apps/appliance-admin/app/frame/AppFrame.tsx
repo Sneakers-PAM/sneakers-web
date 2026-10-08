@@ -11,6 +11,7 @@ import {
   Power,
   RefreshCw,
   ShieldCheck,
+  SquareTerminal,
   Wifi,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -120,6 +121,14 @@ export const AppFrame = () => {
             <NavItem collapsed={collapsed} icon={<RefreshCw />} label="Updates" to="/updates" />
             <NavItem collapsed={collapsed} icon={<Wifi />} label="Network" to="/network" />
             <NavItem collapsed={collapsed} icon={<KeyRound />} label="Access" to="/access" />
+            {session.rootOperator && (
+              <NavItem
+                collapsed={collapsed}
+                icon={<SquareTerminal />}
+                label="Root shell"
+                to="/root-shell"
+              />
+            )}
             <NavItem
               collapsed={collapsed}
               icon={<ShieldCheck />}
