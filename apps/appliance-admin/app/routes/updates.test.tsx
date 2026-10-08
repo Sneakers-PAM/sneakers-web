@@ -41,7 +41,7 @@ describe("Updates", () => {
     const running = within(line("Running 0.1.0 in the active slot")).getByText("0.1.0");
     expect(running).toHaveAttribute("data-version", "running");
     expect(running).toHaveClass("bg-primary-soft", "text-primary");
-    expect(screen.getByText(/Other slot: empty/)).toBeInTheDocument();
+    expect(screen.getByText("Other slot: 0.0.9 (revert target)")).toBeInTheDocument();
     expect(screen.getByText(/Daily at 02:00 for 120 minutes/)).toBeInTheDocument();
     const history = screen.getByRole("table", { name: "Update history" });
     expect(within(history).getAllByRole("row").length).toBeGreaterThan(1);
@@ -113,7 +113,7 @@ describe("Updates", () => {
     expect(within(refusal).getByText(/UPGRADE_SIGNATURE/)).toBeInTheDocument();
     expect(within(refusal).getByText(/Nothing was staged/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Apply/ })).not.toBeInTheDocument();
-    expect(screen.getByText(/Other slot: empty/)).toBeInTheDocument();
+    expect(screen.getByText("Other slot: 0.0.9 (revert target)")).toBeInTheDocument();
   });
 
   it("shows the upload's progress while it sends", async () => {
@@ -395,7 +395,7 @@ describe("Updates", () => {
     applyMockScenario("elevated");
     const user = userEvent.setup();
     await openPage();
-    await user.click(screen.getByRole("button", { name: "Revert to the other slot" }));
+    await user.click(screen.getByRole("button", { name: "Revert to 0.0.9" }));
     await user.type(screen.getByLabelText("Type 0.1.0 to confirm"), "0.1.0");
     await user.type(screen.getByLabelText("Authenticator code"), "123456");
     await user.click(screen.getByRole("button", { name: "Revert and reboot" }));
@@ -430,7 +430,7 @@ describe("Updates", () => {
   it("reverts to the other slot with the running version typed and a fresh code", async () => {
     const user = userEvent.setup();
     await openPage();
-    await user.click(screen.getByRole("button", { name: "Revert to the other slot" }));
+    await user.click(screen.getByRole("button", { name: "Revert to 0.0.9" }));
     const dialog = await screen.findByRole("dialog");
     const confirm = within(dialog).getByRole("button", { name: "Revert and reboot" });
     expect(confirm).toBeDisabled();
@@ -440,6 +440,27 @@ describe("Updates", () => {
     await user.click(confirm);
     const restarting = await screen.findByRole("region", { name: "Restarting" });
     expect(within(restarting).getByText(/Reverting to the other slot/)).toBeInTheDocument();
+  });
+
+  it("names the release kept in the other slot as the revert target", async () => {
+    await openPage();
+    expect(screen.getByText("Other slot: 0.0.9 (revert target)")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Revert to 0.0.9" })).toBeInTheDocument();
+  });
+
+  it("shows a staged release in the other slot, with nothing to revert to", async () => {
+    applyMockScenario("staged");
+    await openPage();
+    expect(line("Other slot: staged 0.2.0")).toBeInTheDocument();
+    expect(screen.queryByText(/revert target/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Revert to/ })).not.toBeInTheDocument();
+  });
+
+  it("says the other slot is empty only when there's really nothing in it", async () => {
+    applyMockScenario("no-previous");
+    await openPage();
+    expect(screen.getByText("Other slot: empty")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Revert to/ })).not.toBeInTheDocument();
   });
 
   it("shows a revert an admin asked for as reverted, not failed", async () => {
@@ -504,9 +525,7 @@ describe("Updates", () => {
       screen.getByText("Only an owner can install, apply or revert updates."),
     ).toBeInTheDocument();
     expect(screen.queryByLabelText("Update .bin file")).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Revert to the other slot" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Revert to 0.0.9" })).not.toBeInTheDocument();
   });
 
   describe("the product bundle", () => {

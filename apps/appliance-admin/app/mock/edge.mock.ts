@@ -205,8 +205,11 @@ const newer = (a: string, b: string) => {
 let failedVersion = "";
 /** The last base revert an admin asked for: the release reverted from, who, and when. */
 let reverted: { revertedAt: string; revertedBy: string; revertedVersion: string } | null = null;
-/** The release the last base apply moved from, so a revert has somewhere to go back to. */
-let previousVersion = "";
+/** The older release kept in the other slot for a revert: the box was updated from 0.0.9. */
+const PREVIOUS_VERSION = "0.0.9";
+let previousVersion = PREVIOUS_VERSION;
+/** The revert target and its slot as Status and Updates report them; staging replaces it. */
+const previousSlot = () => ({ previousSlot: previousVersion ? "B" : "", previousVersion });
 /** While set, the mock box is restarting: :8443 doesn't answer until then, and the restart ends
  * every session. */
 let restartingUntil = 0;
@@ -1078,6 +1081,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
           secureBootOn && custodyMode === "tpm"
             ? ""
             : "Secure Boot isn't available on this hardware, and there is no TPM",
+        ...previousSlot(),
         runningVersion,
         stagedVersion,
       };
@@ -1154,6 +1158,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
         ...reverted,
         history: structuredClone(upgradeHistory),
         policy: structuredClone(upgradePolicy),
+        ...previousSlot(),
         product: structuredClone(product),
         runningVersion,
         stagedVersion,
@@ -1193,20 +1198,23 @@ const route = async (service: string, method: string, body: Record<string, unkno
         };
         return {};
       }
+      if (!previousVersion)
+        throw new OsadminError(
+          "failed_precondition",
+          "UPGRADE_NO_PREVIOUS: there's no previous release to roll back to",
+        );
       const detail = holdForElevation(
         "update reverts",
         body.elevationOverride as ElevationOverride | undefined,
       );
       historyEntry("revert", "", "", detail);
-      if (previousVersion) {
-        reverted = {
-          revertedAt: new Date().toISOString(),
-          revertedBy: caller(),
-          revertedVersion: runningVersion,
-        };
-        runningVersion = previousVersion;
-        previousVersion = "";
-      }
+      reverted = {
+        revertedAt: new Date().toISOString(),
+        revertedBy: caller(),
+        revertedVersion: runningVersion,
+      };
+      runningVersion = previousVersion;
+      previousVersion = "";
       restart();
       return {};
     }
@@ -1230,7 +1238,10 @@ const route = async (service: string, method: string, body: Record<string, unkno
       try {
         const updatePackage = await verify(uploadId);
         if (isProduct(updatePackage.target)) product.stagedVersion = updatePackage.version;
-        else stagedVersion = updatePackage.version;
+        else {
+          stagedVersion = updatePackage.version;
+          previousVersion = "";
+        }
         historyEntry("stage", updatePackage.version, "", "", updatePackage.target);
         return isProduct(updatePackage.target)
           ? { package: updatePackage }
@@ -1294,6 +1305,7 @@ const MOCK_SCENARIOS = [
   "locked",
   "locked-until-unlocked",
   "manual",
+  "no-previous",
   "no-product",
   "product-staged",
   "reduced",
@@ -1390,6 +1402,7 @@ export const applyMockScenario = (scenario: MockScenario): void => {
     }
     case "failed": {
       failedVersion = "0.2.0";
+      previousVersion = "";
       break;
     }
     case "first-boot": {
@@ -1424,6 +1437,10 @@ export const applyMockScenario = (scenario: MockScenario): void => {
       upgradePolicy = { ...upgradePolicy, mode: "manual" };
       break;
     }
+    case "no-previous": {
+      previousVersion = "";
+      break;
+    }
     case "no-product": {
       product = { installedVersion: "", previousVersion: "", running: false, stagedVersion: "" };
       break;
@@ -1451,6 +1468,7 @@ export const applyMockScenario = (scenario: MockScenario): void => {
       break;
     }
     case "reverted": {
+      previousVersion = "";
       reverted = {
         revertedAt: "2026-10-08T14:05:00Z",
         revertedBy: "alice",
@@ -1478,6 +1496,7 @@ export const applyMockScenario = (scenario: MockScenario): void => {
     }
     case "staged": {
       stagedVersion = "0.2.0";
+      previousVersion = "";
       break;
     }
     case "stepup": {
@@ -1517,7 +1536,7 @@ export const resetMockWorld = (): void => {
   product = structuredClone(world.PRODUCT_SLOTS);
   failedVersion = "";
   reverted = null;
-  previousVersion = "";
+  previousVersion = PREVIOUS_VERSION;
   restartingUntil = 0;
   uploads.clear();
   uploadCount = 0;

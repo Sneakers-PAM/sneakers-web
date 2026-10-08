@@ -49,6 +49,19 @@ describe("Home", () => {
     expect(screen.getByText(/Running/)).toBeInTheDocument();
   });
 
+  it("names the release kept in the other slot for a revert", async () => {
+    renderPage(Home);
+    expect(await screen.findByText("Other slot: 0.0.9 (revert target)")).toBeInTheDocument();
+  });
+
+  it("says nothing of a revert target while a release is staged", async () => {
+    applyMockScenario("staged");
+    renderPage(Home);
+    expect(await screen.findByText("Status")).toBeInTheDocument();
+    expect(line("Staged: 0.2.0")).toBeInTheDocument();
+    expect(screen.queryByText(/revert target/)).not.toBeInTheDocument();
+  });
+
   it("shows a revert an admin asked for as reverted, in a neutral tone, not as failed", async () => {
     applyMockScenario("reverted");
     renderPage(Home);

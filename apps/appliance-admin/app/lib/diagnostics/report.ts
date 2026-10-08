@@ -66,10 +66,13 @@ const secureBootState = (status: GetStatusResponse): string => {
   return "on";
 };
 
-const slotState = (status: GetStatusResponse): string =>
-  status.stagedVersion
-    ? `running ${status.runningVersion}, staged ${status.stagedVersion} in the other slot`
-    : `running ${status.runningVersion}, other slot empty`;
+const slotState = (status: GetStatusResponse): string => {
+  if (status.stagedVersion)
+    return `running ${status.runningVersion}, staged ${status.stagedVersion} in the other slot`;
+  if (status.previousVersion)
+    return `running ${status.runningVersion}, ${status.previousVersion} in the other slot${status.previousSlot ? ` (${status.previousSlot})` : ""} for a revert`;
+  return `running ${status.runningVersion}, other slot empty`;
+};
 
 /**
  * The appliance admin's own About and diagnostics (issue #202): this build, the signed-in
