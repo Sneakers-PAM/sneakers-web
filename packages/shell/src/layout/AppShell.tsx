@@ -59,8 +59,11 @@ export const AppShell = ({
   const narrow = !wide;
   const railOpen = expanded && !narrow;
 
+  // Both the frame and main are positioned, so an absolutely placed element inside a page
+  // (Radix's hidden form inputs, sr-only text) scrolls with main instead of stretching the
+  // document past the frame.
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-bg text-ink">
+    <div className="relative flex h-dvh flex-col overflow-hidden bg-bg text-ink">
       <EdgeBanner />
       <header
         className={cn(
@@ -110,7 +113,7 @@ export const AppShell = ({
           <aside
             aria-label="Sidebar"
             className={cn(
-              "flex flex-none flex-col gap-5 overflow-x-hidden overflow-y-auto border-r border-border bg-surface px-3 py-4 transition-[width] duration-[320ms] ease-laces",
+              "relative flex flex-none flex-col gap-5 overflow-x-hidden overflow-y-auto border-r border-border bg-surface px-3 py-4 transition-[width] duration-[320ms] ease-laces",
               railOpen ? (admin ? "w-65" : "w-68") : "w-17",
             )}
           >
@@ -118,7 +121,7 @@ export const AppShell = ({
           </aside>
         )}
         <main
-          className="flex min-w-0 flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto px-4 py-6 tablet:px-10 tablet:py-8"
+          className="relative flex min-w-0 flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto px-4 py-6 tablet:px-10 tablet:py-8"
           id="main"
         >
           {children}
