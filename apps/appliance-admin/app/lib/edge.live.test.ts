@@ -106,3 +106,22 @@ describe("live edge request", () => {
     expect(sent[2]?.get("X-CSRF-Token")).toBeNull();
   });
 });
+
+describe("live edge request when the box can't be reached", () => {
+  beforeEach(() =>
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.reject(new TypeError("Failed to fetch"))),
+    ),
+  );
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("says the appliance can't be reached instead of the browser's network error", async () => {
+    const error: unknown = await edge
+      .request("NetworkService", "ConfirmNetwork", {})
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(OsadminError);
+    expect((error as OsadminError).code).toBe("unavailable");
+    expect((error as OsadminError).message).toBe("The appliance can't be reached at this address.");
+  });
+});

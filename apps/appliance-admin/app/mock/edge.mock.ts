@@ -148,7 +148,9 @@ const setupSteps = () => {
   return { current: setupDone ? 0 : open + 1, steps };
 };
 
-let networkPending: { settings: NetdSettings; token: string } | null = null;
+let networkPending: { settings: NetdSettings; token: string; until: number } | null = null;
+
+const NETWORK_REVERT_SECONDS = 120;
 const modules = structuredClone(world.MODULES);
 const recoveryKeys = structuredClone(world.RECOVERY_KEYS);
 const admins = structuredClone(world.ADMINS);
@@ -730,6 +732,11 @@ const route = async (service: string, method: string, body: Record<string, unkno
         ntpOffsetMs: "4",
         ntpSynced: true,
         pending: !!networkPending,
+        ...(networkPending && {
+          pendingChangeId: "net-1",
+          pendingToken: networkPending.token,
+          revertSecondsLeft: Math.max(0, Math.ceil((networkPending.until - Date.now()) / 1000)),
+        }),
         serviceAddresses: [],
         settings: networkSettings,
       };
@@ -737,18 +744,49 @@ const route = async (service: string, method: string, body: Record<string, unkno
     case "NetworkService/RunChecks": {
       return {
         checks: [
-          { detail: "up", name: "link", status: "ok" },
-          { detail: "192.0.2.50/24", name: "address", status: "ok" },
-          { detail: "192.0.2.1 reachable", name: "gateway", status: "ok" },
-          { detail: "192.0.2.53 answered", name: "dns", status: "ok" },
-          { detail: "offset 4ms", name: "ntp", status: "ok" },
+          { detail: "up", name: "link", skippable: true, state: "CHECK_STATE_OK" },
+          { detail: "192.0.2.50/24", name: "address", state: "CHECK_STATE_OK" },
+          {
+            detail: "192.0.2.1 reachable",
+            name: "gateway",
+            skippable: true,
+            state: "CHECK_STATE_OK",
+          },
+          {
+            code: "NET_DNS",
+            detail: "no DNS server answered for example.org",
+            name: "dns",
+            skippable: true,
+            state: "CHECK_STATE_FAILED",
+          },
+          {
+            code: "NET_NTP",
+            detail: "not synced yet, offset 900 ms",
+            name: "ntp",
+            skippable: true,
+            state: "CHECK_STATE_WARN",
+          },
         ],
       };
     }
     case "NetworkService/SetNetwork": {
       const token = Math.random().toString(36).slice(2);
-      networkPending = { settings: body.settings as NetdSettings, token };
-      return { revertAfterSeconds: 120, token };
+      const next = body.settings as NetdSettings;
+      const address = (s: NetdSettings) =>
+        s.addresses.find((a) => a.family === "ipv4" && a.mode === "static")?.address;
+      const moves = address(next) !== address(networkSettings);
+      networkPending = {
+        settings: next,
+        token,
+        until: Date.now() + NETWORK_REVERT_SECONDS * 1000,
+      };
+      return {
+        movesManagement: moves,
+        newCertificate: moves || next.hostname !== networkSettings.hostname,
+        ...(moves && address(next) && { newUrl: `https://${address(next)!}:8443/` }),
+        revertAfterSeconds: NETWORK_REVERT_SECONDS,
+        token,
+      };
     }
     case "PowerService/ApproveFactoryReset": {
       return { factoryReset: structuredClone(approveReset(caller(), body.id as string)) };

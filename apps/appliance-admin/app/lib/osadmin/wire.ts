@@ -368,19 +368,27 @@ export const getNetwork = (w: Wire<GetNetworkResponse>): GetNetworkResponse => (
   ntpOffsetMs: w.ntpOffsetMs ?? "",
   ntpSynced: w.ntpSynced ?? false,
   pending: w.pending ?? false,
+  ...(w.pendingChangeId ? { pendingChangeId: w.pendingChangeId } : {}),
+  ...(w.pendingToken ? { pendingToken: w.pendingToken } : {}),
+  ...(w.revertSecondsLeft === undefined ? {} : { revertSecondsLeft: w.revertSecondsLeft }),
   serviceAddresses: texts(w.serviceAddresses),
   settings: optional(w.settings, netdSettings),
 });
 
 export const setNetwork = (w: Wire<SetNetworkResponse>): SetNetworkResponse => ({
+  movesManagement: w.movesManagement ?? false,
+  newCertificate: w.newCertificate ?? false,
+  ...(w.newUrl ? { newUrl: w.newUrl } : {}),
   revertAfterSeconds: w.revertAfterSeconds ?? 0,
   token: w.token ?? "",
 });
 
 const netdCheck = (w: Wire<NetdCheck>): NetdCheck => ({
+  ...(w.code ? { code: w.code } : {}),
   detail: w.detail ?? "",
   name: w.name ?? "",
-  status: word(w.status),
+  skippable: w.skippable ?? false,
+  state: w.state ?? "CHECK_STATE_UNSPECIFIED",
 });
 
 export const runChecks = (w: Wire<RunChecksResponse>): RunChecksResponse => ({

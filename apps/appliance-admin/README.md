@@ -23,6 +23,18 @@ lists every check, then applies to :8443 live. Every change needs an owner and a
 The mock box's states are `cert-assigned`, `cert-csr-pending`, `cert-expiring` and
 `cert-not-served` (`?mockScenario=` on a mock build).
 
+## Network
+
+The Network page reads and changes the box's settings (`NetworkService`). An applied change
+reverts unless an owner confirms it in time: the pending banner counts down the seconds the box
+reports and keeps its Confirm button after a reload, because `GetNetwork` returns the pending
+change's token to owner sessions. When a change moves the management address, the banner names
+the new URL to sign in at and confirm from; when it changes the name or address, it warns that
+the box makes a new certificate. A Confirm that can't reach the box says so, with the seconds
+left, rather than the browser's network error. **Run checks** shows each check as OK (green),
+Warning (yellow), Failed (red) or Unknown, with its `NET_*` code and detail. Toasts sit at the
+bottom centre, clear of the accessibility widget.
+
 ## Review gallery
 
 ```sh

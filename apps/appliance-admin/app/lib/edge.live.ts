@@ -11,6 +11,9 @@ const uploadError = (status: number, text: string): OsadminError => {
   );
 };
 
+/** What a request that never reached osadmin says. */
+export const UNREACHABLE = "The appliance can't be reached at this address.";
+
 /**
  * The live edge: the browser calls osadmin's Connect API at the same origin (no gateway,
  * no Node server -- osadmin serves the static assets and the API side by side on :8443).
@@ -27,12 +30,20 @@ export const edge: Edge = {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     const csrf = csrfToken();
     if (csrf) headers["X-CSRF-Token"] = csrf;
-    const response = await fetch(`/sneakers.appliance.osadmin.v1.${service}/${method}`, {
-      body: JSON.stringify(body ?? {}),
-      credentials: "same-origin",
-      headers,
-      method: "POST",
-    });
+    let response: Response;
+    try {
+      response = await fetch(`/sneakers.appliance.osadmin.v1.${service}/${method}`, {
+        body: JSON.stringify(body ?? {}),
+        credentials: "same-origin",
+        headers,
+        method: "POST",
+      });
+    } catch (error) {
+      // fetch rejects with a TypeError ("Failed to fetch") when the box doesn't answer at
+      // this origin at all: a network change moved its address or remade its certificate.
+      if (error instanceof TypeError) throw new OsadminError("unavailable", UNREACHABLE);
+      throw error;
+    }
     if (!response.ok) throw await parseOsadminError(response);
     return (await response.json()) as Result;
   },

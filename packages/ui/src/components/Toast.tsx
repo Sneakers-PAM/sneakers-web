@@ -3,12 +3,16 @@ import { Toaster as Sonner, toast as sonnerToast } from "sonner";
 
 import { toastProblemAction } from "#ui/components/ProblemAction";
 
-/** The toast stack: dark ink toasts in the bottom right, above dialogs. */
-export const Toaster = () => {
+/** The toast stack: dark ink toasts, above dialogs, in the bottom right unless told otherwise. */
+export const Toaster = ({
+  position = "bottom-right",
+}: {
+  position?: React.ComponentProps<typeof Sonner>["position"];
+}) => {
   return (
     <Sonner
       gap={10}
-      position="bottom-right"
+      position={position}
       style={{ zIndex: "var(--z-toast)" } as React.CSSProperties}
       toastOptions={{
         classNames: {

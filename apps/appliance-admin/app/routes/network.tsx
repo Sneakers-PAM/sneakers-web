@@ -14,18 +14,44 @@ import {
   TableHeaderCell,
   TableRow,
 } from "@sneakers-web/ui";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import type { GetNetworkResponse, NetdCheck } from "@/lib/osadmin/types";
+import type {
+  CheckState,
+  GetNetworkResponse,
+  NetdCheck,
+  SetNetworkResponse,
+} from "@/lib/osadmin/types";
 
 import { runAction } from "@/lib/osadmin/action";
 import { network } from "@/lib/osadmin/client";
+import { OsadminError } from "@/lib/osadmin/errors";
 
 const list = (value: string): string[] =>
   value
     .split(",")
     .map((v) => v.trim())
     .filter(Boolean);
+
+const CHECK_LOOK: Record<
+  CheckState,
+  { label: string; tone: "danger" | "neutral" | "ok" | "warn" }
+> = {
+  CHECK_STATE_FAILED: { label: "Failed", tone: "danger" },
+  CHECK_STATE_OK: { label: "OK", tone: "ok" },
+  CHECK_STATE_UNSPECIFIED: { label: "Unknown", tone: "neutral" },
+  CHECK_STATE_WARN: { label: "Warning", tone: "warn" },
+};
+
+const checkLook = (check: NetdCheck) => CHECK_LOOK[check.state ?? "CHECK_STATE_UNSPECIFIED"];
+
+const reverts = (seconds: number | undefined) =>
+  seconds === undefined ? "unless confirmed" : `in ${String(seconds)} seconds unless confirmed`;
+
+const unreachableMessage = (seconds: number | undefined, newUrl: string | undefined) =>
+  `The box can't be reached at this address. The change reverts ${reverts(seconds)} from the new address${
+    newUrl ? ` (${newUrl})` : ""
+  }.`;
 
 export default function Network() {
   const [data, setData] = useState<GetNetworkResponse>();
@@ -34,20 +60,65 @@ export default function Network() {
   const [dns, setDns] = useState("");
   const [ntp, setNtp] = useState("");
   const [allowList, setAllowList] = useState("");
-  const [confirmToken, setConfirmToken] = useState("");
+  const [applied, setApplied] = useState<SetNetworkResponse>();
+  const [deadline, setDeadline] = useState<number>();
+  const [now, setNow] = useState(() => Date.now());
+  const [unreachable, setUnreachable] = useState(false);
 
-  const reload = () =>
-    void network.get().then((response) => {
-      setData(response);
-      setHostname(response.settings?.hostname ?? "");
-      setDns((response.settings?.dns ?? []).join(", "));
-      setNtp((response.settings?.ntp ?? []).join(", "));
-      setAllowList((response.settings?.allowList ?? []).join(", "));
-    });
-  useEffect(reload, []);
+  const reload = useCallback(
+    () =>
+      void network.get().then((response) => {
+        setData(response);
+        setHostname(response.settings?.hostname ?? "");
+        setDns((response.settings?.dns ?? []).join(", "));
+        setNtp((response.settings?.ntp ?? []).join(", "));
+        setAllowList((response.settings?.allowList ?? []).join(", "));
+        if (!response.pending) {
+          setApplied(undefined);
+          setDeadline(undefined);
+          setUnreachable(false);
+        } else if (response.revertSecondsLeft !== undefined) {
+          setNow(Date.now());
+          setDeadline(Date.now() + response.revertSecondsLeft * 1000);
+        }
+      }),
+    [],
+  );
+  useEffect(reload, [reload]);
+
+  const secondsLeft =
+    deadline === undefined ? undefined : Math.max(0, Math.ceil((deadline - now) / 1000));
+  const pending = !!data?.pending;
+  useEffect(() => {
+    if (!pending || deadline === undefined) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [pending, deadline]);
+  useEffect(() => {
+    if (pending && secondsLeft === 0) reload();
+  }, [pending, secondsLeft, reload]);
 
   if (!data?.settings) return null;
   const { settings } = data;
+  // The token from Apply, or after a reload (or from the new address) the one GetNetwork
+  // gives an owner session.
+  const token = applied?.token || data.pendingToken;
+
+  const confirm = (confirmToken: string) =>
+    void runAction(
+      async () => {
+        try {
+          await network.confirm(confirmToken);
+        } catch (error) {
+          if (error instanceof OsadminError && error.code === "unavailable") {
+            setUnreachable(true);
+            throw new Error(unreachableMessage(secondsLeft, applied?.newUrl));
+          }
+          throw error;
+        }
+      },
+      { onSuccess: reload, successMessage: "Confirmed." },
+    );
 
   return (
     <div className="flex flex-col gap-5 p-5.5">
@@ -55,18 +126,8 @@ export default function Network() {
       {data.pending && (
         <Alert
           action={
-            confirmToken && (
-              <Button
-                onClick={() =>
-                  void runAction(() => network.confirm(confirmToken), {
-                    onSuccess: () => {
-                      setConfirmToken("");
-                      reload();
-                    },
-                  })
-                }
-                size="sm"
-              >
+            token && (
+              <Button onClick={() => confirm(token)} size="sm">
                 Confirm
               </Button>
             )
@@ -74,8 +135,33 @@ export default function Network() {
           role="status"
           tone="warn"
         >
-          A network change is pending. It reverts in 120 seconds unless confirmed.
+          <span className="flex flex-col gap-1">
+            <span>A network change is pending. It reverts {reverts(secondsLeft)}.</span>
+            {applied?.movesManagement && (
+              <span>
+                This change moves the box&apos;s management address. Open{" "}
+                {applied.newUrl ? (
+                  <a className="font-mono underline" href={applied.newUrl}>
+                    {applied.newUrl}
+                  </a>
+                ) : (
+                  "the new address"
+                )}
+                , sign in and confirm there.
+              </span>
+            )}
+            {applied?.newCertificate && (
+              <span>
+                The box makes a new certificate for the new name or address. If this page stops
+                answering, reload it, accept the new certificate and confirm.
+              </span>
+            )}
+            {!token && <span>Only an owner can confirm it.</span>}
+          </span>
         </Alert>
+      )}
+      {data.pending && unreachable && (
+        <Alert tone="danger">{unreachableMessage(secondsLeft, applied?.newUrl)}</Alert>
       )}
       <Card>
         <CardHeader title="Addresses" />
@@ -116,10 +202,12 @@ export default function Network() {
                 }),
               {
                 onSuccess: (response) => {
-                  setConfirmToken(response.token);
+                  setApplied(response);
+                  setUnreachable(false);
+                  setNow(Date.now());
+                  setDeadline(Date.now() + response.revertAfterSeconds * 1000);
                   reload();
                 },
-                successMessage: "Applied. Confirm within 120 seconds.",
               },
             );
           }}
@@ -155,15 +243,12 @@ export default function Network() {
                 <TableRow key={check.name}>
                   <TableCell>{check.name}</TableCell>
                   <TableCell>
-                    <Pill
-                      tone={
-                        check.status === "ok" ? "ok" : check.status === "warn" ? "warn" : "danger"
-                      }
-                    >
-                      {check.status}
-                    </Pill>
+                    <Pill tone={checkLook(check).tone}>{checkLook(check).label}</Pill>
                   </TableCell>
-                  <TableCell>{check.detail}</TableCell>
+                  <TableCell>
+                    {check.code && <span className="mr-2 font-mono">{check.code}</span>}
+                    {check.detail}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

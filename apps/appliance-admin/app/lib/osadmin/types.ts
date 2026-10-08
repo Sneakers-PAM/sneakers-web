@@ -381,10 +381,19 @@ export interface NetdSettings {
   serviceInterface?: string;
 }
 
+export type CheckState =
+  "CHECK_STATE_FAILED" | "CHECK_STATE_OK" | "CHECK_STATE_UNSPECIFIED" | "CHECK_STATE_WARN";
+
+/** One connectivity check. Proto3 JSON leaves out defaults, so an absent state is unspecified. */
 export interface NetdCheck {
-  detail: string;
+  /** The NET_* symbol when the check isn't ok. */
+  code?: string;
+  detail?: string;
+  /** link, address, gateway, dns or ntp. */
   name: string;
-  status: "failed" | "ok" | "warn";
+  /** False for the checks setup can't continue past. */
+  skippable?: boolean;
+  state?: CheckState;
 }
 
 export interface GetNetworkResponse {
@@ -392,11 +401,23 @@ export interface GetNetworkResponse {
   ntpOffsetMs: string;
   ntpSynced: boolean;
   pending: boolean;
+  /** The pending change's id, for the audit log; not secret. */
+  pendingChangeId?: string;
+  /** What ConfirmNetwork takes; sent to owner sessions only, so a reload can still confirm. */
+  pendingToken?: string;
+  /** Seconds until the pending change reverts. */
+  revertSecondsLeft?: number;
   serviceAddresses: string[];
   settings?: NetdSettings;
 }
 
 export interface SetNetworkResponse {
+  /** The management address changes: confirm from the new address. */
+  movesManagement?: boolean;
+  /** The box remakes its self-signed certificate for the new name or address. */
+  newCertificate?: boolean;
+  /** Where the box answers after the change, when the new address is known. */
+  newUrl?: string;
   revertAfterSeconds: number;
   token: string;
 }
