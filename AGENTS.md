@@ -58,6 +58,16 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   a thin, hand-written wrapper (there is no generated Connect-ES client yet) over
   `app/lib/osadmin/types.ts`, which mirrors the protos in sneakers-appliance's
   `proto/sneakers/appliance/osadmin/v1/*.proto`.
+- **Answers come with fields left out.** osadmin answers through connect-go's protojson codec,
+  which leaves out every field at its zero value: an empty list or map, `""`, `0`, `false` and an
+  enum's `*_UNSPECIFIED` (an admin with no SSH keys has no `keys`). Every `client.ts` call that
+  returns fields passes its answer through a function in `app/lib/osadmin/wire.ts`, which puts the
+  defaults back, so the rest of the app can trust `types.ts`. Each function takes `Wire<T>` (the
+  answer with every field optional, at every depth) and returns `T`, so the compiler names any
+  required field left without a default. A new RPC with fields gets its function there.
+  `app/routes/protojson.test.tsx` renders every route in `app/routes.ts` against the mock's
+  answers shaped the way protojson sends them: as they are, with the lists inside list items
+  emptied, and with every list emptied.
 - **Strict CSP, no inline anything.** `sneakers-osadmin` sets the header on every :8443 response
   (`SecurityHeaders` in sneakers-appliance's `internal/osadmin/server.go`):
   `default-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`, with no

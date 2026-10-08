@@ -399,6 +399,7 @@ export type CertificateSource =
   | "CERTIFICATE_SOURCE_ACME"
   | "CERTIFICATE_SOURCE_CSR_SIGNED"
   | "CERTIFICATE_SOURCE_SELF_SIGNED"
+  | "CERTIFICATE_SOURCE_UNSPECIFIED"
   | "CERTIFICATE_SOURCE_UPLOADED";
 
 /** A certificate in the box's store; its key stays sealed on the box. */
@@ -439,7 +440,8 @@ export type EndpointState =
   | "ENDPOINT_STATE_NAMES_NOT_COVERED"
   | "ENDPOINT_STATE_OK"
   | "ENDPOINT_STATE_SELF_SIGNED"
-  | "ENDPOINT_STATE_UNAVAILABLE";
+  | "ENDPOINT_STATE_UNAVAILABLE"
+  | "ENDPOINT_STATE_UNSPECIFIED";
 
 export interface CertEndpoint {
   available: boolean;
