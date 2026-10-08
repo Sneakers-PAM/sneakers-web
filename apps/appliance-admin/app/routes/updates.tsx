@@ -40,6 +40,7 @@ import type {
 
 import { BoxRestarting } from "@/components/BoxRestarting";
 import { NotAvailable } from "@/components/NotAvailable";
+import { VersionChip } from "@/components/VersionChip";
 import { runAction } from "@/lib/osadmin/action";
 import { upgrade } from "@/lib/osadmin/client";
 import {
@@ -401,8 +402,16 @@ export default function Updates() {
       <Card>
         <CardHeader title="Base system" />
         <div className="flex flex-col gap-2 p-5.5 text-small">
-          <p className="font-bold">Running {data.runningVersion} in the active slot</p>
-          <p>{staged ? `Other slot: staged ${staged}` : "Other slot: empty"}</p>
+          <p className="flex flex-wrap items-center gap-1.5 font-bold">
+            Running <VersionChip kind="running" version={data.runningVersion} /> in the active slot
+          </p>
+          {staged ? (
+            <p className="flex flex-wrap items-center gap-1.5">
+              Other slot: staged <VersionChip kind="staged" version={staged} />
+            </p>
+          ) : (
+            <p>Other slot: empty</p>
+          )}
         </div>
         {isOwner && (
           <div className="flex flex-wrap gap-3 border-t border-border p-5.5">

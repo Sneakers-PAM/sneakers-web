@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import type { GetStatusResponse } from "@/lib/osadmin/types";
 
 import { ResetCountdown } from "@/components/ResetCountdown";
+import { VersionChip } from "@/components/VersionChip";
 import { status as statusClient } from "@/lib/osadmin/client";
 
 /** How often a factory reset in progress is re-read, so another admin's Cancel shows up. */
@@ -79,10 +80,15 @@ export default function Home() {
             <Card>
               <CardHeader title="Version" />
               <div className="flex flex-col gap-1 p-5.5 text-small">
-                <p>
-                  Running <b>{data.runningVersion}</b> on {data.channel}
+                <p className="flex flex-wrap items-center gap-1.5">
+                  Running <VersionChip kind="running" version={data.runningVersion} /> on{" "}
+                  {data.channel}
                 </p>
-                {data.stagedVersion && <p>Staged: {data.stagedVersion}</p>}
+                {data.stagedVersion && (
+                  <p className="flex flex-wrap items-center gap-1.5">
+                    Staged: <VersionChip kind="staged" version={data.stagedVersion} />
+                  </p>
+                )}
                 {data.revertedVersion && (
                   <p>
                     {`Reverted from ${data.revertedVersion} (by ${data.revertedBy ?? "an admin"}${data.revertedAt ? `, ${shortDate(data.revertedAt)}` : ""})`}

@@ -23,6 +23,12 @@ lists every check, then applies to :8443 live. Every change needs an owner and a
 The mock box's states are `cert-assigned`, `cert-csr-pending`, `cert-expiring` and
 `cert-not-served` (`?mockScenario=` on a mock build).
 
+## Updates
+
+Status and Updates show the running version in a chip in the primary colour, and a staged
+version in a quieter grey chip, next to the words "Running" and "Staged" so the colour is never
+the only signal.
+
 ## Network
 
 The Network page reads and changes the box's settings (`NetworkService`). An applied change

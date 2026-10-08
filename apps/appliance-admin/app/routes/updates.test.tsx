@@ -22,16 +22,35 @@ const uploadAndVerify = async (user: ReturnType<typeof userEvent.setup>, file: F
   await user.click(await screen.findByRole("button", { name: "Verify and stage" }));
 };
 
+/** The paragraph whose whole text is `text`, even when a version chip splits it up. */
+const line = (text: RegExp | string) =>
+  screen.getByText(
+    (_, element) =>
+      element?.tagName === "P" &&
+      (typeof text === "string" ? element.textContent === text : text.test(element.textContent)),
+  );
+
 describe("Updates", () => {
   beforeEach(() => signInAs("alice"));
 
   it("shows the running version, the other slot, the update window and the history", async () => {
     await openPage();
-    expect(screen.getByText("Running 0.1.0 in the active slot")).toBeInTheDocument();
+    const running = within(line("Running 0.1.0 in the active slot")).getByText("0.1.0");
+    expect(running).toHaveAttribute("data-version", "running");
+    expect(running).toHaveClass("bg-primary-soft", "text-primary");
     expect(screen.getByText(/Other slot: empty/)).toBeInTheDocument();
     expect(screen.getByText(/Daily at 02:00 for 120 minutes/)).toBeInTheDocument();
     const history = screen.getByRole("table", { name: "Update history" });
     expect(within(history).getAllByRole("row").length).toBeGreaterThan(1);
+  });
+
+  it("shows a staged base release in a quieter tone than the running one", async () => {
+    applyMockScenario("staged");
+    await openPage();
+    const staged = within(line("Other slot: staged 0.2.0")).getByText("0.2.0");
+    expect(staged).toHaveAttribute("data-version", "staged");
+    expect(staged).toHaveClass("bg-neutral-soft");
+    expect(staged).not.toHaveClass("bg-primary-soft");
   });
 
   it("uploads a .bin, then shows the verified signature, channel and hash before it stages", async () => {
@@ -69,7 +88,10 @@ describe("Updates", () => {
     expect(values[5]).toMatch(/^[0-9a-f]{64}Copy$/);
     expect(values[6]).toBe("Staged into slot B");
     expect(within(result).getByRole("button", { name: "Copy" })).toBeInTheDocument();
-    expect(await screen.findByText(/Other slot: staged 0.2.0/)).toBeInTheDocument();
+    expect(
+      await screen.findByText("0.2.0", { selector: "[data-version=staged]" }),
+    ).toBeInTheDocument();
+    expect(line("Other slot: staged 0.2.0")).toBeInTheDocument();
   });
 
   it("verifies a patch .bin against the running version", async () => {
