@@ -112,4 +112,24 @@ describe("buildApplianceReportText", () => {
     expect(text.toLowerCase()).not.toContain("gateway");
     expect(JSON.parse(text.split("```json\n")[1]!.split("\n```")[0]!)).toEqual(report);
   });
+
+  it("adds the page, the problem, the time and the browser for a problem screen", () => {
+    const report = buildApplianceReport({
+      admin: { name: "alice", role: "ROLE_OWNER" },
+      context: {
+        now: new Date("2026-10-08T13:49:20Z"),
+        page: "/access",
+        problem: { message: "Page crashed: TypeError" },
+        timeZone: "America/New_York",
+        userAgent: "ExampleBrowser/1.0",
+      },
+      status,
+    });
+    const text = buildApplianceReportText(report);
+    expect(text).toContain("Time: 2026-10-08T13:49:20.000Z (2026-10-08 09:49:20 America/New_York)");
+    expect(text).toContain("Page: /access");
+    expect(text).toContain("Problem: Page crashed: TypeError");
+    expect(text).toContain("Browser: ExampleBrowser/1.0");
+    expect(JSON.parse(text.split("```json\n")[1]!.split("\n```")[0]!)).toEqual(report);
+  });
 });

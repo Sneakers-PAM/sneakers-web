@@ -36,6 +36,17 @@ export interface RecoveryKey {
   type: string;
 }
 
+/** A recovery key the box made: the private key is in this answer once and never kept. */
+export interface GenerateRecoveryKeyResponse {
+  /** A suggested name for the private key file. */
+  fileName: string;
+  /** The OpenSSH private key. */
+  privateKey: string;
+  /** The OpenSSH public key line the box keeps. */
+  publicKey: string;
+  recoveryKey: RecoveryKey;
+}
+
 /** A one-time code's purpose: the console's setup code, an invitation, or Recover access. */
 export type CodeKind =
   "CODE_KIND_INVITE" | "CODE_KIND_RECOVER" | "CODE_KIND_SETUP" | "CODE_KIND_UNSPECIFIED";
@@ -399,6 +410,7 @@ export type CertificateSource =
   | "CERTIFICATE_SOURCE_ACME"
   | "CERTIFICATE_SOURCE_CSR_SIGNED"
   | "CERTIFICATE_SOURCE_SELF_SIGNED"
+  | "CERTIFICATE_SOURCE_UNSPECIFIED"
   | "CERTIFICATE_SOURCE_UPLOADED";
 
 /** A certificate in the box's store; its key stays sealed on the box. */
@@ -439,7 +451,8 @@ export type EndpointState =
   | "ENDPOINT_STATE_NAMES_NOT_COVERED"
   | "ENDPOINT_STATE_OK"
   | "ENDPOINT_STATE_SELF_SIGNED"
-  | "ENDPOINT_STATE_UNAVAILABLE";
+  | "ENDPOINT_STATE_UNAVAILABLE"
+  | "ENDPOINT_STATE_UNSPECIFIED";
 
 export interface CertEndpoint {
   available: boolean;

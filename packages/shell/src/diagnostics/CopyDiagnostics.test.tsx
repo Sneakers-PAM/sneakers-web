@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 
 import type { DiagnosticsData } from "#shell/diagnostics/report";
 
-import { CopyDiagnostics } from "#shell/diagnostics/CopyDiagnostics";
+import { CopyDiagnostics, DiagnosticsCopierProvider } from "#shell/diagnostics/CopyDiagnostics";
 
 const data: DiagnosticsData = {
   app: { commit: "f00dfeed", name: "staff", version: "0.4.0" },
@@ -61,5 +61,20 @@ describe("CopyDiagnostics", () => {
     await userEvent.click(screen.getByRole("button", { name: "Copy diagnostics" }));
     await waitFor(() => expect(writeText).toHaveBeenCalledOnce());
     expect(writeText.mock.calls[0]![0]).toContain("Gateway: not reachable");
+  });
+
+  it("copies an app's own report when the app provides one", async () => {
+    const copy = vi.fn(async () => "the appliance's report");
+    render(
+      <DiagnosticsCopierProvider value={copy}>
+        <CopyDiagnostics problem={{ message: "Page crashed: TypeError" }} />
+      </DiagnosticsCopierProvider>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Copy diagnostics" }));
+    await waitFor(() => expect(copy).toHaveBeenCalledOnce());
+    expect(copy).toHaveBeenCalledWith(
+      expect.objectContaining({ problem: { message: "Page crashed: TypeError" } }),
+    );
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

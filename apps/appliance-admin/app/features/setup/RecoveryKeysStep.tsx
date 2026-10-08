@@ -1,8 +1,9 @@
-import { Button, Field, Input } from "@sneakers-web/ui";
+import { Alert, Button, Field, Input, Segmented } from "@sneakers-web/ui";
 import { useState } from "react";
 
-import type { GetSetupResponse } from "@/lib/osadmin/types";
+import type { GenerateRecoveryKeyResponse, GetSetupResponse } from "@/lib/osadmin/types";
 
+import { saveText } from "@/lib/download";
 import { runAction } from "@/lib/osadmin/action";
 import { setup } from "@/lib/osadmin/client";
 
@@ -27,15 +28,17 @@ export const RecoveryKeysStep = ({
   data: GetSetupResponse;
   onChanged: () => void;
 }) => {
+  const [source, setSource] = useState<"generate" | "provide">("generate");
   const [publicKey, setPublicKey] = useState("");
   const [label, setLabel] = useState("");
+  const [generated, setGenerated] = useState<GenerateRecoveryKeyResponse>();
   const keys = data.recoveryKeys ?? [];
   return (
     <div className="flex flex-col gap-4">
       <p className="m-0 text-body">
         A recovery key is an SSH key you keep offline. Any one of them opens your backups if this
-        box is lost. Add at least one. A second one, held by someone else, is safer (up to{" "}
-        {data.maxRecoveryKeys}).
+        box is lost. Add at least one: the box can make one for you, or you can give the public part
+        of your own. A second one, held by someone else, is safer (up to {data.maxRecoveryKeys}).
       </p>
       {keys.length > 0 && (
         <ul aria-label="Recovery keys" className="m-0 flex list-none flex-col gap-2 p-0">
@@ -67,42 +70,104 @@ export const RecoveryKeysStep = ({
           ))}
         </ul>
       )}
+      {generated && (
+        <Alert title="Save the private key now" tone="warn">
+          <div className="flex flex-col gap-3">
+            <p className="m-0">
+              Your browser downloaded {generated.fileName}. The box keeps only the public part, so
+              it can&apos;t show it again. Keep it offline, somewhere other than this box.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Button
+                onClick={() => saveText(generated.fileName, generated.privateKey)}
+                size="sm"
+                variant="secondary"
+              >
+                Download the private key again ({generated.fileName})
+              </Button>
+              <Button onClick={() => setGenerated(undefined)} size="sm">
+                I saved it
+              </Button>
+            </div>
+          </div>
+        </Alert>
+      )}
       {keys.length < data.maxRecoveryKeys && (
-        <form
-          aria-label="Add a recovery key"
-          className="flex flex-col gap-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void runAction(() => setup.addRecoveryKey(publicKey.trim(), label.trim()), {
-              onSuccess: () => {
-                setPublicKey("");
-                setLabel("");
-                onChanged();
-              },
-            });
-          }}
-        >
-          <Field hint="ssh-ed25519, or ssh-rsa of 3072 bits or more" label="Public key">
-            <Input
-              mono
-              onChange={(event) => setPublicKey(event.target.value)}
-              placeholder="ssh-ed25519 AAAA..."
-              spellCheck={false}
-              value={publicKey}
-            />
-          </Field>
-          <Field label="Label">
-            <Input onChange={(event) => setLabel(event.target.value)} value={label} />
-          </Field>
-          <Button
-            className="self-start"
-            disabled={!publicKey.trim()}
-            type="submit"
-            variant="secondary"
-          >
-            Add
-          </Button>
-        </form>
+        <div className="flex flex-col gap-3">
+          <Segmented
+            label="How to add a recovery key"
+            onChange={setSource}
+            options={[
+              { label: "Generate one here", value: "generate" },
+              { label: "Provide your own", value: "provide" },
+            ]}
+            value={source}
+          />
+          {source === "generate" ? (
+            <form
+              aria-label="Generate a recovery key"
+              className="flex flex-col gap-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void runAction(() => setup.generateRecoveryKey(label.trim()), {
+                  onSuccess: (made) => {
+                    saveText(made.fileName, made.privateKey);
+                    setGenerated(made);
+                    setLabel("");
+                    onChanged();
+                  },
+                });
+              }}
+            >
+              <p className="m-0 text-small text-muted">
+                The box makes an ed25519 key pair, keeps the public part and downloads the private
+                key to this browser once.
+              </p>
+              <Field label="Label">
+                <Input onChange={(event) => setLabel(event.target.value)} value={label} />
+              </Field>
+              <Button className="self-start" type="submit" variant="secondary">
+                Generate a key pair
+              </Button>
+            </form>
+          ) : (
+            <form
+              aria-label="Add a recovery key"
+              className="flex flex-col gap-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void runAction(() => setup.addRecoveryKey(publicKey.trim(), label.trim()), {
+                  onSuccess: () => {
+                    setPublicKey("");
+                    setLabel("");
+                    onChanged();
+                  },
+                });
+              }}
+            >
+              <Field hint="ssh-ed25519, or ssh-rsa of 3072 bits or more" label="Public key">
+                <Input
+                  mono
+                  onChange={(event) => setPublicKey(event.target.value)}
+                  placeholder="ssh-ed25519 AAAA..."
+                  spellCheck={false}
+                  value={publicKey}
+                />
+              </Field>
+              <Field label="Label">
+                <Input onChange={(event) => setLabel(event.target.value)} value={label} />
+              </Field>
+              <Button
+                className="self-start"
+                disabled={!publicKey.trim()}
+                type="submit"
+                variant="secondary"
+              >
+                Add
+              </Button>
+            </form>
+          )}
+        </div>
       )}
       {data.escrowFile && (
         <Button className="self-start" onClick={downloadEscrow} variant="secondary">

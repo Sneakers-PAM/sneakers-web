@@ -50,6 +50,7 @@ const SOURCE: Record<StoredCertificate["source"], string> = {
   CERTIFICATE_SOURCE_ACME: "ACME",
   CERTIFICATE_SOURCE_CSR_SIGNED: "CSR-signed",
   CERTIFICATE_SOURCE_SELF_SIGNED: "Self-signed",
+  CERTIFICATE_SOURCE_UNSPECIFIED: "Unknown",
   CERTIFICATE_SOURCE_UPLOADED: "Uploaded",
 };
 
@@ -62,6 +63,7 @@ const STATE: Record<CertEndpoint["state"], { label: string; tone: Tone }> = {
   ENDPOINT_STATE_OK: { label: "OK", tone: "ok" },
   ENDPOINT_STATE_SELF_SIGNED: { label: "Self-signed", tone: "neutral" },
   ENDPOINT_STATE_UNAVAILABLE: { label: "Not installed", tone: "outline" },
+  ENDPOINT_STATE_UNSPECIFIED: { label: "Unknown", tone: "outline" },
 };
 
 const daysLeft = (iso: string): number => Math.floor((Date.parse(iso) - Date.now()) / 86_400_000);

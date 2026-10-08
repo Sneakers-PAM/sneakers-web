@@ -58,6 +58,16 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   a thin, hand-written wrapper (there is no generated Connect-ES client yet) over
   `app/lib/osadmin/types.ts`, which mirrors the protos in sneakers-appliance's
   `proto/sneakers/appliance/osadmin/v1/*.proto`.
+- **Answers come with fields left out.** osadmin answers through connect-go's protojson codec,
+  which leaves out every field at its zero value: an empty list or map, `""`, `0`, `false` and an
+  enum's `*_UNSPECIFIED` (an admin with no SSH keys has no `keys`). Every `client.ts` call that
+  returns fields passes its answer through a function in `app/lib/osadmin/wire.ts`, which puts the
+  defaults back, so the rest of the app can trust `types.ts`. Each function takes `Wire<T>` (the
+  answer with every field optional, at every depth) and returns `T`, so the compiler names any
+  required field left without a default. A new RPC with fields gets its function there.
+  `app/routes/protojson.test.tsx` renders every route in `app/routes.ts` against the mock's
+  answers shaped the way protojson sends them: as they are, with the lists inside list items
+  emptied, and with every list emptied.
 - **Strict CSP, no inline anything.** `sneakers-osadmin` sets the header on every :8443 response
   (`SecurityHeaders` in sneakers-appliance's `internal/osadmin/server.go`):
   `default-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`, with no
@@ -117,7 +127,9 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   admin's name and password, checked as it's typed (`CheckPassword`), then the authenticator
   (`BeginCredentials` gives the secret for the QR code and the typed key,
   `CompleteCredentials` checks a code from it and signs the browser in), 3 the recovery keys
-  and the escrow, 4 the network (read only, `AcknowledgeStep`), 5 the protection (read only),
+  and the escrow (each key either made on the box, "Generate one here", `GenerateRecoveryKey`,
+  whose private key the browser downloads once and the box never keeps, or "Provide your own", a
+  pasted public key, `AddRecoveryKey`), 4 the network (read only, `AcknowledgeStep`), 5 the protection (read only),
   6 one sign-in with the password and a code, the single-admin warning, and `Finish`. A reload
   asks `GetSession` and `GetSetup` and resumes at `current`, the box's first step not done.
   The same page takes an invitation or a Recover access code (`codeKind`), and then shows only
@@ -482,6 +494,13 @@ graphql.ts`, re-exported from `@sneakers-web/mock-gateway`), which resets to a p
 - The account menu of both apps has About and diagnostics (`AboutDialog`): every version and the
   copy button.
 - The mock gateway answers `diagnostics` with `mock-` versions.
+- An app with no `resources/diagnostics` gives its own copier through `DiagnosticsCopierProvider`;
+  every `CopyDiagnostics` below it, the crash, offline and not-found screens included, calls it
+  instead of asking the app server. The appliance admin does this in `root.tsx` (its page and its
+  error boundary): `copyApplianceDiagnostics` (`app/lib/diagnostics/copy.ts`) copies its own
+  report (this build, the signed-in admin, the box and its service health, no gateway) with the
+  page, the problem, the time and the browser added. On the box, the build is stamped by
+  sneakers-appliance's `build/lab/pages.sh`.
 
 ## Agent approvals
 

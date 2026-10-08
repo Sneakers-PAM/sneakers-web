@@ -108,6 +108,25 @@ const SIGNED_OUT_SCENARIOS = [
     scenario: "setup-admin",
   },
   { name: "setup-3-recovery-keys", route: "/setup", scenario: "setup-keys" },
+  {
+    act: async (page) => {
+      await page.getByLabel("Label").fill("offline safe");
+      await page.getByRole("button", { name: "Generate a key pair" }).click();
+      await page.getByText("Save the private key now").waitFor();
+    },
+    name: "setup-3-recovery-keys-generated",
+    route: "/setup",
+    scenario: "setup-keys",
+  },
+  {
+    act: async (page) => {
+      await page.getByRole("radio", { name: "Provide your own" }).click();
+      await page.getByLabel("Public key").waitFor();
+    },
+    name: "setup-3-recovery-keys-provide",
+    route: "/setup",
+    scenario: "setup-keys",
+  },
   { name: "setup-4-network", route: "/setup", scenario: "setup-network" },
   { name: "setup-5-protection", route: "/setup", scenario: "setup-protection" },
   { name: "setup-5-protection-reduced", route: "/setup", scenario: "setup-protection,reduced" },

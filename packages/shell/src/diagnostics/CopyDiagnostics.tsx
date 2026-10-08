@@ -1,11 +1,23 @@
 import { Button, type ButtonProps } from "@sneakers-web/ui";
 import { ClipboardCopy } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { createContext, type ReactNode, useContext, useState } from "react";
 import { useHref, useInRouterContext } from "react-router";
 
 import type { Problem } from "#shell/diagnostics/report";
 
-import { copyWithNotice, DIAGNOSTICS_ROUTE } from "#shell/diagnostics/copy";
+import { copyDiagnostics, copyWithNotice, DIAGNOSTICS_ROUTE } from "#shell/diagnostics/copy";
+
+/** Builds the report for a problem, puts it on the clipboard and returns the copied text. */
+export type DiagnosticsCopier = (options: { problem?: Problem; url: string }) => Promise<string>;
+
+const Copier = createContext<DiagnosticsCopier>(copyDiagnostics);
+
+/**
+ * An app whose diagnostics don't come from the app server's resources/diagnostics (the
+ * appliance admin, a static app with no gateway) gives its own copier here, so every Copy
+ * diagnostics button below, the crash and error screens included, copies that app's report.
+ */
+export const DiagnosticsCopierProvider = Copier.Provider;
 
 const Routed = ({ children }: { children: (url: string) => ReactNode }) => (
   <>{children(useHref(DIAGNOSTICS_ROUTE))}</>
@@ -29,6 +41,7 @@ export const CopyDiagnostics = ({
   variant?: ButtonProps["variant"];
 }) => {
   const [busy, setBusy] = useState(false);
+  const copy = useContext(Copier);
   return (
     <DiagnosticsUrl>
       {(url) => (
@@ -37,7 +50,7 @@ export const CopyDiagnostics = ({
           loadingLabel="Copying…"
           onClick={() => {
             setBusy(true);
-            void copyWithNotice({ problem, url }).finally(() => setBusy(false));
+            void copyWithNotice({ problem, url }, copy).finally(() => setBusy(false));
           }}
           size={size}
           variant={variant}
