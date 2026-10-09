@@ -253,7 +253,7 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   `air-gapped`, `staged`, `no-previous` (nothing in the other slot; by default 0.0.9 is kept
   there for a revert), `failed` (boot counting fell back from 0.2.0), `reverted` (alice
   reverted from 0.2.0; Status and Updates say "Reverted from", not "Failed"), `manual`, `no-product` (before the first product
-  install), `product-staged` (0.2.0 staged, 0.0.9 in the previous slot; a product install or revert restarts the product services, stopped for two GetUpgrades, then running), `product-restart-fails` (that restart's step fails instead), `elevated` (bob has an elevated shell open, so
+  install), `status-fails` (Status answers unavailable, as while accessd isn't answering), `product-staged` (0.2.0 staged, 0.0.9 in the previous slot; a product install or revert restarts the product services, stopped for two GetUpgrades, then running), `product-restart-fails` (that restart's step fails instead), `elevated` (bob has an elevated shell open, so
   Apply and Revert are refused without an owner's override), `uploading` and `verifying` (the upload or the
   verification never finishes), `stepup` (the next step-up-gated call is refused once, so the
   dialog asks for a code), `locked`, `locked-until-unlocked` (bob is locked out, for 12
@@ -552,7 +552,10 @@ graphql.ts`, re-exported from `@sneakers-web/mock-gateway`), which resets to a p
   error boundary): `copyApplianceDiagnostics` (`app/lib/diagnostics/copy.ts`) copies its own
   report (this build, the signed-in admin, the box and its service health, no gateway) with the
   page, the problem, the time and the browser added. On the box, the build is stamped by
-  sneakers-appliance's `build/lab/pages.sh`.
+  sneakers-appliance's `build/lab/pages.sh`. When Status can't be read, About, the copied text
+  and the JSON keep why (`boxError`: the Connect code and message, or `unknown` with the
+  message for an error that isn't the box's), as "Box: couldn't be read (unavailable: ...)",
+  and About offers Retry.
 
 ## Agent approvals
 

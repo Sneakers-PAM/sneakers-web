@@ -1,4 +1,5 @@
 import { buildApplianceReport, buildApplianceReportText } from "@/lib/diagnostics/report";
+import { OsadminError } from "@/lib/osadmin/errors";
 import type { GetStatusResponse } from "@/lib/osadmin/types";
 
 const status: GetStatusResponse = {
@@ -90,6 +91,40 @@ describe("buildApplianceReport", () => {
   it("says the box couldn't be read when there's no status", () => {
     const report = buildApplianceReport({ admin: null, status: null });
     expect(report.box).toBeNull();
+  });
+
+  it("keeps why Status couldn't be read: the box's code and message", () => {
+    const report = buildApplianceReport({
+      admin: null,
+      status: null,
+      statusError: new OsadminError(
+        "unavailable",
+        "the appliance services are unavailable; try again shortly",
+      ),
+    });
+    expect(report.box).toBeNull();
+    expect(report.boxError).toEqual({
+      code: "unavailable",
+      message: "the appliance services are unavailable; try again shortly",
+    });
+    const text = buildApplianceReportText(report);
+    expect(text).toContain(
+      "Box: couldn't be read (unavailable: the appliance services are unavailable; try again shortly)",
+    );
+    expect(JSON.parse(text.split("```json\n")[1]!.split("\n```")[0]!)).toEqual(report);
+  });
+
+  it("names an error that isn't the box's as unknown, with its message", () => {
+    const report = buildApplianceReport({
+      admin: null,
+      status: null,
+      statusError: new TypeError("Unexpected token < in JSON"),
+    });
+    expect(report.boxError).toEqual({ code: "unknown", message: "Unexpected token < in JSON" });
+  });
+
+  it("has no box error when Status answered", () => {
+    expect(buildApplianceReport({ admin: null, status }).boxError).toBeNull();
   });
 
   it("carries the service health osadmin reported", () => {

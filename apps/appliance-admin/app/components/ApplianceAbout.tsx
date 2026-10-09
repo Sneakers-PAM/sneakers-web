@@ -14,7 +14,11 @@ import { useEffect, useState } from "react";
 
 import type { GetStatusResponse } from "@/lib/osadmin/types";
 
-import { buildApplianceReport, buildApplianceReportText } from "@/lib/diagnostics/report";
+import {
+  boxUnreadable,
+  buildApplianceReport,
+  buildApplianceReportText,
+} from "@/lib/diagnostics/report";
 import { status as statusClient } from "@/lib/osadmin/client";
 import { useSession } from "@/lib/useSession";
 
@@ -28,18 +32,28 @@ const Row = ({ label, value }: { label: string; value: string }) => (
 const Body = ({ open }: { open: boolean }) => {
   const { session } = useSession();
   const [status, setStatus] = useState<GetStatusResponse | null>();
+  const [statusError, setStatusError] = useState<unknown>();
+  const [reads, setReads] = useState(0);
 
   useEffect(() => {
     if (!open) return;
     let live = true;
     void statusClient
       .get()
-      .then((response) => live && setStatus(response))
-      .catch(() => live && setStatus(null));
+      .then((response) => {
+        if (!live) return;
+        setStatus(response);
+        setStatusError(undefined);
+      })
+      .catch((error: unknown) => {
+        if (!live) return;
+        setStatus(null);
+        setStatusError(error);
+      });
     return () => {
       live = false;
     };
-  }, [open]);
+  }, [open, reads]);
 
   if (status === undefined) {
     return (
@@ -52,6 +66,7 @@ const Body = ({ open }: { open: boolean }) => {
   const report = buildApplianceReport({
     admin: session ? { name: session.admin, role: session.role } : null,
     status,
+    statusError,
   });
 
   return (
@@ -73,9 +88,22 @@ const Body = ({ open }: { open: boolean }) => {
             <Row label="Secure Boot" value={report.box.secureBoot} />
           </>
         ) : (
-          <Row label="Box" value="couldn't be read" />
+          <Row label="Box" value={boxUnreadable(report.boxError)} />
         )}
       </dl>
+      {!report.box && (
+        <div>
+          <Button
+            onClick={() => {
+              setStatus(undefined);
+              setReads((n) => n + 1);
+            }}
+            variant="secondary"
+          >
+            Retry
+          </Button>
+        </div>
+      )}
       {report.health.length > 0 && (
         <section className="flex flex-col gap-1">
           <h3 className="m-0 text-small font-bold">Service health</h3>
