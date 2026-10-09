@@ -257,9 +257,16 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   (`Begin`/`CompleteTotpReplacement`), and "Get an SSH key" (`IssueSshKey`): the dialog takes a label and a
   fresh authenticator code every time (`totpCode`; the box checks it on every call, not the
   step-up window, and a refused code stays in the dialog with the tries left), the box makes the
-  key pair and signs it with its root key, and the dialog shows the private key once, with
-  downloads for the key and its `-cert.pub` certificate; SSH asks for the TOTP code after
-  login. Owners set the access settings (`SetAccessPolicy`: the lockout mode, the root-shell
+  key pair and signs it with its root key, and the dialog shows the private key once. It widens
+  to three columns from the desktop breakpoint (one below it): a Downloads table grouped by
+  client (OpenSSH: the key, its `-cert.pub` certificate and the public key; PuTTY and
+  MobaXterm: the `.ppk` with the certificate inside; PEM, for other tools; Box trust: the
+  `known_hosts_<box>` file), the OpenSSH command with Copy and the `@cert-authority`
+  known_hosts line (`IssueSshKeyResponse.knownHosts`, so the first login has no host key
+  prompt) with Copy, the box's user CA (`userCaPublicKey`), and the PuTTY, MobaXterm and PEM
+  steps; SSH asks for the TOTP code after login. The Key fingerprints card shows the same
+  known_hosts line, the user CA and the host CA's fingerprint (`ListAdmins.knownHosts`,
+  `userCaPublicKey`, `hostCa`). Owners set the access settings (`SetAccessPolicy`: the lockout mode, the root-shell
   code and session minutes, 10 by default, and the SSH key validity) and the root-operator
   roster (`SetQuorum`; the same roster approves a factory reset). The page also lists the
   revoked login keys (`ListAdmins.revokedKeys`: whose key it was, the fingerprint, the type,

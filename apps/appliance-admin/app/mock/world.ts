@@ -87,6 +87,20 @@ export const ROOT_KEY: HostKey = {
   type: "ssh-ed25519",
 };
 
+/** The root key's public half: the user CA sshd trusts, which signs every issued key. */
+export const USER_CA_PUBLIC_KEY =
+  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMOCKUSERCANOTAREALKEYMOCKUSERCANOTAREALKEY sneakers-user-ca";
+
+/** The box's SSH host CA, which signs sshd's host certificate. */
+export const HOST_CA: HostKey = {
+  fingerprint: "SHA256:hC4k3Vw7Qm2Xp5Ln8Hc4Zb6Yd1Fs0Ga7Ej2Ku9Wq3Mo",
+  type: "ssh-ed25519",
+};
+
+/** The known_hosts line that trusts the host CA for the box's name and management address. */
+export const KNOWN_HOSTS =
+  "@cert-authority appliance.example.org,192.0.2.50 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMOCKHOSTCANOTAREALKEYMOCKHOSTCANOTAREALKEY";
+
 export const ACCESS_POLICY: AccessPolicy = {
   lockoutMode: "LOCKOUT_MODE_TIMED",
   rootCodeMinutes: 10,

@@ -306,6 +306,12 @@ export interface ListAdminsResponse {
   revokedKeys?: RevokedKey[];
   /** The box's root key (it never leaves the box): its type and fingerprint. */
   rootKey?: HostKey;
+  /** The box's SSH host CA, which signs sshd's host certificate: its type and fingerprint. */
+  hostCa?: HostKey;
+  /** The "@cert-authority <names> <host CA key>" line for a client's known_hosts. */
+  knownHosts: string;
+  /** The root key's public half: the user CA sshd trusts (an authorized_keys line). */
+  userCaPublicKey: string;
 }
 
 /** A one-time code for an admin to set a password and an authenticator. Shown once. */
@@ -343,6 +349,13 @@ export interface IssueSshKeyResponse {
   /** The exact OpenSSH command, with the certificate file named: `ssh -i <fileName> -o
    * CertificateFile=<certificateFileName> <admin>@<box>`. */
   sshCommand: string;
+  /** A known_hosts line trusting the box's host CA for its host name and management addresses
+   * ("@cert-authority <names> <host CA key>"), so the first login has no host key prompt. */
+  knownHosts: string;
+  /** known_hosts_<box>, for knownHosts. */
+  knownHostsFileName: string;
+  /** The box's user CA (its root key's public half), which signed the certificate. */
+  userCaPublicKey: string;
 }
 
 // ---- root shell ----

@@ -844,6 +844,8 @@ const route = async (service: string, method: string, body: Record<string, unkno
         certificateFileName,
         fileName,
         key,
+        knownHosts: world.KNOWN_HOSTS,
+        knownHostsFileName: `known_hosts_${networkSettings.hostname.split(".", 1)[0] || "sneakers"}`,
         pem: [
           "-----BEGIN PRIVATE KEY-----", // gitleaks:allow (a placeholder, not a key)
           "MOCK-PEM-PRIVATE-KEY-NOT-A-REAL-KEY-MOCK-PEM-PRIVATE-KEY-NOT-A-REAL-KEY",
@@ -875,6 +877,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
         publicKey: `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAMOCK ${admin.name}`,
         publicKeyFileName: `${fileName}.pub`,
         sshCommand: `ssh -i ${fileName} -o CertificateFile=${certificateFileName} ${admin.name}@${networkSettings.hostname}`,
+        userCaPublicKey: world.USER_CA_PUBLIC_KEY,
       };
     }
     case "AccessService/ListAdmins": {
@@ -890,10 +893,13 @@ const route = async (service: string, method: string, body: Record<string, unkno
             rootOperator: quorum.members.includes(admin.name),
           };
         }),
+        hostCa: world.HOST_CA,
         hostKeys: world.HOST_KEYS,
+        knownHosts: world.KNOWN_HOSTS,
         quorum,
         revokedKeys: structuredClone(revokedKeys),
         rootKey: world.ROOT_KEY,
+        userCaPublicKey: world.USER_CA_PUBLIC_KEY,
       };
     }
     case "AccessService/ReinviteAdmin": {

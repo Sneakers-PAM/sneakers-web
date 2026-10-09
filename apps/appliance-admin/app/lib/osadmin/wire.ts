@@ -305,6 +305,9 @@ export const listAdmins = (w: Wire<ListAdminsResponse>): ListAdminsResponse => (
   quorum: optional(w.quorum, quorum),
   revokedKeys: list(w.revokedKeys, revokedKey),
   rootKey: optional(w.rootKey, hostKey),
+  hostCa: optional(w.hostCa, hostKey),
+  knownHosts: w.knownHosts ?? "",
+  userCaPublicKey: w.userCaPublicKey ?? "",
 });
 
 const invitation = (w: Wire<Invitation> = {}): Invitation => ({
@@ -337,6 +340,9 @@ export const issueSshKey = (w: Wire<IssueSshKeyResponse>): IssueSshKeyResponse =
   publicKey: w.publicKey ?? "",
   publicKeyFileName: w.publicKeyFileName ?? "",
   sshCommand: w.sshCommand ?? "",
+  knownHosts: w.knownHosts ?? "",
+  knownHostsFileName: w.knownHostsFileName ?? "",
+  userCaPublicKey: w.userCaPublicKey ?? "",
 });
 
 // ---- root shell and elevation ----

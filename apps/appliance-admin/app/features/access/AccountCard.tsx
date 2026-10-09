@@ -14,11 +14,13 @@ import {
   Input,
   shortDate,
   Spinner,
+  Table,
+  TableBody,
+  TableCell,
+  TableRow,
   Textarea,
   timeAgo,
-  toast,
 } from "@sneakers-web/ui";
-import { ClipboardCopy } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import type { Admin, IssueSshKeyResponse, TotpEnrolment } from "@/lib/osadmin/types";
@@ -26,6 +28,7 @@ import type { Admin, IssueSshKeyResponse, TotpEnrolment } from "@/lib/osadmin/ty
 import { type NewPassword, NewPasswordFields } from "@/components/NewPasswordFields";
 import { PasswordInput } from "@/components/PasswordInput";
 import { TotpEnrolmentPanel } from "@/components/TotpEnrolmentPanel";
+import { CopyLine } from "@/features/access/CopyLine";
 import { saveText } from "@/lib/download";
 import { runAction } from "@/lib/osadmin/action";
 import { access } from "@/lib/osadmin/client";
@@ -262,92 +265,257 @@ const IssueSshKeyDialog = ({ admin, onDone }: { admin: string; onDone: () => voi
   const [code, setCode] = useState("");
   const [issued, setIssued] = useState<IssueSshKeyResponse>();
   const [refusal, setRefusal] = useState("");
-  if (issued) {
-    return (
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Your new SSH key</DialogTitle>
-          <DialogDescription>
-            Save these now, next to each other; the box can&apos;t show them again. SSH is
-            certificate-only here, so a bare key is always refused.
-          </DialogDescription>
-        </DialogHeader>
-        <Alert title="This is shown once" tone="warn">
-          The box keeps only the public part and the certificate, so it can&apos;t show this private
-          key again. If you lose it, revoke it here and get a new one.
-        </Alert>
-        <Field label="Private key">
-          <Textarea className="min-h-32" mono readOnly value={issued.privateKey} />
-        </Field>
-        <div className="flex flex-col gap-2">
-          <p className="m-0 font-bold">Download</p>
-          <div className="flex flex-wrap gap-3">
-            <Button onClick={() => saveText(issued.ppkFileName, issued.ppk)}>
-              Download the .ppk ({issued.ppkFileName})
+  // One DialogContent for both views, so the dialog stays the same element when the key comes.
+  return (
+    <DialogContent
+      className={issued ? "gap-4 tablet:max-w-[44rem] desktop:max-w-[76rem]" : undefined}
+    >
+      {issued ? (
+        <IssuedSshKey admin={admin} issued={issued} onDone={onDone} />
+      ) : (
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setRefusal("");
+            inDialog(
+              () => access.issueSshKey(label.trim(), code),
+              (message) => {
+                setRefusal(message);
+                setCode("");
+              },
+              setIssued,
+            );
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>Get an SSH key</DialogTitle>
+            <DialogDescription>
+              The box makes a new key pair for you and signs it with its root key. You download the
+              private key once; the box never keeps it. A new key takes a fresh code from your
+              authenticator, even right after you signed in.
+            </DialogDescription>
+          </DialogHeader>
+          {refusal && <Alert tone="danger">{refusal}</Alert>}
+          <Field hint="Say where it lives, such as a laptop." label="Label">
+            <Input onChange={(event) => setLabel(event.target.value)} value={label} />
+          </Field>
+          <Field label="Authenticator code">
+            <CodeInput label="Authenticator code" onChange={setCode} size="md" value={code} />
+          </Field>
+          <DialogFooter>
+            <Button disabled={!label.trim() || code.length !== 6} type="submit">
+              Make the key
             </Button>
-            <Button
-              onClick={() => saveText(issued.fileName, issued.privateKey)}
-              variant="secondary"
-            >
-              Download the private key ({issued.fileName})
-            </Button>
-            <Button
-              onClick={() => saveText(issued.publicKeyFileName, `${issued.publicKey}\n`)}
-              variant="secondary"
-            >
-              Download the public key ({issued.publicKeyFileName})
-            </Button>
-            <Button
-              onClick={() => saveText(issued.certificateFileName, `${issued.certificate}\n`)}
-              variant="secondary"
-            >
-              Download the certificate ({issued.certificateFileName})
-            </Button>
-            <Button onClick={() => saveText(issued.pemFileName, issued.pem)} variant="secondary">
-              Download the PEM ({issued.pemFileName})
-            </Button>
-          </div>
-          <p className="m-0 text-small text-muted">
-            The .ppk has the certificate built in and is recommended for PuTTY 0.78 or later and
-            MobaXterm 25.1 or later. OpenSSH uses the key and the certificate as a pair; the public
-            key isn&apos;t needed to sign in, but some tools ask for it. The PEM carries no
-            certificate either, so use it with the certificate.
-          </p>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <p className="m-0 font-bold">OpenSSH</p>
-          <div className="flex flex-wrap items-center gap-2">
-            <code className="rounded-md bg-sunken px-2 py-1 font-mono text-small break-all">
-              {issued.sshCommand}
-            </code>
-            <Button
-              onClick={() => {
-                void navigator.clipboard
-                  .writeText(issued.sshCommand)
-                  .then(() => toast("Command copied."))
-                  .catch(() => toast("Couldn't copy. Try again."));
-              }}
-              size="sm"
-              variant="secondary"
-            >
-              <ClipboardCopy aria-hidden />
-              Copy
-            </Button>
-          </div>
-        </div>
-        <div className="flex flex-col gap-1.5 text-small text-muted">
-          <p className="m-0 font-bold text-ink">PuTTY</p>
-          <p className="m-0">
+          </DialogFooter>
+        </form>
+      )}
+    </DialogContent>
+  );
+};
+
+/** One file to save, under its client's group in the downloads table. */
+interface SshFile {
+  content: string;
+  fileName: string;
+  purpose: string;
+  /** The download button's name: "Download the <what> (<file>)". */
+  what: string;
+}
+
+/**
+ * The files of a new SSH key, by client: OpenSSH takes the key and its certificate as a pair,
+ * PuTTY and MobaXterm the .ppk with the certificate inside, other tools the PEM with the
+ * certificate, and every client the box's known_hosts line.
+ */
+const sshFileGroups = (issued: IssueSshKeyResponse): { files: SshFile[]; group: string }[] => [
+  {
+    files: [
+      {
+        content: issued.privateKey,
+        fileName: issued.fileName,
+        purpose: "The private key. Keep it next to its certificate.",
+        what: "private key",
+      },
+      {
+        content: `${issued.certificate}\n`,
+        fileName: issued.certificateFileName,
+        purpose: "The certificate the box signed. SSH refuses the key without it.",
+        what: "certificate",
+      },
+      {
+        content: `${issued.publicKey}\n`,
+        fileName: issued.publicKeyFileName,
+        purpose: "The public key. Not needed to sign in; some tools ask for it.",
+        what: "public key",
+      },
+    ],
+    group: "OpenSSH",
+  },
+  {
+    files: [
+      {
+        content: issued.ppk,
+        fileName: issued.ppkFileName,
+        purpose: "The key with its certificate built in, for PuTTY 0.78+ and MobaXterm 25.1+.",
+        what: ".ppk",
+      },
+    ],
+    group: "PuTTY and MobaXterm",
+  },
+  {
+    files: [
+      {
+        content: issued.pem,
+        fileName: issued.pemFileName,
+        purpose: "PKCS#8, with no certificate inside: use it with the certificate above.",
+        what: "PEM",
+      },
+    ],
+    group: "PEM, for other tools",
+  },
+  ...(issued.knownHosts
+    ? [
+        {
+          files: [
+            {
+              content: `${issued.knownHosts}\n`,
+              fileName: issued.knownHostsFileName,
+              purpose: "Trusts the box's host certificate, so SSH doesn't ask about its key.",
+              what: "known_hosts file",
+            },
+          ],
+          group: "Box trust",
+        },
+      ]
+    : []),
+];
+
+/** One client's part of the dialog, named for screen readers. */
+const ClientSection = ({ children, title }: { children: React.ReactNode; title: string }) => (
+  <section aria-label={title} className="flex min-w-0 flex-col gap-2 text-small">
+    <h3 className="m-0 text-body font-bold">{title}</h3>
+    {children}
+  </section>
+);
+
+/**
+ * The new key, shown once: the downloads by client, then each client's steps. Three columns from
+ * the desktop breakpoint, one below it, so nothing is cut off at 390 px. The dialog around it
+ * widens to fit.
+ */
+const IssuedSshKey = ({
+  admin,
+  issued,
+  onDone,
+}: {
+  admin: string;
+  issued: IssueSshKeyResponse;
+  onDone: () => void;
+}) => (
+  <>
+    <DialogHeader>
+      <DialogTitle>Your new SSH key</DialogTitle>
+      <DialogDescription>
+        Save these now, next to each other; the box can&apos;t show them again. SSH is
+        certificate-only here, so a bare key is always refused.
+      </DialogDescription>
+    </DialogHeader>
+    <Alert title="This is shown once" tone="warn">
+      The box keeps only the public part and the certificate, so it can&apos;t show this private key
+      again. If you lose it, revoke it here and get a new one.
+    </Alert>
+    <div className="grid grid-cols-1 gap-5 desktop:grid-cols-3">
+      <div className="flex min-w-0 flex-col gap-2">
+        <h3 className="m-0 text-body font-bold" id="ssh-downloads">
+          Downloads
+        </h3>
+        <Table aria-labelledby="ssh-downloads" className="text-small">
+          <TableBody>
+            {sshFileGroups(issued).map(({ files, group }) => [
+              <TableRow key={group}>
+                <th
+                  className="bg-sunken/60 px-3 py-1.5 text-left text-small font-bold"
+                  colSpan={2}
+                  scope="row"
+                >
+                  {group}
+                </th>
+              </TableRow>,
+              ...files.map((file) => (
+                <TableRow key={file.fileName}>
+                  <TableCell className="px-3 py-1.5">
+                    <span className="block font-mono break-all">{file.fileName}</span>
+                    <span className="block text-muted">{file.purpose}</span>
+                  </TableCell>
+                  <TableCell className="px-3 py-1.5 text-right">
+                    <Button
+                      aria-label={`Download the ${file.what} (${file.fileName})`}
+                      onClick={() => saveText(file.fileName, file.content)}
+                      size="sm"
+                      variant={file.what === ".ppk" ? "primary" : "secondary"}
+                    >
+                      Download
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              )),
+            ])}
+          </TableBody>
+        </Table>
+        <details className="text-small">
+          <summary className="cursor-pointer text-muted">The private key as text</summary>
+          <Field className="mt-2" label="Private key">
+            <Textarea className="min-h-24" mono readOnly value={issued.privateKey} />
+          </Field>
+        </details>
+      </div>
+      <ClientSection title="OpenSSH">
+        <p className="m-0 text-muted">
+          Save the private key and the certificate in one folder, then run this from it:
+        </p>
+        <CopyLine copied="Command copied." value={issued.sshCommand} />
+        {issued.knownHosts && (
+          <>
+            <p className="m-0 font-bold">known_hosts</p>
+            <p className="m-0 text-muted">
+              Add this line to ~/.ssh/known_hosts: it trusts the box&apos;s host CA for its name and
+              addresses, so there&apos;s no host key prompt on the first login.
+            </p>
+            <CopyLine
+              copied="known_hosts line copied."
+              label="Copy the known_hosts line"
+              value={issued.knownHosts}
+            />
+          </>
+        )}
+        {issued.userCaPublicKey && (
+          <details>
+            <summary className="cursor-pointer text-muted">
+              The box&apos;s user CA, which signed your certificate
+            </summary>
+            <div className="mt-2">
+              <CopyLine
+                copied="User CA key copied."
+                label="Copy the user CA key"
+                value={issued.userCaPublicKey}
+              />
+            </div>
+          </details>
+        )}
+      </ClientSection>
+      <div className="flex min-w-0 flex-col gap-4">
+        <ClientSection title="PuTTY">
+          <p className="m-0 text-muted">
             Open the .ppk as the session&apos;s private key; its certificate is already inside it.
             To build one yourself from the key and certificate pair instead, PuTTY 0.78 or later: in
             PuTTYgen, Conversions &gt; Import key, then Key &gt; Add certificate to key, then save
             as .ppk; or Connection &gt; SSH &gt; Auth &gt; Credentials &gt; &quot;Certificate to
             use&quot;.
           </p>
-        </div>
-        <div className="flex flex-col gap-1.5 text-small text-muted">
-          <p className="m-0 font-bold text-ink">MobaXterm</p>
-          <ol className="m-0 flex list-decimal flex-col gap-0.5 pl-5">
+        </ClientSection>
+        <ClientSection title="MobaXterm">
+          <ol className="m-0 flex list-decimal flex-col gap-0.5 pl-5 text-muted">
             <li>Session (or User sessions &gt; New session), then SSH.</li>
             <li>Remote host: the box&apos;s address. Username: {admin}. Port: 22.</li>
             <li>
@@ -356,52 +524,18 @@ const IssueSshKeyDialog = ({ admin, onDone }: { admin: string; onDone: () => voi
             </li>
             <li>Connect, and enter your TOTP code at the menu.</li>
           </ol>
-        </div>
-        <p className="m-0 text-small text-muted">The TOTP prompt comes next, in the menu.</p>
-        <DialogFooter>
-          <Button onClick={onDone}>I&apos;ve saved it</Button>
-        </DialogFooter>
-      </DialogContent>
-    );
-  }
-  return (
-    <DialogContent>
-      <form
-        className="flex flex-col gap-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          setRefusal("");
-          inDialog(
-            () => access.issueSshKey(label.trim(), code),
-            (message) => {
-              setRefusal(message);
-              setCode("");
-            },
-            setIssued,
-          );
-        }}
-      >
-        <DialogHeader>
-          <DialogTitle>Get an SSH key</DialogTitle>
-          <DialogDescription>
-            The box makes a new key pair for you and signs it with its root key. You download the
-            private key once; the box never keeps it. A new key takes a fresh code from your
-            authenticator, even right after you signed in.
-          </DialogDescription>
-        </DialogHeader>
-        {refusal && <Alert tone="danger">{refusal}</Alert>}
-        <Field hint="Say where it lives, such as a laptop." label="Label">
-          <Input onChange={(event) => setLabel(event.target.value)} value={label} />
-        </Field>
-        <Field label="Authenticator code">
-          <CodeInput label="Authenticator code" onChange={setCode} size="md" value={code} />
-        </Field>
-        <DialogFooter>
-          <Button disabled={!label.trim() || code.length !== 6} type="submit">
-            Make the key
-          </Button>
-        </DialogFooter>
-      </form>
-    </DialogContent>
-  );
-};
+        </ClientSection>
+        <ClientSection title="PEM">
+          <p className="m-0 text-muted">
+            For a tool that takes neither OpenSSH nor PuTTY keys: give it the .pem and the
+            certificate together.
+          </p>
+        </ClientSection>
+      </div>
+    </div>
+    <DialogFooter className="tablet:items-center tablet:justify-between">
+      <p className="m-0 text-small text-muted">The TOTP prompt comes next, in the menu.</p>
+      <Button onClick={onDone}>I&apos;ve saved it</Button>
+    </DialogFooter>
+  </>
+);
