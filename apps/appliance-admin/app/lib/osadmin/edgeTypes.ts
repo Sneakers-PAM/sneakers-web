@@ -1,5 +1,13 @@
 import type { Session } from "@/lib/osadmin/types";
 
+export interface UploadOptions {
+  fileName?: string;
+  signal?: AbortSignal;
+}
+
+/** What an upload the page cancelled rejects with. */
+export const UPLOAD_CANCELLED = "UPLOAD_CANCELLED: the upload was cancelled";
+
 export interface QuickLoginUser {
   id: string;
   label: string;
@@ -21,6 +29,14 @@ export interface Edge {
     users(): QuickLoginUser[];
   };
   request<Result>(service: string, method: string, body: unknown): Promise<Result>;
-  /** POST /upload with the raw file; onProgress gets the fraction sent, 0 to 1. */
-  upload(bytes: Blob, onProgress?: (fraction: number) => void): Promise<{ uploadId: string }>;
+  /**
+   * POST /upload with the raw file; onProgress gets the fraction sent, 0 to 1. The file's name
+   * goes along for the held upload's card. Aborting the signal stops the transfer, rejects with
+   * UPLOAD_CANCELLED, and the box drops what it got.
+   */
+  upload(
+    bytes: Blob,
+    onProgress?: (fraction: number) => void,
+    options?: UploadOptions,
+  ): Promise<{ uploadId: string }>;
 }

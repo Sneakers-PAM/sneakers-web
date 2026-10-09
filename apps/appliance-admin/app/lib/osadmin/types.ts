@@ -647,11 +647,15 @@ export interface ProductSlots {
 /** One product bundle a source offers. */
 export interface ProductVersion {
   arch: string;
-  /** The base versions the bundle fits. */
+  /** The exact base versions a bundle sealed before the base range existed fits. */
   bases: string[];
   channel: string;
   /** What FetchUpdate takes, such as sneakers-product-0.2.0-amd64.bin. */
   fileName: string;
+  /** The bundle's base range, inclusive; maxBase is empty with no maximum, and both are empty
+   * for a bundle that names exact bases only. */
+  maxBase: string;
+  minBase: string;
   size: string;
   /** mirror or direct: where the index came from. */
   source: string;
@@ -671,6 +675,9 @@ export interface UpdatePackage {
   bases: string[];
   channel: string;
   kind: "full" | "patch";
+  /** A product bundle's base range, as in ProductVersion. */
+  maxBase: string;
+  minBase: string;
   sha256: string;
   size: string;
   target?: UpdateTarget;
@@ -719,7 +726,7 @@ export interface UpgradeProgress {
 }
 
 export interface UpgradeEvent {
-  action: "apply" | "fetch" | "revert" | "stage";
+  action: "apply" | "discard" | "fetch" | "revert" | "stage";
   actor: string;
   code: string;
   detail: string;
@@ -740,6 +747,19 @@ export interface ElevationOverride {
   reason: string;
 }
 
+/** A received or fetched .bin not yet staged or discarded; while one is held the box refuses a
+ * new upload or fetch (UPGRADE_BUSY). */
+export interface HeldUpload {
+  /** The name the browser sent with the upload, or the fetched file's; empty when none. */
+  fileName: string;
+  receivedAt?: string;
+  /** int64, so a string. */
+  size: string;
+  /** upload, mirror or direct. */
+  source: string;
+  uploadId: string;
+}
+
 export interface GetUpgradesResponse {
   /** The elevated shells open now; Apply and Revert are refused while there is one. */
   activeElevations?: Elevation[];
@@ -747,6 +767,8 @@ export interface GetUpgradesResponse {
   /** This build has a release source to fetch from directly (production builds). */
   directAvailable?: boolean;
   failedVersion: string;
+  /** The file waiting to be verified or cancelled; left out when there's none. */
+  heldUpload?: HeldUpload;
   /** Empty lists are left out of the JSON: a box with no update event yet leaves this out. */
   history?: UpgradeEvent[];
   /** The base releases staging a base update removes, with their files: the revert target, or a
@@ -764,6 +786,8 @@ export interface GetUpgradesResponse {
   revertedAt?: string;
   revertedBy?: string;
   revertedVersion?: string;
+  /** True while an upload or fetch is coming in. */
+  receiving: boolean;
   runningVersion: string;
   stagedVersion: string;
   /** The last stage, apply or revert, step by step; left out when the box has made none. */
