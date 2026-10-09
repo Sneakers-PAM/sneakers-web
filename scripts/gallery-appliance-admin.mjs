@@ -66,7 +66,9 @@ const SCENARIOS = [
   {
     act: async (page) => {
       await page.getByRole("button", { name: "Verify and stage" }).click();
-      await page.getByText("UPGRADE_PRODUCT_BASE").waitFor();
+      // Both the refusal's code and the badge summarizing it show "UPGRADE_PRODUCT_BASE";
+      // either one appearing means the refusal rendered.
+      await page.getByText("UPGRADE_PRODUCT_BASE").first().waitFor();
     },
     name: "updates-product-range-refused",
     route: "/updates",
