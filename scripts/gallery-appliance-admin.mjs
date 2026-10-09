@@ -77,6 +77,8 @@ const SCENARIOS = [
     act: async (page) => {
       await page.getByRole("button", { name: "Get an SSH key" }).click();
       await page.getByRole("dialog").getByLabel("Label").fill("work laptop");
+      // Issuing a key always takes a fresh code, whatever the step-up window says.
+      await page.getByLabel("Authenticator code").fill("123456");
       await page.getByRole("button", { name: "Make the key" }).click();
       await page.getByText("This is shown once").waitFor();
     },

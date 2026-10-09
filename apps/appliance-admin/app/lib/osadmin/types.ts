@@ -330,9 +330,16 @@ export interface IssueSshKeyResponse {
   ppk: string;
   /** <fileName>.ppk. */
   ppkFileName: string;
+  /** PEM PKCS#8 ("PRIVATE KEY"), for tools that take neither the OpenSSH nor the PuTTY form. It
+   * carries no certificate, so it pairs with certificateFileName. Shown once. */
+  pem: string;
+  /** <fileName>.pem. */
+  pemFileName: string;
   /** The OpenSSH private key, shown once and never kept by the box. */
   privateKey: string;
   publicKey: string;
+  /** <fileName>.pub; the same public key goes with all three private-key forms. */
+  publicKeyFileName: string;
   /** The exact OpenSSH command, with the certificate file named: `ssh -i <fileName> -o
    * CertificateFile=<certificateFileName> <admin>@<box>`. */
   sshCommand: string;

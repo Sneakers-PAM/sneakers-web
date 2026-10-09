@@ -797,6 +797,13 @@ const route = async (service: string, method: string, body: Record<string, unkno
         certificateFileName,
         fileName,
         key,
+        pem: [
+          "-----BEGIN PRIVATE KEY-----", // gitleaks:allow (a placeholder, not a key)
+          "MOCK-PEM-PRIVATE-KEY-NOT-A-REAL-KEY-MOCK-PEM-PRIVATE-KEY-NOT-A-REAL-KEY",
+          "-----END PRIVATE KEY-----", // gitleaks:allow
+          "",
+        ].join("\n"),
+        pemFileName: `${fileName}.pem`,
         ppk: [
           "PuTTY-User-Key-File-3: ssh-ed25519", // gitleaks:allow (a placeholder, not a key)
           "Encryption: none",
@@ -819,6 +826,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
           "",
         ].join("\n"),
         publicKey: `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAMOCK ${admin.name}`,
+        publicKeyFileName: `${fileName}.pub`,
         sshCommand: `ssh -i ${fileName} -o CertificateFile=${certificateFileName} ${admin.name}@${networkSettings.hostname}`,
       };
     }

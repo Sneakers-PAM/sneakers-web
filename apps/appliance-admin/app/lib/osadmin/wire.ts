@@ -325,10 +325,13 @@ export const issueSshKey = (w: Wire<IssueSshKeyResponse>): IssueSshKeyResponse =
   certificateFileName: w.certificateFileName ?? "",
   fileName: w.fileName ?? "",
   key: key(w.key ?? {}),
+  pem: w.pem ?? "",
+  pemFileName: w.pemFileName ?? "",
   ppk: w.ppk ?? "",
   ppkFileName: w.ppkFileName ?? "",
   privateKey: w.privateKey ?? "",
   publicKey: w.publicKey ?? "",
+  publicKeyFileName: w.publicKeyFileName ?? "",
   sshCommand: w.sshCommand ?? "",
 });
 

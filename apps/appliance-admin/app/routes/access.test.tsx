@@ -458,6 +458,7 @@ describe("Access", () => {
     expect(dialog.getByRole("button", { name: /Download the private key/ })).toBeInTheDocument();
     expect(dialog.getByRole("button", { name: /Download the public key/ })).toBeInTheDocument();
     expect(dialog.getByRole("button", { name: /Download the certificate/ })).toBeInTheDocument();
+    expect(dialog.getByRole("button", { name: /Download the PEM/ })).toBeInTheDocument();
     expect(
       dialog.getByText(/ssh -i id_ed25519_alice_sneakers_\d+ -o CertificateFile=/),
     ).toBeInTheDocument();

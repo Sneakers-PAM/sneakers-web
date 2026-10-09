@@ -292,10 +292,10 @@ const IssueSshKeyDialog = ({ admin, onDone }: { admin: string; onDone: () => voi
               Download the private key ({issued.fileName})
             </Button>
             <Button
-              onClick={() => saveText(`${issued.fileName}.pub`, `${issued.publicKey}\n`)}
+              onClick={() => saveText(issued.publicKeyFileName, `${issued.publicKey}\n`)}
               variant="secondary"
             >
-              Download the public key ({issued.fileName}.pub)
+              Download the public key ({issued.publicKeyFileName})
             </Button>
             <Button
               onClick={() => saveText(issued.certificateFileName, `${issued.certificate}\n`)}
@@ -303,11 +303,15 @@ const IssueSshKeyDialog = ({ admin, onDone }: { admin: string; onDone: () => voi
             >
               Download the certificate ({issued.certificateFileName})
             </Button>
+            <Button onClick={() => saveText(issued.pemFileName, issued.pem)} variant="secondary">
+              Download the PEM ({issued.pemFileName})
+            </Button>
           </div>
           <p className="m-0 text-small text-muted">
             The .ppk has the certificate built in and is recommended for PuTTY 0.78 or later and
             MobaXterm 25.1 or later. OpenSSH uses the key and the certificate as a pair; the public
-            key isn&apos;t needed to sign in, but some tools ask for it.
+            key isn&apos;t needed to sign in, but some tools ask for it. The PEM carries no
+            certificate either, so use it with the certificate.
           </p>
         </div>
         <div className="flex flex-col gap-1.5">
