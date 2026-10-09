@@ -377,17 +377,9 @@ const STEP_UP_METHODS = new Set([
   "AccessService/AddAdmin",
   "AccessService/UnrevokeKey",
   "PowerService/ApproveFactoryReset",
-  "PowerService/EndSession",
   "PowerService/StartFactoryReset",
   "TlsService/AssignCertificate",
-  "TlsService/CompleteCsr",
-  "TlsService/DeleteCertificate",
-  "TlsService/DiscardCsr",
-  "TlsService/GenerateCsr",
-  "TlsService/ImportCertificate",
   "TlsService/RevertToSelfSigned",
-  "UpgradeService/SetUpgradePolicy",
-  "UpgradeService/StageUpdate",
 ]);
 
 const historyEntry = (

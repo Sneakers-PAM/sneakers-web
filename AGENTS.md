@@ -178,9 +178,9 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   "Verified" panel (file, version, architecture, signature, channel, SHA-256 with Copy, and the
   slot it went into, `StageUpdateResponse.slot`) or the refusal's reason in place (never a toast).
   Every state of the file shows in that one panel (`ResultPanel`, `aria-label="Verify result"`,
-  its tone in `data-tone`): info while uploading, received or verifying, amber while a stage
-  waits for the step-up code, red with the reason and error code for a refused upload, fetch,
-  verify or stage, or a cancelled step-up (which keeps the upload, so it can be verified again).
+  its tone in `data-tone`): info while uploading, received or verifying, red with the reason and
+  error code for a refused upload, fetch, verify or stage. Verifying asks for no authenticator
+  code: on Updates only Apply and Revert do.
   The Base system card reads the other slot from `GetUpgrades`: "staged <version>", the release
   kept for a revert (`previousVersion`, "Other slot: 0.0.9 (revert target)"), or "empty" only
   when there's neither; Revert is offered, as "Revert to <version>", only when there's a revert
@@ -188,12 +188,12 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   slot (B) for a revert", from `previousSlot`). Staging a base update writes over the other
   slot, so the release there goes at the stage, not the apply: the Install an update card says
   "Staging a base update removes <version> and its files." and the panel's Verify and stage step
-  (received, or a refused stage it can retry) says "This removes <version> and its files.", both
+  (a received file) says "This removes <version> and its files.", both
   from `GetUpgrades.nextStageRemoves`; a product bundle's stage names no base release. Apply, Revert, Install product and
   Revert product each need the version typed (the running one for a base revert) and a fresh
   authenticator code in the same dialog, every time (`totpCode`; the box checks it on every call,
   not the step-up window), and a refused code stays in the dialog with the tries left. Stage and
-  the update window are owner and step-up. Admins see the state only. A base apply or revert
+  the update window are owner only, with no code. Admins see the state only. A base apply or revert
   swaps the page for the shared restart page (`app/components/BoxRestarting.tsx`): it waits for
   the box to go down, asks the public `GetPhase` every 2 seconds (no answer: down), then
   `GetSession`, until :8443 answers without the old session (sessions don't survive a restart;

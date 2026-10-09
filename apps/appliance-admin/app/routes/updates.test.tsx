@@ -1,9 +1,9 @@
-import { act, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { elevation, upgrade } from "@/lib/osadmin/client";
 import { OsadminError } from "@/lib/osadmin/errors";
-import { cancelStepUp, resumeStepUp, stepUpPending } from "@/lib/osadmin/stepUpController";
+import { stepUpPending } from "@/lib/osadmin/stepUpController";
 import { applyMockScenario } from "@/mock/edge.mock";
 import Updates from "@/routes/updates";
 import { renderPage } from "@/test/renderPage";
@@ -265,40 +265,13 @@ describe("Updates", () => {
       expect(within(result).getByText("UPGRADE_UPLOAD")).toBeInTheDocument();
     });
 
-    it("holds the check in an amber panel while it waits for a fresh code", async () => {
+    it("verifies with no authenticator code: only Apply and Revert ask for one", async () => {
       applyMockScenario("stepup");
       const user = userEvent.setup();
       await openPage();
       await uploadAndVerify(user, binFile("signed release"));
-      await vi.waitFor(() => expect(stepUpPending()).toBe(true));
-      const result = await panel();
-      expect(result).toHaveAttribute("data-tone", "warn");
-      expect(within(result).getByText("Waiting for your authenticator code")).toBeInTheDocument();
-      cancelStepUp();
-    });
-
-    it("shows a cancelled step-up in a red panel, and the file can still be verified", async () => {
-      applyMockScenario("stepup");
-      const user = userEvent.setup();
-      await openPage();
-      await uploadAndVerify(user, binFile("signed release"));
-      await vi.waitFor(() => expect(stepUpPending()).toBe(true));
-      act(() => cancelStepUp());
-      const result = await panel();
-      await vi.waitFor(() => expect(result).toHaveAttribute("data-tone", "danger"));
-      expect(within(result).getByText("ACCESS_STEPUP_REQUIRED")).toBeInTheDocument();
-      await user.click(within(result).getByRole("button", { name: "Verify and stage" }));
       expect(await screen.findByText("Verified")).toBeInTheDocument();
-    });
-
-    it("verifies once the step-up code is taken", async () => {
-      applyMockScenario("stepup");
-      const user = userEvent.setup();
-      await openPage();
-      await uploadAndVerify(user, binFile("signed release"));
-      await vi.waitFor(() => expect(stepUpPending()).toBe(true));
-      act(() => resumeStepUp());
-      expect(await screen.findByText("Verified")).toBeInTheDocument();
+      expect(stepUpPending()).toBe(false);
       expect(await panel()).toHaveAttribute("data-tone", "ok");
     });
   });
