@@ -52,6 +52,19 @@ the outcome:
   step-up), with the box's reason and its error code. Nothing is staged; after a cancelled
   step-up the file is still on the box and can be verified again.
 
+### The update mirror
+
+The update window's mirror takes an `http://` or `https://` URL: an air-gapped site's own web
+server. Every file's signature is checked either way. The **Update mirror** card shows how the box
+reaches it: for plain HTTP, "integrity from the signature only"; for HTTPS, the server
+certificate from the last fetch (subject, issuer, expiry, SHA-256) and whether the pin matched,
+or the last refusal with its code (`UPGRADE_MIRROR_UNTRUSTED`, `UPGRADE_MIRROR_PIN`). A refused
+fetch shows the same reason in the file panel. An owner adds a private CA (pasted or from a PEM
+file) and an optional server certificate pin under **Update trust** on Certificates, which the
+card links to; the CA is trusted for the mirror only, and there is no skip-verify option. The
+mock states are `mirror-http`, `mirror-https`, `mirror-custom-ca`, `mirror-wrong-ca` and
+`mirror-pin-mismatch`.
+
 ## Network
 
 The Network page reads and changes the box's settings (`NetworkService`). An applied change

@@ -41,6 +41,7 @@ import type {
 
 import { BoxRestarting } from "@/components/BoxRestarting";
 import { NotAvailable } from "@/components/NotAvailable";
+import { MirrorStatusCard } from "@/components/updates/MirrorStatusCard";
 import { UpgradeSteps } from "@/components/UpgradeSteps";
 import { VersionChip } from "@/components/VersionChip";
 import { runAction } from "@/lib/osadmin/action";
@@ -697,6 +698,8 @@ export default function Updates() {
         </Card>
       )}
 
+      <MirrorStatusCard status={data.mirrorStatus} />
+
       <Card>
         <CardHeader title="Update window" />
         <div className="flex flex-col gap-4 p-5.5 text-small">
@@ -729,7 +732,10 @@ export default function Updates() {
                   </Field>
                 </div>
               )}
-              <Field hint="An https:// URL, or empty for upload only (air-gapped)" label="Mirror">
+              <Field
+                hint="An http:// or https:// URL, or empty for upload only (air-gapped). Every file's signature is checked either way."
+                label="Mirror"
+              >
                 <Input onChange={(event) => setMirrorUrl(event.target.value)} value={mirrorUrl} />
               </Field>
               {data.directAvailable && (

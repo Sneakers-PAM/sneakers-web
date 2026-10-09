@@ -26,6 +26,16 @@ import {
   certificatesRequest,
   resetCertificates,
 } from "@/mock/certificates.mock";
+import {
+  applyMirrorScenario,
+  MIRROR_SCENARIOS,
+  mirrorFetch,
+  type MirrorScenario,
+  mirrorStatus,
+  mirrorTrustRequest,
+  resetMirror,
+  updateTrust,
+} from "@/mock/mirror.mock";
 import * as world from "@/mock/world";
 
 /** The banner every screen shows while the app runs against the mock transport. */
@@ -197,6 +207,12 @@ let product = structuredClone(world.PRODUCT_SLOTS);
 /** This build has a release source to fetch from directly. */
 const DIRECT_AVAILABLE = true;
 const isAirGapped = () => !upgradePolicy.mirrorUrl && !upgradePolicy.direct;
+/** A fetch tries the mirror first; its refusal stands when there's no release source to try. */
+const fromMirror = () => {
+  if (!upgradePolicy.mirrorUrl) return;
+  const refusal = mirrorFetch(upgradePolicy.mirrorUrl);
+  if (refusal && !upgradePolicy.direct) throw refusal;
+};
 const isProduct = (target: unknown) => target === "UPDATE_TARGET_PRODUCT";
 const newer = (a: string, b: string) => {
   const [x, y] = [a, b].map((v) => v.split(".").map(Number));
@@ -597,6 +613,10 @@ const route = async (service: string, method: string, body: Record<string, unkno
       "ACCESS_STEPUP_REQUIRED: this action needs a sign-in no older than 5 minutes",
     );
   }
+  if (key === "TlsService/SetUpdateTrust" || key === "TlsService/ClearUpdateTrust")
+    return mirrorTrustRequest(method, body);
+  if (key === "TlsService/GetCertificateStore")
+    return { ...(certificatesRequest(method, body) as object), updateTrust: updateTrust() };
   if (service === "TlsService") return certificatesRequest(method, body);
   switch (key) {
     case "AccessService/AddAdmin": {
@@ -1255,6 +1275,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
           "UPGRADE_AIR_GAPPED: no mirror is configured, so this box never fetches; upload the .bin instead",
         );
       const fileName = body.fileName as string;
+      fromMirror();
       const productFile = /^sneakers-product-(\d+\.\d+\.\d+)-(amd64|arm64)\.bin$/.exec(fileName);
       if (productFile) {
         const uploadId = `fetch-${String(++uploadCount)}`;
@@ -1285,6 +1306,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
         failedVersion,
         ...reverted,
         history: structuredClone(upgradeHistory),
+        mirrorStatus: mirrorStatus(upgradePolicy.mirrorUrl),
         // As on the box: staging writes over the other slot, so it removes what's there.
         nextStageRemoves: [stagedVersion || previousVersion].filter(Boolean),
         policy: structuredClone(upgradePolicy),
@@ -1301,6 +1323,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
           "failed_precondition",
           "UPGRADE_AIR_GAPPED: no mirror or release source is set; upload the product bundle instead",
         );
+      fromMirror();
       const versions = world.PRODUCT_VERSIONS.filter(
         (v) =>
           v.bases.includes(runningVersion) &&
@@ -1490,7 +1513,7 @@ const MOCK_SCENARIOS = [
   "verifying",
 ] as const;
 
-export type MockScenario = (typeof MOCK_SCENARIOS)[number] | CertificateScenario;
+export type MockScenario = (typeof MOCK_SCENARIOS)[number] | CertificateScenario | MirrorScenario;
 
 /** A fresh box: no admin, no recovery key, setup not started. */
 const firstBoot = () => {
@@ -1552,6 +1575,14 @@ const pendingReset = (): FactoryReset => ({
 export const applyMockScenario = (scenario: MockScenario): void => {
   if ((CERTIFICATE_SCENARIOS as string[]).includes(scenario)) {
     applyCertificateScenario(scenario as CertificateScenario);
+    return;
+  }
+  if ((MIRROR_SCENARIOS as string[]).includes(scenario)) {
+    upgradePolicy = {
+      ...upgradePolicy,
+      direct: false,
+      mirrorUrl: applyMirrorScenario(scenario as MirrorScenario),
+    };
     return;
   }
   switch (scenario) {
@@ -1696,7 +1727,11 @@ export const applyMockScenario = (scenario: MockScenario): void => {
   }
 };
 
-const SCENARIOS = new Set<string>([...CERTIFICATE_SCENARIOS, ...MOCK_SCENARIOS]);
+const SCENARIOS = new Set<string>([
+  ...CERTIFICATE_SCENARIOS,
+  ...MIRROR_SCENARIOS,
+  ...MOCK_SCENARIOS,
+]);
 
 /** `?mockScenario=staged,reset-pending` on a mock build's URL, for the review screen list. */
 const scenariosFromUrl = (): void => {
@@ -1708,6 +1743,7 @@ const scenariosFromUrl = (): void => {
 /** Resets every mutable piece of the mock world, so tests don't see another test's writes. */
 export const resetMockWorld = (): void => {
   resetCertificates();
+  resetMirror();
   upgradePolicy = structuredClone(world.UPGRADE_POLICY);
   runningVersion = "0.1.0";
   stagedVersion = "";

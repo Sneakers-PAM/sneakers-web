@@ -30,6 +30,7 @@ import type {
   GetSetupResponse,
   GetStatusResponse,
   GetUpgradesResponse,
+  MirrorStatus,
   HostKey,
   Invitation,
   IssueRootShellCodeResponse,
@@ -64,6 +65,8 @@ import type {
   UpgradeStep,
   ValidationCheck,
   Warning,
+  TrustedCa,
+  UpdateTrust,
 } from "@/lib/osadmin/types";
 
 export type Wire<T> = T extends readonly (infer U)[]
@@ -465,6 +468,27 @@ export const getCertificateStore = (
   certificates: list(w.certificates, storedCertificate),
   csrs: list(w.csrs, pendingCsr),
   endpoints: list(w.endpoints, certEndpoint),
+  updateTrust: optional(w.updateTrust, updateTrust),
+});
+
+const trustedCa = (w: Wire<TrustedCa>): TrustedCa => ({
+  ...w,
+  issuer: w.issuer ?? "",
+  sha256: w.sha256 ?? "",
+  subject: w.subject ?? "",
+});
+
+export const updateTrust = (w: Wire<UpdateTrust>): UpdateTrust => ({
+  ...w,
+  cas: list(w.cas, trustedCa),
+  pinSha256: w.pinSha256 ?? "",
+  setBy: w.setBy ?? "",
+});
+
+export const withUpdateTrust = (
+  w: Wire<{ updateTrust: UpdateTrust }>,
+): { updateTrust: UpdateTrust } => ({
+  updateTrust: updateTrust(w.updateTrust ?? {}),
 });
 
 // ---- mcp ----
@@ -558,6 +582,22 @@ const upgradeEvent = (w: Wire<UpgradeEvent>): UpgradeEvent => ({
   version: w.version ?? "",
 });
 
+const mirrorStatus = (w: Wire<MirrorStatus>): MirrorStatus => ({
+  ...w,
+  checked: w.checked ?? false,
+  code: w.code ?? "",
+  customCa: w.customCa ?? false,
+  error: w.error ?? "",
+  note: w.note ?? "",
+  ok: w.ok ?? false,
+  pinMatched: w.pinMatched ?? false,
+  pinned: w.pinned ?? false,
+  scheme: w.scheme ?? "",
+  serverIssuer: w.serverIssuer ?? "",
+  serverSha256: w.serverSha256 ?? "",
+  serverSubject: w.serverSubject ?? "",
+});
+
 const upgradeStep = (w: Wire<UpgradeStep>): UpgradeStep => ({
   detail: w.detail ?? "",
   doneBytes: w.doneBytes ?? "0",
@@ -583,6 +623,7 @@ export const getUpgrades = (w: Wire<GetUpgradesResponse>): GetUpgradesResponse =
   airGapped: w.airGapped ?? false,
   failedVersion: w.failedVersion ?? "",
   history: list(w.history, upgradeEvent),
+  mirrorStatus: optional(w.mirrorStatus, mirrorStatus),
   nextStageRemoves: texts(w.nextStageRemoves),
   policy: optional(w.policy, upgradePolicy),
   previousSlot: w.previousSlot ?? "",

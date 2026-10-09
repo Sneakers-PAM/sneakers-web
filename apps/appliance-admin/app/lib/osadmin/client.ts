@@ -48,6 +48,7 @@ import type {
   TotpEnrolment,
   UpdatePackage,
   UpdateTarget,
+  UpdateTrust,
   UpgradePolicy,
 } from "@/lib/osadmin/types";
 
@@ -294,12 +295,22 @@ export const tls = {
   /** A PFX (pkcs12, base64, with its password) or PEM; the password is never stored. */
   importCertificate: (request: ImportCertificateRequest) =>
     call<AddedCertificate>("TlsService", "ImportCertificate", request, wire.addedCertificate),
+  /** Removes the update trust: the mirror is checked against the system roots alone. */
+  clearUpdateTrust: () => call<Record<string, never>>("TlsService", "ClearUpdateTrust", {}),
   revert: (endpointId: string) =>
     call<{ endpoint: CertEndpoint }>(
       "TlsService",
       "RevertToSelfSigned",
       { endpointId },
       wire.withEndpoint,
+    ),
+  /** The update mirror's private CAs (PEM) and an optional pin; replaces the trust set before. */
+  setUpdateTrust: (caPem: string, pinSha256: string) =>
+    call<{ updateTrust: UpdateTrust }>(
+      "TlsService",
+      "SetUpdateTrust",
+      { caPem, pinSha256 },
+      wire.withUpdateTrust,
     ),
 };
 

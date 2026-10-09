@@ -248,6 +248,18 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   `app/components/ResetCountdown.tsx` shows the 10-minute countdown with the one big Cancel any
   admin may press, on Power and on Status. Both pages re-read every 5 seconds while a reset is in
   progress.
+- **The update mirror (`app/components/updates/MirrorStatusCard.tsx`,
+  `app/components/certificates/UpdateTrustCard.tsx`).** The update window's mirror takes an
+  `http://` or `https://` URL. The Update mirror card on Updates shows `GetUpgrades.mirrorStatus`:
+  the transport ("plain HTTP: integrity from the signature only", or HTTPS with the server
+  certificate's subject, issuer, expiry, SHA-256 and pin state from the last fetch) or the last
+  refusal with its code, and links to Certificates. A refused fetch (`UPGRADE_MIRROR_UNTRUSTED`,
+  `UPGRADE_MIRROR_PIN`) shows in the Verify result panel like any other. The Update trust card
+  on Certificates (`id="update-trust"`) lists `GetCertificateStore.updateTrust` and lets an owner
+  paste or upload the internal CA's PEM and an optional pin (`TlsService.SetUpdateTrust`), or
+  remove it (`ClearUpdateTrust`); there's no skip-verify control. The mock mirror
+  (`app/mock/mirror.mock.ts`) has the states `mirror-http`, `mirror-https`, `mirror-custom-ca`,
+  `mirror-wrong-ca` and `mirror-pin-mismatch`; its internal CA's PEM is `MOCK_INTERNAL_CA_PEM`.
 - **Mock scenarios.** `applyMockScenario` (`app/mock/edge.mock.ts`), or `?mockScenario=a,b` on a
   mock build's URL, puts the mock box into a state for the tests and the review screen list:
   `air-gapped`, `staged`, `no-previous` (nothing in the other slot; by default 0.0.9 is kept
