@@ -125,30 +125,40 @@ export const meta = () => [{ title: "Set up Sneakers-PAM" }];
 
 const STEPS = ["Check", "Create admin", "Install", "Verify email", "Ready"];
 
+/**
+ * The setup wizard's progress line: a numbered circle per step with a connecting bar between
+ * them, never the step names in flowing text, so it stays on one line at every width instead of
+ * wrapping its last step onto a second one (issue #241). The name is read to screen readers.
+ */
 const Steps = ({ at }: { at: number }) => (
-  <ol aria-label="Setup steps" className="m-0 flex list-none flex-wrap gap-x-4 gap-y-2 p-0">
+  <ol aria-label="Setup steps" className="m-0 flex list-none items-center gap-1 p-0">
     {STEPS.map((s, index) => {
+      const number = index + 1;
       const done = index < at;
       const current = index === at;
       return (
         <li
           aria-current={current ? "step" : undefined}
-          className="flex items-center gap-2 text-small font-bold"
+          className="flex flex-1 items-center gap-1 last:flex-none"
           key={s}
         >
           <span
-            aria-hidden
             className={cn(
-              "inline-flex size-6 items-center justify-center rounded-full text-[0.75rem]",
+              "flex size-6 shrink-0 items-center justify-center rounded-full text-[0.75rem] font-bold",
               done && "bg-ok text-on-primary",
               current && "bg-primary text-on-primary",
               !done && !current && "bg-sunken text-muted",
             )}
           >
-            {done ? <Check className="size-3.5" strokeWidth={3} /> : index + 1}
+            {done ? <Check aria-hidden className="size-3.5" strokeWidth={3} /> : number}
+            <span className="sr-only">{`: ${s}${done ? ", done" : ""}`}</span>
           </span>
-          <span className={cn(!done && !current && "text-muted")}>{s}</span>
-          {done && <span className="sr-only">(done)</span>}
+          {number < STEPS.length && (
+            <span
+              aria-hidden
+              className={cn("h-0.5 flex-1 rounded-full", done ? "bg-ok" : "bg-border")}
+            />
+          )}
         </li>
       );
     })}

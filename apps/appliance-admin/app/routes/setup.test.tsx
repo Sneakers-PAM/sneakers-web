@@ -60,6 +60,10 @@ describe("Setup", () => {
     expect(await screen.findByText("Step 1 of 6: Enter the setup code")).toBeInTheDocument();
     expect(progress().getAllByRole("listitem")).toHaveLength(6);
     expect(current()).toHaveTextContent("1");
+    // Numbered circles and a connecting bar only, never the step names as flowing text, so
+    // this stepper can't wrap the way the product admin's did (issue #241).
+    expect(progress().getByRole("list").className).not.toContain("flex-wrap");
+    expect(screen.queryByText("Sign in to finish")).not.toBeInTheDocument();
     expect(
       screen.getByText(
         "16 characters, XXXX-XXXX-XXXX-XXXX. Dashes and capital letters don't matter.",
