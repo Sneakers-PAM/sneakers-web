@@ -662,9 +662,20 @@ nobody else can decide, the requester confirms the task once with their second f
   could claim any host.
 - Runtime settings (server environment): `GATEWAY_URL`, `PORT`, `APP_ENV` (dev, qa, prod),
   `LOG_LEVEL`, `LOG_FORMAT` (`console` locally, JSON otherwise), `SSO_ENABLED`, `STAFF_URL`,
-  `ADMIN_URL`. Only the public subset reaches the browser, through the root loader. Local dev
+  `ADMIN_URL`, `APPLIANCE_BOX_POLLER` (below). Only the public subset reaches the browser, through
+  the root loader. Local dev
   only: `SNEAKERS_DEV_QUICK_LOGIN` and `SNEAKERS_DEV_QUICK_LOGIN_USERS` (see Dev quick login),
   and `SNEAKERS_DEV_UI_ISSUE_COPY` (see Dev UI issue copy).
+- `APPLIANCE_BOX_POLLER`: `true` only on the appliance. The root loader reads it (`boxPoller` in
+  `RootData`) and `Document` then puts `<script src="/_box/poll.js" defer>` in every page's head
+  (`BoxPoller`). The appliance's edge answers `/_box/poll.js` and `/_box/state` from the same
+  origin and shows the branded box-state page while the box reboots, shuts down or starts; the
+  poller sends the tab back once the box answers (sneakers-appliance `docs/edge-fallback.md`). The
+  path is absolute, outside the admin console's `/admin/` base. Anything but `true` leaves the tag
+  out, so cluster and hosted installs never request it. The apps send no CSP of their own; under
+  a `script-src` the script needs `'self'`, and the brand logo comes from
+  `/_box/logo` (`img-src 'self'`). In sneakers-release it is `env.APPLIANCE_BOX_POLLER: "true"` in
+  the web-staff and web-admin values. The appliance admin (`:8443`) never loads it.
 
 ## Logging
 

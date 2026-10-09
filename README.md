@@ -37,8 +37,13 @@ docker build --build-arg APP=staff --build-arg VERSION=v0.1.0 --build-arg COMMIT
 `VERSION` and `COMMIT` stamp the build shown under About and diagnostics.
 
 The server listens on `PORT` (3000) and answers `GET /healthz`. Runtime settings: `GATEWAY_URL`,
-`TRUST_PROXY`, `APP_ENV`, `LOG_LEVEL`, `LOG_FORMAT`, `SSO_ENABLED`, `STAFF_URL`, `ADMIN_URL`. More in
-[AGENTS.md](AGENTS.md).
+`TRUST_PROXY`, `APP_ENV`, `LOG_LEVEL`, `LOG_FORMAT`, `SSO_ENABLED`, `STAFF_URL`, `ADMIN_URL`,
+`APPLIANCE_BOX_POLLER`. More in [AGENTS.md](AGENTS.md).
+
+On the appliance, set `APPLIANCE_BOX_POLLER=true` on both the staff and the admin app (in
+sneakers-release, `env.APPLIANCE_BOX_POLLER: "true"` in the web-staff and web-admin values). Every
+page then loads the box's `/_box/poll.js`, so an open tab shows the "rebooting" page while the box
+restarts and comes back by itself. Leave it unset on a cluster or hosted install.
 
 For a local stack, `--build-arg DEV_QUICK_LOGIN=true` plus `SNEAKERS_DEV_QUICK_LOGIN=true` and
 `SNEAKERS_DEV_QUICK_LOGIN_USERS` (a local file of seeded dev accounts) add a dev quick login to

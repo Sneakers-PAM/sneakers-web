@@ -30,6 +30,8 @@ const developmentUiIssueCopy = (): boolean =>
 export interface RootData {
   /** The persistent banner (mock builds), or null. */
   banner: null | string;
+  /** Load the appliance's box-state poller: only on the appliance (`APPLIANCE_BOX_POLLER=true`). */
+  boxPoller: boolean;
   config: PublicConfig;
   /** The dev-only UI issue copy item's gate; see `developmentUiIssueCopy` above. */
   developmentUiIssueCopy: boolean;
@@ -41,6 +43,7 @@ export interface RootData {
 /** What every page needs: the public settings, the saved display choice and the edge banner. */
 export const rootLoader = async ({ request }: LoaderFunctionArgs): Promise<RootData> => ({
   banner: edge.banner,
+  boxPoller: process.env.APPLIANCE_BOX_POLLER === "true",
   config: publicConfigFrom(process.env, __APP_VERSION__),
   developmentUiIssueCopy: developmentUiIssueCopy(),
   display: parseDisplay(readCookie(request.headers.get("Cookie"), displayCookie())),
