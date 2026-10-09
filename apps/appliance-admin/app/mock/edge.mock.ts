@@ -343,6 +343,8 @@ const uploads = new Map<string, Blob>();
 let uploadCount = 0;
 /** Scenario switches for the review screen list and the tests (see applyMockScenario). */
 let uploadStalls = false;
+/** Status answers as the box does while accessd isn't answering. */
+let statusFails = false;
 let verifyStalls = false;
 let stepUpOnce = false;
 /** Sign-in failures in the current window, and the lockouts they caused, by admin. */
@@ -1174,6 +1176,11 @@ const route = async (service: string, method: string, body: Record<string, unkno
       return { phase: setupDone ? "normal" : "firstboot", upgradeProgress: publicProgress() };
     }
     case "StatusService/GetStatus": {
+      if (statusFails)
+        throw new OsadminError(
+          "unavailable",
+          "the appliance services are unavailable; try again shortly",
+        );
       powerState();
       return {
         ...world.status(),
@@ -1475,6 +1482,7 @@ const MOCK_SCENARIOS = [
   "setup-protection",
   "signed-in",
   "single-admin",
+  "status-fails",
   "staged",
   "stepup",
   "throttled",
@@ -1665,6 +1673,10 @@ export const applyMockScenario = (scenario: MockScenario): void => {
       previousVersion = "";
       break;
     }
+    case "status-fails": {
+      statusFails = true;
+      break;
+    }
     case "stepup": {
       stepUpOnce = true;
       break;
@@ -1711,6 +1723,7 @@ export const resetMockWorld = (): void => {
   uploads.clear();
   uploadCount = 0;
   uploadStalls = false;
+  statusFails = false;
   verifyStalls = false;
   stepUpOnce = false;
   failures.clear();

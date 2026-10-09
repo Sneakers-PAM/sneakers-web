@@ -2,10 +2,14 @@ import type { Problem } from "@sneakers-web/shell";
 
 import type { Component, GetStatusResponse, Role } from "@/lib/osadmin/types";
 
+import { OsadminError } from "@/lib/osadmin/errors";
+
 export interface ApplianceDiagnosticsReport {
   admin: null | { name: string; role: string };
   app: { commit: string; name: string; version: string };
   box: null | { protection: string; secureBoot: string; slot: string; version: string };
+  /** Why Status couldn't be read: the box's Connect code and message; null when it answered. */
+  boxError: null | { code: string; message: string };
   /** Where and when, for a report copied from a problem screen; About leaves it out. */
   context?: ApplianceReportContextOut;
   health: Component[];
@@ -31,7 +35,19 @@ export interface ApplianceReportInput {
   admin: null | { name: string; role: Role };
   context?: ApplianceReportContext;
   status: GetStatusResponse | null;
+  /** What reading Status threw, when it did. */
+  statusError?: unknown;
 }
+
+const errorOf = (error: unknown): { code: string; message: string } => {
+  if (error instanceof OsadminError) return { code: error.code, message: error.message };
+  if (error instanceof Error) return { code: "unknown", message: error.message };
+  return { code: "unknown", message: String(error) };
+};
+
+/** The Box line when Status couldn't be read, with why when it's known. */
+export const boxUnreadable = (boxError: ApplianceDiagnosticsReport["boxError"]): string =>
+  boxError ? `couldn't be read (${boxError.code}: ${boxError.message})` : "couldn't be read";
 
 const localTime = (now: Date, timeZone: string): string => {
   try {
@@ -90,6 +106,7 @@ export const buildApplianceReport = (input: ApplianceReportInput): ApplianceDiag
         version: input.status.version,
       }
     : null,
+  boxError: !input.status && input.statusError !== undefined ? errorOf(input.statusError) : null,
   health: input.status?.health ?? [],
 });
 
@@ -118,7 +135,7 @@ export const buildApplianceReportText = (report: ApplianceDiagnosticsReport): st
       `Secure Boot: ${report.box.secureBoot}`,
     );
   } else {
-    lines.push("Box: couldn't be read");
+    lines.push(`Box: ${boxUnreadable(report.boxError)}`);
   }
   lines.push("Service health:", ...report.health.map((h) => healthLine(h)));
   if (where) lines.push(`Browser: ${where.browser}`);

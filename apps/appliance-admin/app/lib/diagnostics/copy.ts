@@ -12,7 +12,11 @@ import { getSession } from "@/lib/osadmin/sessionStore";
  */
 export const copyApplianceDiagnostics: DiagnosticsCopier = async ({ problem }) => {
   const session = getSession();
-  const box = await status.get().catch(() => null);
+  let statusError: unknown;
+  const box = await status.get().catch((error: unknown) => {
+    statusError = error;
+    return null;
+  });
   const text = buildApplianceReportText(
     buildApplianceReport({
       admin: session ? { name: session.admin, role: session.role } : null,
@@ -24,6 +28,7 @@ export const copyApplianceDiagnostics: DiagnosticsCopier = async ({ problem }) =
         userAgent: navigator.userAgent,
       },
       status: box,
+      statusError,
     }),
   );
   await navigator.clipboard.writeText(text);
