@@ -16,7 +16,9 @@ import {
   Spinner,
   Textarea,
   timeAgo,
+  toast,
 } from "@sneakers-web/ui";
+import { ClipboardCopy } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import type { Admin, IssueSshKeyResponse, TotpEnrolment } from "@/lib/osadmin/types";
@@ -260,14 +262,14 @@ const IssueSshKeyDialog = ({ admin, onDone }: { admin: string; onDone: () => voi
   const [code, setCode] = useState("");
   const [issued, setIssued] = useState<IssueSshKeyResponse>();
   const [refusal, setRefusal] = useState("");
-  const host = globalThis.location?.hostname ?? "";
   if (issued) {
     return (
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Your new SSH key</DialogTitle>
           <DialogDescription>
-            Save the private key and its certificate now, next to each other.
+            Save these now, next to each other; the box can&apos;t show them again. SSH is
+            certificate-only here, so a bare key is always refused.
           </DialogDescription>
         </DialogHeader>
         <Alert title="This is shown once" tone="warn">
@@ -277,24 +279,81 @@ const IssueSshKeyDialog = ({ admin, onDone }: { admin: string; onDone: () => voi
         <Field label="Private key">
           <Textarea className="min-h-32" mono readOnly value={issued.privateKey} />
         </Field>
-        <div className="flex flex-wrap gap-3">
-          <Button onClick={() => saveText(issued.fileName, issued.privateKey)} variant="secondary">
-            Download the private key ({issued.fileName})
-          </Button>
-          <Button
-            onClick={() => saveText(`${issued.fileName}-cert.pub`, `${issued.certificate}\n`)}
-            variant="secondary"
-          >
-            Download the certificate ({issued.fileName}-cert.pub)
-          </Button>
+        <div className="flex flex-col gap-2">
+          <p className="m-0 font-bold">Download</p>
+          <div className="flex flex-wrap gap-3">
+            <Button onClick={() => saveText(issued.ppkFileName, issued.ppk)}>
+              Download the .ppk ({issued.ppkFileName})
+            </Button>
+            <Button
+              onClick={() => saveText(issued.fileName, issued.privateKey)}
+              variant="secondary"
+            >
+              Download the private key ({issued.fileName})
+            </Button>
+            <Button
+              onClick={() => saveText(`${issued.fileName}.pub`, `${issued.publicKey}\n`)}
+              variant="secondary"
+            >
+              Download the public key ({issued.fileName}.pub)
+            </Button>
+            <Button
+              onClick={() => saveText(issued.certificateFileName, `${issued.certificate}\n`)}
+              variant="secondary"
+            >
+              Download the certificate ({issued.certificateFileName})
+            </Button>
+          </div>
+          <p className="m-0 text-small text-muted">
+            The .ppk has the certificate built in and is recommended for PuTTY 0.78 or later and
+            MobaXterm 25.1 or later. OpenSSH uses the key and the certificate as a pair; the public
+            key isn&apos;t needed to sign in, but some tools ask for it.
+          </p>
         </div>
-        <p className="m-0 text-small text-muted">
-          Then sign in with{" "}
-          <code className="font-mono">
-            ssh -i {issued.fileName} {admin}@{host}
-          </code>
-          . SSH asks for your TOTP code after login.
-        </p>
+        <div className="flex flex-col gap-1.5">
+          <p className="m-0 font-bold">OpenSSH</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="rounded-md bg-sunken px-2 py-1 font-mono text-small break-all">
+              {issued.sshCommand}
+            </code>
+            <Button
+              onClick={() => {
+                void navigator.clipboard
+                  .writeText(issued.sshCommand)
+                  .then(() => toast("Command copied."))
+                  .catch(() => toast("Couldn't copy. Try again."));
+              }}
+              size="sm"
+              variant="secondary"
+            >
+              <ClipboardCopy aria-hidden />
+              Copy
+            </Button>
+          </div>
+        </div>
+        <div className="flex flex-col gap-1.5 text-small text-muted">
+          <p className="m-0 font-bold text-ink">PuTTY</p>
+          <p className="m-0">
+            Open the .ppk as the session&apos;s private key; its certificate is already inside it.
+            To build one yourself from the key and certificate pair instead, PuTTY 0.78 or later: in
+            PuTTYgen, Conversions &gt; Import key, then Key &gt; Add certificate to key, then save
+            as .ppk; or Connection &gt; SSH &gt; Auth &gt; Credentials &gt; &quot;Certificate to
+            use&quot;.
+          </p>
+        </div>
+        <div className="flex flex-col gap-1.5 text-small text-muted">
+          <p className="m-0 font-bold text-ink">MobaXterm</p>
+          <ol className="m-0 flex list-decimal flex-col gap-0.5 pl-5">
+            <li>Session (or User sessions &gt; New session), then SSH.</li>
+            <li>Remote host: the box&apos;s address. Username: {admin}. Port: 22.</li>
+            <li>
+              Advanced SSH settings: tick &quot;Use private key&quot; and browse to the box&apos;s
+              .ppk (the one with the certificate embedded).
+            </li>
+            <li>Connect, and enter your TOTP code at the menu.</li>
+          </ol>
+        </div>
+        <p className="m-0 text-small text-muted">The TOTP prompt comes next, in the menu.</p>
         <DialogFooter>
           <Button onClick={onDone}>I&apos;ve saved it</Button>
         </DialogFooter>

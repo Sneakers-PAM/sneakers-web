@@ -454,8 +454,17 @@ describe("Access", () => {
     expect((dialog.getByLabelText("Private key") as HTMLTextAreaElement).value).toContain(
       "BEGIN OPENSSH PRIVATE KEY",
     );
+    expect(dialog.getByRole("button", { name: /Download the \.ppk/ })).toBeInTheDocument();
     expect(dialog.getByRole("button", { name: /Download the private key/ })).toBeInTheDocument();
+    expect(dialog.getByRole("button", { name: /Download the public key/ })).toBeInTheDocument();
     expect(dialog.getByRole("button", { name: /Download the certificate/ })).toBeInTheDocument();
+    expect(
+      dialog.getByText(/ssh -i id_ed25519_alice_sneakers_\d+ -o CertificateFile=/),
+    ).toBeInTheDocument();
+    expect(dialog.getByRole("button", { name: "Copy" })).toBeInTheDocument();
+    expect(dialog.getByText(/PuTTYgen, Conversions/)).toBeInTheDocument();
+    expect(dialog.getByText(/Advanced SSH settings/)).toBeInTheDocument();
+    expect(dialog.getByText("The TOTP prompt comes next, in the menu.")).toBeInTheDocument();
     await user.click(dialog.getByRole("button", { name: "I've saved it" }));
     expect(await account.findByText("work laptop")).toBeInTheDocument();
   });

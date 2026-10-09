@@ -317,14 +317,25 @@ export interface Invitation {
 }
 
 export interface IssueSshKeyResponse {
-  /** The OpenSSH certificate line, saved next to the key as <fileName>-cert.pub. */
+  /** The OpenSSH certificate line, saved next to the key as certificateFileName. */
   certificate: string;
-  /** A suggested name for the private key file. */
+  /** Unique per key (by label or serial): <fileName>-cert.pub. */
+  certificateFileName: string;
+  /** A unique name for the private key file (id_ed25519_<admin>_sneakers_<serial>), so a
+   * browser never adds " (1)" and the key, certificate and .ppk names always pair. */
   fileName: string;
   key: Key;
+  /** The PuTTY PPK v3 text with the certificate already embedded: the recommended download for
+   * PuTTY 0.78+ and MobaXterm 25.1+. */
+  ppk: string;
+  /** <fileName>.ppk. */
+  ppkFileName: string;
   /** The OpenSSH private key, shown once and never kept by the box. */
   privateKey: string;
   publicKey: string;
+  /** The exact OpenSSH command, with the certificate file named: `ssh -i <fileName> -o
+   * CertificateFile=<certificateFileName> <admin>@<box>`. */
+  sshCommand: string;
 }
 
 // ---- root shell ----

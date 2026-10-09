@@ -35,4 +35,13 @@ describe("Logs", () => {
       "font-mono",
     );
   });
+
+  it("shows a bare-key SSH refusal readably: ssh.login, its source and ACCESS_KEY_NO_CERTIFICATE", async () => {
+    renderPage(Logs);
+    await screen.findByText("Logs and audit");
+    const row = within(screen.getAllByRole("row").find((r) => within(r).queryByText("ssh.login"))!);
+    expect(row.getByText(/refused \(ACCESS_KEY_NO_CERTIFICATE\)/)).toBeInTheDocument();
+    expect(row.getByText("SSH source")).toBeInTheDocument();
+    expect(row.getByText("192.0.2.50")).toBeInTheDocument();
+  });
 });

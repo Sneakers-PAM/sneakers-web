@@ -322,10 +322,14 @@ export const addAdmin = (
 
 export const issueSshKey = (w: Wire<IssueSshKeyResponse>): IssueSshKeyResponse => ({
   certificate: w.certificate ?? "",
+  certificateFileName: w.certificateFileName ?? "",
   fileName: w.fileName ?? "",
   key: key(w.key ?? {}),
+  ppk: w.ppk ?? "",
+  ppkFileName: w.ppkFileName ?? "",
   privateKey: w.privateKey ?? "",
   publicKey: w.publicKey ?? "",
+  sshCommand: w.sshCommand ?? "",
 });
 
 // ---- root shell and elevation ----

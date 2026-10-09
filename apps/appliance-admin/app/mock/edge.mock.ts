@@ -749,11 +749,29 @@ const route = async (service: string, method: string, body: Record<string, unkno
         via: "issued",
       };
       admin.keys.push(key);
-      const fileName = `${admin.name}-sneakers-appliance`;
+      // Unique per key (by serial), so a browser never adds " (1)" and the key, certificate and
+      // .ppk names always pair (sneakers-appliance#217).
+      const fileName = `id_ed25519_${admin.name}_sneakers_${serial}`;
+      const certificateFileName = `${fileName}-cert.pub`;
       return {
         certificate: `MOCK-SSH-CERTIFICATE-NOT-A-REAL-ONE ${admin.name}`,
+        certificateFileName,
         fileName,
         key,
+        ppk: [
+          "PuTTY-User-Key-File-3: ssh-ed25519", // gitleaks:allow (a placeholder, not a key)
+          "Encryption: none",
+          `Comment: ${admin.name}-sneakers-appliance`,
+          "Public-Lines: 2",
+          "MOCK-PUBLIC-LINE-NOT-A-REAL-KEY",
+          "MOCK-PUBLIC-LINE-NOT-A-REAL-KEY",
+          "Private-Lines: 1",
+          "MOCK-PRIVATE-LINE-NOT-A-REAL-KEY",
+          "Private-MAC: 0000000000000000000000000000000000000000",
+          `Certificate: ${certificateFileName}`,
+          "",
+        ].join("\n"),
+        ppkFileName: `${fileName}.ppk`,
         privateKey: [
           "-----BEGIN OPENSSH PRIVATE KEY-----", // gitleaks:allow (a placeholder, not a key)
           "b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW",
@@ -762,6 +780,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
           "",
         ].join("\n"),
         publicKey: `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAMOCK ${admin.name}`,
+        sshCommand: `ssh -i ${fileName} -o CertificateFile=${certificateFileName} ${admin.name}@${networkSettings.hostname}`,
       };
     }
     case "AccessService/ListAdmins": {

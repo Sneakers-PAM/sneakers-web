@@ -216,6 +216,19 @@ export const AUDIT_EVENTS: AuditEvent[] = [
     target: "bob",
     time: soon(-60 * 24),
   },
+  {
+    // The client sent the issued key without its certificate; sshd refuses it before any
+    // login happens. sneakers-appliance#217.
+    action: "ssh.login",
+    actor: "bob",
+    code: "ACCESS_KEY_NO_CERTIFICATE",
+    detail: { sshSource: "192.0.2.50" },
+    keyFingerprint: bobKey.fingerprint,
+    outcome: "refused",
+    sourceAddress: "192.0.2.50",
+    target: "bob",
+    time: soon(-15),
+  },
 ];
 
 export const MODULES: ListModulesResponse = {
