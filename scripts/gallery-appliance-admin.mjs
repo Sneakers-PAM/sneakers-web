@@ -66,7 +66,9 @@ const SCENARIOS = [
   {
     act: async (page) => {
       await page.getByRole("button", { name: "Verify and stage" }).click();
-      await page.getByText("UPGRADE_PRODUCT_BASE").waitFor();
+      // Both the refusal's code and the badge summarizing it show "UPGRADE_PRODUCT_BASE";
+      // either one appearing means the refusal rendered.
+      await page.getByText("UPGRADE_PRODUCT_BASE").first().waitFor();
     },
     name: "updates-product-range-refused",
     route: "/updates",
@@ -77,6 +79,8 @@ const SCENARIOS = [
     act: async (page) => {
       await page.getByRole("button", { name: "Get an SSH key" }).click();
       await page.getByRole("dialog").getByLabel("Label").fill("work laptop");
+      // Issuing a key always takes a fresh code, whatever the step-up window says.
+      await page.getByLabel("Authenticator code").fill("123456");
       await page.getByRole("button", { name: "Make the key" }).click();
       await page.getByText("This is shown once").waitFor();
     },

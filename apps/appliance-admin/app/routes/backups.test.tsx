@@ -5,6 +5,7 @@ import { backup } from "@/lib/osadmin/client";
 import { OsadminError } from "@/lib/osadmin/errors";
 import Backups from "@/routes/backups";
 import { renderPage } from "@/test/renderPage";
+import { signInAs } from "@/test/session";
 
 describe("Backups", () => {
   it("shows the policy and the backup sets", async () => {
@@ -30,5 +31,14 @@ describe("Backups", () => {
     await user.click(screen.getByRole("button", { name: "Run now" }));
     await screen.findByText("Backups");
     expect(await screen.findAllByText(/^bk-/)).toHaveLength(before + 1);
+  });
+
+  it("wraps a recovery key's fingerprint instead of letting it run off the card", async () => {
+    signInAs("alice");
+    renderPage(Backups);
+    const fingerprint = await screen.findByText(
+      /SHA256:rK1X8qf9w2v6z4m7h5s1rQwQEuY7zL5mZ8w5z6c1h9/,
+    );
+    expect(fingerprint.className).toContain("break-all");
   });
 });

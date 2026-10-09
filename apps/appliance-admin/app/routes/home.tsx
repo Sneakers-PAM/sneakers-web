@@ -13,11 +13,14 @@ import { useEffect, useState } from "react";
 import type { GetStatusResponse } from "@/lib/osadmin/types";
 
 import { ResetCountdown } from "@/components/ResetCountdown";
+import { UpgradeSteps } from "@/components/UpgradeSteps";
 import { VersionChip } from "@/components/VersionChip";
 import { status as statusClient } from "@/lib/osadmin/client";
 
 /** How often a factory reset in progress is re-read, so another admin's Cancel shows up. */
 const RESET_POLL_MS = 5000;
+/** How often an update or a product install's own steps are re-read while one is under way. */
+const PROGRESS_POLL_MS = 1000;
 
 const bytes = (n: number): string => {
   const units = ["B", "KB", "MB", "GB", "TB"];
@@ -47,6 +50,13 @@ export default function Home() {
     const timer = setInterval(reload, RESET_POLL_MS);
     return () => clearInterval(timer);
   }, [resetInProgress]);
+  const progress = data?.upgradeProgress;
+  const upgrading = !!progress?.inProgress;
+  useEffect(() => {
+    if (!upgrading) return;
+    const timer = setInterval(reload, PROGRESS_POLL_MS);
+    return () => clearInterval(timer);
+  }, [upgrading]);
 
   return (
     <div className="flex flex-col gap-5 p-5.5">
@@ -75,6 +85,22 @@ export default function Home() {
               Started by {data.factoryReset.startedBy}, {data.factoryReset.approvals.length} of{" "}
               {data.factoryReset.required} approved. Approve or cancel it on the Power page.
             </Alert>
+          )}
+          {progress && (progress.inProgress || progress.failed) && (
+            <section aria-label="Update progress">
+              <Card>
+                <CardHeader
+                  title={
+                    progress.failed
+                      ? "The last update didn't finish"
+                      : `Updating to ${progress.version}`
+                  }
+                />
+                <div className="p-5.5 text-small">
+                  <UpgradeSteps progress={progress} />
+                </div>
+              </Card>
+            </section>
           )}
           <div className="grid grid-cols-1 gap-4 tablet:grid-cols-2 desktop:grid-cols-3">
             <Card>
@@ -137,7 +163,7 @@ export default function Home() {
           <Card>
             <CardHeader title="TLS" />
             <div className="flex flex-col gap-1 p-5.5 text-small">
-              <p>Fingerprint: {data.tlsFingerprint}</p>
+              <p className="break-all">Fingerprint: {data.tlsFingerprint}</p>
               <p>{data.tlsSelfSigned ? "Self-signed" : "Not self-signed"}</p>
             </div>
           </Card>

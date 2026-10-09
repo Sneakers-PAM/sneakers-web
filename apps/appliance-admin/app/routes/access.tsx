@@ -419,12 +419,12 @@ export default function Access() {
         <CardHeader title="Key fingerprints" />
         <div className="flex flex-col gap-1 p-5.5 font-mono text-[0.8125rem]">
           {data.rootKey && (
-            <p>
+            <p className="break-all">
               Root key {data.rootKey.type} {data.rootKey.fingerprint}
             </p>
           )}
           {data.hostKeys.map((key) => (
-            <p key={key.fingerprint}>
+            <p className="break-all" key={key.fingerprint}>
               SSH host key {key.type} {key.fingerprint}
             </p>
           ))}

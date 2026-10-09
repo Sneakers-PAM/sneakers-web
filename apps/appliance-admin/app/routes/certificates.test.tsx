@@ -71,7 +71,12 @@ describe("Certificates", () => {
     expect(await within(dialog).findByText("Validation passed")).toBeInTheDocument();
     expect(within(dialog).getByText(/Example Issuing CA > Example Root CA/)).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Apply to :8443" }));
-    expect(await within(dialog).findByText(/Applied\. :8443 now serves/)).toBeInTheDocument();
+    const applied = await within(dialog).findByText(/Applied\. :8443 now serves/);
+    expect(applied).toBeInTheDocument();
+    // The fingerprint wraps inside the alert instead of running off it (issue #240).
+    expect(within(dialog).getByText(/^SHA256:|^[\dA-F]{2}(:[\dA-F]{2})+$/).className).toContain(
+      "break-all",
+    );
     await user.click(within(dialog).getByRole("button", { name: "Done" }));
     const endpoints = screen.getByRole("region", { name: "Endpoints" });
     const assigned = await within(endpoints).findAllByText(/\*\.example\.org/);

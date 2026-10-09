@@ -317,14 +317,32 @@ export interface Invitation {
 }
 
 export interface IssueSshKeyResponse {
-  /** The OpenSSH certificate line, saved next to the key as <fileName>-cert.pub. */
+  /** The OpenSSH certificate line, saved next to the key as certificateFileName. */
   certificate: string;
-  /** A suggested name for the private key file. */
+  /** Unique per key (by label or serial): <fileName>-cert.pub. */
+  certificateFileName: string;
+  /** A unique name for the private key file (id_ed25519_<admin>_sneakers_<serial>), so a
+   * browser never adds " (1)" and the key, certificate and .ppk names always pair. */
   fileName: string;
   key: Key;
+  /** The PuTTY PPK v3 text with the certificate already embedded: the recommended download for
+   * PuTTY 0.78+ and MobaXterm 25.1+. */
+  ppk: string;
+  /** <fileName>.ppk. */
+  ppkFileName: string;
+  /** PEM PKCS#8 ("PRIVATE KEY"), for tools that take neither the OpenSSH nor the PuTTY form. It
+   * carries no certificate, so it pairs with certificateFileName. Shown once. */
+  pem: string;
+  /** <fileName>.pem. */
+  pemFileName: string;
   /** The OpenSSH private key, shown once and never kept by the box. */
   privateKey: string;
   publicKey: string;
+  /** <fileName>.pub; the same public key goes with all three private-key forms. */
+  publicKeyFileName: string;
+  /** The exact OpenSSH command, with the certificate file named: `ssh -i <fileName> -o
+   * CertificateFile=<certificateFileName> <admin>@<box>`. */
+  sshCommand: string;
 }
 
 // ---- root shell ----
@@ -699,10 +717,14 @@ export interface UpgradeStep {
   /** Bytes written of totalBytes where the step has a progress (the root image going into the
    * slot); int64, so a string. totalBytes is "0" otherwise. */
   doneBytes: string;
-  /** verify, stage, switch, reboot, health or mark_good; verify, stage, switch or restart for a
-   * product bundle. */
+  /** verify, stage, switch, reboot, health or mark_good for a base release; verify, stage,
+   * switch, restart, k0s, images, manifests, pods or edge for a product bundle (restart on,
+   * osadmin's own ticks carry a product apply or revert the rest of the way, sneakers-appliance
+   * #218). A step can go back (a pod that comes up then falls over), so read each step's own
+   * state and never assume the order. */
   id: string;
-  /** The step as the screens show it, such as "Staging into slot B". */
+  /** The step as the screens show it, such as "Staging into slot B" or "Pulling the product's
+   * images"; the server's own wording, shown as given. */
   label: string;
   state: UpgradeStepState;
   totalBytes: string;

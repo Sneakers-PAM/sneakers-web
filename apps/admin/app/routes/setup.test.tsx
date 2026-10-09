@@ -86,6 +86,16 @@ describe("first-run setup", () => {
     await user.click(await screen.findByRole("button", { name: /Skip for now/ }));
     expect(await screen.findByText(/isn't verified yet/)).toBeInTheDocument();
   });
+
+  it("keeps the setup stepper on one line: no flex-wrap, and step names read to screen readers only", async () => {
+    renderSetup();
+    const steps = await screen.findByRole("list", { name: "Setup steps" });
+    expect(steps.className).not.toContain("flex-wrap");
+    // "Ready" (the step that wrapped, issue #241) is reachable for a screen reader, but never
+    // as flowing text that could wrap.
+    expect(screen.getByText(/: Ready$/, { selector: ".sr-only" })).toBeInTheDocument();
+    expect(screen.queryByText("Ready", { selector: ":not(.sr-only)" })).not.toBeInTheDocument();
+  });
 });
 
 describe("the setup page once an admin exists", () => {
