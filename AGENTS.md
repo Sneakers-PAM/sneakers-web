@@ -24,6 +24,19 @@ Before changing anything in the staff or admin apps, know two things:
   (`packages/api-client/src/edge/live.server.ts`) or, only for `--mode mock`, the mock edge
   (`packages/mock-gateway/src/edge.server.ts`). App code never checks which one it got.
 
+## Content-Security-Policy (staff and admin)
+
+The shell's `handleRequest` (`packages/shell/src/server/entry.server.tsx`) sets a fresh nonce on
+every server-rendered response and sends `Content-Security-Policy` with it
+(`packages/shell/src/server/csp.server.ts`): `script-src 'self' 'nonce-<n>'`, `default-src`,
+`connect-src`, `font-src` and `img-src` (plus `data:` and `blob:`) on `'self'`, `object-src` and
+`base-uri 'none'`, and `frame-ancestors 'none'`. The nonce reaches React's streaming scripts
+(`renderToPipeableStream`), `ServerRouter`, and the document's `<Scripts>`,
+`<ScrollRestoration>` and box poller through `NonceContext` (`packages/shell/src/root/nonce.tsx`).
+Styles allow `'unsafe-inline'`, for the toasts' and Radix's runtime styles. There is no
+`form-action`: the single sign-on form's redirect goes to the identity provider. The appliance
+admin's SPA prerender gets no nonce (osadmin sets its own policy), nor does the dev server.
+
 ## Mock rules
 
 - Mock mode comes only from `--mode mock` (`npm run dev:mock`, `build:mock`, or the image's

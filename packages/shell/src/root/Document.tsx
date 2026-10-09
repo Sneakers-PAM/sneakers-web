@@ -27,6 +27,7 @@ import { copyWithNotice, DIAGNOSTICS_ROUTE } from "#shell/diagnostics/copy";
 import { problemFor, setCurrentRoute } from "#shell/diagnostics/problems";
 import { NotSetUpScreen } from "#shell/gate/Screens";
 import { installIssueCopyCapture } from "#shell/issueCopy/errorBuffer";
+import { useNonce } from "#shell/root/nonce";
 import { useRootData } from "#shell/root/useRootData";
 
 /**
@@ -37,7 +38,8 @@ import { useRootData } from "#shell/root/useRootData";
  */
 export const BoxPoller = () => {
   const { boxPoller } = useRootData();
-  return boxPoller ? <script defer src="/_box/poll.js" /> : null;
+  const nonce = useNonce();
+  return boxPoller ? <script defer nonce={nonce} src="/_box/poll.js" /> : null;
 };
 
 /**
@@ -46,6 +48,7 @@ export const BoxPoller = () => {
  */
 export const Document = ({ children }: { children: ReactNode }) => {
   const { display } = useRootData();
+  const nonce = useNonce();
   return (
     <html
       className={displayClassName(display)}
@@ -68,8 +71,8 @@ export const Document = ({ children }: { children: ReactNode }) => {
       </head>
       <body>
         {children}
-        <ScrollRestoration />
-        <Scripts />
+        <ScrollRestoration nonce={nonce} />
+        <Scripts nonce={nonce} />
       </body>
     </html>
   );
