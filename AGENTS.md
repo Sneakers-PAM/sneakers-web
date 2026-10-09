@@ -157,35 +157,50 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   refusal in place, and retries the action once the box takes the code. A Connect `unimplemented` (a page's backend isn't on the box yet) becomes "Not
   available in this release" (`app/components/NotAvailable.tsx`); the Updates page shows it in
   full when `GetUpgrades` answers that way.
-- **Updates (`app/routes/updates.tsx`).** One flow for both targets: the base image (its slots
-  and a reboot) and the product bundle (k0s, its images and Sneakers-PAM, in their own slots,
-  with no reboot). The Product card shows the installed, staged and previous product versions
-  (`GetUpgrades.product`; hidden when a box from before product bundles leaves it out), with
-  Install product (`ApplyUpdate{target: PRODUCT}`, after the version is typed) and Revert
-  product (`RevertUpdate{target: PRODUCT}`). The Install card lists the product versions that
-  fit the running base (`ListProductVersions`, newest first): pick one and Fetch it, then
-  Verify and stage as for a base `.bin`. An air-gapped box (`UPGRADE_AIR_GAPPED`: no mirror and
-  direct fetches off) uploads the product bundle instead. Owners can allow direct fetches from
-  the release source (`UpgradePolicy.direct`) on a build that has one (`directAvailable`).
+- **Updates (`app/routes/updates.tsx`).** One flow for the three update units
+  (sneakers-appliance spec 7), each in its own card, side by side from the `desktop` breakpoint
+  in this order (stacked below it): **Base OS** (the root image, its two slots and a reboot;
+  `primary` top border and `primary-soft` header), **Base Web** (the :8443 pages, switched in
+  place with no reboot; `ok` and `ok-soft`; `GetUpgrades.baseWeb`, hidden when a box from
+  before the units leaves it out) and **Product** (k0s, its images and Sneakers-PAM, restarted
+  with no reboot; `sole` and `hatch`; `GetUpgrades.product`, hidden when a box from before
+  product bundles leaves it out), with ink text on the tinted headers (AA in light and dark).
+  Each card shows the running and previous versions, what's staged, what it needs of the other
+  units, what the source offers for it, labelled full or patch with its size (`CheckUpdates`:
+  the page asks once when it opens and again on Check now; the line the box marks `preferred`,
+  a fitting patch, is picked to begin with), a Fetch for the picked line with the fetch's
+  progress (`GetUpgrades.fetchProgress`, asked each second while it runs: the state, the bytes
+  and percentage, the speed and the time left), the file panel once the file is in (Verify and
+  stage), and Apply, Cancel staged and Revert: Apply (`ApplyUpdate{target}`), Install product
+  and Apply pages, after the version is typed and with a fresh code; Revert to the previous
+  slot, which for the Base Web is the previous web slot or the built-in pages. A Base Web
+  apply or revert needs no maintenance and shows no restart page; the card shows the pages it
+  serves (`web slot a` or `built-in pages`) and, when the installed one doesn't load or fit,
+  why the built-in pages serve. A staged Base OS whose built-in pages the installed Base Web
+  doesn't fit says so (`baseOsNote`), and a newer Base Web that needs a newer Base OS is named
+  (`baseWebWaits`). Below the cards, the **Update mirror** card: the source (the built-in list,
+  a manual URL or upload only, `UpgradePolicy.source`), its status (`MirrorStatusCard`), the
+  last check and what it listed, and Check now; then **Install an update**, upload only, for
+  an air-gapped box: the uploaded file's panel stays there until it's verified, and then its
+  signed header picks its card. An air-gapped box (`UPGRADE_AIR_GAPPED`) isn't asked to check,
+  and its cards say to upload. Every API answer carries the served pages' version
+  (`X-Sneakers-Web-Version`, `app/lib/webVersion.ts`); when it isn't this build's, the frame
+  shows "The admin pages were updated to <v>" with a Reload (`PagesUpdatedBanner`).
   Owners upload a `.bin` (`edge.upload`, an
   `XMLHttpRequest` because only XHR reports upload progress; `/upload` answers errors as plain
-  text, and the file's name goes along in `X-File-Name`) or fetch one from the mirror, which is
-  hidden on an air-gapped box (no mirror set). **One file at a time:** while a file is coming
-  in or waiting on the box (`GetUpgrades.receiving`, `heldUpload`) or being checked, the file
-  input, Upload and both Fetch buttons are locked, and the box refuses another anyway
-  (`UPGRADE_BUSY`, a 409 from `/upload`). Cancel upload aborts the transfer (an `AbortSignal`
-  on the XHR; the box drops the partial file). A received file shows Verify and stage and
-  Cancel; Cancel calls `DiscardUpdate` with its id, which deletes it on the box and unlocks
-  Upload. The held file comes back from `GetUpgrades.heldUpload` after a reload, and a refusal
-  that leaves the file on the box offers Verify again and Cancel. A staged base release or
-  product bundle shows Cancel staged next to Apply or Install, behind a confirm (no code):
-  `DiscardUpdate` with no id and the target unstages it. The Base system and Product cards
-  sit side by side from the `desktop` breakpoint (stacked below it), each with its own accent:
-  a `primary` top border and `primary-soft` header for the base, `sole` and `hatch` for the
-  product, with ink text on the tinted headers (AA in light and dark). A product bundle names
-  its base range (`minBase` to `maxBase`, or "or newer"); the version list says it, and a
-  bundle outside it is refused at verify with the range and the running base
-  (`UPGRADE_PRODUCT_BASE`).
+  text, and the file's name goes along in `X-File-Name`). **One file at a time:** while a file
+  is coming in, being fetched or waiting on the box (`GetUpgrades.receiving`, `heldUpload`) or
+  being checked, the file input, Upload and every Fetch are locked, and the box refuses another
+  anyway (`UPGRADE_BUSY`, a 409 from `/upload`). Cancel upload aborts the transfer (an
+  `AbortSignal` on the XHR; the box drops the partial file). A received file shows Verify and
+  stage and Cancel; Cancel calls `DiscardUpdate` with its id, which deletes it on the box and
+  unlocks Upload. The held file comes back from `GetUpgrades.heldUpload` after a reload, and a
+  refusal that leaves the file on the box (a Base Web for another Base OS, `UPGRADE_COMPAT`,
+  is kept to stage later) offers Verify again and Cancel. A staged release shows Cancel staged
+  next to Apply, behind a confirm (no code): `DiscardUpdate` with no id and the target
+  unstages it. A product bundle names its base range (`minBase` to `maxBase`, or "or newer");
+  the offers say it, and a bundle outside it is refused at verify with the range and the
+  running base (`UPGRADE_PRODUCT_BASE`).
   `UpgradeService.StageUpdate` is one call that verifies the signature, channel and hash and only
   then unpacks and stages, so the page shows "Verifying" while it runs, with the update's steps
   (`GetUpgrades.upgradeProgress`, asked for each second while it runs; `app/components/UpgradeSteps.tsx`:
@@ -265,12 +280,13 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   admin may press, on Power and on Status. Both pages re-read every 5 seconds while a reset is in
   progress.
 - **The update mirror (`app/components/updates/MirrorStatusCard.tsx`,
-  `app/components/certificates/UpdateTrustCard.tsx`).** The update window's mirror takes an
+  `app/components/certificates/UpdateTrustCard.tsx`).** The manual source takes an
   `http://` or `https://` URL. The Update mirror card on Updates shows `GetUpgrades.mirrorStatus`:
   the transport ("plain HTTP: integrity from the signature only", or HTTPS with the server
   certificate's subject, issuer, expiry, SHA-256 and pin state from the last fetch) or the last
-  refusal with its code, and links to Certificates. A refused fetch (`UPGRADE_MIRROR_UNTRUSTED`,
-  `UPGRADE_MIRROR_PIN`) shows in the Verify result panel like any other. The Update trust card
+  refusal with its code, and links to Certificates. A refused Check now
+  (`UPGRADE_MIRROR_UNTRUSTED`, `UPGRADE_MIRROR_PIN`) shows on the card, and a refused fetch in
+  the Verify result panel like any other. The Update trust card
   on Certificates (`id="update-trust"`) lists `GetCertificateStore.updateTrust` and lets an owner
   paste or upload the internal CA's PEM and an optional pin (`TlsService.SetUpdateTrust`), or
   remove it (`ClearUpdateTrust`); there's no skip-verify control. The mock mirror
@@ -285,6 +301,12 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   Apply and Revert are refused without an owner's override), `uploading` and `verifying` (the upload or the
   verification never finishes; a stalled upload ends only when it is cancelled), `held` (an uploaded `.bin` waits on the box to be verified or
   cancelled), `product-range` (a held product bundle that needs base 9.0.0, refused at verify),
+  `web-installed` (Base Web 0.1.2 serves from web slot a), `web-staged` (0.1.2 staged, the
+  built-in pages serve), `web-failed` (the installed Base Web fails its load checks, so the
+  built-in pages serve and say why), `web-compat` (a held Base Web for Base OS 0.2.x, refused
+  with `UPGRADE_COMPAT` and kept), `web-updated` (every answer names newer pages, so the frame
+  offers a reload), `fetching` (a Base OS fetch under way) and `source-builtin` (the built-in
+  source list),
   `stepup` (the next step-up-gated call is refused once, so the
   dialog asks for a code), `locked`, `locked-until-unlocked` (bob is locked out, for 12
   minutes or until an owner unlocks him), `throttled` (this address has to wait), `first-boot` (no admin yet; the setup code is

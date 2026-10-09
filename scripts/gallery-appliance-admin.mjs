@@ -63,6 +63,23 @@ const SCENARIOS = [
   { name: "updates-held-file", route: "/updates", scenario: "held" },
   { name: "updates-uploading", route: "/updates", scenario: "uploading" },
   { name: "updates-staged", route: "/updates", scenario: "staged,product-staged" },
+  // The three update units (sneakers-appliance spec 7): a Base Web installed, staged, or not
+  // loading; a fetch under way; the built-in source; and a Base Web for another Base OS.
+  { name: "updates-web-installed", route: "/updates", scenario: "web-installed,staged" },
+  { name: "updates-web-staged", route: "/updates", scenario: "web-staged" },
+  { name: "updates-web-failed", route: "/updates", scenario: "web-failed" },
+  { name: "updates-fetching", route: "/updates", scenario: "fetching" },
+  { name: "updates-source-builtin", route: "/updates", scenario: "source-builtin" },
+  { name: "updates-pages-updated", route: "/updates", scenario: "web-updated" },
+  {
+    act: async (page) => {
+      await page.getByRole("button", { name: "Verify and stage" }).click();
+      await page.getByText("UPGRADE_COMPAT").first().waitFor();
+    },
+    name: "updates-web-compat-refused",
+    route: "/updates",
+    scenario: "web-compat",
+  },
   {
     act: async (page) => {
       await page.getByRole("button", { name: "Verify and stage" }).click();

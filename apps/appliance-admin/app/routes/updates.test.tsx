@@ -254,14 +254,23 @@ describe("Updates", () => {
       expect(within(result).getByText("UPGRADE_UPLOAD")).toBeInTheDocument();
     });
 
-    it("shows a refused fetch in a red panel, not a toast", async () => {
+    it("shows a refused fetch in a red panel on its card, not a toast", async () => {
+      vi.spyOn(upgrade, "fetch").mockRejectedValueOnce(
+        new OsadminError(
+          "failed_precondition",
+          "UPGRADE_UPLOAD: the mirror answered 404 Not Found for the .bin",
+          "UPGRADE_UPLOAD",
+        ),
+      );
       const user = userEvent.setup();
       await openPage();
-      await user.type(screen.getByLabelText("File name on the mirror"), "not-an-update.bin");
-      await user.click(screen.getByRole("button", { name: "Fetch" }));
-      const result = await panel();
+      const base = within(screen.getByRole("region", { name: "Base OS" }));
+      await user.click(await base.findByRole("button", { name: "Fetch 0.2.0 patch" }));
+      const result = within(screen.getByRole("region", { name: "Base OS" })).getByRole("region", {
+        name: "Verify result",
+      });
       expect(result).toHaveAttribute("data-tone", "danger");
-      expect(within(result).getByText(/not-an-update.bin was refused/)).toBeInTheDocument();
+      expect(within(result).getByText(/baseOS-patch-0.2.0.* was refused/)).toBeInTheDocument();
       expect(within(result).getByText("UPGRADE_UPLOAD")).toBeInTheDocument();
     });
 
@@ -276,26 +285,34 @@ describe("Updates", () => {
     });
   });
 
-  it("fetches from the configured mirror", async () => {
+  it("fetches the Base OS the mirror offers, the patch picked to begin with", async () => {
     const user = userEvent.setup();
     await openPage();
-    expect(screen.getByText(/mirror.example.org/)).toBeInTheDocument();
-    await user.type(
-      screen.getByLabelText("File name on the mirror"),
-      "sneakers-appliance-0.2.0-amd64.bin",
-    );
-    await user.click(screen.getByRole("button", { name: "Fetch" }));
+    expect(screen.getAllByText(/mirror.example.org/).length).toBeGreaterThan(0);
+    const base = within(screen.getByRole("region", { name: "Base OS" }));
+    const offers = within(await base.findByRole("radiogroup", { name: "Base OS versions" }));
+    const [patch, full] = offers.getAllByRole("radio");
+    expect(patch).toBeChecked();
+    expect(full).not.toBeChecked();
+    expect(offers.getByText("patch")).toBeInTheDocument();
+    expect(offers.getByText("full")).toBeInTheDocument();
+    expect(offers.getByText("1.4 MB")).toBeInTheDocument();
+    expect(offers.getByText("72 MB")).toBeInTheDocument();
+    await user.click(base.getByRole("button", { name: "Fetch 0.2.0 patch" }));
     expect(
-      await screen.findByText(/Fetched sneakers-appliance-0.2.0-amd64.bin/),
+      await base.findByText(/Fetched sneakers-appliance-baseOS-patch-0.2.0-g1a2b3c4-from-0.1.0/),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Verify and stage" })).toBeInTheDocument();
+    expect(base.getByRole("button", { name: "Verify and stage" })).toBeInTheDocument();
+    await user.click(full as HTMLElement);
+    expect(base.getByRole("button", { name: "Fetch 0.2.0 full" })).toBeDisabled();
   });
 
   it("hides the mirror fetch on an air-gapped box", async () => {
     applyMockScenario("air-gapped");
     await openPage();
     expect(screen.getByText("Air-gapped: upload only")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Fetch" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Fetch/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Check now" })).not.toBeInTheDocument();
   });
 
   it("applies the staged release only with its version typed and a fresh code", async () => {
@@ -608,8 +625,9 @@ describe("Updates", () => {
       await openPage();
       const product = within(screen.getByRole("region", { name: "Product" }));
       expect(product.getByText(/Not installed yet/)).toBeInTheDocument();
-      await user.click(await screen.findByRole("radio", { name: /0\.2\.0/ }));
-      await user.click(screen.getByRole("button", { name: "Fetch 0.2.0" }));
+      const offers = within(await product.findByRole("radiogroup", { name: "Product versions" }));
+      await user.click(offers.getByRole("radio", { name: /0\.2\.0/ }));
+      await user.click(product.getByRole("button", { name: "Fetch 0.2.0" }));
       expect(
         await screen.findByText(/Fetched sneakers-product-0.2.0-amd64.bin/),
       ).toBeInTheDocument();
@@ -720,22 +738,25 @@ describe("Updates", () => {
       applyMockScenario("air-gapped");
       await openPage();
       expect(
-        await screen.findByText(/upload the product bundle's \.bin above/),
+        await screen.findByText(/upload the product bundle's \.bin under Install an update/),
       ).toBeInTheDocument();
       expect(
         screen.queryByRole("radiogroup", { name: "Product versions" }),
       ).not.toBeInTheDocument();
     });
 
-    it("lets an owner allow fetches from the release source", async () => {
+    it("lets an owner take updates from the built-in list", async () => {
       const user = userEvent.setup();
       await openPage();
-      await user.click(screen.getByRole("checkbox", { name: /release source/ }));
-      await user.click(screen.getByRole("button", { name: "Save update window" }));
+      const mirror = within(screen.getByRole("region", { name: "Update mirror" }));
+      await user.click(mirror.getByRole("radio", { name: "Built-in list" }));
+      expect(mirror.queryByLabelText("Mirror")).not.toBeInTheDocument();
+      await user.click(mirror.getByRole("button", { name: "Save source" }));
       await vi.waitFor(async () => {
         const after = await upgrade.get();
-        expect(after.policy?.direct).toBe(true);
+        expect(after.policy?.source).toBe("builtin");
       });
+      expect(await mirror.findByText(/Source: the built-in list/)).toBeInTheDocument();
     });
 
     it("hides the product when the box's backend doesn't report one", async () => {
@@ -775,11 +796,12 @@ describe("Updates", () => {
       expect(within(result).getByRole("button", { name: "Verify and stage" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Upload" })).toBeDisabled();
       expect(screen.getByLabelText("Update .bin file")).toBeDisabled();
-      expect(screen.getByRole("button", { name: "Fetch" })).toBeDisabled();
+      const fetchButton = await screen.findByRole("button", { name: "Fetch 0.2.0 patch" });
+      expect(fetchButton).toBeDisabled();
       expect(screen.getByText(/A file is waiting on the appliance/)).toBeInTheDocument();
       await user.click(within(result).getByRole("button", { name: "Cancel" }));
       await vi.waitFor(() => expect(screen.getByRole("button", { name: "Upload" })).toBeEnabled());
-      expect(screen.getByRole("button", { name: "Fetch" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Fetch 0.2.0 patch" })).toBeEnabled();
       expect(screen.queryByRole("region", { name: "Verify result" })).not.toBeInTheDocument();
       const after = await upgrade.get();
       expect(after.heldUpload).toBeUndefined();
@@ -821,7 +843,7 @@ describe("Updates", () => {
       applyMockScenario("staged");
       const user = userEvent.setup();
       await openPage();
-      const base = within(screen.getByRole("region", { name: "Base system" }));
+      const base = within(screen.getByRole("region", { name: "Base OS" }));
       await user.click(base.getByRole("button", { name: "Cancel staged 0.2.0" }));
       const dialog = within(await screen.findByRole("dialog"));
       expect(dialog.getByText(/never boots/)).toBeInTheDocument();
@@ -879,15 +901,34 @@ describe("Updates", () => {
     });
   });
 
-  it("puts the Base system and Product cards side by side on a wide screen, each with its accent", async () => {
+  it("puts the Base OS, Base Web and Product cards side by side on a wide screen, each with its colour", async () => {
     await openPage();
-    const cards = screen.getByTestId("system-cards");
-    expect(cards).toHaveClass("grid-cols-1", "desktop:grid-cols-2");
-    const base = within(screen.getByRole("region", { name: "Base system" }));
-    const product = within(screen.getByRole("region", { name: "Product" }));
-    expect(base.getByText("Reboots")).toBeInTheDocument();
-    expect(product.getByText("No reboot")).toBeInTheDocument();
+    const cards = screen.getByTestId("unit-cards");
+    expect(cards).toHaveClass("grid-cols-1", "desktop:grid-cols-3");
+    const regions = within(cards)
+      .getAllByRole("region")
+      .filter((region) =>
+        ["Base OS", "Base Web", "Product"].includes(region.getAttribute("aria-label") ?? ""),
+      )
+      .map((region) => region.getAttribute("aria-label"));
+    expect(regions).toEqual(["Base OS", "Base Web", "Product"]);
+    expect(
+      within(screen.getByRole("region", { name: "Base OS" })).getByText("Reboots"),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region", { name: "Base Web" })).getByText("No reboot"),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region", { name: "Product" })).getByText("Restarts"),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("card-base")).toHaveClass("border-t-primary");
+    expect(screen.getByTestId("card-web")).toHaveClass("border-t-ok");
     expect(screen.getByTestId("card-product")).toHaveClass("border-t-sole");
+    // Below them, the mirror, then the upload.
+    const order = screen
+      .getAllByRole("region")
+      .map((region) => region.getAttribute("aria-label"))
+      .filter((name) => name === "Update mirror" || name === "Install an update");
+    expect(order).toEqual(["Update mirror", "Install an update"]);
   });
 });

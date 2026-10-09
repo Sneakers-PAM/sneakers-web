@@ -1,6 +1,7 @@
 import { type Edge, UPLOAD_CANCELLED, type UploadOptions } from "@/lib/osadmin/edgeTypes";
 import { csrfToken } from "@/lib/osadmin/sessionStore";
 import { OsadminError, parseOsadminError, symbolOf } from "@/lib/osadmin/errors";
+import { noteServedWebVersion, WEB_VERSION_HEADER } from "@/lib/webVersion";
 
 const uploadError = (status: number, text: string): OsadminError => {
   const message = text.trim() || `osadmin answered ${String(status)}`;
@@ -48,6 +49,7 @@ export const edge: Edge = {
       if (error instanceof TypeError) throw new OsadminError("unavailable", UNREACHABLE);
       throw error;
     }
+    noteServedWebVersion(response.headers.get(WEB_VERSION_HEADER));
     if (!response.ok) throw await parseOsadminError(response);
     return (await response.json()) as Result;
   },
