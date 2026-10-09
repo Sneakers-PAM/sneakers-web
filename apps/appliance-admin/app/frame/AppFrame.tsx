@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router";
 
 import { ApplianceAbout } from "@/components/ApplianceAbout";
+import { PagesUpdatedBanner } from "@/components/PagesUpdatedBanner";
 import { StepUpDialog } from "@/components/StepUpDialog";
 import { productPages } from "@/frame/productPages";
 import { setup, signIn } from "@/lib/osadmin/client";
@@ -102,6 +103,7 @@ export const AppFrame = () => {
       }
       banners={
         <>
+          <PagesUpdatedBanner />
           {session.notices?.map((notice) => (
             <Alert key={notice} role="status" tone="info">
               {notice}

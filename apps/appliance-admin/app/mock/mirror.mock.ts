@@ -151,8 +151,12 @@ export const mirrorFetch = (url: string): null | OsadminError => {
   return refusal;
 };
 
-/** GetUpgrades' mirror_status for the policy's mirror URL. */
-export const mirrorStatus = (url: string): MirrorStatus | undefined => {
+/** GetUpgrades' mirror_status for the mirror the policy's source names. */
+export const mirrorStatus = (
+  url: string,
+  source = "manual",
+  builtinUrls: string[] = [],
+): MirrorStatus | undefined => {
   if (!url) return undefined;
   const https = url.startsWith("https://");
   const customCa = https && (state.trust?.cas.length ?? 0) > 0;
@@ -165,6 +169,7 @@ export const mirrorStatus = (url: string): MirrorStatus | undefined => {
   }
   const last = state.last?.url === url ? state.last : null;
   return {
+    builtinUrls,
     checked: Boolean(last),
     checkedAt: last?.at,
     code: last?.code ?? "",
@@ -179,6 +184,8 @@ export const mirrorStatus = (url: string): MirrorStatus | undefined => {
     serverNotAfter: last?.server?.notAfter,
     serverSha256: last?.server?.sha256 ?? "",
     serverSubject: last?.server?.subject ?? "",
+    source,
+    url,
   };
 };
 

@@ -4,7 +4,6 @@ import {
   Button,
   Card,
   CardHeader,
-  Checkbox,
   CodeInput,
   Dialog,
   DialogContent,
@@ -14,7 +13,6 @@ import {
   DialogTitle,
   Field,
   Input,
-  Label,
   PageHeader,
   Segmented,
   shortDate,
@@ -29,12 +27,14 @@ import {
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import type {
+  CheckUpdatesResponse,
   Elevation,
   ElevationOverride,
   GetUpgradesResponse,
   HeldUpload,
-  ListProductVersionsResponse,
+  UnitOffer,
   UpdatePackage,
+  UpdateSource,
   UpdateTarget,
   UpgradePolicy,
   UpgradeProgress,
@@ -42,7 +42,10 @@ import type {
 
 import { BoxRestarting } from "@/components/BoxRestarting";
 import { NotAvailable } from "@/components/NotAvailable";
+import { FetchProgressLine, fetchRunning } from "@/components/updates/FetchProgressLine";
 import { MirrorStatusCard } from "@/components/updates/MirrorStatusCard";
+import { offerKey, OfferList } from "@/components/updates/OfferList";
+import { UnitCard } from "@/components/updates/UnitCard";
 import { UpgradeSteps } from "@/components/UpgradeSteps";
 import { VersionChip } from "@/components/VersionChip";
 import { runAction } from "@/lib/osadmin/action";
@@ -68,11 +71,27 @@ interface Held {
 
 const PRODUCT: UpdateTarget = "UPDATE_TARGET_PRODUCT";
 const BASE: UpdateTarget = "UPDATE_TARGET_BASE";
+const WEB: UpdateTarget = "UPDATE_TARGET_BASE_WEB";
 
-/** The product versions to offer: the list, the box is air-gapped, or the box can't list. */
-type Offer =
+/** The three cards, and the Install an update card where an uploaded file waits. */
+type Place = "baseOs" | "baseWeb" | "install" | "product";
+
+/** The card a unit's file belongs on. */
+const placeOf = (target?: UpdateTarget): Place =>
+  target === PRODUCT ? "product" : target === WEB ? "baseWeb" : "baseOs";
+
+/** The unit a file's name says; the signed header decides once it's verified. */
+const targetOfFile = (fileName: string): UpdateTarget => {
+  if (fileName.startsWith("sneakers-product-")) return PRODUCT;
+  if (fileName.startsWith("sneakers-appliance-baseWeb-")) return WEB;
+  return BASE;
+};
+
+/** What Check now found: its answer, the box has no source, or the check was refused. */
+type Offers =
+  | { check: CheckUpdatesResponse; kind: "listed" }
+  | { code?: string; kind: "refused"; reason: string }
   | { kind: "air-gapped" }
-  | { kind: "listed"; list: ListProductVersionsResponse }
   | { kind: "unavailable" };
 
 type Rebooting =
@@ -90,23 +109,30 @@ const holder = (elevation: Elevation): string =>
   `${elevation.admin} holds an elevated shell (${elevation.id})${elevation.started ? `, open since ${shortDate(elevation.started)}` : ""}: ${elevation.reason}`;
 
 /**
- * Where the file in hand is: nothing yet, sending, on the box, being verified, refused, or done.
- * The box holds one file at a time, so a file it holds (GetUpgrades.heldUpload) shows as
- * received, with Verify and Cancel, even after a reload.
+ * Where the file in hand is: nothing yet, sending, on the box, being verified, refused, or done,
+ * and which card shows it. The box holds one file at a time, so a file it holds
+ * (GetUpgrades.heldUpload) shows as received, with Verify and Cancel, even after a reload.
  */
 type Step =
   | {
       code?: string;
       fileName: string;
       kind: "refused";
+      place: Place;
       reason: string;
       /** The upload the refusal was about, when the box may still hold it. */
       uploadId?: string;
     }
-  | { fileName: string; kind: "received"; uploadId: string; via: Via }
-  | { fileName: string; kind: "uploading"; progress: number }
-  | { fileName: string; kind: "verified"; slot?: string; updatePackage: UpdatePackage }
-  | { fileName: string; kind: "verifying"; uploadId: string }
+  | { fileName: string; kind: "received"; place: Place; uploadId: string; via: Via }
+  | { fileName: string; kind: "uploading"; place: Place; progress: number }
+  | {
+      fileName: string;
+      kind: "verified";
+      place: Place;
+      slot?: string;
+      updatePackage: UpdatePackage;
+    }
+  | { fileName: string; kind: "verifying"; place: Place; uploadId: string }
   | { kind: "idle" };
 
 type Via = "Fetched" | "Uploaded";
@@ -133,6 +159,7 @@ const baseRange = ({
 const describePackage = (updatePackage: UpdatePackage): string => {
   if (updatePackage.target === PRODUCT)
     return `product bundle ${updatePackage.version}, fits base ${baseRange(updatePackage)}`;
+  if (updatePackage.target === WEB) return `admin pages ${updatePackage.version}`;
   return updatePackage.kind === "patch"
     ? `patch ${updatePackage.version} for ${updatePackage.bases.join(", ")}`
     : `full release ${updatePackage.version}`;
@@ -142,21 +169,27 @@ const errorText = (error: unknown): string =>
   error instanceof Error ? error.message : "The appliance refused the file.";
 
 /** A refusal for the result panel: the box's reason and, apart, the error code it named. */
-const refusedStep = (fileName: string, error: unknown, uploadId?: string): Step => ({
+const refusedStep = (fileName: string, place: Place, error: unknown, uploadId?: string): Step => ({
   code: symbolOf(errorText(error)),
   fileName,
   kind: "refused",
+  place,
   reason: error instanceof Error ? reasonOf(error) : errorText(error),
   ...(uploadId ? { uploadId } : {}),
 });
 
 /** The file the box holds, as the panel shows it after a reload. */
-const heldStep = (held: HeldUpload): Step => ({
-  fileName: held.fileName || `upload ${held.uploadId}`,
-  kind: "received",
-  uploadId: held.uploadId,
-  via: held.source === "upload" ? "Uploaded" : "Fetched",
-});
+const heldStep = (held: HeldUpload): Step => {
+  const fileName = held.fileName || `upload ${held.uploadId}`;
+  const uploaded = held.source === "upload";
+  return {
+    fileName,
+    kind: "received",
+    place: uploaded ? "install" : placeOf(targetOfFile(fileName)),
+    uploadId: held.uploadId,
+    via: uploaded ? "Uploaded" : "Fetched",
+  };
+};
 
 /** True when the box refused the call's own authenticator code: empty, wrong or used already. */
 const isCodeRefusal = (error: unknown): boolean =>
@@ -164,10 +197,6 @@ const isCodeRefusal = (error: unknown): boolean =>
 
 /** How an apply or revert ended: started, held by an elevated shell, or its code refused. */
 type Outcome = "held" | "refused" | "started";
-
-/** The small label in the Base system and Product cards' headers; ink on the tinted header. */
-const ACCENT_TAG =
-  "rounded-sm border border-border-strong bg-surface px-2 py-0.5 text-small font-bold text-ink";
 
 /** How often the page asks for the steps while a stage or an update is under way. */
 export const STEPS_POLL_MS = 1000;
@@ -181,24 +210,45 @@ const progressTitle = (progress: UpgradeProgress): string => {
   return `Updating to${version}`;
 };
 
+/** The source as the Update mirror card's choice says it. */
+const SOURCES: { label: string; value: UpdateSource }[] = [
+  { label: "Built-in list", value: "builtin" },
+  { label: "Manual", value: "manual" },
+  { label: "Upload only", value: "none" },
+];
+
+/** The offer the box prefers, or the first one. */
+const preferredKey = (offers: UnitOffer[]): string => {
+  const offer = offers.find((o) => o.preferred) ?? offers[0];
+  return offer ? offerKey(offer) : "";
+};
+
+/** A confirm for an Apply or Revert of a unit. */
+interface Confirm {
+  action: "apply" | "revert";
+  target: UpdateTarget;
+  /** The version the update goes to: the staged one, or the one a revert goes back to. */
+  version: string;
+}
+
 export default function Updates() {
   const { isOwner, session } = useSession();
   const [data, setData] = useState<GetUpgradesResponse>();
   const [step, setStep] = useState<Step>({ kind: "idle" });
-  const [mirrorFile, setMirrorFile] = useState("");
-  const [confirmApply, setConfirmApply] = useState<{
-    target: UpdateTarget;
-    version: string;
-  } | null>(null);
-  const [confirmRevert, setConfirmRevert] = useState(false);
-  const [confirmProductRevert, setConfirmProductRevert] = useState<null | string>(null);
+  const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState<{
     target: UpdateTarget;
     version: string;
   } | null>(null);
-  const [offer, setOffer] = useState<Offer>({ kind: "unavailable" });
-  const [picked, setPicked] = useState("");
-  const [direct, setDirect] = useState(false);
+  const [offers, setOffers] = useState<Offers>({ kind: "unavailable" });
+  const [checking, setChecking] = useState(false);
+  const [picked, setPicked] = useState<Record<Place, string>>({
+    baseOs: "",
+    baseWeb: "",
+    install: "",
+    product: "",
+  });
+  const [fetching, setFetching] = useState(false);
   const [rebooting, setRebooting] = useState<Rebooting>(null);
   const [held, setHeld] = useState<Held | null>(null);
   const [override, setOverride] = useState<{ elevation: Elevation; held: Held } | null>(null);
@@ -206,10 +256,12 @@ export default function Updates() {
   const [windowStart, setWindowStart] = useState("02:00");
   const [windowMinutes, setWindowMinutes] = useState(120);
   const [mirrorUrl, setMirrorUrl] = useState("");
+  const [source, setSource] = useState<UpdateSource>("none");
   const [unavailable, setUnavailable] = useState(false);
   const [restartSteps, setRestartSteps] = useState<UpgradeProgress>();
   const fileInput = useRef<HTMLInputElement>(null);
   const uploadAbort = useRef<AbortController | null>(null);
+  const checkedOnce = useRef(false);
 
   // A product install or revert ends when the product runs on its version, or when its restart
   // fails (the failed steps show in their own card).
@@ -223,6 +275,54 @@ export default function Updates() {
       return failed || running ? null : current;
     });
 
+  // Check now: the box reads the index again and answers each unit's offers. An air-gapped box
+  // has no source to check, so it isn't asked.
+  const checkNow = (airGapped: boolean, refresh = false) => {
+    if (airGapped) {
+      setOffers({ kind: "air-gapped" });
+      return;
+    }
+    setChecking(true);
+    void upgrade
+      .checkUpdates()
+      .then((check) => {
+        setOffers({ check, kind: "listed" });
+        setPicked((current) => ({
+          ...current,
+          baseOs: check.baseOs.some((o) => offerKey(o) === current.baseOs)
+            ? current.baseOs
+            : preferredKey(check.baseOs),
+          baseWeb: check.baseWeb.some((o) => offerKey(o) === current.baseWeb)
+            ? current.baseWeb
+            : preferredKey(check.baseWeb),
+          product: check.product.some((o) => offerKey(o) === current.product)
+            ? current.product
+            : preferredKey(check.product),
+        }));
+      })
+      .catch((error: unknown) => {
+        if (error instanceof OsadminError && error.symbol === "UPGRADE_AIR_GAPPED") {
+          setOffers({ kind: "air-gapped" });
+          return;
+        }
+        if (isNotAvailable(error)) {
+          setOffers({ kind: "unavailable" });
+          return;
+        }
+        setOffers({ code: symbolOf(errorText(error)), kind: "refused", reason: reasonOf(error) });
+      })
+      .finally(() => {
+        setChecking(false);
+        // Check now's fetch of the index is the mirror's last fetch too.
+        if (refresh)
+          void upgrade
+            .get()
+            .then(setData)
+            .catch(() => {});
+      });
+  };
+
+  // The first answer also starts a Check now, so the cards list what the mirror offers.
   const reload = () =>
     void upgrade
       .get()
@@ -234,36 +334,23 @@ export default function Updates() {
           setWindowStart(response.policy.windowStart);
           setWindowMinutes(response.policy.windowMinutes);
           setMirrorUrl(response.policy.mirrorUrl);
-          setDirect(response.policy.direct ?? false);
+          setSource(
+            response.policy.source ??
+              (response.policy.mirrorUrl ? "manual" : response.policy.direct ? "builtin" : "none"),
+          );
         }
-        if (response.product) loadOffer();
+        if (!checkedOnce.current) {
+          checkedOnce.current = true;
+          checkNow(response.airGapped);
+        }
       })
       .catch((error: unknown) => {
         if (isNotAvailable(error)) setUnavailable(true);
       });
-  // The box answers UPGRADE_AIR_GAPPED when it has no mirror and no release source to list.
-  const loadOffer = () =>
-    void upgrade
-      .listProductVersions()
-      .then((list) => {
-        setOffer({ kind: "listed", list });
-        setPicked((current) =>
-          (list.versions ?? []).some((v) => v.version === current)
-            ? current
-            : (list.versions?.[0]?.version ?? ""),
-        );
-      })
-      .catch((error: unknown) =>
-        setOffer(
-          error instanceof OsadminError && error.symbol === "UPGRADE_AIR_GAPPED"
-            ? { kind: "air-gapped" }
-            : { kind: "unavailable" },
-        ),
-      );
   useEffect(reload, []);
-  // While a file stages, a file is coming in (the box notices a cancelled upload a moment after
-  // the browser stops it), or an update is under way (the window's, say), the box is asked each
-  // second; only the answer's data is replaced, not the product offer.
+  // While a file stages or is fetched, a file is coming in (the box notices a cancelled upload a
+  // moment after the browser stops it), or an update is under way (the window's, say), the box
+  // is asked each second; only the answer's data is replaced, not the offers.
   const productRestart =
     rebooting?.kind === "installing" || rebooting?.kind === "reverting-product";
   const watching =
@@ -271,8 +358,10 @@ export default function Updates() {
     (rebooting?.kind === "applying" || rebooting?.kind === "reverting"
       ? false
       : productRestart ||
+        fetching ||
         step.kind === "verifying" ||
         !!data?.receiving ||
+        fetchRunning(data?.fetchProgress) ||
         !!data?.upgradeProgress?.inProgress);
   useEffect(() => {
     if (!watching) return;
@@ -294,16 +383,27 @@ export default function Updates() {
     if (!file) return;
     const controller = new AbortController();
     uploadAbort.current = controller;
-    setStep({ fileName: file.name, kind: "uploading", progress: 0 });
+    setStep({ fileName: file.name, kind: "uploading", place: "install", progress: 0 });
     upgrade
       .upload(
         file,
         (fraction) =>
-          setStep({ fileName: file.name, kind: "uploading", progress: Math.round(fraction * 100) }),
+          setStep({
+            fileName: file.name,
+            kind: "uploading",
+            place: "install",
+            progress: Math.round(fraction * 100),
+          }),
         controller.signal,
       )
       .then(({ uploadId }) => {
-        setStep({ fileName: file.name, kind: "received", uploadId, via: "Uploaded" });
+        setStep({
+          fileName: file.name,
+          kind: "received",
+          place: "install",
+          uploadId,
+          via: "Uploaded",
+        });
         reload();
       })
       .catch((error: unknown) => {
@@ -313,7 +413,7 @@ export default function Updates() {
           reload();
           return;
         }
-        setStep(refusedStep(file.name, error));
+        setStep(refusedStep(file.name, "install", error));
         reload();
       })
       .finally(() => {
@@ -344,41 +444,46 @@ export default function Updates() {
       successMessage: "The staged release was removed.",
     });
 
-  const fetchFile = (name = mirrorFile) => {
-    const fileName = name.trim();
+  // A fetch runs as one call; the page asks for its progress each second meanwhile.
+  const fetchFile = (fileName: string) => {
     if (!fileName) return;
+    const place = placeOf(targetOfFile(fileName));
+    setFetching(true);
     void runAction(
       async () => {
         try {
           return await upgrade.fetch(fileName);
         } catch (error) {
           if (isStepUpRequired(error) || isNotAvailable(error)) throw error;
-          setStep(refusedStep(fileName, error));
+          setStep(refusedStep(fileName, place, error));
           reload();
           return null;
+        } finally {
+          setFetching(false);
         }
       },
       {
         onSuccess: (result) => {
           if (!result) return;
-          setStep({ fileName, kind: "received", uploadId: result.uploadId, via: "Fetched" });
+          setStep({ fileName, kind: "received", place, uploadId: result.uploadId, via: "Fetched" });
           reload();
         },
       },
     );
   };
 
-  // StageUpdate verifies first and only then unpacks; a refused file is deleted on the box. It
-  // asks for no authenticator code: only Apply and Revert do. Refusals are shown in place, not
-  // as a toast, so the reason stays on screen.
-  const verifyAndStage = (fileName: string, uploadId: string) => {
+  // StageUpdate verifies first and only then unpacks; a refused file is deleted on the box (a
+  // Base Web that doesn't fit the running Base OS is kept). It asks for no authenticator code:
+  // only Apply and Revert do. Refusals are shown in place, not as a toast, so the reason stays on
+  // screen. Once verified, the file's signed header picks its card.
+  const verifyAndStage = (fileName: string, uploadId: string, place: Place) => {
     void runAction(
       async () => {
-        setStep({ fileName, kind: "verifying", uploadId });
+        setStep({ fileName, kind: "verifying", place, uploadId });
         try {
           return await upgrade.stage(uploadId);
         } catch (error) {
-          setStep(refusedStep(fileName, error, uploadId));
+          setStep(refusedStep(fileName, place, error, uploadId));
           reload();
           return null;
         }
@@ -386,7 +491,13 @@ export default function Updates() {
       {
         onSuccess: (result) => {
           if (!result) return;
-          setStep({ fileName, kind: "verified", slot: result.slot, updatePackage: result.package });
+          setStep({
+            fileName,
+            kind: "verified",
+            place: placeOf(result.package.target),
+            slot: result.slot,
+            updatePackage: result.package,
+          });
           reload();
         },
       },
@@ -396,6 +507,10 @@ export default function Updates() {
   const started = (action: Held["action"], version: string, target: UpdateTarget) => {
     setHeld(null);
     setOverride(null);
+    if (target === WEB) {
+      reload();
+      return;
+    }
     if (target !== PRODUCT) {
       // The box answers for a moment before it goes down: its steps seed the restart page.
       void upgrade
@@ -440,6 +555,10 @@ export default function Updates() {
             );
             return "refused";
           }
+          if (!isElevated(error) && target === WEB) {
+            refuse(reasonOf(error));
+            return "refused";
+          }
           if (!isElevated(error)) throw error;
           setHeld({ action, message: errorText(error), target, version });
           reload();
@@ -449,25 +568,33 @@ export default function Updates() {
       {
         onSuccess: (outcome) => {
           if (outcome === "refused") return;
-          setConfirmApply(null);
-          setConfirmRevert(false);
-          setConfirmProductRevert(null);
+          setConfirm(null);
           if (outcome === "started") started(action, version, target);
         },
+        ...(target === WEB && action === "apply"
+          ? { successMessage: `The admin pages switched to ${version}.` }
+          : {}),
       },
     );
 
-  const savePolicy = () =>
+  const savePolicy = (what: "source" | "window") =>
     void runAction(
       () =>
         upgrade.setPolicy({
-          direct,
+          direct: source === "builtin",
           mirrorUrl: mirrorUrl.trim(),
           mode,
+          source,
           windowMinutes,
           windowStart,
         }),
-      { onSuccess: reload, successMessage: "Update window saved." },
+      {
+        onSuccess: () => {
+          reload();
+          if (what === "source") checkNow(source === "none", true);
+        },
+        successMessage: what === "source" ? "Update source saved." : "Update window saved.",
+      },
     );
 
   if (unavailable) {
@@ -502,13 +629,16 @@ export default function Updates() {
   const removes = data.nextStageRemoves.join(", ");
   const openShells = data.activeElevations ?? [];
   const product = data.product;
-  const versions = offer.kind === "listed" ? (offer.list.versions ?? []) : [];
+  const web = data.baseWeb;
+  const check = offers.kind === "listed" ? offers.check : undefined;
   const progress = data.upgradeProgress;
   // One file at a time: while one is coming in, held or being checked, nothing new comes in.
   const heldFile = data.heldUpload;
   const shown: Step = step.kind === "idle" && heldFile ? heldStep(heldFile) : step;
   const locked =
     data.receiving ||
+    fetching ||
+    fetchRunning(data.fetchProgress) ||
     !!heldFile ||
     step.kind === "uploading" ||
     step.kind === "received" ||
@@ -520,6 +650,70 @@ export default function Updates() {
     shown.kind !== "verifying" &&
     shown.kind !== "refused" &&
     shown.kind !== "verified";
+  const cardCount = 1 + (web ? 1 : 0) + (product ? 1 : 0);
+  const fetchProgress = data.fetchProgress;
+
+  /** The file panel, on the card its file belongs to. */
+  const panel = (place: Place) =>
+    "place" in shown && shown.place === place ? (
+      <UpdateStep
+        heldId={heldFile?.uploadId}
+        onCancel={discardFile}
+        onCancelUpload={cancelUpload}
+        onVerify={(fileName, uploadId) => verifyAndStage(fileName, uploadId, place)}
+        progress={progress}
+        removes={removes}
+        step={shown}
+      />
+    ) : null;
+
+  /** A fetch under way for the unit, with its bytes, speed and time left. */
+  const fetchLine = (target: UpdateTarget) =>
+    fetchRunning(fetchProgress) &&
+    fetchProgress &&
+    placeOf(fetchProgress.target) === placeOf(target) ? (
+      <FetchProgressLine progress={fetchProgress} />
+    ) : null;
+
+  /** The offers of a unit, with the Fetch for the one picked; nothing to an admin who isn't an owner. */
+  const offerBlock = (
+    place: "baseOs" | "baseWeb" | "product",
+    label: string,
+    list: UnitOffer[],
+    empty: string,
+    fetchLabel: (offer: UnitOffer) => string,
+    legend?: string,
+  ) => {
+    if (offers.kind === "air-gapped")
+      return <p className="text-muted">Air-gapped: upload the .bin under Install an update.</p>;
+    if (!check) return null;
+    if (list.length === 0) return <p className="text-muted">{empty}</p>;
+    const chosen = list.find((o) => offerKey(o) === picked[place]);
+    return (
+      <div className="flex flex-col gap-3">
+        <OfferList
+          label={label}
+          legend={legend}
+          offers={list}
+          onPick={(key) => setPicked((current) => ({ ...current, [place]: key }))}
+          picked={picked[place]}
+        />
+        {isOwner && chosen && (
+          <div>
+            <Button
+              disabled={locked}
+              onClick={() => fetchFile(chosen.fileName)}
+              variant="secondary"
+            >
+              {fetchLabel(chosen)}
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const webBack = web ? web.previousVersion || `the built-in pages (${web.builtinVersion})` : "";
 
   return (
     <div className="flex flex-col gap-5 p-5.5">
@@ -570,8 +764,9 @@ export default function Updates() {
                 <p key={elevation.id}>{holder(elevation)}</p>
               ))}
               <p>
-                Apply and Revert are refused until it ends
-                {isOwner ? ", or an owner ends it with an override" : ""}.
+                Apply and Revert of the Base OS and the product are refused until it ends
+                {isOwner ? ", or an owner ends it with an override" : ""}. The admin pages (Base
+                Web) aren&apos;t held by it.
               </p>
             </div>
           </Alert>
@@ -597,43 +792,26 @@ export default function Updates() {
           {`By ${data.revertedBy ?? "an admin"}${data.revertedAt ? `, ${shortDate(data.revertedAt)}` : ""}. The appliance runs ${data.runningVersion} again.`}
         </Alert>
       )}
+      {!isOwner && <Alert tone="info">Only an owner can install, apply or revert updates.</Alert>}
 
       <div
-        className={product ? "grid grid-cols-1 gap-5 desktop:grid-cols-2" : "grid grid-cols-1"}
-        data-testid="system-cards"
+        className={
+          cardCount === 3
+            ? "grid grid-cols-1 gap-5 desktop:grid-cols-3"
+            : cardCount === 2
+              ? "grid grid-cols-1 gap-5 desktop:grid-cols-2"
+              : "grid grid-cols-1"
+        }
+        data-testid="unit-cards"
       >
-        <section aria-label="Base system">
-          <Card
-            className="h-full border-t-4 border-t-primary"
-            data-accent="base"
-            data-testid="card-base"
-          >
-            <CardHeader
-              aside={<span className={ACCENT_TAG}>Reboots</span>}
-              className="rounded-t-xl bg-primary-soft"
-              subtitle={<span className="text-ink">The appliance OS, in two slots</span>}
-              title="Base system"
-            />
-            <div className="flex flex-col gap-2 p-5.5 text-small">
-              <p className="flex flex-wrap items-center gap-1.5 font-bold">
-                Running <VersionChip kind="running" version={data.runningVersion} /> in the active
-                slot
-              </p>
-              {staged ? (
-                <p className="flex flex-wrap items-center gap-1.5">
-                  Other slot: staged <VersionChip kind="staged" version={staged} />
-                </p>
-              ) : revertTarget ? (
-                <p>Other slot: {revertTarget} (revert target)</p>
-              ) : (
-                <p>Other slot: empty</p>
-              )}
-            </div>
-            {isOwner && (staged || revertTarget) && (
-              <div className="flex flex-wrap gap-3 border-t border-border p-5.5">
+        <UnitCard
+          accent="base"
+          actions={
+            isOwner && (staged || revertTarget) ? (
+              <>
                 {staged && (
                   <Button
-                    onClick={() => setConfirmApply({ target: BASE, version: staged })}
+                    onClick={() => setConfirm({ action: "apply", target: BASE, version: staged })}
                     size="lg"
                     variant="primary"
                   >
@@ -650,56 +828,155 @@ export default function Updates() {
                   </Button>
                 )}
                 {revertTarget && (
-                  <Button onClick={() => setConfirmRevert(true)} size="lg" variant="secondary">
+                  <Button
+                    onClick={() =>
+                      setConfirm({ action: "revert", target: BASE, version: revertTarget })
+                    }
+                    size="lg"
+                    variant="secondary"
+                  >
                     Revert to {revertTarget}
                   </Button>
                 )}
-              </div>
+              </>
+            ) : undefined
+          }
+          subtitle="Two slots"
+          tag="Reboots"
+          testId="card-base"
+          title="Base OS"
+        >
+          <p className="flex flex-wrap items-center gap-1.5 font-bold">
+            Running <VersionChip kind="running" version={data.runningVersion} /> in the active slot
+          </p>
+          {staged ? (
+            <p className="flex flex-wrap items-center gap-1.5">
+              Other slot: staged <VersionChip kind="staged" version={staged} />
+            </p>
+          ) : revertTarget ? (
+            <p>Other slot: {revertTarget} (revert target)</p>
+          ) : (
+            <p>Other slot: empty</p>
+          )}
+          {data.baseOsNote && <Alert tone="warn">{data.baseOsNote}</Alert>}
+          {offerBlock(
+            "baseOs",
+            "Base OS versions",
+            check?.baseOs ?? [],
+            "No newer Base OS on the mirror.",
+            (o) => `Fetch ${o.version} ${o.kind}`,
+          )}
+          {fetchLine(BASE)}
+          {panel("baseOs")}
+          <p className="text-muted">
+            {[
+              web?.requiresBaseOs ? `The Base Web needs Base OS ${web.requiresBaseOs}` : "",
+              product?.requiresBaseOs ? `the product needs Base OS ${product.requiresBaseOs}` : "",
+            ]
+              .filter(Boolean)
+              .join("; ") || "Needs no other unit: it carries its own built-in pages."}
+          </p>
+        </UnitCard>
+
+        {web && (
+          <UnitCard
+            accent="web"
+            actions={
+              isOwner && (web.stagedVersion || web.canRevert) ? (
+                <>
+                  {web.stagedVersion && (
+                    <Button
+                      onClick={() =>
+                        setConfirm({ action: "apply", target: WEB, version: web.stagedVersion })
+                      }
+                      size="lg"
+                    >
+                      Apply pages {web.stagedVersion}
+                    </Button>
+                  )}
+                  {web.stagedVersion && (
+                    <Button
+                      onClick={() => setConfirmDiscard({ target: WEB, version: web.stagedVersion })}
+                      size="lg"
+                      variant="secondary"
+                    >
+                      Cancel staged pages {web.stagedVersion}
+                    </Button>
+                  )}
+                  {web.canRevert && (
+                    <Button
+                      onClick={() =>
+                        setConfirm({
+                          action: "revert",
+                          target: WEB,
+                          version: web.previousVersion || web.builtinVersion,
+                        })
+                      }
+                      size="lg"
+                      variant="secondary"
+                    >
+                      Revert pages to {web.previousVersion || "built-in"}
+                    </Button>
+                  )}
+                </>
+              ) : undefined
+            }
+            subtitle=":8443 pages"
+            tag="No reboot"
+            testId="card-web"
+            title="Base Web"
+          >
+            <p className="flex flex-wrap items-center gap-1.5 font-bold">
+              Running <VersionChip kind="running" version={web.runningVersion} />
+              {web.source === "slot" ? ` (web slot ${web.slot})` : " (built-in pages)"}
+            </p>
+            {web.stagedVersion && (
+              <p className="flex flex-wrap items-center gap-1.5">
+                Staged <VersionChip kind="staged" version={web.stagedVersion} />
+              </p>
             )}
-          </Card>
-        </section>
+            <p>
+              {web.canRevert ? `Previous: ${webBack}` : "Previous: none (the built-in pages serve)"}
+            </p>
+            {web.source !== "slot" && web.reason && web.currentVersion && (
+              <Alert title="Serving the built-in pages" tone="warn">
+                {`Base Web ${web.currentVersion} isn't served: ${web.reason}`}
+              </Alert>
+            )}
+            {offerBlock(
+              "baseWeb",
+              "Base Web versions",
+              check?.baseWeb ?? [],
+              "No newer Base Web for this Base OS on the mirror.",
+              (o) => `Fetch pages ${o.version}`,
+            )}
+            {check?.baseWebWaits && (
+              <p className="text-muted">{`${check.baseWebWaits} Install that Base OS first.`}</p>
+            )}
+            {fetchLine(WEB)}
+            {panel("baseWeb")}
+            <p className="text-muted">
+              {web.requiresBaseOs
+                ? `Needs Base OS ${web.requiresBaseOs} (running ${data.runningVersion}: ${web.fits ? "fits" : "doesn't fit"})`
+                : `The built-in pages come with Base OS ${data.runningVersion}.`}
+            </p>
+          </UnitCard>
+        )}
 
         {product && (
-          <section aria-label="Product">
-            <Card
-              className="h-full border-t-4 border-t-sole"
-              data-accent="product"
-              data-testid="card-product"
-            >
-              <CardHeader
-                aside={<span className={ACCENT_TAG}>No reboot</span>}
-                className="rounded-t-xl bg-hatch"
-                subtitle={<span className="text-ink">k0s and Sneakers-PAM</span>}
-                title="Product"
-              />
-              <div className="flex flex-col gap-2 p-5.5 text-small">
-                {product.installedVersion ? (
-                  <p className="flex items-center gap-2 font-bold">
-                    <span>Installed {product.installedVersion}</span>
-                    <Badge tone={product.running ? "ok" : "warn"}>
-                      {product.running ? "running" : "stopped"}
-                    </Badge>
-                  </p>
-                ) : (
-                  <p className="font-bold">
-                    Not installed yet. Sneakers-PAM starts once you install it below.
-                  </p>
-                )}
-                <p>
-                  {product.stagedVersion ? `Staged ${product.stagedVersion}` : "Nothing staged"}
-                </p>
-                <p>
-                  {product.previousVersion
-                    ? `Previous ${product.previousVersion}`
-                    : "No previous version to go back to"}
-                </p>
-              </div>
-              {isOwner && (product.stagedVersion || product.previousVersion) && (
-                <div className="flex flex-wrap gap-3 border-t border-border p-5.5">
+          <UnitCard
+            accent="product"
+            actions={
+              isOwner && (product.stagedVersion || product.previousVersion) ? (
+                <>
                   {product.stagedVersion && (
                     <Button
                       onClick={() =>
-                        setConfirmApply({ target: PRODUCT, version: product.stagedVersion ?? "" })
+                        setConfirm({
+                          action: "apply",
+                          target: PRODUCT,
+                          version: product.stagedVersion ?? "",
+                        })
                       }
                       size="lg"
                     >
@@ -719,142 +996,180 @@ export default function Updates() {
                   )}
                   {product.previousVersion && (
                     <Button
-                      onClick={() => setConfirmProductRevert(product.previousVersion ?? "")}
+                      onClick={() =>
+                        setConfirm({
+                          action: "revert",
+                          target: PRODUCT,
+                          version: product.previousVersion ?? "",
+                        })
+                      }
                       size="lg"
                       variant="secondary"
                     >
                       Revert product to {product.previousVersion}
                     </Button>
                   )}
-                </div>
-              )}
-            </Card>
-          </section>
+                </>
+              ) : undefined
+            }
+            subtitle="k0s and Sneakers-PAM"
+            tag="Restarts"
+            testId="card-product"
+            title="Product"
+          >
+            {product.installedVersion ? (
+              <p className="flex items-center gap-2 font-bold">
+                <span>Installed {product.installedVersion}</span>
+                <Badge tone={product.running ? "ok" : "warn"}>
+                  {product.running ? "running" : "stopped"}
+                </Badge>
+              </p>
+            ) : (
+              <p className="font-bold">
+                Not installed yet. Sneakers-PAM starts once you install it here.
+              </p>
+            )}
+            <p>{product.stagedVersion ? `Staged ${product.stagedVersion}` : "Nothing staged"}</p>
+            <p>
+              {product.previousVersion
+                ? `Previous ${product.previousVersion}`
+                : "No previous version to go back to"}
+            </p>
+            {offers.kind === "air-gapped" ? (
+              <p className="text-muted">
+                To install or upgrade the product, upload the product bundle&apos;s .bin under
+                Install an update.
+              </p>
+            ) : (
+              offerBlock(
+                "product",
+                "Product versions",
+                check?.product ?? [],
+                `No newer product version fits base ${data.runningVersion} yet.`,
+                (o) => `Fetch ${o.version}`,
+                `Product versions that fit base ${data.runningVersion}`,
+              )
+            )}
+            {fetchLine(PRODUCT)}
+            {panel("product")}
+            {product.requiresBaseOs && (
+              <p className="text-muted">
+                {`Needs Base OS ${product.requiresBaseOs} (running ${data.runningVersion}: ${product.fits ? "fits" : "doesn't fit"})`}
+              </p>
+            )}
+          </UnitCard>
         )}
       </div>
 
-      {!isOwner && <Alert tone="info">Only an owner can install, apply or revert updates.</Alert>}
+      <MirrorStatusCard status={data.mirrorStatus}>
+        <p>
+          {source === "builtin"
+            ? "Source: the built-in list, compiled into this release, tried in order."
+            : source === "manual"
+              ? `Source: the mirror at ${data.policy?.mirrorUrl ?? ""}.`
+              : "Source: none. This appliance never fetches; upload each .bin under Install an update."}
+        </p>
+        {data.airGapped && (
+          <Alert title="Air-gapped: upload only" tone="info">
+            The box has no update source, so it never fetches updates from the network.
+          </Alert>
+        )}
+        {offers.kind === "refused" && (
+          <Alert role="alert" title="Check now was refused" tone="danger">
+            <p>
+              {offers.code && <code>{offers.code}</code>}
+              {offers.code ? ": " : ""}
+              {offers.reason}
+            </p>
+          </Alert>
+        )}
+        {check && (
+          <p>
+            {`Last check ${check.checkedAt ? shortDate(check.checkedAt) : ""}, from the ${check.source === "direct" ? "release source" : "mirror"}: `}
+            {[
+              check.baseOs.length > 0
+                ? `Base OS ${[...new Set(check.baseOs.map((o) => o.version))].join(", ")}`
+                : "",
+              check.baseWeb.length > 0
+                ? `Base Web ${check.baseWeb.map((o) => o.version).join(", ")}`
+                : "",
+              check.product.length > 0
+                ? `product ${check.product.map((o) => o.version).join(", ")}`
+                : "",
+            ]
+              .filter(Boolean)
+              .join("; ") || "nothing newer"}
+            .
+          </p>
+        )}
+        {!data.airGapped && (
+          <div>
+            <Button
+              disabled={checking}
+              onClick={() => checkNow(data.airGapped, true)}
+              variant="secondary"
+            >
+              {checking ? "Checking" : "Check now"}
+            </Button>
+          </div>
+        )}
+        {isOwner && (
+          <div className="flex flex-col gap-3 border-t border-border pt-4">
+            <Segmented
+              label="Where updates come from"
+              onChange={setSource}
+              options={SOURCES}
+              value={source}
+            />
+            {source === "manual" && (
+              <Field
+                hint="An http:// or https:// URL. Every file's signature is checked either way."
+                label="Mirror"
+              >
+                <Input onChange={(event) => setMirrorUrl(event.target.value)} value={mirrorUrl} />
+              </Field>
+            )}
+            <div>
+              <Button onClick={() => savePolicy("source")}>Save source</Button>
+            </div>
+          </div>
+        )}
+      </MirrorStatusCard>
 
       {isOwner && (
-        <Card>
-          <CardHeader title="Install an update" />
-          <div className="flex flex-col gap-4 p-5.5 text-small">
-            <p className="text-muted">
-              A signed base release or patch <code>.bin</code>, or a product bundle{" "}
-              <code>.bin</code>. The appliance checks its signature, channel and hash (and, for a
-              product bundle, that it fits this base) before it unpacks anything; a file that fails
-              is deleted and nothing is staged.
-            </p>
-            {removes && <p>Staging a base update removes {removes} and its files.</p>}
-            <div className="flex flex-wrap items-center gap-3">
-              <input
-                accept=".bin"
-                aria-label="Update .bin file"
-                disabled={locked}
-                ref={fileInput}
-                type="file"
-              />
-              <Button disabled={locked} onClick={sendFile}>
-                Upload
-              </Button>
-            </div>
-            {heldFile && (
+        <section aria-label="Install an update">
+          <Card>
+            <CardHeader title="Install an update" />
+            <div className="flex flex-col gap-4 p-5.5 text-small">
               <p className="text-muted">
-                A file is waiting on the appliance: verify it or cancel it below before you upload
-                or fetch another.
+                For an air-gapped appliance: upload a signed <code>.bin</code> of any unit. The
+                appliance checks its signature, channel and hash (and that it fits the other units)
+                before it unpacks anything, and its signed header picks its card above.
               </p>
-            )}
-            {data.airGapped ? (
-              <Alert title="Air-gapped: upload only" tone="info">
-                No mirror is set, so this appliance never fetches updates from the network.
-              </Alert>
-            ) : (
-              <div className="flex flex-wrap items-end gap-3">
-                <Field
-                  hint={`From ${data.policy?.mirrorUrl ?? ""}`}
-                  label="File name on the mirror"
-                >
-                  <Input
-                    onChange={(event) => setMirrorFile(event.target.value)}
-                    placeholder="sneakers-appliance-0.2.0-amd64.bin"
-                    value={mirrorFile}
-                  />
-                </Field>
-                <Button disabled={locked} onClick={() => fetchFile()} variant="secondary">
-                  Fetch
+              {removes && <p>Staging a base update removes {removes} and its files.</p>}
+              <div className="flex flex-wrap items-center gap-3">
+                <input
+                  accept=".bin"
+                  aria-label="Update .bin file"
+                  disabled={locked}
+                  ref={fileInput}
+                  type="file"
+                />
+                <Button disabled={locked} onClick={sendFile}>
+                  Upload
                 </Button>
               </div>
-            )}
-            {product && offer.kind === "air-gapped" && (
-              <p className="text-muted">
-                To install or upgrade the product, upload the product bundle&apos;s .bin above.
-              </p>
-            )}
-            {product && offer.kind === "listed" && (
-              <div className="flex flex-col gap-3 border-t border-border pt-4">
-                {versions.length === 0 ? (
-                  <p>No newer product version fits base {offer.list.baseVersion} yet.</p>
-                ) : (
-                  <>
-                    <fieldset
-                      aria-label="Product versions"
-                      className="m-0 flex flex-col gap-2 border-0 p-0"
-                      role="radiogroup"
-                    >
-                      <legend className="mb-1 text-[0.875rem] font-bold text-ink">
-                        Product versions that fit base {offer.list.baseVersion}
-                      </legend>
-                      {versions.map((v) => (
-                        <label
-                          className="flex items-center gap-2.5 rounded-md border border-border p-3"
-                          key={v.version}
-                        >
-                          <input
-                            checked={picked === v.version}
-                            className="size-4 accent-primary"
-                            name="product-version"
-                            onChange={() => setPicked(v.version)}
-                            type="radio"
-                            value={v.version}
-                          />
-                          <span className="font-bold">{v.version}</span>
-                          <span className="text-muted">
-                            {v.channel}, {v.arch}, {Math.round(Number(v.size) / 1_048_576)} MB, from
-                            the {v.source === "direct" ? "release source" : "mirror"}, base{" "}
-                            {baseRange(v)}
-                          </span>
-                        </label>
-                      ))}
-                    </fieldset>
-                    <div>
-                      <Button
-                        disabled={!picked || locked}
-                        onClick={() =>
-                          fetchFile(versions.find((v) => v.version === picked)?.fileName ?? "")
-                        }
-                        variant="secondary"
-                      >
-                        Fetch {picked}
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-            <UpdateStep
-              heldId={heldFile?.uploadId}
-              onCancel={discardFile}
-              onCancelUpload={cancelUpload}
-              onVerify={verifyAndStage}
-              progress={progress}
-              removes={removes}
-              step={shown}
-            />
-          </div>
-        </Card>
+              {heldFile && (
+                <p className="text-muted">
+                  A file is waiting on the appliance: verify it or cancel it before you upload or
+                  fetch another.
+                </p>
+              )}
+              {panel("install")}
+            </div>
+          </Card>
+        </section>
       )}
-
-      <MirrorStatusCard status={data.mirrorStatus} />
 
       <Card>
         <CardHeader title="Update window" />
@@ -888,23 +1203,8 @@ export default function Updates() {
                   </Field>
                 </div>
               )}
-              <Field
-                hint="An http:// or https:// URL, or empty for upload only (air-gapped). Every file's signature is checked either way."
-                label="Mirror"
-              >
-                <Input onChange={(event) => setMirrorUrl(event.target.value)} value={mirrorUrl} />
-              </Field>
-              {data.directAvailable && (
-                <Label className="flex items-center gap-2">
-                  <Checkbox
-                    checked={direct}
-                    onCheckedChange={(checked) => setDirect(checked === true)}
-                  />
-                  Fetch from the release source when no mirror is set or the mirror fails
-                </Label>
-              )}
               <div>
-                <Button onClick={savePolicy}>Save update window</Button>
+                <Button onClick={() => savePolicy("window")}>Save update window</Button>
               </div>
             </>
           )}
@@ -928,7 +1228,11 @@ export default function Updates() {
               <TableRow key={`${event.time ?? ""}-${String(index)}`}>
                 <TableCell>{event.time ? shortDate(event.time) : ""}</TableCell>
                 <TableCell>
-                  {event.target === PRODUCT ? `${event.action} (product)` : event.action}
+                  {event.target === PRODUCT
+                    ? `${event.action} (product)`
+                    : event.target === WEB
+                      ? `${event.action} (pages)`
+                      : event.action}
                 </TableCell>
                 <TableCell>{event.version}</TableCell>
                 <TableCell>{event.actor}</TableCell>
@@ -943,29 +1247,13 @@ export default function Updates() {
         </Table>
       </Card>
 
-      <Dialog onOpenChange={(open) => !open && setConfirmApply(null)} open={!!confirmApply}>
-        {confirmApply && (
-          <ConfirmUpdateDialog
-            confirmLabel={
-              confirmApply.target === PRODUCT
-                ? "Install and restart the product"
-                : "Apply and reboot"
-            }
-            description={
-              confirmApply.target === PRODUCT
-                ? `The product services (k0s and Sneakers-PAM) restart on ${confirmApply.version}, with no reboot. Sneakers-PAM is unavailable until they're back; the previous version stays in the other slot.`
-                : `The appliance reboots into ${confirmApply.version}. Every session ends, and the box is unavailable until it's back.`
-            }
-            onCancel={() => setConfirmApply(null)}
-            onConfirm={(code, refuse) =>
-              runUpdate("apply", confirmApply.version, confirmApply.target, code, refuse)
-            }
-            title={
-              confirmApply.target === PRODUCT
-                ? `Install product ${confirmApply.version}`
-                : `Apply ${confirmApply.version}`
-            }
-            word={confirmApply.version}
+      <Dialog onOpenChange={(open) => !open && setConfirm(null)} open={!!confirm}>
+        {confirm && (
+          <UnitConfirm
+            confirm={confirm}
+            onCancel={() => setConfirm(null)}
+            runningVersion={data.runningVersion}
+            runUpdate={runUpdate}
           />
         )}
       </Dialog>
@@ -985,24 +1273,6 @@ export default function Updates() {
         )}
       </Dialog>
 
-      <Dialog
-        onOpenChange={(open) => !open && setConfirmProductRevert(null)}
-        open={!!confirmProductRevert}
-      >
-        {confirmProductRevert && (
-          <ConfirmUpdateDialog
-            confirmLabel="Revert the product"
-            description="The product services restart on the previous slot's version. The box doesn't reboot."
-            onCancel={() => setConfirmProductRevert(null)}
-            onConfirm={(code, refuse) =>
-              runUpdate("revert", confirmProductRevert, PRODUCT, code, refuse)
-            }
-            title={`Revert the product to ${confirmProductRevert}`}
-            word={confirmProductRevert}
-          />
-        )}
-      </Dialog>
-
       <Dialog onOpenChange={(open) => !open && setConfirmDiscard(null)} open={!!confirmDiscard}>
         {confirmDiscard && (
           <DialogContent>
@@ -1010,12 +1280,16 @@ export default function Updates() {
               <DialogTitle>
                 {confirmDiscard.target === PRODUCT
                   ? `Cancel staged product ${confirmDiscard.version}`
-                  : `Cancel staged ${confirmDiscard.version}`}
+                  : confirmDiscard.target === WEB
+                    ? `Cancel staged pages ${confirmDiscard.version}`
+                    : `Cancel staged ${confirmDiscard.version}`}
               </DialogTitle>
               <DialogDescription>
                 {confirmDiscard.target === PRODUCT
                   ? `The staged product bundle ${confirmDiscard.version} is removed from the product's other slot. The installed product keeps running.`
-                  : `${confirmDiscard.version} is removed from the other slot and never boots. Nothing reboots; staging the base update already removed the release that was kept for a revert.`}
+                  : confirmDiscard.target === WEB
+                    ? `The staged admin pages ${confirmDiscard.version} are removed from their web slot. The pages served now stay.`
+                    : `${confirmDiscard.version} is removed from the other slot and never boots. Nothing reboots; staging the base update already removed the release that was kept for a revert.`}
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -1029,22 +1303,92 @@ export default function Updates() {
           </DialogContent>
         )}
       </Dialog>
-
-      <Dialog onOpenChange={setConfirmRevert} open={confirmRevert}>
-        {confirmRevert && (
-          <ConfirmUpdateDialog
-            confirmLabel="Revert and reboot"
-            description="The running release is marked bad and the appliance reboots into the previous one. Every session ends."
-            onCancel={() => setConfirmRevert(false)}
-            onConfirm={(code, refuse) => runUpdate("revert", "", BASE, code, refuse)}
-            title={`Revert to ${revertTarget}`}
-            word={data.runningVersion}
-          />
-        )}
-      </Dialog>
     </div>
   );
 }
+
+/** The Apply or Revert dialog of one unit, in that unit's words. */
+const UnitConfirm = ({
+  confirm,
+  onCancel,
+  runningVersion,
+  runUpdate,
+}: {
+  confirm: Confirm;
+  onCancel: () => void;
+  runningVersion: string;
+  runUpdate: (
+    action: Held["action"],
+    version: string,
+    target: UpdateTarget,
+    code: string,
+    refuse: (text: string) => void,
+  ) => Promise<void>;
+}) => {
+  const { action, target, version } = confirm;
+  const words: { confirmLabel: string; description: string; title: string; word: string } =
+    target === PRODUCT
+      ? action === "apply"
+        ? {
+            confirmLabel: "Install and restart the product",
+            description: `The product services (k0s and Sneakers-PAM) restart on ${version}, with no reboot. Sneakers-PAM is unavailable until they're back; the previous version stays in the other slot.`,
+            title: `Install product ${version}`,
+            word: version,
+          }
+        : {
+            confirmLabel: "Revert the product",
+            description:
+              "The product services restart on the previous slot's version. The box doesn't reboot.",
+            title: `Revert the product to ${version}`,
+            word: version,
+          }
+      : target === WEB
+        ? action === "apply"
+          ? {
+              confirmLabel: "Switch the admin pages",
+              description: `The :8443 admin pages switch to ${version} in place: no reboot and no restart, you stay signed in, and the product keeps serving on 443. An open page offers a reload.`,
+              title: `Apply admin pages ${version}`,
+              word: version,
+            }
+          : {
+              confirmLabel: "Switch back",
+              description: `The :8443 admin pages go back to ${version} in place, with no reboot. You stay signed in.`,
+              title: `Revert the admin pages to ${version}`,
+              word: version,
+            }
+        : action === "apply"
+          ? {
+              confirmLabel: "Apply and reboot",
+              description: `The appliance reboots into ${version}. Every session ends, and the box is unavailable until it's back.`,
+              title: `Apply ${version}`,
+              word: version,
+            }
+          : {
+              confirmLabel: "Revert and reboot",
+              description:
+                "The running release is marked bad and the appliance reboots into the previous one. Every session ends.",
+              title: `Revert to ${version}`,
+              word: runningVersion,
+            };
+  return (
+    <ConfirmUpdateDialog
+      confirmLabel={words.confirmLabel}
+      description={words.description}
+      onCancel={onCancel}
+      onConfirm={(code, refuse) =>
+        runUpdate(
+          action,
+          target === BASE && action === "revert" ? "" : version,
+          target,
+          code,
+          refuse,
+        )
+      }
+      title={words.title}
+      word={words.word}
+    />
+  );
+};
 
 const UpdateStep = ({
   heldId,
@@ -1066,9 +1410,10 @@ const UpdateStep = ({
   removes: string;
   step: Step;
 }) => {
-  // A product bundle has its own slots: only a base update's stage removes a base release.
+  // A product bundle and the admin pages have their own slots: only a Base OS stage removes a
+  // base release.
   const removal =
-    removes && "fileName" in step && !step.fileName.startsWith("sneakers-product-") ? (
+    removes && "fileName" in step && targetOfFile(step.fileName) === BASE ? (
       <p>This removes {removes} and its files.</p>
     ) : null;
   switch (step.kind) {
@@ -1199,6 +1544,7 @@ const VerifiedPanel = ({
   updatePackage: UpdatePackage;
 }) => {
   const product = updatePackage.target === PRODUCT;
+  const web = updatePackage.target === WEB;
   const rows: [string, ReactNode][] = [
     ["File", fileName],
     ["Version", describePackage(updatePackage)],
@@ -1222,9 +1568,11 @@ const VerifiedPanel = ({
       "Staged",
       product
         ? "Staged into the product's other slot"
-        : slot
-          ? `Staged into slot ${slot}`
-          : "Staged into the other slot",
+        : web
+          ? `Staged into web slot ${slot ?? ""}`
+          : slot
+            ? `Staged into slot ${slot}`
+            : "Staged into the other slot",
     ],
   ];
   return (

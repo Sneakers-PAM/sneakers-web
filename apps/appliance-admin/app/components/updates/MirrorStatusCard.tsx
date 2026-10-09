@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { Alert, Card, CardHeader, Pill, shortDate } from "@sneakers-web/ui";
 import { Link } from "react-router";
 
@@ -12,11 +14,28 @@ const pinState = (status: MirrorStatus): string => {
 };
 
 /**
- * The update mirror's transport and its last fetch, from GetUpgrades: for HTTPS the server
- * certificate the box was presented with, refused or not, and whether the pin matched.
+ * The update mirror: the source and its controls (children: Check now, the source choice), and
+ * from GetUpgrades its transport and its last fetch: for HTTPS the server certificate the box was
+ * presented with, refused or not, and whether the pin matched. With no source and no children
+ * it isn't shown.
  */
-export const MirrorStatusCard = ({ status }: { status?: MirrorStatus }) => {
-  if (!status) return null;
+export const MirrorStatusCard = ({
+  children,
+  status,
+}: {
+  children?: ReactNode;
+  status?: MirrorStatus;
+}) => {
+  if (!status && !children) return null;
+  if (!status)
+    return (
+      <section aria-label="Update mirror">
+        <Card>
+          <CardHeader title="Update mirror" />
+          <div className="flex flex-col gap-4 px-5.5 pb-5 text-small">{children}</div>
+        </Card>
+      </section>
+    );
   const https = status.scheme === "https";
   return (
     <section aria-label="Update mirror">
@@ -26,6 +45,8 @@ export const MirrorStatusCard = ({ status }: { status?: MirrorStatus }) => {
           title="Update mirror"
         />
         <div className="flex flex-col gap-4 px-5.5 pb-5 text-small">
+          {children}
+          {status.url && <p className="break-all">URL: {status.url}</p>}
           <p>
             {https
               ? `${status.note}.`

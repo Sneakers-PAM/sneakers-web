@@ -14,12 +14,15 @@ import type {
   AuditEvent,
   BackupPolicy,
   BackupSet,
+  BaseWebStatus,
   CertEndpoint,
+  CheckUpdatesResponse,
   CheckPasswordResponse,
   Component,
   Disk,
   Elevation,
   FactoryReset,
+  FetchProgress,
   GenerateRecoveryKeyResponse,
   GetBackupsResponse,
   GetCertificateStoreResponse,
@@ -59,6 +62,7 @@ import type {
   SetupStep,
   StoredCertificate,
   TotpEnrolment,
+  UnitOffer,
   UpdatePackage,
   UpgradeEvent,
   UpgradePolicy,
@@ -539,6 +543,61 @@ const upgradePolicy = (w: Wire<UpgradePolicy>): UpgradePolicy => ({
 
 const productSlots = (w: Wire<ProductSlots>): ProductSlots => ({ ...w });
 
+const baseWebStatus = (w: Wire<BaseWebStatus>): BaseWebStatus => ({
+  builtinVersion: w.builtinVersion ?? "",
+  canRevert: w.canRevert ?? false,
+  currentVersion: w.currentVersion ?? "",
+  fits: w.fits ?? false,
+  previousVersion: w.previousVersion ?? "",
+  reason: w.reason ?? "",
+  requiresBaseOs: w.requiresBaseOs ?? "",
+  runningVersion: w.runningVersion ?? "",
+  slot: w.slot ?? "",
+  source: w.source ?? "",
+  stagedVersion: w.stagedVersion ?? "",
+});
+
+const unitOffer = (w: Wire<UnitOffer>): UnitOffer => ({
+  ...w,
+  bases: texts(w.bases),
+  commit: w.commit ?? "",
+  fileName: w.fileName ?? "",
+  kind: word(w.kind),
+  needs: w.needs ?? "",
+  note: w.note ?? "",
+  outsideProductRange: w.outsideProductRange ?? false,
+  preferred: w.preferred ?? false,
+  productRange: w.productRange ?? "",
+  size: w.size ?? "0",
+  version: w.version ?? "",
+});
+
+export const checkUpdates = (w: Wire<CheckUpdatesResponse>): CheckUpdatesResponse => ({
+  ...w,
+  baseOs: list(w.baseOs, unitOffer),
+  baseWeb: list(w.baseWeb, unitOffer),
+  baseWebWaits: w.baseWebWaits ?? "",
+  indexFormat: w.indexFormat ?? 0,
+  product: list(w.product, unitOffer),
+  source: w.source ?? "",
+  url: w.url ?? "",
+});
+
+const fetchProgress = (w: Wire<FetchProgress>): FetchProgress => ({
+  ...w,
+  bytesPerSecond: w.bytesPerSecond ?? "0",
+  code: w.code ?? "",
+  doneBytes: w.doneBytes ?? "0",
+  error: w.error ?? "",
+  etaSeconds: w.etaSeconds ?? "0",
+  fileName: w.fileName ?? "",
+  source: w.source ?? "",
+  state: word(w.state),
+  totalBytes: w.totalBytes ?? "0",
+  uploadId: w.uploadId ?? "",
+  verified: w.verified ?? false,
+});
+
 const productVersion = (w: Wire<ProductVersion>): ProductVersion => ({
   arch: w.arch ?? "",
   bases: texts(w.bases),
@@ -605,6 +664,9 @@ const mirrorStatus = (w: Wire<MirrorStatus>): MirrorStatus => ({
   pinMatched: w.pinMatched ?? false,
   pinned: w.pinned ?? false,
   scheme: w.scheme ?? "",
+  builtinUrls: texts(w.builtinUrls),
+  source: w.source ?? "",
+  url: w.url ?? "",
   serverIssuer: w.serverIssuer ?? "",
   serverSha256: w.serverSha256 ?? "",
   serverSubject: w.serverSubject ?? "",
@@ -641,7 +703,11 @@ export const getUpgrades = (w: Wire<GetUpgradesResponse>): GetUpgradesResponse =
   ...w,
   activeElevations: list(w.activeElevations, elevation),
   airGapped: w.airGapped ?? false,
+  baseOsNote: w.baseOsNote ?? "",
+  baseWeb: optional(w.baseWeb, baseWebStatus),
   failedVersion: w.failedVersion ?? "",
+  fetchProgress: optional(w.fetchProgress, fetchProgress),
+  lastCheck: optional(w.lastCheck, checkUpdates),
   heldUpload: optional(w.heldUpload, heldUpload),
   history: list(w.history, upgradeEvent),
   mirrorStatus: optional(w.mirrorStatus, mirrorStatus),

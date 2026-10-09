@@ -19,6 +19,7 @@ import type {
 import { type Edge, UPLOAD_CANCELLED, type UploadOptions } from "@/lib/osadmin/edgeTypes";
 import { OsadminError } from "@/lib/osadmin/errors";
 import { getSession } from "@/lib/osadmin/sessionStore";
+import { noteServedWebVersion } from "@/lib/webVersion";
 import {
   applyCertificateScenario,
   CERTIFICATE_SCENARIOS,
@@ -36,6 +37,7 @@ import {
   resetMirror,
   updateTrust,
 } from "@/mock/mirror.mock";
+import * as units from "@/mock/units.mock";
 import * as world from "@/mock/world";
 
 /** The banner every screen shows while the app runs against the mock transport. */
@@ -206,7 +208,18 @@ let stagedVersion = "";
 let product = structuredClone(world.PRODUCT_SLOTS);
 /** This build has a release source to fetch from directly. */
 const DIRECT_AVAILABLE = true;
-const isAirGapped = () => !upgradePolicy.mirrorUrl && !upgradePolicy.direct;
+/** The policy's source, filled in as the box answers it for a policy from before the source. */
+const sourceOf = () =>
+  upgradePolicy.source ??
+  (upgradePolicy.mirrorUrl ? "manual" : upgradePolicy.direct ? "builtin" : "none");
+const isAirGapped = () => {
+  const source = sourceOf();
+  return source === "none" || (source === "manual" && !upgradePolicy.mirrorUrl);
+};
+/** The built-in source list: the release download location. */
+const BUILTIN_URLS = ["https://github.com/Sneakers-PAM/sneakers-appliance/releases"];
+/** In the "web-updated" scenario every answer names newer pages than the page was built as. */
+let webUpdatedTo = "";
 /** A fetch tries the mirror first; its refusal stands when there's no release source to try. */
 const fromMirror = () => {
   if (!upgradePolicy.mirrorUrl) return;
@@ -302,6 +315,7 @@ const STEP_LABELS: Record<string, string> = {
   health: "Checking health",
   images: "Pulling the product's images",
   k0s: "Starting k0s",
+  load: "Loading and checking the pages",
   manifests: "Applying the product's manifests",
   mark_good: "Marking good",
   pods: "Waiting for the product's pods",
@@ -314,7 +328,9 @@ const stepIds = (action: UpgradeProgress["action"], target: UpdateTarget): strin
   const after =
     target === "UPDATE_TARGET_PRODUCT"
       ? ["switch", "restart", ...PRODUCT_TICKS.map((tick) => tick.id)]
-      : ["switch", "reboot", "health", "mark_good"];
+      : target === "UPDATE_TARGET_BASE_WEB"
+        ? ["switch", "load"]
+        : ["switch", "reboot", "health", "mark_good"];
   return action === "revert" ? after : ["verify", "stage", ...after];
 };
 /** The steps with `at` in state, the ones before it done and the ones after it pending. */
@@ -336,8 +352,12 @@ const progressAt = (
       id === "stage"
         ? target === "UPDATE_TARGET_PRODUCT"
           ? "Staging into the free product slot"
-          : "Staging into slot B"
-        : (STEP_LABELS[id] ?? id),
+          : target === "UPDATE_TARGET_BASE_WEB"
+            ? "Staging into the free web slot"
+            : "Staging into slot B"
+        : id === "switch" && target === "UPDATE_TARGET_BASE_WEB"
+          ? "Switching the admin pages"
+          : (STEP_LABELS[id] ?? id),
     state:
       index_ < index
         ? "UPGRADE_STEP_STATE_DONE"
@@ -548,6 +568,33 @@ const verify = async (uploadId: string): Promise<UpdatePackage> => {
       ).join(""),
       size: String(blob.size),
       target: "UPDATE_TARGET_PRODUCT",
+      uploadId,
+      version,
+    };
+  }
+  if (content.includes("web")) {
+    const version = /\d+\.\d+\.\d+/.exec(content)?.[0] ?? units.OFFERED_WEB;
+    const needs = /needs (\d+)\.(\d+)\.\d+/.exec(content);
+    if (needs && !runningVersion.startsWith(`${needs[1] ?? ""}.${needs[2] ?? ""}.`)) {
+      // As on the box: the upload is kept, to stage once the Base OS fits.
+      const range = `${needs[1] ?? ""}.${needs[2] ?? ""}.0 to before ${needs[1] ?? ""}.${String(Number(needs[2] ?? 0) + 1)}.0`;
+      throw new OsadminError(
+        "failed_precondition",
+        `UPGRADE_COMPAT (2530): Base Web ${version} needs Base OS ${range}. This box runs Base OS ${runningVersion}. Install Base OS ${needs[1] ?? ""}.${needs[2] ?? ""}.x first.`,
+      );
+    }
+    return {
+      arch: "amd64",
+      bases: [],
+      channel: "stable",
+      kind: "full",
+      maxBase: "",
+      minBase: "",
+      sha256: Array.from({ length: 32 }, (_, index) =>
+        (index * 3 + 5).toString(16).padStart(2, "0"),
+      ).join(""),
+      size: String(blob.size),
+      target: "UPDATE_TARGET_BASE_WEB",
       uploadId,
       version,
     };
@@ -1353,6 +1400,17 @@ const route = async (service: string, method: string, body: Record<string, unkno
     }
     case "UpgradeService/ApplyUpdate": {
       checkCallCode(body.totpCode);
+      if (body.target === "UPDATE_TARGET_BASE_WEB") {
+        if (!units.webStaged())
+          throw new OsadminError(
+            "failed_precondition",
+            "UPGRADE_NOT_STAGED: no Base Web is staged",
+          );
+        const version = units.applyWeb();
+        historyEntry("apply", version, "", "", "UPDATE_TARGET_BASE_WEB");
+        upgradeProgress = progressAt("apply", "UPDATE_TARGET_BASE_WEB", version, "load", "DONE");
+        return {};
+      }
       if (isProduct(body.target)) {
         if (!product.stagedVersion)
           throw new OsadminError("failed_precondition", "UPGRADE_NOT_STAGED: no product is staged");
@@ -1395,6 +1453,24 @@ const route = async (service: string, method: string, body: Record<string, unkno
       restart();
       return {};
     }
+    case "UpgradeService/CheckUpdates": {
+      if (isAirGapped())
+        throw new OsadminError(
+          "failed_precondition",
+          "UPGRADE_AIR_GAPPED: the box has no update source (upload only); choose the built-in list or a mirror, or upload the .bin",
+        );
+      if (sourceOf() !== "builtin") fromMirror();
+      const products = world.PRODUCT_VERSIONS.filter(
+        (v) =>
+          (v.minBase
+            ? inRange(runningVersion, v.minBase, v.maxBase)
+            : v.bases.includes(runningVersion)) &&
+          (!product.installedVersion || newer(v.version, product.installedVersion)),
+      );
+      return sourceOf() === "builtin"
+        ? units.checkUpdates(runningVersion, products, "direct", BUILTIN_URLS[0] ?? "")
+        : units.checkUpdates(runningVersion, products, "mirror", upgradePolicy.mirrorUrl);
+    }
     case "UpgradeService/DiscardUpdate": {
       const uploadId = (body.uploadId as string | undefined) ?? "";
       if (uploadId) {
@@ -1409,6 +1485,12 @@ const route = async (service: string, method: string, body: Record<string, unkno
       }
       const notStaged = () =>
         new OsadminError("failed_precondition", "UPGRADE_NOT_STAGED: no release is staged");
+      if (body.target === "UPDATE_TARGET_BASE_WEB") {
+        const version = units.unstageWeb();
+        if (!version) throw notStaged();
+        historyEntry("discard", version, "", "unstaged", "UPDATE_TARGET_BASE_WEB");
+        return { version };
+      }
       if (isProduct(body.target)) {
         const version = product.stagedVersion;
         if (!version) throw notStaged();
@@ -1443,6 +1525,25 @@ const route = async (service: string, method: string, body: Record<string, unkno
         historyEntry("fetch", productFile[1] ?? "", "", "", "UPDATE_TARGET_PRODUCT");
         return { source: upgradePolicy.mirrorUrl ? "mirror" : "direct", uploadId };
       }
+      const unitFile =
+        /^sneakers-appliance-(baseOS|baseOS-patch|baseWeb)-(\d+\.\d+\.\d+)[\w.-]*-(amd64|arm64)\.bin$/.exec(
+          fileName,
+        );
+      if (unitFile) {
+        const uploadId = `fetch-${String(++uploadCount)}`;
+        const [, unit, version] = unitFile;
+        const content =
+          unit === "baseWeb"
+            ? `signed web ${version ?? ""}`
+            : unit === "baseOS-patch"
+              ? "signed patch"
+              : "signed release";
+        const blob = new Blob([content]);
+        holdUpload(uploadId, blob, fileName, "mirror");
+        units.fetched(fileName, uploadId, blob.size, "mirror");
+        historyEntry("fetch", version ?? "", "", "", units.targetOfFile(fileName));
+        return { source: "mirror", uploadId };
+      }
       if (!/^sneakers-appliance-\d+\.\d+\.\d+(-[\w.]+)?-(amd64|arm64)\.bin$/.test(fileName))
         throw new OsadminError(
           "failed_precondition",
@@ -1468,11 +1569,23 @@ const route = async (service: string, method: string, body: Record<string, unkno
         failedVersion,
         heldUpload: heldUpload(),
         ...reverted,
+        baseOsNote:
+          stagedVersion && units.webInstalled()
+            ? `After the reboot the box serves the built-in pages of ${stagedVersion} until a Base Web that fits it is installed (the installed Base Web ${units.servedWeb()} needs Base OS 0.1.0 to before 0.2.0).`
+            : "",
+        baseWeb: units.baseWebStatus(runningVersion),
+        fetchProgress: units.fetchProgress(),
         history: structuredClone(upgradeHistory),
-        mirrorStatus: mirrorStatus(upgradePolicy.mirrorUrl),
+        lastCheck: units.lastCheckAnswer(),
+        mirrorStatus:
+          sourceOf() === "builtin"
+            ? mirrorStatus(BUILTIN_URLS[0] ?? "", "builtin", BUILTIN_URLS)
+            : sourceOf() === "none"
+              ? undefined
+              : mirrorStatus(upgradePolicy.mirrorUrl),
         // As on the box: staging writes over the other slot, so it removes what's there.
         nextStageRemoves: [stagedVersion || previousVersion].filter(Boolean),
-        policy: structuredClone(upgradePolicy),
+        policy: { ...structuredClone(upgradePolicy), source: sourceOf() },
         ...previousSlot(),
         product: structuredClone(product),
         receiving: receiving || noticeCancel(),
@@ -1499,6 +1612,17 @@ const route = async (service: string, method: string, body: Record<string, unkno
     }
     case "UpgradeService/RevertUpdate": {
       checkCallCode(body.totpCode);
+      if (body.target === "UPDATE_TARGET_BASE_WEB") {
+        if (!units.webInstalled())
+          throw new OsadminError(
+            "failed_precondition",
+            "UPGRADE_NO_PREVIOUS: the box serves its built-in pages; there's no Base Web to revert",
+          );
+        const version = units.revertWeb();
+        historyEntry("revert", version, "", "", "UPDATE_TARGET_BASE_WEB");
+        upgradeProgress = progressAt("revert", "UPDATE_TARGET_BASE_WEB", version, "load", "DONE");
+        return {};
+      }
       if (isProduct(body.target)) {
         if (!product.previousVersion)
           throw new OsadminError(
@@ -1584,6 +1708,11 @@ const route = async (service: string, method: string, body: Record<string, unkno
           "DONE",
         );
         dropUpload(uploadId);
+        if (updatePackage.target === "UPDATE_TARGET_BASE_WEB") {
+          units.stageWeb(updatePackage.version);
+          historyEntry("stage", updatePackage.version, "", "", updatePackage.target);
+          return { package: updatePackage, slot: units.webInstalled() ? "b" : "a" };
+        }
         if (isProduct(updatePackage.target)) product.stagedVersion = updatePackage.version;
         else {
           stagedVersion = updatePackage.version;
@@ -1595,6 +1724,9 @@ const route = async (service: string, method: string, body: Record<string, unkno
           : { package: updatePackage, slot: "B" };
       } catch (error) {
         const code = error instanceof OsadminError ? (error.symbol ?? "") : "";
+        // A Base Web that doesn't fit the running Base OS is kept, as on the box; anything else
+        // refused at verify is deleted.
+        if (code !== "UPGRADE_COMPAT") dropUpload(uploadId);
         historyEntry("stage", "", code);
         upgradeProgress = progressAt("stage", "UPDATE_TARGET_BASE", "", "verify", "FAILED", {
           code,
@@ -1629,7 +1761,13 @@ export const edge: Edge = {
       })),
   },
   async request<Result>(service: string, method: string, body: unknown): Promise<Result> {
-    return (await route(service, method, (body as Record<string, unknown>) ?? {})) as Result;
+    const answer = (await route(
+      service,
+      method,
+      (body as Record<string, unknown>) ?? {},
+    )) as Result;
+    if (webUpdatedTo) noteServedWebVersion(webUpdatedTo);
+    return answer;
   },
   async upload(
     bytes: Blob,
@@ -1695,9 +1833,13 @@ const MOCK_SCENARIOS = [
   "throttled",
   "uploading",
   "verifying",
+  "source-builtin",
+  "web-compat",
+  "web-updated",
 ] as const;
 
-export type MockScenario = (typeof MOCK_SCENARIOS)[number] | CertificateScenario | MirrorScenario;
+export type MockScenario =
+  (typeof MOCK_SCENARIOS)[number] | CertificateScenario | MirrorScenario | units.UnitScenario;
 
 /** A fresh box: no admin, no recovery key, setup not started. */
 const firstBoot = () => {
@@ -1759,6 +1901,10 @@ const pendingReset = (): FactoryReset => ({
 export const applyMockScenario = (scenario: MockScenario): void => {
   if ((CERTIFICATE_SCENARIOS as string[]).includes(scenario)) {
     applyCertificateScenario(scenario as CertificateScenario);
+    return;
+  }
+  if ((units.UNIT_SCENARIOS as readonly string[]).includes(scenario)) {
+    units.applyUnitScenario(scenario as units.UnitScenario);
     return;
   }
   if ((MIRROR_SCENARIOS as string[]).includes(scenario)) {
@@ -1901,6 +2047,10 @@ export const applyMockScenario = (scenario: MockScenario): void => {
       quorum = { configured: false, members: ["alice"], required: 1 };
       break;
     }
+    case "source-builtin": {
+      upgradePolicy = { ...upgradePolicy, direct: true, mirrorUrl: "", source: "builtin" };
+      break;
+    }
     case "staged": {
       stagedVersion = "0.2.0";
       previousVersion = "";
@@ -1926,6 +2076,19 @@ export const applyMockScenario = (scenario: MockScenario): void => {
       verifyStalls = true;
       break;
     }
+    case "web-compat": {
+      holdUpload(
+        "upload-web-compat",
+        new Blob(["signed web 0.2.1 needs 0.2.0"]),
+        "sneakers-appliance-baseWeb-0.2.1-g1a2b3c4-amd64.bin",
+        "upload",
+      );
+      break;
+    }
+    case "web-updated": {
+      webUpdatedTo = units.OFFERED_WEB;
+      break;
+    }
   }
 };
 
@@ -1933,6 +2096,7 @@ const SCENARIOS = new Set<string>([
   ...CERTIFICATE_SCENARIOS,
   ...MIRROR_SCENARIOS,
   ...MOCK_SCENARIOS,
+  ...units.UNIT_SCENARIOS,
 ]);
 
 /** `?mockScenario=staged,reset-pending` on a mock build's URL, for the review screen list. */
@@ -1946,6 +2110,8 @@ const scenariosFromUrl = (): void => {
 export const resetMockWorld = (): void => {
   resetCertificates();
   resetMirror();
+  units.resetUnits();
+  webUpdatedTo = "";
   upgradePolicy = structuredClone(world.UPGRADE_POLICY);
   runningVersion = "0.1.0";
   stagedVersion = "";

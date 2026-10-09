@@ -640,11 +640,106 @@ export interface UpgradePolicy {
   windowMinutes: number;
   /** HH:MM local. */
   windowStart: string;
+  /**
+   * Where updates come from: builtin (the list compiled into the root: the release download
+   * location, or a lab build's mirror), manual (mirrorUrl) or none (upload only). The box always
+   * answers it filled in; a box from before the source leaves it out.
+   */
+  source?: UpdateSource;
 }
 
-/** What an update changes: the base image (its slots and a reboot) or the product bundle. */
+export type UpdateSource = "builtin" | "manual" | "none";
+
+/**
+ * What an update changes, one of the three update units: the Base OS (the root image, its slots
+ * and a reboot), the Base Web (the :8443 pages, switched in place) or the product bundle.
+ */
 export type UpdateTarget =
-  "UPDATE_TARGET_BASE" | "UPDATE_TARGET_PRODUCT" | "UPDATE_TARGET_UNSPECIFIED";
+  | "UPDATE_TARGET_BASE"
+  | "UPDATE_TARGET_BASE_WEB"
+  | "UPDATE_TARGET_PRODUCT"
+  | "UPDATE_TARGET_UNSPECIFIED";
+
+/** The Base Web unit: which pages :8443 serves, and its slots. */
+export interface BaseWebStatus {
+  builtinVersion: string;
+  /** There's a Base Web to revert: to previousVersion, or with none to the built-in pages. */
+  canRevert: boolean;
+  /** What the current link names, served or not. */
+  currentVersion: string;
+  /** Whether the running Base OS is in requiresBaseOs. */
+  fits: boolean;
+  /** The slot a revert goes back to; empty when a revert goes to the built-in pages. */
+  previousVersion: string;
+  /** Why the built-in pages serve, or why the last switch didn't take. */
+  reason: string;
+  /** What the current Base Web needs of the Base OS, such as "0.3.0 to before 0.4.0". */
+  requiresBaseOs: string;
+  /** The served pages' version; the built-in pages carry the running Base OS's. */
+  runningVersion: string;
+  /** a or b; empty for the built-in pages. */
+  slot: string;
+  /** slot or built-in. */
+  source: string;
+  stagedVersion: string;
+}
+
+/** One file the source offers for a unit. */
+export interface UnitOffer {
+  bases: string[];
+  commit: string;
+  /** What FetchUpdate takes. */
+  fileName: string;
+  kind: "full" | "patch";
+  /** What the file needs of the Base OS, such as "0.3.0 to before 0.4.0". */
+  needs: string;
+  /** What taking it means for the other units. */
+  note: string;
+  /** A Base OS outside the installed product's range: staging it needs the owner's override. */
+  outsideProductRange: boolean;
+  /** The line to take: the newest Base OS's patch when it fits, else its full file. */
+  preferred: boolean;
+  productRange: string;
+  /** int64, so a string. */
+  size: string;
+  target?: UpdateTarget;
+  version: string;
+}
+
+/** Check now's answer: what the source offers for each unit. */
+export interface CheckUpdatesResponse {
+  baseOs: UnitOffer[];
+  baseWeb: UnitOffer[];
+  /** A newer Base Web the running Base OS doesn't fit, and the Base OS it needs. */
+  baseWebWaits: string;
+  checkedAt?: string;
+  indexFormat: number;
+  product: UnitOffer[];
+  /** mirror, builtin or direct, and its address. */
+  source: string;
+  url: string;
+}
+
+/** A fetch of one .bin, while it runs and after. */
+export interface FetchProgress {
+  bytesPerSecond: string;
+  code: string;
+  /** int64s, so strings. */
+  doneBytes: string;
+  error: string;
+  etaSeconds: string;
+  fileName: string;
+  source: string;
+  startedAt?: string;
+  /** querying, downloading, verifying, done or failed. */
+  state: "" | "done" | "downloading" | "failed" | "querying" | "verifying";
+  target?: UpdateTarget;
+  totalBytes: string;
+  updatedAt?: string;
+  uploadId: string;
+  /** The downloaded file's signature, channel and SHA-256 checked out. */
+  verified: boolean;
+}
 
 /** The product bundle's slots (k0s, its images and the product) on the state volume. */
 export interface ProductSlots {
@@ -657,6 +752,10 @@ export interface ProductSlots {
   name?: string;
   /** The slot a revert goes back to; empty when there is none. */
   previousVersion?: string;
+  /** The installed product's base range, such as "0.2.0 to 0.3.0"; fits says whether the
+   * running Base OS is in it. */
+  fits?: boolean;
+  requiresBaseOs?: string;
   /** The product services (k0s) are running. */
   running?: boolean;
   stagedVersion?: string;
@@ -692,6 +791,10 @@ export interface UpdatePackage {
   arch: string;
   bases: string[];
   channel: string;
+  /** A Base OS patch's full release, which the box takes when the patch doesn't apply. */
+  fullBin?: string;
+  /** upload, mirror or direct. */
+  source?: string;
   kind: "full" | "patch";
   /** A product bundle's base range, as in ProductVersion. */
   maxBase: string;
@@ -816,6 +919,15 @@ export interface GetUpgradesResponse {
   upgradeProgress?: UpgradeProgress;
   /** The mirror's transport and its last fetch; left out when no mirror is set. */
   mirrorStatus?: MirrorStatus;
+  /** The Base Web unit; left out by a box from before the units. */
+  baseWeb?: BaseWebStatus;
+  /** The last Check now since osadmin started. */
+  lastCheck?: CheckUpdatesResponse;
+  /** The last fetch, while it runs and after. */
+  fetchProgress?: FetchProgress;
+  /** For a staged Base OS whose built-in pages the installed Base Web doesn't fit: what the box
+   * serves after the reboot. */
+  baseOsNote: string;
 }
 
 /**
@@ -839,6 +951,11 @@ export interface MirrorStatus {
   pinned: boolean;
   /** http or https. */
   scheme: string;
+  /** The policy's source (builtin or manual), the mirror this status is about, and the
+   * built-in list in order. */
+  builtinUrls: string[];
+  source: string;
+  url: string;
   /** The server certificate the last HTTPS fetch was presented with, refused or not. */
   serverIssuer: string;
   serverNotAfter?: string;

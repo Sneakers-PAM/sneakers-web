@@ -11,13 +11,14 @@ const mirrorCard = async () => {
   return screen.findByRole("region", { name: "Update mirror" });
 };
 
-const fetchBin = async (user: ReturnType<typeof userEvent.setup>) => {
-  await user.type(
-    screen.getByLabelText("File name on the mirror"),
-    "sneakers-appliance-0.2.0-amd64.bin",
-  );
-  await user.click(screen.getByRole("button", { name: "Fetch" }));
-  return screen.findByRole("region", { name: "Verify result" });
+/** Check now's refusal, in the mirror card. */
+const checkRefusal = async (card: HTMLElement): Promise<HTMLElement> => {
+  await within(card).findByText("Check now was refused");
+  const alert = within(card)
+    .getAllByRole("alert")
+    .find((element) => element.textContent.startsWith("Check now was refused"));
+  if (!alert) throw new Error("Check now's refusal isn't an alert");
+  return alert;
 };
 
 describe("The update mirror on Updates", () => {
@@ -57,15 +58,13 @@ describe("The update mirror on Updates", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows a wrong CA's refusal, on the card and in the file panel", async () => {
-    const user = userEvent.setup();
+  it("shows a wrong CA's refusal, on the card and in Check now's answer", async () => {
     applyMockScenario("mirror-wrong-ca");
     const card = await mirrorCard();
-    expect(within(card).getByRole("alert")).toHaveTextContent("UPGRADE_MIRROR_UNTRUSTED");
-    const result = await fetchBin(user);
-    expect(result).toHaveAttribute("data-tone", "danger");
-    expect(within(result).getByText("UPGRADE_MIRROR_UNTRUSTED")).toBeInTheDocument();
-    expect(within(result).getByText(/isn't trusted/)).toBeInTheDocument();
+    const refusal = await checkRefusal(card);
+    expect(refusal).toHaveTextContent("UPGRADE_MIRROR_UNTRUSTED");
+    expect(refusal).toHaveTextContent(/isn't trusted/);
+    expect(screen.queryByRole("button", { name: /^Fetch/ })).not.toBeInTheDocument();
   });
 
   it("shows a pin mismatch's refusal", async () => {
@@ -73,11 +72,11 @@ describe("The update mirror on Updates", () => {
     applyMockScenario("mirror-pin-mismatch");
     const card = await mirrorCard();
     expect(within(card).getByText("Doesn't match")).toBeInTheDocument();
-    const result = await fetchBin(user);
-    expect(within(result).getByText("UPGRADE_MIRROR_PIN")).toBeInTheDocument();
+    await user.click(within(card).getByRole("button", { name: "Check now" }));
+    expect(await checkRefusal(card)).toHaveTextContent("UPGRADE_MIRROR_PIN");
   });
 
-  it("takes an http:// mirror in the update window and says the signature is checked either way", async () => {
+  it("takes an http:// mirror as the manual source and says the signature is checked either way", async () => {
     await mirrorCard();
     expect(screen.getByText(/An http:\/\/ or https:\/\/ URL/)).toHaveTextContent(
       "Every file's signature is checked either way.",

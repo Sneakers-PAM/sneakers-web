@@ -12,6 +12,7 @@ import type {
   AddedCertificate,
   CertEndpoint,
   CheckPasswordResponse,
+  CheckUpdatesResponse,
   Certificate,
   ElevationOverride,
   FactoryReset,
@@ -344,6 +345,9 @@ export const upgrade = {
       target,
       totpCode,
     }),
+  /** Check now: the index read again from the policy's source, and each unit's offers. */
+  checkUpdates: () =>
+    call<CheckUpdatesResponse>("UpgradeService", "CheckUpdates", {}, wire.checkUpdates),
   /** A base .bin or a product bundle, from the mirror, then the release source if allowed. */
   fetch: (fileName: string) =>
     call<{ source?: string; uploadId: string }>(
