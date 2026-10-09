@@ -608,6 +608,11 @@ export type UpdateTarget =
 export interface ProductSlots {
   /** Empty before the first install. */
   installedVersion?: string;
+  /**
+   * The installed product's name for people, such as "Sneakers"; empty with no product. The nav
+   * shows the product's own section under it.
+   */
+  name?: string;
   /** The slot a revert goes back to; empty when there is none. */
   previousVersion?: string;
   /** The product services (k0s) are running. */

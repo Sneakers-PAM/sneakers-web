@@ -180,6 +180,8 @@ const api = {
     airGapped: true,
     failedVersion: "",
     policy: { mirrorUrl: "", mode: "manual", windowMinutes: 120, windowStart: "02:00" },
+    // A product is installed, so its own pages (MCP) are in the nav and render.
+    product: { installedVersion: "0.1.0", name: "Sneakers", running: true },
     runningVersion: "0.1.0",
     stagedVersion: "",
   }),

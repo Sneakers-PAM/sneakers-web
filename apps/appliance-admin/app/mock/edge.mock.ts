@@ -1218,6 +1218,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
         restartProduct("apply", product.stagedVersion);
         product = {
           installedVersion: product.stagedVersion,
+          name: world.PRODUCT_SLOTS.name,
           previousVersion: product.installedVersion,
           running: false,
           stagedVersion: "",
@@ -1324,6 +1325,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
         restartProduct("revert", product.previousVersion);
         product = {
           installedVersion: product.previousVersion,
+          name: product.name,
           previousVersion: product.installedVersion,
           running: false,
           stagedVersion: "",
@@ -1604,7 +1606,13 @@ export const applyMockScenario = (scenario: MockScenario): void => {
       break;
     }
     case "no-product": {
-      product = { installedVersion: "", previousVersion: "", running: false, stagedVersion: "" };
+      product = {
+        installedVersion: "",
+        name: "",
+        previousVersion: "",
+        running: false,
+        stagedVersion: "",
+      };
       break;
     }
     case "product-restart-fails": {

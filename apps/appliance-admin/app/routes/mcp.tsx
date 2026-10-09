@@ -1,4 +1,4 @@
-import { Badge, Card, CardHeader, Label, PageHeader, Switch } from "@sneakers-web/ui";
+import { Badge, Card, CardHeader, EmptyState, Label, PageHeader, Switch } from "@sneakers-web/ui";
 import { useEffect, useState } from "react";
 
 import type { GetMcpResponse } from "@/lib/osadmin/types";
@@ -7,8 +7,11 @@ import { NotAvailable } from "@/components/NotAvailable";
 import { runAction } from "@/lib/osadmin/action";
 import { mcp } from "@/lib/osadmin/client";
 import { isNotAvailable } from "@/lib/osadmin/errors";
+import { useInstalledProduct } from "@/lib/useInstalledProduct";
 
+/** One of the installed product's pages: with no product installed there's nothing here. */
 export default function Mcp() {
+  const { loaded, product } = useInstalledProduct();
   const [data, setData] = useState<GetMcpResponse>();
   const [unavailable, setUnavailable] = useState(false);
   const reload = () =>
@@ -18,7 +21,22 @@ export default function Mcp() {
       .catch((error: unknown) => {
         if (isNotAvailable(error)) setUnavailable(true);
       });
-  useEffect(reload, []);
+  useEffect(() => {
+    if (product) reload();
+  }, [product]);
+
+  if (!loaded) return null;
+  if (!product) {
+    return (
+      <div className="p-5.5">
+        <EmptyState
+          body="This page belongs to a product, and no product is installed on this box."
+          loader={false}
+          title="Nothing here"
+        />
+      </div>
+    );
+  }
 
   if (unavailable) {
     return (
@@ -31,7 +49,7 @@ export default function Mcp() {
 
   return (
     <div className="flex flex-col gap-5 p-5.5">
-      <PageHeader eyebrow="Appliance" title="MCP" />
+      <PageHeader eyebrow={product.name} title="MCP" />
       <Card>
         <CardHeader subtitle={data.state} title="MCP" />
         <div className="flex flex-col gap-4 p-5.5">

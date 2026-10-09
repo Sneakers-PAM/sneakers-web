@@ -333,6 +333,7 @@ export const SESSIONS: ActiveSession[] = [
 /** The mock box runs product 0.1.0, with nothing staged and no previous slot. */
 export const PRODUCT_SLOTS: ProductSlots = {
   installedVersion: "0.1.0",
+  name: "Sneakers",
   previousVersion: "",
   running: true,
   stagedVersion: "",

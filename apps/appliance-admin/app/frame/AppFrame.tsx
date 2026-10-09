@@ -7,7 +7,6 @@ import {
   Boxes,
   FileText,
   KeyRound,
-  Network,
   Power,
   RefreshCw,
   ShieldCheck,
@@ -19,8 +18,10 @@ import { Navigate, Outlet, useLocation, useNavigate } from "react-router";
 
 import { ApplianceAbout } from "@/components/ApplianceAbout";
 import { StepUpDialog } from "@/components/StepUpDialog";
+import { productPages } from "@/frame/productPages";
 import { setup, signIn } from "@/lib/osadmin/client";
 import { getSession, setSession } from "@/lib/osadmin/sessionStore";
+import { useInstalledProduct } from "@/lib/useInstalledProduct";
 import { useSession } from "@/lib/useSession";
 
 /**
@@ -49,6 +50,7 @@ export const AppFrame = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const phone = useBreakpoint() === "phone";
+  const { product } = useInstalledProduct(!!session, location.pathname);
 
   useEffect(() => {
     if (getSession()) return;
@@ -136,8 +138,20 @@ export const AppFrame = () => {
               to="/certificates"
             />
             <NavItem collapsed={collapsed} icon={<Archive />} label="Backups" to="/backups" />
-            <NavItem collapsed={collapsed} icon={<Network />} label="MCP" to="/mcp" />
           </NavGroup>
+          {product && (
+            <NavGroup collapsed={collapsed} label={product.name}>
+              {productPages.map((page) => (
+                <NavItem
+                  collapsed={collapsed}
+                  icon={page.icon}
+                  key={page.to}
+                  label={page.label}
+                  to={page.to}
+                />
+              ))}
+            </NavGroup>
+          )}
           <NavGroup collapsed={collapsed} label="Advanced">
             <NavItem collapsed={collapsed} icon={<Boxes />} label="Add-on modules" to="/modules" />
             <NavItem collapsed={collapsed} icon={<FileText />} label="Logs and audit" to="/logs" />
