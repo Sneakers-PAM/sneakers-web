@@ -22,12 +22,14 @@ import {
   SelectTrigger,
   SelectValue,
   shortDate,
+  Spinner,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeaderCell,
   TableRow,
+  toast,
 } from "@sneakers-web/ui";
 import { useEffect, useState } from "react";
 
@@ -45,7 +47,7 @@ import { NotAvailable } from "@/components/NotAvailable";
 import { saveText } from "@/lib/download";
 import { runAction } from "@/lib/osadmin/action";
 import { tls } from "@/lib/osadmin/client";
-import { isNotAvailable } from "@/lib/osadmin/errors";
+import { isNotAvailable, isStepUpRequired, OsadminError, reasonOf } from "@/lib/osadmin/errors";
 import { useSession } from "@/lib/useSession";
 
 const SOURCE: Record<StoredCertificate["source"], string> = {
@@ -365,6 +367,31 @@ export default function Certificates() {
 const byEndpoint = (endpoints: CertEndpoint[], id: string): string =>
   endpoints.find((endpoint) => endpoint.id === id)?.name ?? id;
 
+/** What the last Apply or Revert on an endpoint did, shown in its row rather than a toast. */
+interface EndpointResult {
+  code?: string;
+  text: string;
+  tone: "danger" | "ok";
+}
+
+/** Product (443) is the product's edge, checked on 443; the admin endpoint is :8443. */
+const portOf = (endpoint: CertEndpoint) => (endpoint.id === "product" ? "443" : ":8443");
+
+/**
+ * A refused Apply or Revert, for the row. TLS_NOT_SERVED means the box saw its own handshake
+ * still show the previous certificate and put that one back.
+ */
+const refusedResult = (endpoint: CertEndpoint, error: unknown): EndpointResult => {
+  const code = error instanceof OsadminError ? error.symbol : undefined;
+  if (code === "TLS_NOT_SERVED")
+    return {
+      code,
+      text: `${portOf(endpoint)} didn't serve the new certificate in time, so the box rolled back to the previous one; nothing changed.`,
+      tone: "danger",
+    };
+  return { code, text: reasonOf(error), tone: "danger" };
+};
+
 const EndpointRow = ({
   certificates,
   endpoint,
@@ -380,18 +407,52 @@ const EndpointRow = ({
 }) => {
   const [pick, setPick] = useState(endpoint.certificateId ?? "");
   const [reverting, setReverting] = useState(false);
+  const [busy, setBusy] = useState<"" | "assign" | "revert">("");
+  const [result, setResult] = useState<EndpointResult>();
   const state = STATE[endpoint.state];
   if (!endpoint.available) {
     return (
-      <li className="flex flex-wrap items-center justify-between gap-3 px-5.5 py-4">
+      <li
+        aria-label={endpoint.name}
+        className="flex flex-wrap items-center justify-between gap-3 px-5.5 py-4"
+      >
         <span className="font-bold">{endpoint.name}</span>
         <span className="text-small text-muted">{endpoint.unavailableReason}</span>
       </li>
     );
   }
   const assignable = certificates.filter((c) => daysLeft(c.notAfter) >= 0);
+  const port = portOf(endpoint);
+  // Runs Apply or Revert, keeping the box's refusal in the row; a step-up still goes to the
+  // shared dialog and comes back here.
+  const run = (
+    kind: "assign" | "revert",
+    call: () => Promise<{ endpoint: CertEndpoint }>,
+    done: (served: CertEndpoint) => string,
+  ) => {
+    setBusy(kind);
+    setResult(undefined);
+    void runAction(
+      async () => {
+        try {
+          const answer = await call();
+          return { refused: undefined, served: answer.endpoint };
+        } catch (error) {
+          if (isStepUpRequired(error)) throw error;
+          return { refused: refusedResult(endpoint, error), served: undefined };
+        }
+      },
+      {
+        onSuccess: (outcome) => {
+          setBusy("");
+          setResult(outcome.refused ?? { text: done(outcome.served ?? endpoint), tone: "ok" });
+          onChanged();
+        },
+      },
+    ).finally(() => setBusy(""));
+  };
   return (
-    <li className="flex flex-col gap-3 px-5.5 py-4">
+    <li aria-label={endpoint.name} className="flex flex-col gap-3 px-5.5 py-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span className="font-bold">{endpoint.name}</span>
         <Pill tone={state.tone}>{state.label}</Pill>
@@ -408,7 +469,7 @@ const EndpointRow = ({
       />
       <div className="flex flex-wrap items-center gap-3">
         <span className="font-mono text-small">{label}</span>
-        <Select disabled={!isOwner} onValueChange={setPick} value={pick}>
+        <Select disabled={!isOwner || !!busy} onValueChange={setPick} value={pick}>
           <SelectTrigger aria-label={`Certificate for ${endpoint.name}`} className="w-72">
             <SelectValue placeholder="Choose a certificate" />
           </SelectTrigger>
@@ -421,12 +482,18 @@ const EndpointRow = ({
           </SelectContent>
         </Select>
         <Button
-          disabled={!isOwner || !pick || pick === endpoint.certificateId}
+          disabled={!isOwner || !pick || pick === endpoint.certificateId || !!busy}
           onClick={() =>
-            void runAction(() => tls.assign(endpoint.id, pick), {
-              onSuccess: onChanged,
-              successMessage: `${endpoint.name} now serves the new certificate.`,
-            })
+            run(
+              "assign",
+              () => tls.assign(endpoint.id, pick),
+              (served) => {
+                toast(`${endpoint.name} now serves the new certificate.`);
+                return `Served: the box checked that ${port} serves it now${
+                  served.servingFingerprint ? ` (${served.servingFingerprint})` : ""
+                }.`;
+              },
+            )
           }
           size="sm"
         >
@@ -434,7 +501,7 @@ const EndpointRow = ({
         </Button>
         {endpoint.source !== "ENDPOINT_SOURCE_SELF_SIGNED" && (
           <Button
-            disabled={!isOwner}
+            disabled={!isOwner || !!busy}
             onClick={() => setReverting(true)}
             size="sm"
             variant="secondary"
@@ -443,6 +510,22 @@ const EndpointRow = ({
           </Button>
         )}
       </div>
+      {busy && (
+        <p className="m-0 flex items-center gap-2 text-small text-muted" role="status">
+          <Spinner />
+          {endpoint.id === "product"
+            ? "Checking that 443 serves it; this can take up to 3 minutes."
+            : "Checking that :8443 serves it."}
+        </p>
+      )}
+      {result && (
+        <Alert role={result.tone === "danger" ? "alert" : "status"} tone={result.tone}>
+          <span className="flex flex-col gap-1">
+            <span>{result.text}</span>
+            {result.code && <span className="font-mono text-small">{result.code}</span>}
+          </span>
+        </Alert>
+      )}
       {(endpoint.names ?? []).length > 0 && (
         <p className="font-mono text-small">Checked against: {(endpoint.names ?? []).join(", ")}</p>
       )}
@@ -451,17 +534,22 @@ const EndpointRow = ({
         <AlertDialogContent>
           <AlertDialogTitle>Revert {endpoint.name} to self-signed?</AlertDialogTitle>
           <AlertDialogDescription>
-            :8443 goes back to the box&apos;s own certificate. Browsers warn again until a CA-signed
-            one is assigned; the assigned certificate stays in the store.
+            {endpoint.id === "product"
+              ? "443 goes back to the box's own certificate, the one :8443 has. Browsers warn again on the product's pages until a CA-signed one is assigned; the assigned certificate stays in the store."
+              : ":8443 goes back to the box's own certificate. Browsers warn again until a CA-signed one is assigned; the assigned certificate stays in the store."}
           </AlertDialogDescription>
           <div className="flex justify-end gap-2">
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() =>
-                void runAction(() => tls.revert(endpoint.id), {
-                  onSuccess: onChanged,
-                  successMessage: "Reverted to self-signed.",
-                })
+                run(
+                  "revert",
+                  () => tls.revert(endpoint.id),
+                  () => {
+                    toast("Reverted to self-signed.");
+                    return `${endpoint.name} is back on the box's own certificate; the box checked that ${port} serves it.`;
+                  },
+                )
               }
             >
               Revert

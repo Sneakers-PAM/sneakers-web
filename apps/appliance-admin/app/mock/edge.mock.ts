@@ -797,9 +797,13 @@ const route = async (service: string, method: string, body: Record<string, unkno
   }
   if (key === "TlsService/SetUpdateTrust" || key === "TlsService/ClearUpdateTrust")
     return mirrorTrustRequest(method, body);
+  const installed = { productInstalled: !!product.installedVersion };
   if (key === "TlsService/GetCertificateStore")
-    return { ...(certificatesRequest(method, body) as object), updateTrust: updateTrust() };
-  if (service === "TlsService") return certificatesRequest(method, body);
+    return {
+      ...(certificatesRequest(method, body, installed) as object),
+      updateTrust: updateTrust(),
+    };
+  if (service === "TlsService") return certificatesRequest(method, body, installed);
   switch (key) {
     case "AccessService/AddAdmin": {
       const name = String(body.name ?? "").trim();

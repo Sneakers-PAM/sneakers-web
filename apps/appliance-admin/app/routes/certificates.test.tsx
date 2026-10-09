@@ -27,14 +27,58 @@ describe("Certificates", () => {
     expect(within(store).getByText("Self-signed")).toBeInTheDocument();
     const endpoints = screen.getByRole("region", { name: "Endpoints" });
     expect(within(endpoints).getByText(":8443 admin")).toBeInTheDocument();
-    expect(
-      within(endpoints).getByText("Available when the product is installed."),
-    ).toBeInTheDocument();
+    expect(within(endpoints).getByText("Product (443)")).toBeInTheDocument();
     const acme = screen.getByRole("region", { name: "ACME / cert-manager" });
     expect(within(acme).getAllByText(/Not available yet/).length).toBeGreaterThan(0);
     expect(
       screen.getByText(/This page uses the box's own self-signed certificate/),
     ).toBeInTheDocument();
+  });
+
+  it("offers Product (443) only once the product is installed", async () => {
+    applyMockScenario("no-product");
+    renderPage(Certificates);
+    const endpoints = await screen.findByRole("region", { name: "Endpoints" });
+    expect(
+      within(endpoints).getByText("Available when the product is installed."),
+    ).toBeInTheDocument();
+    expect(
+      within(endpoints).queryByRole("combobox", { name: "Certificate for Product (443)" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("assigns a store certificate to Product (443) and says 443 serves it", async () => {
+    applyMockScenario("cert-assigned");
+    const user = userEvent.setup();
+    renderPage(Certificates);
+    const product = within(await screen.findByRole("listitem", { name: "Product (443)" }));
+    expect(product.getByText("Self-signed")).toBeInTheDocument();
+    await user.click(product.getByRole("combobox", { name: "Certificate for Product (443)" }));
+    await user.click(await screen.findByRole("option", { name: /\*\.example\.org/ }));
+    await user.click(product.getByRole("button", { name: "Apply" }));
+    expect(await product.findByText(/443 serves it now/)).toBeInTheDocument();
+    expect(product.getByText("OK")).toBeInTheDocument();
+    await user.click(product.getByRole("button", { name: "Revert to self-signed" }));
+    expect(
+      await screen.findByText(/443 goes back to the box's own certificate/),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Revert" }));
+    expect(await product.findByText(/back on the box's own certificate/)).toBeInTheDocument();
+    expect(product.getByText("Self-signed")).toBeInTheDocument();
+  });
+
+  it("says when 443 didn't serve the new certificate and the previous one is back", async () => {
+    applyMockScenario("cert-assigned");
+    applyMockScenario("cert-product-not-served");
+    const user = userEvent.setup();
+    renderPage(Certificates);
+    const product = within(await screen.findByRole("listitem", { name: "Product (443)" }));
+    await user.click(product.getByRole("combobox", { name: "Certificate for Product (443)" }));
+    await user.click(await screen.findByRole("option", { name: /\*\.example\.org/ }));
+    await user.click(product.getByRole("button", { name: "Apply" }));
+    expect(await product.findByText(/rolled back/)).toBeInTheDocument();
+    expect(product.getByText(/TLS_NOT_SERVED/)).toBeInTheDocument();
+    expect(product.getByText("Self-signed")).toBeInTheDocument();
   });
 
   it("says it isn't available when the box's certificate backend isn't there", async () => {
@@ -159,7 +203,7 @@ describe("Certificates", () => {
     applyMockScenario("cert-assigned");
     const user = userEvent.setup();
     renderPage(Certificates);
-    const endpoints = await screen.findByRole("region", { name: "Endpoints" });
+    const endpoints = await screen.findByRole("listitem", { name: ":8443 admin" });
     await user.click(within(endpoints).getByRole("button", { name: "Revert to self-signed" }));
     await user.click(await screen.findByRole("button", { name: "Revert" }));
     expect(await within(endpoints).findByText("Self-signed")).toBeInTheDocument();
@@ -193,7 +237,7 @@ describe("Certificates", () => {
 
   it("shows the names the box checks a certificate against", async () => {
     renderPage(Certificates);
-    const endpoints = await screen.findByRole("region", { name: "Endpoints" });
+    const endpoints = await screen.findByRole("listitem", { name: ":8443 admin" });
     expect(
       within(endpoints).getByText("Checked against: appliance.example.org, 192.0.2.10"),
     ).toBeInTheDocument();
@@ -211,7 +255,7 @@ describe("Certificates", () => {
     expect(
       within(notice).getByRole("link", { name: "Set the host name on Network" }),
     ).toHaveAttribute("href", "/network");
-    const endpoints = screen.getByRole("region", { name: "Endpoints" });
+    const endpoints = screen.getByRole("listitem", { name: ":8443 admin" });
     expect(within(endpoints).getByText("Checked against: 192.0.2.10")).toBeInTheDocument();
   });
 

@@ -31,9 +31,16 @@ single-name request made on the box (RSA 4096 by default, no wildcards). Each on
 lists every check, then applies to :8443 live. Every change needs an owner and a recent sign-in.
 Each endpoint lists the names a certificate is checked against: the box's host name and its
 management addresses. When the box has no host name, the page says so and links to Network to set
-it, and a refusal for that reason (`TLS_NO_HOSTNAME`) carries the same link. The mock box's states
-are `cert-assigned`, `cert-csr-pending`, `cert-expiring`, `cert-no-hostname` and `cert-not-served`
-(`?mockScenario=` on a mock build).
+it, and a refusal for that reason (`TLS_NO_HOSTNAME`) carries the same link.
+
+Product (443), the product's edge, is available once a product is installed. An owner assigns a
+store certificate to it, or reverts it to the box's own (the one :8443 has); the box checks that
+443 serves the new one within 3 minutes, and puts the previous one back if it doesn't
+(`TLS_NOT_SERVED`). The row says which happened, served or rolled back, with the code, rather
+than a toast. ACME stays "not available yet" until the product bundle's cert-manager is wired up.
+The mock box's states are `cert-assigned`, `cert-csr-pending`, `cert-expiring`, `cert-no-hostname`,
+`cert-not-served`, `cert-product-assigned` and `cert-product-not-served` (`?mockScenario=` on a
+mock build).
 
 ## Updates
 

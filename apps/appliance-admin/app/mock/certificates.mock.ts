@@ -93,6 +93,10 @@ interface State {
   /** The box's host name; empty for a box that has none. */
   host: string;
   notServed: boolean;
+  /** The store certificate Product (443) serves; null for the box's own. */
+  productAssigned: null | string;
+  /** 443 doesn't serve a newly assigned certificate, so the box puts the previous one back. */
+  productNotServed: boolean;
 }
 
 const fresh = (): State => ({
@@ -102,6 +106,8 @@ const fresh = (): State => ({
   csrs: [],
   host: HOST,
   notServed: false,
+  productAssigned: null,
+  productNotServed: false,
 });
 
 let state = fresh();
@@ -112,7 +118,13 @@ export const resetCertificates = (): void => {
 
 /** The certificate-page scenarios, for the gallery and the tests. */
 export type CertificateScenario =
-  "cert-assigned" | "cert-csr-pending" | "cert-expiring" | "cert-no-hostname" | "cert-not-served";
+  | "cert-assigned"
+  | "cert-csr-pending"
+  | "cert-expiring"
+  | "cert-no-hostname"
+  | "cert-not-served"
+  | "cert-product-assigned"
+  | "cert-product-not-served";
 
 export const CERTIFICATE_SCENARIOS: CertificateScenario[] = [
   "cert-assigned",
@@ -120,6 +132,8 @@ export const CERTIFICATE_SCENARIOS: CertificateScenario[] = [
   "cert-expiring",
   "cert-no-hostname",
   "cert-not-served",
+  "cert-product-assigned",
+  "cert-product-not-served",
 ];
 
 export const applyCertificateScenario = (scenario: CertificateScenario): void => {
@@ -147,6 +161,16 @@ export const applyCertificateScenario = (scenario: CertificateScenario): void =>
       state.notServed = true;
       break;
     }
+    case "cert-product-assigned": {
+      if (!state.certificates.some((c) => c.id === "c0ffee000003"))
+        state.certificates.push(wildcard("c0ffee000003"));
+      state.productAssigned = "c0ffee000003";
+      break;
+    }
+    case "cert-product-not-served": {
+      state.productNotServed = true;
+      break;
+    }
   }
 };
 
@@ -167,8 +191,10 @@ const nextId = () => {
   return `mock${String(state.count).padStart(8, "0")}`;
 };
 
-const usedBy = (id: string): string[] =>
-  (state.assigned ?? SELF_SIGNED_ID) === id ? ["admin"] : [];
+const usedBy = (id: string): string[] => [
+  ...((state.assigned ?? SELF_SIGNED_ID) === id ? ["admin"] : []),
+  ...(state.productAssigned === id ? ["product"] : []),
+];
 
 const adminEndpoint = (): CertEndpoint => {
   const id = state.assigned ?? SELF_SIGNED_ID;
@@ -197,6 +223,37 @@ const adminEndpoint = (): CertEndpoint => {
   };
 };
 
+/** Product (443): the edge serves the box's own certificate until a store one is assigned. */
+const productEndpoint = (installed: boolean): CertEndpoint => {
+  if (!installed) return PRODUCT_ENDPOINT;
+  const cert = state.certificates.find((c) => c.id === state.productAssigned);
+  if (!cert) {
+    return {
+      available: true,
+      id: "product",
+      name: "Product (443)",
+      names: boxNames(state.host),
+      servingFingerprint: selfSigned(state.host).fingerprint,
+      source: "ENDPOINT_SOURCE_SELF_SIGNED",
+      state: "ENDPOINT_STATE_SELF_SIGNED",
+      stateDetail: "443 serves the box's own certificate.",
+    };
+  }
+  const days = Math.floor((Date.parse(cert.notAfter) - Date.now()) / DAY);
+  return {
+    available: true,
+    certificateId: cert.id,
+    expires: cert.notAfter,
+    id: "product",
+    name: "Product (443)",
+    names: boxNames(state.host),
+    servingFingerprint: cert.fingerprint,
+    source: "ENDPOINT_SOURCE_ASSIGNED",
+    state: days <= 30 ? "ENDPOINT_STATE_EXPIRING" : "ENDPOINT_STATE_OK",
+    stateDetail: `${String(days)} days left.`,
+  };
+};
+
 const PRODUCT_ENDPOINT: CertEndpoint = {
   available: false,
   id: "product",
@@ -206,14 +263,14 @@ const PRODUCT_ENDPOINT: CertEndpoint = {
   unavailableReason: "Available when the product is installed.",
 };
 
-const store = (): GetCertificateStoreResponse => ({
+const store = (installed: boolean): GetCertificateStoreResponse => ({
   acme: {
     available: false,
     reason: "Not available yet: ACME through cert-manager comes with the product bundle.",
   },
   certificates: state.certificates.map((c) => ({ ...c, usedBy: usedBy(c.id) })),
   csrs: structuredClone(state.csrs),
-  endpoints: [adminEndpoint(), PRODUCT_ENDPOINT],
+  endpoints: [adminEndpoint(), productEndpoint(installed)],
 });
 
 const refused = (symbol: string, code: number, reason: string, checks: ValidationCheck[]) =>
@@ -330,8 +387,8 @@ const complete = (body: Record<string, string>) => {
   });
 };
 
-const assign = (body: Record<string, string>) => {
-  if (body.endpointId === "product")
+const assign = (body: Record<string, string>, installed: boolean) => {
+  if (body.endpointId === "product" && !installed)
     throw new OsadminError(
       "failed_precondition",
       "TLS_ENDPOINT_UNAVAILABLE (3812): the product endpoint is available when the product is installed",
@@ -341,6 +398,16 @@ const assign = (body: Record<string, string>) => {
       "failed_precondition",
       `TLS_UNKNOWN (3809): no certificate has the id "${body.certificateId ?? ""}"`,
     );
+  if (body.endpointId === "product") {
+    if (state.productNotServed)
+      throw new OsadminError(
+        "failed_precondition",
+        "TLS_NOT_SERVED (3813): 443 didn't serve the new certificate within 3m0s (the handshake still showed the previous one), so the previous one was put back",
+      );
+    state.productAssigned =
+      body.certificateId === SELF_SIGNED_ID ? null : (body.certificateId ?? null);
+    return { endpoint: productEndpoint(installed) };
+  }
   if (state.notServed)
     throw new OsadminError(
       "failed_precondition",
@@ -360,18 +427,22 @@ const remove = (body: Record<string, string>) => {
   if (usedBy(id).length > 0)
     throw new OsadminError(
       "failed_precondition",
-      "TLS_IN_USE (3810): the admin endpoint uses this certificate; assign another one first",
+      `TLS_IN_USE (3810): the ${usedBy(id).join(" and ")} endpoint uses this certificate; assign another one first`,
     );
   state.certificates = state.certificates.filter((c) => c.id !== id);
   return {};
 };
 
 /** Answers one TlsService method. */
-export const certificatesRequest = (method: string, body: unknown): unknown => {
+export const certificatesRequest = (
+  method: string,
+  body: unknown,
+  { productInstalled }: { productInstalled: boolean },
+): unknown => {
   const b = (body ?? {}) as Record<string, string>;
   switch (method) {
     case "AssignCertificate": {
-      return assign(b);
+      return assign(b, productInstalled);
     }
     case "CompleteCsr": {
       return complete(b);
@@ -387,7 +458,7 @@ export const certificatesRequest = (method: string, body: unknown): unknown => {
       return generate(body as GenerateCsrRequest);
     }
     case "GetCertificateStore": {
-      return store();
+      return store(productInstalled);
     }
     case "ImportCertificate": {
       return importCertificate(body as ImportCertificateRequest);
@@ -400,6 +471,15 @@ export const certificatesRequest = (method: string, body: unknown): unknown => {
       );
     }
     case "RevertToSelfSigned": {
+      if (b.endpointId === "product") {
+        if (!productInstalled)
+          throw new OsadminError(
+            "failed_precondition",
+            "TLS_ENDPOINT_UNAVAILABLE (3812): the product endpoint is available when the product is installed",
+          );
+        state.productAssigned = null;
+        return { endpoint: productEndpoint(productInstalled) };
+      }
       state.assigned = null;
       return { endpoint: adminEndpoint() };
     }
