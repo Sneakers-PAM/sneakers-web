@@ -12,6 +12,15 @@ npm run dev:appliance-admin:mock   # against the in-memory mock, http://localhos
 npm run build -w @sneakers-web/appliance-admin   # the live build, in build/client
 ```
 
+## The nav: the base appliance and the product
+
+The nav's base sections (Appliance, Advanced, Power) hold the appliance's own pages, the same on
+every box. An installed product adds its own section, labelled with the name the box gives it
+(`GetUpgrades.product.name`, such as "Sneakers"), holding the product's pages (today MCP; the
+list is `app/frame/productPages.tsx`). With no product installed the section isn't there, and a
+product page's address shows "Nothing here" without naming the page. The nav reads the product
+again on each page change, so installing one from Updates shows its section on the next page.
+
 ## Certificates
 
 The Certificates page runs the box's certificate store (`TlsService`): the certificates with
