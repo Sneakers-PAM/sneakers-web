@@ -5,6 +5,7 @@ import type { RootData } from "#shell/server/root.server";
 
 const FALLBACK: RootData = {
   banner: null,
+  boxPoller: false,
   config: {
     adminUrl: "/admin/",
     appEnv: "prod",

@@ -30,6 +30,17 @@ import { installIssueCopyCapture } from "#shell/issueCopy/errorBuffer";
 import { useRootData } from "#shell/root/useRootData";
 
 /**
+ * The appliance's box-state poller (sneakers-appliance `docs/edge-fallback.md`): on the box the
+ * edge serves `/_box/` from the same origin, and the poller swaps a tab for the branded
+ * "rebooting" page and back. The path is absolute because the edge answers it at the root, not
+ * under the admin console's basename.
+ */
+export const BoxPoller = () => {
+  const { boxPoller } = useRootData();
+  return boxPoller ? <script defer src="/_box/poll.js" /> : null;
+};
+
+/**
  * The HTML document every app renders. The server sets the theme classes and text size from
  * the display cookie, so the first paint is already in the right theme.
  */
@@ -53,6 +64,7 @@ export const Document = ({ children }: { children: ReactNode }) => {
         <meta content="light dark" name="color-scheme" />
         <Meta />
         <Links />
+        <BoxPoller />
       </head>
       <body>
         {children}

@@ -45,6 +45,7 @@ export const shouldRevalidate: ShouldRevalidateFunction = ({ defaultShouldRevali
 
 const rootData = (): RootData => ({
   banner: edge.banner,
+  boxPoller: false,
   config: {
     adminUrl: "/",
     appEnv: edge.mode === "mock" ? "dev" : "prod",
