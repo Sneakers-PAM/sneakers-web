@@ -646,6 +646,35 @@ export interface AddedCertificate {
   checks: ValidationCheck[];
 }
 
+// ---- product ----
+
+/** One value the installed product's bundle lets owners and admins read without a root shell. */
+export interface ExposedValue {
+  /** True once a one-time value was used; it isn't shown again. */
+  consumed: boolean;
+  label: string;
+  /** The product page that takes the value; empty when the product names none. */
+  link: string;
+  /** The command word: "<product> <name>" in the closed shell. */
+  name: string;
+  oneTime: boolean;
+  roles: Role[];
+}
+
+export interface ListExposedValuesResponse {
+  /** The installed product's command word; empty with no product. */
+  product: string;
+  productTitle: string;
+  values: ExposedValue[];
+}
+
+export interface GetExposedValueResponse {
+  entry?: ExposedValue;
+  productTitle: string;
+  /** Empty once a one-time value was used. */
+  value: string;
+}
+
 // ---- mcp ----
 
 export interface GetMcpResponse {

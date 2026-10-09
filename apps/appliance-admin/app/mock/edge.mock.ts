@@ -223,6 +223,7 @@ const invite = (admin: string) => {
   return { admin, code: formatted, expires };
 };
 let networkSettings = structuredClone(world.NETWORK_SETTINGS);
+const exposedValues = structuredClone(world.EXPOSED_VALUES);
 let mcpEnabled = true;
 let machineApiEnabled = false;
 let backupPolicy = structuredClone(world.BACKUP_POLICY);
@@ -1182,6 +1183,40 @@ const route = async (service: string, method: string, body: Record<string, unkno
         factoryReset: structuredClone(startReset(caller(), body.confirmHostname as string)),
       };
     }
+    case "ProductService/GetExposedValue": {
+      const entry = product.installedVersion
+        ? exposedValues.find((value) => value.name === body.name)
+        : undefined;
+      if (!entry)
+        throw new OsadminError(
+          "permission_denied",
+          `ACCESS_FORBIDDEN (3003): the installed product exposes no value named "${String(body.name)}"`,
+        );
+      auditEvents.unshift({
+        action: "product.value.read",
+        actor: caller(),
+        code: "",
+        detail: { name: entry.name, state: entry.consumed ? "consumed" : "shown" },
+        keyFingerprint: "",
+        outcome: "ok",
+        sourceAddress: "192.0.2.10",
+        target: entry.label,
+        time: new Date().toISOString(),
+      });
+      return {
+        entry: structuredClone(entry),
+        productTitle: product.name,
+        ...(entry.consumed ? {} : { value: world.MOCK_SETUP_TOKEN }),
+      };
+    }
+    case "ProductService/ListExposedValues": {
+      if (!product.installedVersion) return {};
+      return {
+        product: "sneakers",
+        productTitle: product.name,
+        values: structuredClone(exposedValues),
+      };
+    }
     case "RootShellService/IssueRootShellCode": {
       if (!quorum.members.includes(caller()))
         throw new OsadminError(
@@ -1915,6 +1950,7 @@ const MOCK_SCENARIOS = [
   "setup-keys",
   "setup-network",
   "setup-protection",
+  "setup-token-used",
   "signed-in",
   "single-admin",
   "status-fails",
@@ -2144,6 +2180,10 @@ export const applyMockScenario = (scenario: MockScenario): void => {
       setupAt(scenario);
       break;
     }
+    case "setup-token-used": {
+      for (const value of exposedValues) value.consumed = true;
+      break;
+    }
     case "signed-in": {
       const alice = findAdmin("alice");
       if (alice) cookieSession = sessionOf(alice);
@@ -2269,6 +2309,7 @@ export const resetMockWorld = (): void => {
   keySerial = 100;
   inviteCount = 0;
   networkSettings = structuredClone(world.NETWORK_SETTINGS);
+  refill(exposedValues, world.EXPOSED_VALUES);
   backupPolicy = structuredClone(world.BACKUP_POLICY);
   refill(modules.available, world.MODULES.available);
   refill(recoveryKeys, world.RECOVERY_KEYS);

@@ -289,6 +289,12 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   `app/components/ResetCountdown.tsx` shows the 10-minute countdown with the one big Cancel any
   admin may press, on Power and on Status. Both pages re-read every 5 seconds while a reset is in
   progress.
+- **Product values (`app/components/ProductValues.tsx`, on Status).** The values the installed
+  product's bundle exposes to the signed-in admin's role (`ProductService.ListExposedValues`,
+  such as Sneakers' one-time setup token), each read only on Show (`GetExposedValue`, which the
+  box audits by name, never the value), with Copy and the product page that takes it. A one-time
+  value already used says the product is already set up and has no Show. There is no panel with
+  no product, no declared value, or a box that doesn't answer ProductService.
 - **The update mirror (`app/components/updates/MirrorStatusCard.tsx`,
   `app/components/certificates/UpdateTrustCard.tsx`).** The manual source takes an
   `http://` or `https://` URL. The Update mirror card on Updates shows `GetUpgrades.mirrorStatus`:
@@ -324,8 +330,8 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   minutes or until an owner unlocks him), `throttled` (this address has to wait), `first-boot` (no admin yet; the setup code is
   `MOCK_SETUP_CODE`), `setup-admin`, `setup-keys`, `setup-network`, `setup-protection` and
   `setup-finish` (setup part-way, as a reload finds it), `reduced` (no Secure Boot, no TPM),
-  `invited` (carol's invitation, `MOCK_INVITE_CODE`), `signed-in` (the box still knows this
-  browser), `single-admin`, `reset-pending` and
+  `invited` (carol's invitation, `MOCK_INVITE_CODE`), `setup-token-used` (the product's
+  one-time setup token was used), `signed-in` (the box still knows this browser), `single-admin`, `reset-pending` and
   `reset-countdown`. The mock verifies an upload by its content: one containing "tampered" fails
   the signature, "lab" the channel, and "patch" is a patch for the running version. A key removed
   in the mock lands on its revoked list as revoked by the signed-in admin, as on the box, and the

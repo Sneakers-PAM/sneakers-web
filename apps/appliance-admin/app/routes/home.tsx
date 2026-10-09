@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import type { GetStatusResponse, WarningKind } from "@/lib/osadmin/types";
 
 import { NetworkReverted } from "@/components/NetworkChangeBanner";
+import { ProductValues } from "@/components/ProductValues";
 import { ResetCountdown } from "@/components/ResetCountdown";
 import { UpgradeSteps } from "@/components/UpgradeSteps";
 import { VersionChip } from "@/components/VersionChip";
@@ -165,6 +166,7 @@ export default function Home() {
               </div>
             </Card>
           </div>
+          <ProductValues />
           <Card>
             <CardHeader title="Health" />
             <div className="flex flex-wrap gap-2 p-5.5">

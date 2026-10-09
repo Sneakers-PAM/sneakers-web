@@ -21,11 +21,13 @@ import type {
   Component,
   Disk,
   Elevation,
+  ExposedValue,
   FactoryReset,
   FetchProgress,
   GenerateRecoveryKeyResponse,
   GetBackupsResponse,
   GetCertificateStoreResponse,
+  GetExposedValueResponse,
   GetMcpResponse,
   GetNetworkResponse,
   GetPhaseResponse,
@@ -43,6 +45,7 @@ import type {
   ListAdminsResponse,
   ListElevationsResponse,
   ListEventsResponse,
+  ListExposedValuesResponse,
   ListModulesResponse,
   ListProductVersionsResponse,
   ListSessionsResponse,
@@ -525,6 +528,31 @@ export const withUpdateTrust = (
   w: Wire<{ updateTrust: UpdateTrust }>,
 ): { updateTrust: UpdateTrust } => ({
   updateTrust: updateTrust(w.updateTrust ?? {}),
+});
+
+// ---- product ----
+
+const exposedValue = (w: Wire<ExposedValue>): ExposedValue => ({
+  consumed: w.consumed ?? false,
+  label: w.label ?? "",
+  link: w.link ?? "",
+  name: w.name ?? "",
+  oneTime: w.oneTime ?? false,
+  roles: (w.roles ?? []) as ExposedValue["roles"],
+});
+
+export const listExposedValues = (
+  w: Wire<ListExposedValuesResponse>,
+): ListExposedValuesResponse => ({
+  product: w.product ?? "",
+  productTitle: w.productTitle ?? "",
+  values: list(w.values, exposedValue),
+});
+
+export const getExposedValue = (w: Wire<GetExposedValueResponse>): GetExposedValueResponse => ({
+  entry: optional(w.entry, exposedValue),
+  productTitle: w.productTitle ?? "",
+  value: w.value ?? "",
 });
 
 // ---- mcp ----

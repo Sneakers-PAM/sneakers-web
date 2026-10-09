@@ -6,6 +6,7 @@ import type {
   BackupPolicy,
   BackupSet,
   Elevation,
+  ExposedValue,
   FactoryReset,
   GetStatusResponse,
   HostKey,
@@ -358,6 +359,21 @@ export const SESSIONS: ActiveSession[] = [
 ];
 
 /** The mock box runs product 0.1.0, with nothing staged and no previous slot. */
+/** The mock product's one-time setup token, an exposed value (ProductService). */
+export const MOCK_SETUP_TOKEN = "MOCK-SETUP-TOKEN-7Q2K-NOT-A-REAL-ONE";
+
+/** What the mock product's product.yaml exposes. */
+export const EXPOSED_VALUES: ExposedValue[] = [
+  {
+    consumed: false,
+    label: "Sneakers setup token",
+    link: "https://appliance.example.org/admin/setup",
+    name: "setup-token",
+    oneTime: true,
+    roles: ["ROLE_OWNER", "ROLE_ADMIN"],
+  },
+];
+
 export const PRODUCT_SLOTS: ProductSlots = {
   installedVersion: "0.1.0",
   name: "Sneakers",

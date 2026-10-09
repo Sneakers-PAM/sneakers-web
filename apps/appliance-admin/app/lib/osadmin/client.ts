@@ -20,6 +20,7 @@ import type {
   GenerateRecoveryKeyResponse,
   GetBackupsResponse,
   GetCertificateStoreResponse,
+  GetExposedValueResponse,
   GetMcpResponse,
   GetNetworkResponse,
   GetPhaseResponse,
@@ -35,6 +36,7 @@ import type {
   ListElevationsResponse,
   ListProductVersionsResponse,
   ListEventsResponse,
+  ListExposedValuesResponse,
   ListModulesResponse,
   ListSessionsResponse,
   NetdSettings,
@@ -312,6 +314,26 @@ export const tls = {
       "SetUpdateTrust",
       { caPem, pinSha256 },
       wire.withUpdateTrust,
+    ),
+};
+
+/** What the installed product exposes: only the values its bundle declares, to its roles. */
+export const product = {
+  /** One declared value; every read is audited by the box (the name, never the value). */
+  getExposedValue: (name: string) =>
+    call<GetExposedValueResponse>(
+      "ProductService",
+      "GetExposedValue",
+      { name },
+      wire.getExposedValue,
+    ),
+  /** The values the caller's role may read, never the values themselves. */
+  listExposedValues: () =>
+    call<ListExposedValuesResponse>(
+      "ProductService",
+      "ListExposedValues",
+      {},
+      wire.listExposedValues,
     ),
 };
 
