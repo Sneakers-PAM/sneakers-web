@@ -54,6 +54,12 @@ const SCENARIOS = [
   { name: "updates-first-product", route: "/updates", scenario: "no-product" },
   { name: "updates-product-staged", route: "/updates", scenario: "product-staged" },
   { name: "updates-air-gapped", route: "/updates", scenario: "air-gapped" },
+  { name: "updates-mirror-http", route: "/updates", scenario: "mirror-http" },
+  { name: "updates-mirror-https", route: "/updates", scenario: "mirror-https" },
+  { name: "updates-mirror-custom-ca", route: "/updates", scenario: "mirror-custom-ca" },
+  { name: "updates-mirror-wrong-ca", route: "/updates", scenario: "mirror-wrong-ca" },
+  { name: "updates-mirror-pin-mismatch", route: "/updates", scenario: "mirror-pin-mismatch" },
+  { name: "certificates-update-trust", route: "/certificates", scenario: "mirror-custom-ca" },
   { name: "access-locked-invited", route: "/access", scenario: "locked,invited,elevated" },
   {
     act: async (page) => {

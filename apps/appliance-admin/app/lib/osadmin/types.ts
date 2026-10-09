@@ -525,6 +525,29 @@ export interface GetCertificateStoreResponse {
   certificates: StoredCertificate[];
   csrs?: PendingCsr[];
   endpoints: CertEndpoint[];
+  /** The update mirror's trust; left out when none is set. */
+  updateTrust?: UpdateTrust;
+}
+
+/** One CA certificate in the update trust. */
+export interface TrustedCa {
+  issuer: string;
+  notAfter?: string;
+  /** Colon hex. */
+  sha256: string;
+  subject: string;
+}
+
+/**
+ * What an https:// update mirror is checked against beyond the system roots, for the mirror's
+ * fetches only: private CAs, and an optional pin on its server certificate.
+ */
+export interface UpdateTrust {
+  cas: TrustedCa[];
+  /** Colon hex in capitals; empty when there's no pin. */
+  pinSha256: string;
+  setAt?: string;
+  setBy: string;
 }
 
 /** The key a CSR is made with; RSA 4096 is the default. */
@@ -591,7 +614,8 @@ export interface GetBackupsResponse {
 export interface UpgradePolicy {
   /** Fetch from the release source when no mirror is set or the mirror fails. Off by default. */
   direct?: boolean;
-  /** The HTTPS base .bin files are fetched from; empty, with direct off, means air-gapped. */
+  /** The internal source the .bin files are fetched from, an http:// or https:// base; every .bin
+   * is checked by its signature either way. Empty, with direct off, means air-gapped. */
   mirrorUrl: string;
   /** automatic applies a staged release inside the daily window; manual waits for an owner. */
   mode: "automatic" | "manual";
@@ -744,6 +768,36 @@ export interface GetUpgradesResponse {
   stagedVersion: string;
   /** The last stage, apply or revert, step by step; left out when the box has made none. */
   upgradeProgress?: UpgradeProgress;
+  /** The mirror's transport and its last fetch; left out when no mirror is set. */
+  mirrorStatus?: MirrorStatus;
+}
+
+/**
+ * How the box reaches the mirror and how its last fetch went. The box keeps it in memory, so
+ * `checked` is false after a restart until the next mirror fetch.
+ */
+export interface MirrorStatus {
+  checked: boolean;
+  checkedAt?: string;
+  /** The last fetch's refusal: its code (UPGRADE_MIRROR_UNTRUSTED, UPGRADE_MIRROR_PIN,
+   * UPGRADE_UPLOAD) and the box's reason. */
+  code: string;
+  /** The update trust adds a private CA. */
+  customCa: boolean;
+  error: string;
+  /** The transport in words, such as "plain HTTP: integrity from the signature only". */
+  note: string;
+  ok: boolean;
+  pinMatched: boolean;
+  /** The update trust pins the server certificate. */
+  pinned: boolean;
+  /** http or https. */
+  scheme: string;
+  /** The server certificate the last HTTPS fetch was presented with, refused or not. */
+  serverIssuer: string;
+  serverNotAfter?: string;
+  serverSha256: string;
+  serverSubject: string;
 }
 
 // ---- modules ----

@@ -40,6 +40,7 @@ import type {
 
 import { AddCertificate } from "@/components/certificates/AddCertificate";
 import { hostnameOf, SetHostnameLink } from "@/components/certificates/Hostname";
+import { UpdateTrustCard } from "@/components/certificates/UpdateTrustCard";
 import { NotAvailable } from "@/components/NotAvailable";
 import { saveText } from "@/lib/download";
 import { runAction } from "@/lib/osadmin/action";
@@ -321,6 +322,8 @@ export default function Certificates() {
           </p>
         </Card>
       </section>
+
+      <UpdateTrustCard isOwner={isOwner} onChanged={reload} trust={data.updateTrust} />
 
       <section aria-label="Status">
         <Card>
