@@ -225,6 +225,8 @@ const invite = (admin: string) => {
 let networkSettings = structuredClone(world.NETWORK_SETTINGS);
 const exposedValues = structuredClone(world.EXPOSED_VALUES);
 let mcpEnabled = true;
+/** The product's product.yaml declares an mcp switch. */
+let mcpSwitch = true;
 let machineApiEnabled = false;
 let backupPolicy = structuredClone(world.BACKUP_POLICY);
 const backupSets = structuredClone(world.BACKUP_SETS);
@@ -496,6 +498,7 @@ const sessionOf = (admin: Admin): Session =>
 const STEP_UP_METHODS = new Set([
   "AccessService/AddAdmin",
   "AccessService/UnrevokeKey",
+  "McpService/SetMcp",
   "NetworkService/SetNetwork",
   "PowerService/ApproveFactoryReset",
   "PowerService/StartFactoryReset",
@@ -1046,9 +1049,22 @@ const route = async (service: string, method: string, body: Record<string, unkno
       return {};
     }
     case "McpService/GetMcp": {
-      return { machineApiEnabled, mcpEnabled, state: mcpEnabled ? "running" : "stopped" };
+      // The words osadmin answers with: the product's mcp switch, as its product.yaml has it.
+      if (!product.installedVersion) return { machineApiEnabled: true, state: "not installed" };
+      if (!mcpSwitch) return { machineApiEnabled: true, state: "not in this product" };
+      return { machineApiEnabled, mcpEnabled, state: mcpEnabled ? "on" : "off" };
     }
     case "McpService/SetMcp": {
+      if (!product.installedVersion)
+        throw new OsadminError(
+          "failed_precondition",
+          "NOT_AVAILABLE (3703): no product is installed",
+        );
+      if (!mcpSwitch)
+        throw new OsadminError(
+          "failed_precondition",
+          `NOT_AVAILABLE (3703): ${product.name ?? ""} has no MCP switch`,
+        );
       mcpEnabled = body.mcpEnabled as boolean;
       machineApiEnabled = body.machineApiEnabled as boolean;
       return {};
@@ -1933,6 +1949,7 @@ const MOCK_SCENARIOS = [
   "locked",
   "locked-until-unlocked",
   "manual",
+  "mcp-absent",
   "network-pending",
   "network-reverted",
   "network-reverted-at-start",
@@ -2095,6 +2112,10 @@ export const applyMockScenario = (scenario: MockScenario): void => {
     }
     case "manual": {
       upgradePolicy = { ...upgradePolicy, mode: "manual" };
+      break;
+    }
+    case "mcp-absent": {
+      mcpSwitch = false;
       break;
     }
     case "network-pending": {
@@ -2303,6 +2324,7 @@ export const resetMockWorld = (): void => {
   secureBootOn = true;
   factoryReset = undefined;
   mcpEnabled = true;
+  mcpSwitch = true;
   machineApiEnabled = false;
   quorum = structuredClone(world.QUORUM);
   accessPolicy = structuredClone(world.ACCESS_POLICY);

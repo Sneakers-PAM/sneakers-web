@@ -289,6 +289,11 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   `app/components/ResetCountdown.tsx` shows the 10-minute countdown with the one big Cancel any
   admin may press, on Power and on Status. Both pages re-read every 5 seconds while a reset is in
   progress.
+- **MCP (`app/routes/mcp.tsx`, under the product's nav section).** `GetMcp.state` is one of
+  osadmin's words, each shown as a badge and one sentence: `on` and `off` show the MCP and
+  machine API switches (`SetMcp`, step-up; the box restarts the product's MCP stacks), and
+  `not in this product` (the product.yaml declares no MCP switch) and `not installed` show no
+  switch. The mock's `mcp-absent` state is the product with no MCP switch.
 - **Product values (`app/components/ProductValues.tsx`, on Status).** The values the installed
   product's bundle exposes to the signed-in admin's role (`ProductService.ListExposedValues`,
   such as Sneakers' one-time setup token), each read only on Show (`GetExposedValue`, which the
@@ -314,7 +319,7 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   `network-reverted` and `network-reverted-at-start` (net-6 was undone by its window, or when the
   box started again), `no-previous` (nothing in the other slot; by default 0.0.9 is kept
   there for a revert), `failed` (boot counting fell back from 0.2.0), `reverted` (alice
-  reverted from 0.2.0; Status and Updates say "Reverted from", not "Failed"), `manual`, `no-product` (before the first product
+  reverted from 0.2.0; Status and Updates say "Reverted from", not "Failed"), `manual`, `mcp-absent`, `no-product` (before the first product
   install), `status-fails` (Status answers unavailable, as while accessd isn't answering), `product-staged` (0.2.0 staged, 0.0.9 in the previous slot; a product install or revert restarts the product services, stopped for two GetUpgrades, then running), `product-restart-fails` (that restart's step fails instead), `elevated` (bob has an elevated shell open, so
   Apply and Revert are refused without an owner's override), `uploading` and `verifying` (the upload or the
   verification never finishes; a stalled upload ends only when it is cancelled), `held` (an uploaded `.bin` waits on the box to be verified or

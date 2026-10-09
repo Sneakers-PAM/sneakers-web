@@ -47,40 +47,96 @@ export default function Mcp() {
   }
   if (!data) return null;
 
+  const look = stateLook(data, product.name);
+  const switchable = data.state === "on" || data.state === "off";
   return (
     <div className="flex flex-col gap-5 p-5.5">
       <PageHeader eyebrow={product.name} title="MCP" />
       <Card>
-        <CardHeader subtitle={data.state} title="MCP" />
+        <CardHeader
+          aside={<Badge tone={look.tone}>{look.label}</Badge>}
+          subtitle="The product's MCP server, for agents. Switching it needs a fresh code."
+          title="MCP"
+        />
         <div className="flex flex-col gap-4 p-5.5">
-          <div className="flex items-center gap-3">
-            <Label className="flex items-center gap-3">
-              <Switch
-                checked={data.mcpEnabled}
-                onCheckedChange={(checked) =>
-                  void runAction(() => mcp.set(checked, data.machineApiEnabled), {
-                    onSuccess: reload,
-                  })
-                }
-              />
-              MCP on
-            </Label>
-            <Badge tone={data.mcpEnabled ? "ok" : "neutral"}>{data.state}</Badge>
-          </div>
-          <div className="flex items-center gap-3">
-            <Label className="flex items-center gap-3">
-              <Switch
-                checked={data.machineApiEnabled}
-                disabled={!data.mcpEnabled}
-                onCheckedChange={(checked) =>
-                  void runAction(() => mcp.set(data.mcpEnabled, checked), { onSuccess: reload })
-                }
-              />
-              Machine API on
-            </Label>
-          </div>
+          <p className="m-0 text-small">{look.sentence}</p>
+          {switchable && (
+            <>
+              <div className="flex items-center gap-3">
+                <Label className="flex items-center gap-3">
+                  <Switch
+                    checked={data.mcpEnabled}
+                    onCheckedChange={(checked) =>
+                      void runAction(() => mcp.set(checked, data.machineApiEnabled), {
+                        onSuccess: reload,
+                      })
+                    }
+                  />
+                  MCP on
+                </Label>
+              </div>
+              <div className="flex items-center gap-3">
+                <Label className="flex items-center gap-3">
+                  <Switch
+                    checked={data.machineApiEnabled}
+                    disabled={!data.mcpEnabled}
+                    onCheckedChange={(checked) =>
+                      void runAction(() => mcp.set(data.mcpEnabled, checked), {
+                        onSuccess: reload,
+                      })
+                    }
+                  />
+                  Machine API on
+                </Label>
+              </div>
+            </>
+          )}
         </div>
       </Card>
     </div>
   );
 }
+
+/**
+ * The words osadmin's GetMcp answers with (the product's mcp switch, from its product.yaml),
+ * as a badge and one sentence. Any other word is shown as the box gave it.
+ */
+const stateLook = (
+  data: GetMcpResponse,
+  productName: string,
+): { label: string; sentence: string; tone: "neutral" | "ok" | "warn" } => {
+  switch (data.state) {
+    case "not installed": {
+      return {
+        label: "Not installed",
+        sentence:
+          "MCP isn't installed on this box yet: install the product on Updates, and its MCP switch shows here.",
+        tone: "warn",
+      };
+    }
+    case "not in this product": {
+      return {
+        label: "Not in this product",
+        sentence: `${productName} has no MCP server, so there's nothing to switch on.`,
+        tone: "neutral",
+      };
+    }
+    case "off": {
+      return {
+        label: "Off",
+        sentence: `MCP is off: agents can't reach ${productName} through MCP. Switching it on starts the product's MCP server.`,
+        tone: "neutral",
+      };
+    }
+    case "on": {
+      return {
+        label: "On",
+        sentence: `MCP is on: agents can reach ${productName} through MCP, each with its own sign-in.`,
+        tone: "ok",
+      };
+    }
+    default: {
+      return { label: data.state || "Unknown", sentence: "", tone: "neutral" };
+    }
+  }
+};
