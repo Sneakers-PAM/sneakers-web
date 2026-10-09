@@ -15,6 +15,7 @@ export default [
     route("certificates", "routes/certificates.tsx"),
     route("backups", "routes/backups.tsx"),
     route("mcp", "routes/mcp.tsx"),
+    route("import", "routes/import.tsx"),
     route("modules", "routes/modules.tsx"),
     route("logs", "routes/logs.tsx"),
     route("power", "routes/power.tsx"),

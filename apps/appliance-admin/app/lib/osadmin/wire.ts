@@ -5,6 +5,8 @@
 // guard a list or a string. `Wire<T>` is the answer as sent, with every field optional at every
 // depth; returning `T` from it makes the compiler name any required field left without a default.
 import type {
+  GetImportResponse,
+  ImportRun,
   AccessPolicy,
   AcmeState,
   ActiveSession,
@@ -561,6 +563,43 @@ export const getMcp = (w: Wire<GetMcpResponse>): GetMcpResponse => ({
   machineApiEnabled: w.machineApiEnabled ?? false,
   mcpEnabled: w.mcpEnabled ?? false,
   state: w.state ?? "",
+});
+
+// ---- import ----
+
+const importRun = (w: Wire<ImportRun>): ImportRun => ({
+  exitCode: w.exitCode ?? 0,
+  finishedAt: w.finishedAt ?? "",
+  job: w.job ?? "",
+  output: w.output ?? "",
+  ownerEmail: w.ownerEmail ?? "",
+  ownerPasswordWaiting: w.ownerPasswordWaiting ?? false,
+  rehearsal: w.rehearsal ?? false,
+  report: w.report ?? "",
+  startedAt: w.startedAt ?? "",
+  state: w.state ?? "",
+  step: w.step ?? "",
+  template: w.template ?? "",
+  wipe: w.wipe ?? false,
+});
+
+export const getImport = (w: Wire<GetImportResponse>): GetImportResponse => ({
+  available: w.available ?? false,
+  files: list(w.files, (f) => ({
+    kind: f.kind ?? "",
+    size: Number(f.size ?? 0),
+    uploadedAt: f.uploadedAt ?? "",
+  })),
+  imported: w.imported ?? false,
+  importedAt: w.importedAt ?? "",
+  importedBundle: w.importedBundle ?? "",
+  importedMode: w.importedMode ?? "",
+  label: w.label ?? "",
+  open: w.open ?? false,
+  reason: w.reason ?? "",
+  recipient: w.recipient ?? "",
+  runs: list(w.runs, importRun),
+  setupDone: w.setupDone ?? false,
 });
 
 // ---- backup ----

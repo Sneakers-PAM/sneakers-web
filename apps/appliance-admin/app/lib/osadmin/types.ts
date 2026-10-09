@@ -683,6 +683,58 @@ export interface GetMcpResponse {
   state: string;
 }
 
+// ---- import ----
+
+/** One file of the open import: bundle, mapping, sheet or types. */
+export interface ImportFile {
+  kind: string;
+  size: number;
+  uploadedAt: string;
+}
+
+/** One sneakers-migrate step the box ran as a Job, and how it went. */
+export interface ImportRun {
+  exitCode: number;
+  finishedAt: string;
+  job: string;
+  output: string;
+  ownerEmail: string;
+  ownerPasswordWaiting: boolean;
+  rehearsal: boolean;
+  report: string;
+  startedAt: string;
+  /** running, passed or failed. */
+  state: string;
+  /** review, convert, check, import or verify. */
+  step: string;
+  template: string;
+  wipe: boolean;
+}
+
+export interface GetImportResponse {
+  available: boolean;
+  files: ImportFile[];
+  imported: boolean;
+  importedAt: string;
+  importedBundle: string;
+  importedMode: string;
+  label: string;
+  open: boolean;
+  reason: string;
+  recipient: string;
+  runs: ImportRun[];
+  setupDone: boolean;
+}
+
+export interface RunImportStepRequest {
+  newFolderParent?: string;
+  ownerEmail?: string;
+  personal?: string;
+  rehearsal?: boolean;
+  step: string;
+  wipe?: boolean;
+}
+
 // ---- backup ----
 
 export interface BackupSet {
