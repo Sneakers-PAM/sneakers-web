@@ -132,6 +132,8 @@ export type WarningKind =
   | "WARNING_KIND_CONSOLE_RECOVERY"
   | "WARNING_KIND_EXPOSURE"
   | "WARNING_KIND_FACTORY_RESET"
+  | "WARNING_KIND_NETWORK_PENDING"
+  | "WARNING_KIND_NETWORK_REVERTED"
   | "WARNING_KIND_NTP_UNSYNCED"
   | "WARNING_KIND_REDUCED_PROTECTION"
   | "WARNING_KIND_SELF_SIGNED_TLS"
@@ -181,6 +183,20 @@ export interface GetPhaseResponse {
   upgradeProgress?: UpgradeProgress;
 }
 
+/** The network change window, as GetStatus gives it so every page can show it. */
+export interface NetworkChange {
+  /** Names the pending change in the audit. */
+  changeId: string;
+  /** The last change that waited was undone; lastChangeId names it. */
+  lastReverted: boolean;
+  /** It was undone because the box stopped or restarted inside its window. */
+  lastRevertedAtStart: boolean;
+  lastChangeId: string;
+  /** A change waits for ConfirmNetwork. */
+  pending: boolean;
+  revertSecondsLeft: number;
+}
+
 export interface GetStatusResponse {
   channel: string;
   custodyMode: string;
@@ -191,6 +207,9 @@ export interface GetStatusResponse {
   health?: Component[];
   hostname: string;
   managementAddresses: string[];
+  /** The network change waiting for its confirmation, and how the last one ended; left out by a
+   * box from before it. */
+  networkChange?: NetworkChange;
   ntpSynced: boolean;
   phase: string;
   /** The slot the revert target is in, A or B; empty with no revert target, or when the box
@@ -438,7 +457,19 @@ export interface NetdCheck {
 }
 
 export interface GetNetworkResponse {
+  /** The most recent change that waited for a confirmation was undone; lastChangeId names it. */
+  lastChangeReverted?: boolean;
+  /** It was undone because the box stopped or restarted inside its window. */
+  lastChangeRevertedAtStart?: boolean;
+  lastChangeId?: string;
+  /** What DHCP and router advertisements gave the box, management interface first; the
+   * resolver and the clock use them where the settings name none. */
+  learntDns?: string[];
+  learntNtp?: string[];
+  learntSearch?: string[];
   managementAddresses: string[];
+  /** The servers the clock asks now: the settings', else DHCP's, else the image's pool. */
+  ntpServers?: string[];
   ntpOffsetMs: string;
   ntpSynced: boolean;
   pending: boolean;
@@ -459,7 +490,10 @@ export interface SetNetworkResponse {
   newCertificate?: boolean;
   /** Where the box answers after the change, when the new address is known. */
   newUrl?: string;
+  /** The window; 0 when the change was kept at once. */
   revertAfterSeconds: number;
+  /** What ConfirmNetwork takes. Empty when the change was kept at once: one of only the DNS
+   * servers, search domains, NTP servers, time zone or proxy can't cut anyone off. */
   token: string;
 }
 

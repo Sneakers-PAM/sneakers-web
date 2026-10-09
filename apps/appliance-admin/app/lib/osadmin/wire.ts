@@ -49,6 +49,7 @@ import type {
   NetdAddress,
   NetdCheck,
   NetdSettings,
+  NetworkChange,
   PendingCsr,
   ProductSlots,
   ProductVersion,
@@ -228,6 +229,15 @@ export const getPhase = (w: Wire<GetPhaseResponse>): GetPhaseResponse => ({
   upgradeProgress: optional(w.upgradeProgress, upgradeProgress),
 });
 
+const networkChange = (w: Wire<NetworkChange>): NetworkChange => ({
+  changeId: w.changeId ?? "",
+  lastChangeId: w.lastChangeId ?? "",
+  lastReverted: w.lastReverted ?? false,
+  lastRevertedAtStart: w.lastRevertedAtStart ?? false,
+  pending: w.pending ?? false,
+  revertSecondsLeft: w.revertSecondsLeft ?? 0,
+});
+
 export const getStatus = (w: Wire<GetStatusResponse>): GetStatusResponse => ({
   ...w,
   channel: w.channel ?? "",
@@ -238,6 +248,7 @@ export const getStatus = (w: Wire<GetStatusResponse>): GetStatusResponse => ({
   health: list(w.health, component),
   hostname: w.hostname ?? "",
   managementAddresses: texts(w.managementAddresses),
+  networkChange: optional(w.networkChange, networkChange),
   ntpSynced: w.ntpSynced ?? false,
   phase: w.phase ?? "",
   previousSlot: w.previousSlot ?? "",
@@ -391,7 +402,14 @@ const netdSettings = (w: Wire<NetdSettings>): NetdSettings => ({
 });
 
 export const getNetwork = (w: Wire<GetNetworkResponse>): GetNetworkResponse => ({
+  lastChangeId: w.lastChangeId ?? "",
+  lastChangeReverted: w.lastChangeReverted ?? false,
+  lastChangeRevertedAtStart: w.lastChangeRevertedAtStart ?? false,
+  learntDns: texts(w.learntDns),
+  learntNtp: texts(w.learntNtp),
+  learntSearch: texts(w.learntSearch),
   managementAddresses: texts(w.managementAddresses),
+  ntpServers: texts(w.ntpServers),
   ntpOffsetMs: w.ntpOffsetMs ?? "",
   ntpSynced: w.ntpSynced ?? false,
   pending: w.pending ?? false,

@@ -18,20 +18,64 @@ import { setSession } from "@/lib/osadmin/sessionStore";
 import {
   cancelStepUp,
   resumeStepUp,
+  type StepUpFollowUp,
+  stepUpFollowUp,
   stepUpPending,
   subscribeStepUp,
 } from "@/lib/osadmin/stepUpController";
 
 /**
  * The one step-up prompt every sensitive action shares: a fresh code from the admin's
- * authenticator (StepUp). Once the box takes it, the action that asked is retried.
+ * authenticator (StepUp). Once the box takes it, the action that asked is retried, and a
+ * follow-up the action hands back (such as "Keep this change?") is asked in the same dialog.
+ * Its button says "Verify code", never "Confirm", so it can't be taken for the confirmation
+ * a network change still needs.
  */
 export const StepUpDialog = () => {
   const open = useSyncExternalStore(subscribeStepUp, stepUpPending);
+  const followUp = useSyncExternalStore(subscribeStepUp, stepUpFollowUp);
   return (
     <Dialog onOpenChange={(next) => !next && cancelStepUp()} open={open}>
-      <DialogContent>{open && <StepUpForm />}</DialogContent>
+      <DialogContent>
+        {open && (followUp ? <FollowUpForm followUp={followUp} /> : <StepUpForm />)}
+      </DialogContent>
     </Dialog>
+  );
+};
+
+const FollowUpForm = ({ followUp }: { followUp: StepUpFollowUp }) => {
+  const [refusal, setRefusal] = useState("");
+  const [busy, setBusy] = useState(false);
+  return (
+    <form
+      className="flex flex-col gap-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        setBusy(true);
+        setRefusal("");
+        followUp
+          .run()
+          .then(cancelStepUp)
+          .catch((error: unknown) =>
+            setRefusal(error instanceof Error ? error.message : "The appliance refused."),
+          )
+          .finally(() => setBusy(false));
+      }}
+    >
+      <DialogHeader>
+        <DialogTitle>{followUp.title}</DialogTitle>
+        <DialogDescription>{followUp.body}</DialogDescription>
+      </DialogHeader>
+      {refusal && <Alert tone="danger">{refusal}</Alert>}
+      <DialogFooter>
+        <Button onClick={cancelStepUp} type="button" variant="secondary">
+          {followUp.dismissLabel}
+        </Button>
+        <Button disabled={busy} type="submit">
+          {followUp.confirmLabel}
+        </Button>
+      </DialogFooter>
+    </form>
   );
 };
 
@@ -47,7 +91,7 @@ const StepUpForm = () => {
       .stepUp(code)
       .then((response) => {
         setSession(response.session);
-        resumeStepUp();
+        return resumeStepUp();
       })
       .catch((error: unknown) => {
         setRefusal(refusalMessage(error, { what: "code" }));
@@ -78,7 +122,7 @@ const StepUpForm = () => {
           Cancel
         </Button>
         <Button disabled={busy || code.length !== 6} type="submit">
-          Confirm
+          Verify code
         </Button>
       </DialogFooter>
     </form>

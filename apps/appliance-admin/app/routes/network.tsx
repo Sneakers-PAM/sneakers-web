@@ -13,6 +13,7 @@ import {
   TableHead,
   TableHeaderCell,
   TableRow,
+  toast,
 } from "@sneakers-web/ui";
 import { useCallback, useEffect, useState } from "react";
 
@@ -23,6 +24,8 @@ import type {
   SetNetworkResponse,
 } from "@/lib/osadmin/types";
 
+import { NetworkReverted } from "@/components/NetworkChangeBanner";
+import { networkChanged } from "@/lib/networkChange";
 import { runAction } from "@/lib/osadmin/action";
 import { network } from "@/lib/osadmin/client";
 import { OsadminError } from "@/lib/osadmin/errors";
@@ -64,6 +67,7 @@ export default function Network() {
   const [deadline, setDeadline] = useState<number>();
   const [now, setNow] = useState(() => Date.now());
   const [unreachable, setUnreachable] = useState(false);
+  const [keptAtOnce, setKeptAtOnce] = useState(false);
 
   const reload = useCallback(
     () =>
@@ -104,21 +108,24 @@ export default function Network() {
   // gives an owner session.
   const token = applied?.token || data.pendingToken;
 
+  const keep = async (confirmToken: string, newUrl?: string) => {
+    try {
+      await network.confirm(confirmToken);
+    } catch (error) {
+      if (error instanceof OsadminError && error.code === "unavailable") {
+        setUnreachable(true);
+        throw new Error(unreachableMessage(secondsLeft, newUrl));
+      }
+      throw error;
+    } finally {
+      networkChanged();
+    }
+  };
   const confirm = (confirmToken: string) =>
-    void runAction(
-      async () => {
-        try {
-          await network.confirm(confirmToken);
-        } catch (error) {
-          if (error instanceof OsadminError && error.code === "unavailable") {
-            setUnreachable(true);
-            throw new Error(unreachableMessage(secondsLeft, applied?.newUrl));
-          }
-          throw error;
-        }
-      },
-      { onSuccess: reload, successMessage: "Confirmed." },
-    );
+    void runAction(() => keep(confirmToken, applied?.newUrl), {
+      onSuccess: reload,
+      successMessage: "Confirmed.",
+    });
 
   return (
     <div className="flex flex-col gap-5 p-5.5">
@@ -163,6 +170,18 @@ export default function Network() {
       {data.pending && unreachable && (
         <Alert tone="danger">{unreachableMessage(secondsLeft, applied?.newUrl)}</Alert>
       )}
+      {!data.pending && keptAtOnce && (
+        <Alert role="status" tone="ok">
+          Saved. A change of only the DNS servers, search domains, NTP servers, time zone or proxy
+          can&apos;t cut anyone off, so it was kept at once; there&apos;s nothing to confirm.
+        </Alert>
+      )}
+      {!data.pending && data.lastChangeReverted && (
+        <NetworkReverted
+          atStart={!!data.lastChangeRevertedAtStart}
+          changeId={data.lastChangeId ?? ""}
+        />
+      )}
       <Card>
         <CardHeader title="Addresses" />
         <div className="flex flex-col gap-1 p-5.5 text-small">
@@ -201,9 +220,38 @@ export default function Network() {
                   ntp: list(ntp),
                 }),
               {
+                // After a step-up the same dialog asks to keep the change, so the code's button
+                // is never mistaken for the change's confirmation.
+                afterStepUp: (response) =>
+                  response.token
+                    ? {
+                        body: `The box applied it. It reverts in ${String(response.revertAfterSeconds)} seconds unless it's kept${
+                          response.movesManagement
+                            ? "; it moves the management address, so keep it from the new address instead"
+                            : ""
+                        }.`,
+                        confirmLabel: "Keep this change",
+                        dismissLabel: "Not now",
+                        run: async () => {
+                          await keep(response.token, response.newUrl);
+                          reload();
+                          toast("Kept.");
+                        },
+                        title: "Keep this change?",
+                      }
+                    : undefined,
                 onSuccess: (response) => {
-                  setApplied(response);
+                  networkChanged();
                   setUnreachable(false);
+                  if (!response.token) {
+                    setApplied(undefined);
+                    setDeadline(undefined);
+                    setKeptAtOnce(true);
+                    reload();
+                    return;
+                  }
+                  setKeptAtOnce(false);
+                  setApplied(response);
                   setNow(Date.now());
                   setDeadline(Date.now() + response.revertAfterSeconds * 1000);
                   reload();

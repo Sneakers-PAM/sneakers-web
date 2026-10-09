@@ -162,7 +162,38 @@ const setupSteps = () => {
   return { current: setupDone ? 0 : open + 1, steps };
 };
 
-let networkPending: { settings: NetdSettings; token: string; until: number } | null = null;
+let networkPending: { id: string; settings: NetdSettings; token: string; until: number } | null =
+  null;
+/** How the last change that waited ended, as netd reports it after a revert or a confirm. */
+let lastNetworkChange: { atStart: boolean; id: string; reverted: boolean } | null = null;
+let networkChangeCount = 0;
+/** As netd: a change nobody confirmed is undone when its window ends. */
+const expireNetworkChange = () => {
+  if (!networkPending || networkPending.until > Date.now()) return;
+  lastNetworkChange = { atStart: false, id: networkPending.id, reverted: true };
+  networkPending = null;
+};
+const networkSecondsLeft = () =>
+  networkPending ? Math.max(0, Math.ceil((networkPending.until - Date.now()) / 1000)) : 0;
+/** Only these can't cut anyone off, so netd keeps a change of nothing else at once. */
+const KEPT_AT_ONCE: ("proxy" | "timezone" | keyof NetdSettings)[] = [
+  "dns",
+  "ntp",
+  "proxy",
+  "searchDomains",
+  "timezone",
+];
+const keptAtOnce = (before: NetdSettings, after: NetdSettings) => {
+  const rest = (settings: NetdSettings) =>
+    JSON.stringify(
+      Object.fromEntries(
+        Object.entries(settings)
+          .filter(([key]) => !(KEPT_AT_ONCE as string[]).includes(key))
+          .toSorted(([a], [b]) => a.localeCompare(b)),
+      ),
+    );
+  return rest(before) === rest(after);
+};
 
 const NETWORK_REVERT_SECONDS = 120;
 const modules = structuredClone(world.MODULES);
@@ -464,6 +495,7 @@ const sessionOf = (admin: Admin): Session =>
 const STEP_UP_METHODS = new Set([
   "AccessService/AddAdmin",
   "AccessService/UnrevokeKey",
+  "NetworkService/SetNetwork",
   "PowerService/ApproveFactoryReset",
   "PowerService/StartFactoryReset",
   "TlsService/AssignCertificate",
@@ -1029,25 +1061,33 @@ const route = async (service: string, method: string, body: Record<string, unkno
       return { available: [...modules.available], platform: modules.platform };
     }
     case "NetworkService/ConfirmNetwork": {
+      expireNetworkChange();
       if (networkPending && networkPending.token === body.token) {
         networkSettings = networkPending.settings;
+        lastNetworkChange = { atStart: false, id: networkPending.id, reverted: false };
         networkPending = null;
       }
       return {};
     }
     case "NetworkService/GetNetwork": {
+      expireNetworkChange();
       return {
+        ...(lastNetworkChange && {
+          lastChangeId: lastNetworkChange.id,
+          lastChangeReverted: lastNetworkChange.reverted,
+          lastChangeRevertedAtStart: lastNetworkChange.reverted && lastNetworkChange.atStart,
+        }),
         managementAddresses: ["192.0.2.50"],
         ntpOffsetMs: "4",
         ntpSynced: true,
         pending: !!networkPending,
         ...(networkPending && {
-          pendingChangeId: "net-1",
+          pendingChangeId: networkPending.id,
           pendingToken: networkPending.token,
-          revertSecondsLeft: Math.max(0, Math.ceil((networkPending.until - Date.now()) / 1000)),
+          revertSecondsLeft: networkSecondsLeft(),
         }),
         serviceAddresses: [],
-        settings: networkSettings,
+        settings: networkPending?.settings ?? networkSettings,
       };
     }
     case "NetworkService/RunChecks": {
@@ -1079,12 +1119,18 @@ const route = async (service: string, method: string, body: Record<string, unkno
       };
     }
     case "NetworkService/SetNetwork": {
+      expireNetworkChange();
       const token = Math.random().toString(36).slice(2);
       const next = body.settings as NetdSettings;
+      if (!networkPending && keptAtOnce(networkSettings, next)) {
+        networkSettings = next;
+        return {};
+      }
       const address = (s: NetdSettings) =>
         s.addresses.find((a) => a.family === "ipv4" && a.mode === "static")?.address;
       const moves = address(next) !== address(networkSettings);
       networkPending = {
+        id: `net-${String(++networkChangeCount)}`,
         settings: next,
         token,
         until: Date.now() + NETWORK_REVERT_SECONDS * 1000,
@@ -1382,8 +1428,10 @@ const route = async (service: string, method: string, body: Record<string, unkno
           "the appliance services are unavailable; try again shortly",
         );
       powerState();
+      expireNetworkChange();
+      const base = world.status();
       return {
-        ...world.status(),
+        ...base,
         custodyMode,
         factoryReset: structuredClone(factoryReset),
         failedVersion,
@@ -1398,6 +1446,39 @@ const route = async (service: string, method: string, body: Record<string, unkno
         runningVersion,
         stagedVersion,
         upgradeProgress: structuredClone(upgradeProgress),
+        ...((networkPending || lastNetworkChange?.reverted) && {
+          networkChange: {
+            ...(networkPending && {
+              changeId: networkPending.id,
+              pending: true,
+              revertSecondsLeft: networkSecondsLeft(),
+            }),
+            ...(lastNetworkChange?.reverted && {
+              lastChangeId: lastNetworkChange.id,
+              lastReverted: true,
+              lastRevertedAtStart: lastNetworkChange.atStart,
+            }),
+          },
+        }),
+        warnings: [
+          ...(base.warnings ?? []),
+          ...(networkPending
+            ? [
+                {
+                  detail: `A network change (${networkPending.id}) waits for its confirmation; it reverts in ${String(networkSecondsLeft())} seconds.`,
+                  kind: "WARNING_KIND_NETWORK_PENDING" as const,
+                },
+              ]
+            : []),
+          ...(lastNetworkChange?.reverted
+            ? [
+                {
+                  detail: `The last network change (${lastNetworkChange.id}) wasn't confirmed and was undone.`,
+                  kind: "WARNING_KIND_NETWORK_REVERTED" as const,
+                },
+              ]
+            : []),
+        ],
       };
     }
     case "StatusService/SetSecureBoot": {
@@ -1817,6 +1898,9 @@ const MOCK_SCENARIOS = [
   "locked",
   "locked-until-unlocked",
   "manual",
+  "network-pending",
+  "network-reverted",
+  "network-reverted-at-start",
   "no-previous",
   "no-product",
   "product-range",
@@ -1975,6 +2059,23 @@ export const applyMockScenario = (scenario: MockScenario): void => {
     }
     case "manual": {
       upgradePolicy = { ...upgradePolicy, mode: "manual" };
+      break;
+    }
+    case "network-pending": {
+      networkPending = {
+        id: "net-7",
+        settings: { ...networkSettings, hostname: "box.example.org" },
+        token: "mock-pending-token",
+        until: Date.now() + 95_000,
+      };
+      break;
+    }
+    case "network-reverted": {
+      lastNetworkChange = { atStart: false, id: "net-6", reverted: true };
+      break;
+    }
+    case "network-reverted-at-start": {
+      lastNetworkChange = { atStart: true, id: "net-6", reverted: true };
       break;
     }
     case "no-previous": {
@@ -2155,6 +2256,8 @@ export const resetMockWorld = (): void => {
   custodyMode = "tpm";
   refill(upgradeHistory, world.UPGRADE_HISTORY);
   networkPending = null;
+  lastNetworkChange = null;
+  networkChangeCount = 0;
   singleAdminAcknowledged = false;
   setupDone = true;
   secureBootOn = true;

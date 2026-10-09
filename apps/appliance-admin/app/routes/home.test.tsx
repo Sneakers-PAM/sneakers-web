@@ -24,6 +24,16 @@ describe("Home", () => {
     expect(screen.getByText(/self-signed/)).toBeInTheDocument();
   });
 
+  it("says when the last network change was undone, once, without the raw warning", async () => {
+    applyMockScenario("network-reverted");
+    renderPage(Home);
+    expect(
+      await screen.findAllByText(/The last network change \(net-6\) wasn't kept/),
+    ).not.toHaveLength(0);
+    expect(screen.getAllByText(/before its window ended/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/wasn't confirmed and was undone/)).not.toBeInTheDocument();
+  });
+
   it("wraps the TLS fingerprint instead of letting it run off the card", async () => {
     renderPage(Home);
     const fingerprint = await screen.findByText(/^Fingerprint: /);

@@ -154,7 +154,10 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   `requestStepUp` (`app/lib/osadmin/stepUpController.ts`) through `runAction`
   (`app/lib/osadmin/action.ts`), which queues the retry behind the one `<StepUpDialog>` mounted
   in `AppFrame`. The dialog asks for a fresh TOTP code (`SignInService.StepUp`), keeps a
-  refusal in place, and retries the action once the box takes the code. A Connect `unimplemented` (a page's backend isn't on the box yet) becomes "Not
+  refusal in place, and retries the action once the box takes the code. Its button says
+  "Verify code", never "Confirm". It stays open while the retry runs, and a follow-up the action
+  hands back (`runAction`'s `afterStepUp`, a `StepUpFollowUp`) is asked in the same dialog: a
+  network change's "Keep this change?", whose button calls `ConfirmNetwork`. A Connect `unimplemented` (a page's backend isn't on the box yet) becomes "Not
   available in this release" (`app/components/NotAvailable.tsx`); the Updates page shows it in
   full when `GetUpgrades` answers that way.
 - **Updates (`app/routes/updates.tsx`).** One flow for the three update units
@@ -301,7 +304,9 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   `mirror-wrong-ca` and `mirror-pin-mismatch`; its internal CA's PEM is `MOCK_INTERNAL_CA_PEM`.
 - **Mock scenarios.** `applyMockScenario` (`app/mock/edge.mock.ts`), or `?mockScenario=a,b` on a
   mock build's URL, puts the mock box into a state for the tests and the review screen list:
-  `air-gapped`, `staged`, `no-previous` (nothing in the other slot; by default 0.0.9 is kept
+  `air-gapped`, `staged`, `network-pending` (net-7, a host name change, waits 95 seconds),
+  `network-reverted` and `network-reverted-at-start` (net-6 was undone by its window, or when the
+  box started again), `no-previous` (nothing in the other slot; by default 0.0.9 is kept
   there for a revert), `failed` (boot counting fell back from 0.2.0), `reverted` (alice
   reverted from 0.2.0; Status and Updates say "Reverted from", not "Failed"), `manual`, `no-product` (before the first product
   install), `status-fails` (Status answers unavailable, as while accessd isn't answering), `product-staged` (0.2.0 staged, 0.0.9 in the previous slot; a product install or revert restarts the product services, stopped for two GetUpgrades, then running), `product-restart-fails` (that restart's step fails instead), `elevated` (bob has an elevated shell open, so

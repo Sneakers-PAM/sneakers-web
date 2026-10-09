@@ -2,10 +2,20 @@ import { edge } from "@sneakers-web/edge";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import { StepUpDialog } from "@/components/StepUpDialog";
 import { network } from "@/lib/osadmin/client";
 import { OsadminError } from "@/lib/osadmin/errors";
+import { applyMockScenario } from "@/mock/edge.mock";
 import Network from "@/routes/network";
 import { renderPage } from "@/test/renderPage";
+import { signInAs } from "@/test/session";
+
+const NetworkWithStepUp = () => (
+  <>
+    <Network />
+    <StepUpDialog />
+  </>
+);
 
 const unreachable = () => {
   const request = edge.request.bind(edge);
@@ -106,6 +116,49 @@ describe("Network", () => {
         /The box can't be reached at this address\. The change reverts in 1[12]\d seconds unless confirmed from the new address\./,
       ),
     ).not.toHaveLength(0);
+  });
+
+  it("says a DNS or NTP change was kept at once, with nothing to confirm", async () => {
+    const user = userEvent.setup();
+    renderPage(Network);
+    await screen.findByText("Network");
+    await user.clear(screen.getByLabelText("DNS servers"));
+    await user.type(screen.getByLabelText("DNS servers"), "192.0.2.54");
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    expect(await screen.findAllByText(/kept at once/)).not.toHaveLength(0);
+    expect(screen.queryByText(/A network change is pending/)).not.toBeInTheDocument();
+    const saved = await network.get();
+    expect(saved.settings?.dns).toEqual(["192.0.2.54"]);
+  });
+
+  it("after a step-up, asks in the same dialog to keep the change", async () => {
+    signInAs("alice");
+    applyMockScenario("stepup");
+    const user = userEvent.setup();
+    renderPage(NetworkWithStepUp);
+    await screen.findByText("Network");
+    await user.clear(screen.getByLabelText("Hostname"));
+    await user.type(screen.getByLabelText("Hostname"), "box.example.org");
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    await user.type(dialog.getByLabelText("Authenticator code"), "123456");
+    await user.click(dialog.getByRole("button", { name: "Verify code" }));
+    expect(await dialog.findByText("Keep this change?")).toBeInTheDocument();
+    expect(dialog.getByText(/reverts in 1[12]\d seconds/)).toBeInTheDocument();
+    await user.click(dialog.getByRole("button", { name: "Keep this change" }));
+    await vi.waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(await screen.findAllByText("Kept.")).not.toHaveLength(0);
+    const after = await network.get();
+    expect(after.pending).toBe(false);
+  });
+
+  it("says when the last change was undone, and when that was at a restart", async () => {
+    applyMockScenario("network-reverted-at-start");
+    renderPage(Network);
+    expect(
+      await screen.findByText(/The last network change \(net-6\) wasn't kept, so the box undid it/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/restarted before it was kept/)).toBeInTheDocument();
   });
 
   it("colours each check by its result and shows the code and detail", async () => {

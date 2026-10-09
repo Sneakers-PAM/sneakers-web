@@ -82,7 +82,16 @@ reports and keeps its Confirm button after a reload, because `GetNetwork` return
 change's token to owner sessions. When a change moves the management address, the banner names
 the new URL to sign in at and confirm from; when it changes the name or address, it warns that
 the box makes a new certificate. A Confirm that can't reach the box says so, with the seconds
-left, rather than the browser's network error. **Run checks** shows each check as OK (green),
+left, rather than the browser's network error.
+
+A change of only the DNS servers, search domains, NTP servers, time zone or proxy can't cut
+anyone off, so the box keeps it at once (`SetNetwork` answers no token and 0 seconds) and the
+page says so; anything else (an address, an interface, the host name, the allow-list, the
+cluster ranges) waits 120 seconds. When Apply asked for a fresh code first, the step-up dialog
+asks "Keep this change?" right after it, so the change is kept in one place. Every other page
+shows the pending change in a banner with the same countdown and a link to Network
+(`GetStatus.networkChange`). When the last change wasn't kept and the box undid it, by its
+window or because the box restarted inside it, Network and Status say so. **Run checks** shows each check as OK (green),
 Warning (yellow), Failed (red) or Unknown, with its `NET_*` code and detail. Toasts sit at the
 bottom centre, clear of the accessibility widget.
 
