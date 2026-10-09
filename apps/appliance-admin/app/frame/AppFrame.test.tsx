@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { createRoutesStub } from "react-router";
 
 import { AppFrame } from "@/frame/AppFrame";
-import { upgrade } from "@/lib/osadmin/client";
+import { status, upgrade } from "@/lib/osadmin/client";
 import { setSession } from "@/lib/osadmin/sessionStore";
 import { applyMockScenario } from "@/mock/edge.mock";
 
@@ -76,6 +76,26 @@ describe("AppFrame", () => {
     expect(await screen.findByText("Network page")).toBeInTheDocument();
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(screen.queryByText(/is waiting to be kept/)).not.toBeInTheDocument();
+  });
+
+  it("warns before a base update another admin started ends this session", async () => {
+    const get = status.get.bind(status);
+    vi.spyOn(status, "get").mockImplementation(async () => ({
+      ...(await get()),
+      upgradeProgress: {
+        action: "apply",
+        code: "",
+        failed: false,
+        inProgress: true,
+        steps: [],
+        target: "UPDATE_TARGET_BASE",
+        version: "0.2.0",
+      },
+    }));
+    setSession({ admin: "alice", csrfToken: "test-csrf", role: "ROLE_OWNER" });
+    stub("/home");
+    expect(await screen.findByText(/An update to 0\.2\.0 is under way/)).toBeInTheDocument();
+    expect(screen.getByText(/every session ends, this one included/)).toBeInTheDocument();
   });
 
   it("tells the admin the box's notices after signing in", async () => {

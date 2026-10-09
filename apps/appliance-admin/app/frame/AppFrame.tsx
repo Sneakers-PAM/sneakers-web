@@ -17,8 +17,8 @@ import { useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router";
 
 import { ApplianceAbout } from "@/components/ApplianceAbout";
-import { NetworkChangeBanner } from "@/components/NetworkChangeBanner";
 import { PagesUpdatedBanner } from "@/components/PagesUpdatedBanner";
+import { StatusBanners } from "@/components/StatusBanners";
 import { StepUpDialog } from "@/components/StepUpDialog";
 import { productPages } from "@/frame/productPages";
 import { setup, signIn } from "@/lib/osadmin/client";
@@ -110,7 +110,7 @@ export const AppFrame = () => {
               {notice}
             </Alert>
           ))}
-          <NetworkChangeBanner pathname={location.pathname} />
+          <StatusBanners pathname={location.pathname} />
           {setupDone === false && location.pathname === "/setup" && (
             <Alert role="status" tone="warn">
               First-boot setup isn&apos;t finished yet.

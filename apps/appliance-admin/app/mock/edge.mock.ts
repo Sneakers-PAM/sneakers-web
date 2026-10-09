@@ -1098,8 +1098,11 @@ const route = async (service: string, method: string, body: Record<string, unkno
           lastChangeReverted: lastNetworkChange.reverted,
           lastChangeRevertedAtStart: lastNetworkChange.reverted && lastNetworkChange.atStart,
         }),
+        learntDns: ["192.0.2.1"],
+        learntSearch: ["example.org"],
         managementAddresses: ["192.0.2.50"],
         ntpOffsetMs: "4",
+        ntpServers: (networkPending?.settings ?? networkSettings).ntp,
         ntpSynced: true,
         pending: !!networkPending,
         ...(networkPending && {

@@ -7,7 +7,7 @@ import { type NewPassword, NewPasswordFields } from "@/components/NewPasswordFie
 import { TotpEnrolmentPanel } from "@/components/TotpEnrolmentPanel";
 import { noAutofill } from "@/lib/noAutofill";
 import { setup } from "@/lib/osadmin/client";
-import { refusalOf } from "@/lib/osadmin/errors";
+import { plainMessage, refusalOf } from "@/lib/osadmin/errors";
 import { refusalMessage } from "@/lib/osadmin/refusal";
 
 /**
@@ -46,7 +46,7 @@ export const CredentialsStep = ({
       .beginCredentials(admin.trim(), password.password)
       .then((response) => setEnrolment(response.totp))
       .catch((error: unknown) =>
-        setRefusal(error instanceof Error ? error.message : "The appliance refused."),
+        setRefusal(error instanceof Error ? plainMessage(error) : "The appliance refused."),
       )
       .finally(() => setBusy(false));
   };
@@ -62,7 +62,7 @@ export const CredentialsStep = ({
           refusalOf(error)
             ? refusalMessage(error, { what: "code" })
             : error instanceof Error
-              ? error.message
+              ? plainMessage(error)
               : "The appliance refused.",
         );
         setCode("");

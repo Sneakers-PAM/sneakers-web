@@ -1336,7 +1336,7 @@ const UnitConfirm = ({
       ? action === "apply"
         ? {
             confirmLabel: "Install and restart the product",
-            description: `The product services (k0s and Sneakers-PAM) restart on ${version}, with no reboot. Sneakers-PAM is unavailable until they're back; the previous version stays in the other slot.`,
+            description: `Sneakers-PAM's services restart on ${version}, with no reboot; k0s keeps running. Sneakers-PAM is unavailable until they're back; the previous version stays in the other slot.`,
             title: `Install product ${version}`,
             word: version,
           }
@@ -1364,14 +1364,14 @@ const UnitConfirm = ({
         : action === "apply"
           ? {
               confirmLabel: "Apply and reboot",
-              description: `The appliance reboots into ${version}. Every session ends, and the box is unavailable until it's back.`,
+              description: `The appliance reboots into ${version}. Every session ends, yours included, and the box is unavailable until it's back; sign in again then.`,
               title: `Apply ${version}`,
               word: version,
             }
           : {
               confirmLabel: "Revert and reboot",
               description:
-                "The running release is marked bad and the appliance reboots into the previous one. Every session ends.",
+                "The running release is marked bad and the appliance reboots into the previous one. Every session ends, yours included; sign in again once it's back.",
               title: `Revert to ${version}`,
               word: runningVersion,
             };

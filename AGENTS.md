@@ -132,8 +132,11 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   pasted public key, `AddRecoveryKey`), 4 the network (read only, `AcknowledgeStep`), 5 the protection (read only),
   6 one sign-in with the password and a code, the single-admin warning, and `Finish`. The box
   restarts into normal operation after Finish, so the page shows the restart page and offers
-  Updates and Status (full page loads, signing in again) only once the box answers; a Finish
-  whose answer is lost to the restart counts as finished. A reload
+  Updates and Status (full page loads, signing in again) only once the box answers, and only
+  after it was seen down (or 90 seconds passed; `BoxRestarting`'s `waitForDownMs`), since the
+  box answers signed out for a few seconds before the reboot. A Finish whose answer is lost to
+  the restart, or that the box refuses with `SETUP_DONE` (the console closed setup on the
+  sign-in first), counts as finished. A reload
   asks `GetSession` and `GetSetup` and resumes at `current`, the box's first step not done.
   The same page takes an invitation or a Recover access code (`codeKind`), and then shows only
   the password and authenticator. Until the admin is signed in, the code session's calls carry
@@ -149,6 +152,13 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   setup `/setup` never shows the stepper: an anonymous visitor gets only the invitation or Recover
   access code form (`CodeStep afterSetup`), and the box refuses the setup-only calls anyway
   (`SETUP_DONE`).
+- **Plain refusals.** `plainMessage` (`app/lib/osadmin/errors.ts`) turns a refusal into the
+  box's reason as a sentence with its symbol after it ("Use at least 12 characters.
+  (ACCESS_PASSWORD)"), or, for a message that is only a code, a sentence for the code; toasts
+  and the in-place refusals use it, so a raw "ACCESS_PASSWORD (3016)" is never all an admin sees.
+- **The frame's notices (`app/components/StatusBanners.tsx`).** From `GetStatus`, on every
+  page change: a network change waiting to be kept (not on Network, which has its own), and a
+  base apply or revert under way (not on Updates), which will end this session too.
 - **One step-up dialog for every page.** A mutating call that answers
   `ACCESS_STEPUP_REQUIRED` (Connect `permission_denied`) doesn't build its own prompt; it calls
   `requestStepUp` (`app/lib/osadmin/stepUpController.ts`) through `runAction`

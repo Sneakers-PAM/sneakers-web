@@ -13,6 +13,7 @@ import {
 import { useState, useSyncExternalStore } from "react";
 
 import { signIn } from "@/lib/osadmin/client";
+import { plainMessage } from "@/lib/osadmin/errors";
 import { refusalMessage } from "@/lib/osadmin/refusal";
 import { setSession } from "@/lib/osadmin/sessionStore";
 import {
@@ -56,9 +57,7 @@ const FollowUpForm = ({ followUp }: { followUp: StepUpFollowUp }) => {
         followUp
           .run()
           .then(cancelStepUp)
-          .catch((error: unknown) =>
-            setRefusal(error instanceof Error ? error.message : "The appliance refused."),
-          )
+          .catch((error: unknown) => setRefusal(plainMessage(error)))
           .finally(() => setBusy(false));
       }}
     >

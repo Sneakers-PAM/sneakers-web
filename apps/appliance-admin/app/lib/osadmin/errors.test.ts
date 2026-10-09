@@ -3,6 +3,7 @@ import {
   isStepUpRequired,
   OsadminError,
   parseOsadminError,
+  plainMessage,
   reasonOf,
   validationChecksOf,
   refusalOf,
@@ -131,5 +132,34 @@ describe("refusalOf", () => {
   it("is undefined without a SignInRefusal detail", async () => {
     expect(refusalOf(await refused([]))).toBeUndefined();
     expect(refusalOf(new Error("x"))).toBeUndefined();
+  });
+});
+
+describe("plainMessage", () => {
+  it("gives the box's reason as a sentence first, then the symbol without its number", () => {
+    expect(
+      plainMessage(
+        new OsadminError("invalid_argument", "ACCESS_PASSWORD (3016): use at least 12 characters"),
+      ),
+    ).toBe("Use at least 12 characters. (ACCESS_PASSWORD)");
+    expect(plainMessage(new OsadminError("failed_precondition", "UPGRADE_BUSY: wait for it"))).toBe(
+      "Wait for it. (UPGRADE_BUSY)",
+    );
+  });
+
+  it("puts a plain sentence in front of a refusal that is only its code", () => {
+    expect(plainMessage(new OsadminError("invalid_argument", "ACCESS_PASSWORD (3016)"))).toBe(
+      "The box didn't take that password. (ACCESS_PASSWORD)",
+    );
+    expect(plainMessage(new OsadminError("unknown", "SOMETHING_NEW (9999)"))).toBe(
+      "The appliance refused this. (SOMETHING_NEW)",
+    );
+  });
+
+  it("keeps a message with no code as it is, and words a non-error", () => {
+    expect(plainMessage(new Error("The appliance didn't answer."))).toBe(
+      "The appliance didn't answer.",
+    );
+    expect(plainMessage("boom")).toBe("Something went wrong.");
   });
 });

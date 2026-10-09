@@ -59,6 +59,12 @@ const StepTitle = ({
 );
 
 /**
+ * After Finish the box reboots a few seconds later, and answers signed out in between; the
+ * links wait until it was seen down, or this long, so they never land on a box going down.
+ */
+const SETUP_DOWN_WAIT_MS = 90_000;
+
+/**
  * The :8443 setup stepper: 1 the console's code, 2 the first admin (password and TOTP), 3 the
  * recovery keys, 4 the network, 5 the protection, 6 one sign-in and Finish. The box keeps
  * where setup is, so a reload resumes at the first step not done. The same page takes an
@@ -225,7 +231,10 @@ export default function Setup() {
         </>
       )}
       {view.kind === "restarting" && (
-        <BoxRestarting onBack={() => setView({ kind: "complete" })}>
+        <BoxRestarting
+          onBack={() => setView({ kind: "complete" })}
+          waitForDownMs={SETUP_DOWN_WAIT_MS}
+        >
           <p className="m-0">
             Setup is closed. The box restarts into normal operation; Updates and Status open once
             it&apos;s back.

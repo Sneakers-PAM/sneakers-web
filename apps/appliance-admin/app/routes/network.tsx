@@ -24,7 +24,7 @@ import type {
   SetNetworkResponse,
 } from "@/lib/osadmin/types";
 
-import { NetworkReverted } from "@/components/NetworkChangeBanner";
+import { NetworkReverted } from "@/components/StatusBanners";
 import { networkChanged } from "@/lib/networkChange";
 import { runAction } from "@/lib/osadmin/action";
 import { network } from "@/lib/osadmin/client";
@@ -191,6 +191,18 @@ export default function Network() {
             </p>
           ))}
           <p>{data.ntpSynced ? `NTP synced, offset ${data.ntpOffsetMs} ms` : "NTP not synced"}</p>
+          {(data.learntDns ?? []).length > 0 && (
+            <p>From DHCP, DNS: {(data.learntDns ?? []).join(", ")}</p>
+          )}
+          {(data.learntSearch ?? []).length > 0 && (
+            <p>From DHCP, search domains: {(data.learntSearch ?? []).join(", ")}</p>
+          )}
+          {(data.learntNtp ?? []).length > 0 && (
+            <p>From DHCP, NTP: {(data.learntNtp ?? []).join(", ")}</p>
+          )}
+          {(data.ntpServers ?? []).length > 0 && (
+            <p>The clock asks: {(data.ntpServers ?? []).join(", ")}</p>
+          )}
         </div>
       </Card>
       <Card>
@@ -266,7 +278,10 @@ export default function Network() {
           >
             <Input onChange={(event) => setHostname(event.target.value)} value={hostname} />
           </Field>
-          <Field hint="Comma-separated" label="DNS servers">
+          <Field
+            hint="Comma-separated. Leave empty to use the ones DHCP gives the box."
+            label="DNS servers"
+          >
             <Input onChange={(event) => setDns(event.target.value)} value={dns} />
           </Field>
           <Field hint="Comma-separated" label="NTP servers">

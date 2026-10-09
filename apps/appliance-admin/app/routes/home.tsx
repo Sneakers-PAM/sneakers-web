@@ -12,9 +12,9 @@ import { useEffect, useState } from "react";
 
 import type { GetStatusResponse, WarningKind } from "@/lib/osadmin/types";
 
-import { NetworkReverted } from "@/components/NetworkChangeBanner";
 import { ProductValues } from "@/components/ProductValues";
 import { ResetCountdown } from "@/components/ResetCountdown";
+import { NetworkReverted } from "@/components/StatusBanners";
 import { UpgradeSteps } from "@/components/UpgradeSteps";
 import { VersionChip } from "@/components/VersionChip";
 import { status as statusClient } from "@/lib/osadmin/client";

@@ -161,6 +161,13 @@ describe("Network", () => {
     expect(screen.getByText(/restarted before it was kept/)).toBeInTheDocument();
   });
 
+  it("shows the DNS and search domains DHCP gave the box, next to the typed ones", async () => {
+    renderPage(Network);
+    expect(await screen.findByText("From DHCP, DNS: 192.0.2.1")).toBeInTheDocument();
+    expect(screen.getByText("From DHCP, search domains: example.org")).toBeInTheDocument();
+    expect(screen.getByText("The clock asks: 192.0.2.123")).toBeInTheDocument();
+  });
+
   it("colours each check by its result and shows the code and detail", async () => {
     const user = userEvent.setup();
     renderPage(Network);

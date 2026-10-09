@@ -99,7 +99,9 @@ asks "Keep this change?" right after it, so the change is kept in one place. Eve
 shows the pending change in a banner with the same countdown and a link to Network
 (`GetStatus.networkChange`). When the last change wasn't kept and the box undid it, by its
 window or because the box restarted inside it, Network and Status say so. **Run checks** shows each check as OK (green),
-Warning (yellow), Failed (red) or Unknown, with its `NET_*` code and detail. Toasts sit at the
+Warning (yellow), Failed (red) or Unknown, with its `NET_*` code and detail. The Addresses card
+lists the DNS servers, search domains and NTP servers DHCP gave the box (`learntDns`,
+`learntSearch`, `learntNtp`) next to the typed ones, and the servers the clock asks now. Toasts sit at the
 bottom centre, clear of the accessibility widget.
 
 ## Logs and audit

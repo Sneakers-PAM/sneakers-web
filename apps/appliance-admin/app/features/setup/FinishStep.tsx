@@ -10,9 +10,16 @@ import { OsadminError } from "@/lib/osadmin/errors";
 import { refusalMessage } from "@/lib/osadmin/refusal";
 import { setSession } from "@/lib/osadmin/sessionStore";
 
-/** True when the call got no answer from osadmin: the box is going down for its restart. */
-const wentAway = (error: unknown): boolean =>
-  !(error instanceof OsadminError) || error.code === "unavailable" || error.code === "unknown";
+/**
+ * True when Finish's refusal still means a finished setup: no answer from osadmin (the box is
+ * going down for its restart), or SETUP_DONE (the console closed setup on the sign-in, before
+ * this Finish got there).
+ */
+const finishedAnyway = (error: unknown): boolean =>
+  !(error instanceof OsadminError) ||
+  error.code === "unavailable" ||
+  error.code === "unknown" ||
+  error.symbol === "SETUP_DONE";
 
 /**
  * Step 6: one sign-in with the name, password and code, which shows the admin can get back in,
@@ -48,9 +55,10 @@ export const FinishStep = ({
             try {
               return await setup.finish();
             } catch (error) {
-              // The box may start its restart before Finish's answer gets back; that's a
-              // finished setup, and the restart page takes it from there.
-              if (!wentAway(error)) throw error;
+              // The box may start its restart before Finish's answer gets back, or the console
+              // may have closed setup first; either is a finished setup, and the restart page
+              // takes it from there.
+              if (!finishedAnyway(error)) throw error;
               return { productSetupUrl: "" };
             }
           },

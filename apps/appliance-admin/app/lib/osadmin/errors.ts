@@ -107,6 +107,44 @@ export const reasonOf = (error: unknown): string => {
   return match?.[1] ?? error.message;
 };
 
+/** What a refusal that is only its code means, by the code's symbol. */
+const PLAIN: Record<string, string> = {
+  ACCESS_CONFIRM: "The confirmation you typed doesn't match.",
+  ACCESS_FORBIDDEN: "Your role can't do that.",
+  ACCESS_LAST_OWNER: "At least one owner must remain.",
+  ACCESS_PASSWORD: "The box didn't take that password.",
+  ACCESS_STEPUP_REQUIRED: "This needs a fresh code from your authenticator.",
+  ACCESS_UNAUTHENTICATED: "Your session ended. Sign in again.",
+  NOT_AVAILABLE: "That isn't available on this box yet.",
+  SETUP_DONE: "Setup is already done.",
+  SETUP_INCOMPLETE: "A setup step isn't done yet.",
+  TLS_NOT_SERVED: "The new certificate wasn't served in time, so the previous one is back.",
+  UPGRADE_BUSY: "Another file is already on its way; wait for it or cancel it first.",
+};
+
+const sentence = (text: string): string => {
+  const trimmed = text.trim();
+  const first = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+  return /[.!?]$/.test(first) ? first : `${first}.`;
+};
+
+/**
+ * One plain sentence for the admin from any refusal: the box's own reason first, then its
+ * symbol for support, without the number ("ACCESS_PASSWORD (3016): use at least 12
+ * characters" gives "Use at least 12 characters. (ACCESS_PASSWORD)"), or, when the message is
+ * only a code, a sentence for that code, so a raw "ACCESS_PASSWORD (3016)" is never all the
+ * admin sees.
+ */
+export const plainMessage = (error: unknown): string => {
+  if (!(error instanceof Error)) return "Something went wrong.";
+  const message = error.message.trim();
+  const coded = /^([A-Z]+_[A-Z_]+)(?: \(\d+\))?: (.+)$/s.exec(message);
+  if (coded?.[2]) return `${sentence(coded[2])} (${coded[1] ?? ""})`;
+  const only = /^([A-Z]+_[A-Z_]+)(?: \(\d+\))?$/.exec(message)?.[1];
+  if (only) return `${PLAIN[only] ?? "The appliance refused this."} (${only})`;
+  return message ? sentence(message) : "Something went wrong.";
+};
+
 /** What a refused sign-in, step-up or one-time code says happens next (SignInRefusal). */
 export interface SignInRefusal {
   /** Tries left before the account locks; 0 when it's locked or the source is throttled. */

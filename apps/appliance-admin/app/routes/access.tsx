@@ -54,7 +54,7 @@ import { removeBlocked } from "@/features/access/removeBlocked";
 import { RootShellsCard } from "@/features/access/RootShellsCard";
 import { runAction } from "@/lib/osadmin/action";
 import { access, elevation as elevationClient } from "@/lib/osadmin/client";
-import { isNotAvailable, isStepUpRequired, reasonOf } from "@/lib/osadmin/errors";
+import { isNotAvailable, isStepUpRequired, plainMessage, reasonOf } from "@/lib/osadmin/errors";
 import { useSession } from "@/lib/useSession";
 
 const clamp = (value: number, min: number, max: number): number =>
@@ -729,7 +729,7 @@ const UnrevokeDialog = ({
           return true;
         } catch (error) {
           if (isStepUpRequired(error)) throw error;
-          setRefusal(error instanceof Error ? error.message : "The appliance refused.");
+          setRefusal(error instanceof Error ? plainMessage(error) : "The appliance refused.");
           return false;
         }
       },

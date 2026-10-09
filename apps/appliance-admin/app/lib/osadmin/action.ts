@@ -1,6 +1,6 @@
 import { toast } from "@sneakers-web/ui";
 
-import { isNotAvailable, isStepUpRequired } from "@/lib/osadmin/errors";
+import { isNotAvailable, isStepUpRequired, plainMessage } from "@/lib/osadmin/errors";
 import { requestStepUp, type StepUpFollowUp } from "@/lib/osadmin/stepUpController";
 
 interface ActionOptions<T> {
@@ -32,7 +32,7 @@ const attempt = async <T>(
       toast("Not available in this release.");
       return;
     }
-    toast(error instanceof Error ? error.message : "Something went wrong.");
+    toast(plainMessage(error));
   }
 };
 
