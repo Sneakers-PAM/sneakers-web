@@ -223,7 +223,10 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   slot, so the release there goes at the stage, not the apply: the Install an update card says
   "Staging a base update removes <version> and its files." and the panel's Verify and stage step
   (a received file) says "This removes <version> and its files.", both
-  from `GetUpgrades.nextStageRemoves`; a product bundle's stage names no base release. Apply, Revert, Install product and
+  from `GetUpgrades.nextStageRemoves`, and only while nothing is staged. With a base release
+  staged they say staging another replaces it ("0.2.0 is staged. Staging another base update
+  replaces it and its files.", "This replaces the staged 0.2.0 and its files."), never that it
+  removes the release just staged; a product bundle's stage names no base release. Apply, Revert, Install product and
   Revert product each need the version typed (the running one for a base revert) and a fresh
   authenticator code in the same dialog, every time (`totpCode`; the box checks it on every call,
   not the step-up window), and a refused code stays in the dialog with the tries left. Stage and

@@ -663,6 +663,7 @@ export default function Updates() {
         onVerify={(fileName, uploadId) => verifyAndStage(fileName, uploadId, place)}
         progress={progress}
         removes={removes}
+        replaces={staged}
         step={shown}
       />
     ) : null;
@@ -1146,7 +1147,11 @@ export default function Updates() {
                 appliance checks its signature, channel and hash (and that it fits the other units)
                 before it unpacks anything, and its signed header picks its card above.
               </p>
-              {removes && <p>Staging a base update removes {removes} and its files.</p>}
+              {staged ? (
+                <p>{staged} is staged. Staging another base update replaces it and its files.</p>
+              ) : (
+                removes && <p>Staging a base update removes {removes} and its files.</p>
+              )}
               <div className="flex flex-wrap items-center gap-3">
                 <input
                   accept=".bin"
@@ -1397,6 +1402,7 @@ const UpdateStep = ({
   onVerify,
   progress,
   removes,
+  replaces,
   step,
 }: {
   /** The upload the box holds, if any: a refusal about it can still verify or cancel it. */
@@ -1408,14 +1414,21 @@ const UpdateStep = ({
   progress?: UpgradeProgress;
   /** The base releases the stage removes, joined; empty when it removes none. */
   removes: string;
+  /** The base release staged now, which a new stage replaces; empty with none staged. */
+  replaces: string;
   step: Step;
 }) => {
   // A product bundle and the admin pages have their own slots: only a Base OS stage removes a
-  // base release.
-  const removal =
-    removes && "fileName" in step && targetOfFile(step.fileName) === BASE ? (
+  // base release. With one staged, the stage replaces that release rather than removing the
+  // revert target.
+  const baseFile = "fileName" in step && targetOfFile(step.fileName) === BASE;
+  const removal = baseFile ? (
+    replaces ? (
+      <p>This replaces the staged {replaces} and its files.</p>
+    ) : removes ? (
       <p>This removes {removes} and its files.</p>
-    ) : null;
+    ) : null
+  ) : null;
   switch (step.kind) {
     case "idle": {
       return null;

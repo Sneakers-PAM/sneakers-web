@@ -512,10 +512,20 @@ describe("Updates", () => {
     expect(within(step).getByRole("button", { name: "Verify and stage" })).toBeInTheDocument();
   });
 
-  it("names a staged release as the one the next stage removes", async () => {
+  it("says staging another base update replaces a staged release, not that it removes it", async () => {
     applyMockScenario("staged");
+    const user = userEvent.setup();
     await openPage();
-    expect(line("Staging a base update removes 0.2.0 and its files.")).toBeInTheDocument();
+    expect(
+      line("0.2.0 is staged. Staging another base update replaces it and its files."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/removes 0\.2\.0/)).not.toBeInTheDocument();
+    await user.upload(screen.getByLabelText("Update .bin file"), binFile("signed release"));
+    await user.click(screen.getByRole("button", { name: "Upload" }));
+    const step = await panel();
+    expect(
+      within(step).getByText("This replaces the staged 0.2.0 and its files."),
+    ).toBeInTheDocument();
   });
 
   it("says nothing about a removal when the other slot is empty", async () => {
