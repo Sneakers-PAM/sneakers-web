@@ -24,6 +24,12 @@ describe("Home", () => {
     expect(screen.getByText(/self-signed/)).toBeInTheDocument();
   });
 
+  it("wraps the TLS fingerprint instead of letting it run off the card", async () => {
+    renderPage(Home);
+    const fingerprint = await screen.findByText(/^Fingerprint: /);
+    expect(fingerprint.className).toContain("break-all");
+  });
+
   it("highlights the running version, and a staged one in a quieter tone", async () => {
     applyMockScenario("staged");
     renderPage(Home);

@@ -137,7 +137,7 @@ export default function Home() {
           <Card>
             <CardHeader title="TLS" />
             <div className="flex flex-col gap-1 p-5.5 text-small">
-              <p>Fingerprint: {data.tlsFingerprint}</p>
+              <p className="break-all">Fingerprint: {data.tlsFingerprint}</p>
               <p>{data.tlsSelfSigned ? "Self-signed" : "Not self-signed"}</p>
             </div>
           </Card>

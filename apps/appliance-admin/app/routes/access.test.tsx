@@ -58,6 +58,14 @@ describe("Access", () => {
     expect(admins.getByText("bob")).toBeInTheDocument();
   });
 
+  it("wraps the root and host key fingerprints instead of letting them run off the card", async () => {
+    renderPage(Access);
+    const root = await screen.findByText(new RegExp(world.ROOT_KEY.fingerprint));
+    expect(root.className).toContain("break-all");
+    const host = screen.getByText(new RegExp(world.HOST_KEYS[0]!.fingerprint));
+    expect(host.className).toContain("break-all");
+  });
+
   it("lets an owner remove an admin's key", async () => {
     signInAsOwner();
     const user = userEvent.setup();

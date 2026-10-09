@@ -81,7 +81,7 @@ export default function Backups() {
         />
         <div className="flex flex-col gap-1 p-5.5 font-mono text-[0.8125rem]">
           {(recoveryKeys ?? []).map((key) => (
-            <p key={key.fingerprint}>
+            <p className="break-all" key={key.fingerprint}>
               {key.fingerprint} ({key.label})
             </p>
           ))}

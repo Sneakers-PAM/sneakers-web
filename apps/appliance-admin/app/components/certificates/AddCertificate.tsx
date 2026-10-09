@@ -368,8 +368,9 @@ export const AddCertificate = ({
 
         {step.kind === "applied" && (
           <Alert role="status" title="Done" tone="ok">
-            Applied. :8443 now serves <span className="font-mono">{step.fingerprint}</span>. Your
-            browser reconnects with the new certificate; the console shows the new fingerprint.
+            Applied. :8443 now serves{" "}
+            <span className="break-all font-mono">{step.fingerprint}</span>. Your browser reconnects
+            with the new certificate; the console shows the new fingerprint.
           </Alert>
         )}
 
