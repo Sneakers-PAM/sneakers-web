@@ -221,6 +221,29 @@ const restart = () => {
 };
 /** The last stage, apply or revert, step by step, as osadmin keeps it. */
 let upgradeProgress: undefined | UpgradeProgress;
+/** A product install or revert restarts the product services: they answer running after this
+ * many GetUpgrades, or the restart step fails when productRestartFails is set. */
+const PRODUCT_RESTART_POLLS = 2;
+let productRestartPolls = 0;
+let productRestartFails = false;
+/** Starts the product services' restart on version, stopped until it ends. */
+const restartProduct = (action: "apply" | "revert", version: string) => {
+  upgradeProgress = progressAt(action, "UPDATE_TARGET_PRODUCT", version, "restart", "ACTIVE");
+  productRestartPolls = PRODUCT_RESTART_POLLS;
+};
+/** One GetUpgrades further into the product's restart. */
+const advanceProductRestart = () => {
+  if (productRestartPolls === 0 || --productRestartPolls > 0 || !upgradeProgress) return;
+  const { action, version } = upgradeProgress;
+  if (productRestartFails) {
+    upgradeProgress = progressAt(action, "UPDATE_TARGET_PRODUCT", version, "restart", "FAILED", {
+      detail: "The product services didn't come up.",
+    });
+    return;
+  }
+  upgradeProgress = progressAt(action, "UPDATE_TARGET_PRODUCT", version, "restart", "DONE");
+  product = { ...product, running: true };
+};
 /** After a reboot the box checks its health this long before it marks the release good. */
 const CHECK_MS = 1500;
 let checkingUntil = 0;
@@ -1192,17 +1215,11 @@ const route = async (service: string, method: string, body: Record<string, unkno
           body.elevationOverride as ElevationOverride | undefined,
         );
         historyEntry("apply", product.stagedVersion, "", detail, "UPDATE_TARGET_PRODUCT");
-        upgradeProgress = progressAt(
-          "apply",
-          "UPDATE_TARGET_PRODUCT",
-          product.stagedVersion,
-          "restart",
-          "DONE",
-        );
+        restartProduct("apply", product.stagedVersion);
         product = {
           installedVersion: product.stagedVersion,
           previousVersion: product.installedVersion,
-          running: true,
+          running: false,
           stagedVersion: "",
         };
         return {};
@@ -1260,6 +1277,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
     }
     case "UpgradeService/GetUpgrades": {
       advanceProgress();
+      advanceProductRestart();
       return {
         activeElevations: structuredClone(elevations.filter((item) => item.state === "active")),
         airGapped: isAirGapped(),
@@ -1303,17 +1321,11 @@ const route = async (service: string, method: string, body: Record<string, unkno
           body.elevationOverride as ElevationOverride | undefined,
         );
         historyEntry("revert", product.previousVersion, "", detail, "UPDATE_TARGET_PRODUCT");
-        upgradeProgress = progressAt(
-          "revert",
-          "UPDATE_TARGET_PRODUCT",
-          product.previousVersion,
-          "restart",
-          "DONE",
-        );
+        restartProduct("revert", product.previousVersion);
         product = {
           installedVersion: product.previousVersion,
           previousVersion: product.installedVersion,
-          running: true,
+          running: false,
           stagedVersion: "",
         };
         return {};
@@ -1456,6 +1468,7 @@ const MOCK_SCENARIOS = [
   "manual",
   "no-previous",
   "no-product",
+  "product-restart-fails",
   "product-staged",
   "reduced",
   "reverted",
@@ -1594,6 +1607,10 @@ export const applyMockScenario = (scenario: MockScenario): void => {
       product = { installedVersion: "", previousVersion: "", running: false, stagedVersion: "" };
       break;
     }
+    case "product-restart-fails": {
+      productRestartFails = true;
+      break;
+    }
     case "product-staged": {
       product = { ...product, previousVersion: "0.0.9", stagedVersion: "0.2.0" };
       break;
@@ -1688,6 +1705,8 @@ export const resetMockWorld = (): void => {
   previousVersion = PREVIOUS_VERSION;
   restartingUntil = 0;
   upgradeProgress = undefined;
+  productRestartPolls = 0;
+  productRestartFails = false;
   checkingUntil = 0;
   uploads.clear();
   uploadCount = 0;

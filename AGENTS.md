@@ -253,7 +253,7 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   `air-gapped`, `staged`, `no-previous` (nothing in the other slot; by default 0.0.9 is kept
   there for a revert), `failed` (boot counting fell back from 0.2.0), `reverted` (alice
   reverted from 0.2.0; Status and Updates say "Reverted from", not "Failed"), `manual`, `no-product` (before the first product
-  install), `product-staged` (0.2.0 staged, 0.0.9 in the previous slot), `elevated` (bob has an elevated shell open, so
+  install), `product-staged` (0.2.0 staged, 0.0.9 in the previous slot; a product install or revert restarts the product services, stopped for two GetUpgrades, then running), `product-restart-fails` (that restart's step fails instead), `elevated` (bob has an elevated shell open, so
   Apply and Revert are refused without an owner's override), `uploading` and `verifying` (the upload or the
   verification never finishes), `stepup` (the next step-up-gated call is refused once, so the
   dialog asks for a code), `locked`, `locked-until-unlocked` (bob is locked out, for 12
