@@ -39,6 +39,16 @@ const staging: UpgradeProgress = {
   version: "0.2.0",
 };
 
+const productInstall = (steps: UpgradeStep[]): UpgradeProgress => ({
+  action: "apply",
+  code: "",
+  failed: false,
+  inProgress: true,
+  steps,
+  target: "UPDATE_TARGET_PRODUCT",
+  version: "0.2.0",
+});
+
 describe("UpgradeSteps", () => {
   it("lists every step in order, says where each stands and marks the current one", () => {
     render(<UpgradeSteps progress={staging} />);
@@ -90,5 +100,63 @@ describe("UpgradeSteps", () => {
     expect(items[0]).toHaveTextContent("Failed");
     expect(items[0]).toHaveTextContent("isn't signed by this box's release key");
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
+  it("reads a product install's steps from their own state, not the order they come in, when a pod falls over", () => {
+    // "pods" went done, "edge" started, then a pod fell over: pods is active again and edge is
+    // back to pending, even though pods comes before edge in the list (sneakers-appliance#218).
+    const { rerender } = render(
+      <UpgradeSteps
+        progress={productInstall([
+          step("k0s", "Starting k0s", "UPGRADE_STEP_STATE_DONE"),
+          step("images", "Pulling the product's images", "UPGRADE_STEP_STATE_DONE"),
+          step("manifests", "Applying the product's manifests", "UPGRADE_STEP_STATE_DONE"),
+          step("pods", "Waiting for the product's pods", "UPGRADE_STEP_STATE_ACTIVE", {
+            detail: "3 of 5 pods ready",
+          }),
+          step("edge", "Opening the product on 443", "UPGRADE_STEP_STATE_PENDING"),
+        ])}
+      />,
+    );
+    expect(screen.getByText("3 of 5 pods ready")).toBeInTheDocument();
+    rerender(
+      <UpgradeSteps
+        progress={productInstall([
+          step("k0s", "Starting k0s", "UPGRADE_STEP_STATE_DONE"),
+          step("images", "Pulling the product's images", "UPGRADE_STEP_STATE_DONE"),
+          step("manifests", "Applying the product's manifests", "UPGRADE_STEP_STATE_DONE"),
+          step("pods", "Waiting for the product's pods", "UPGRADE_STEP_STATE_ACTIVE", {
+            detail: "4 of 5 pods ready (1 restarting)",
+          }),
+          step("edge", "Opening the product on 443", "UPGRADE_STEP_STATE_PENDING"),
+        ])}
+      />,
+    );
+    const items = screen.getAllByRole("listitem");
+    const pods = items.find((item) => item.dataset.state === "active");
+    expect(pods).toHaveTextContent("4 of 5 pods ready (1 restarting)");
+    const edge = items.find((item) => item.textContent?.startsWith("Opening the product"));
+    expect(edge?.dataset.state).toBe("pending");
+  });
+
+  it("shows a product install step's failure the same way, without a code", () => {
+    render(
+      <UpgradeSteps
+        progress={productInstall([
+          step("k0s", "Starting k0s", "UPGRADE_STEP_STATE_DONE"),
+          step("images", "Pulling the product's images", "UPGRADE_STEP_STATE_DONE"),
+          step("manifests", "Applying the product's manifests", "UPGRADE_STEP_STATE_DONE"),
+          step("pods", "Waiting for the product's pods", "UPGRADE_STEP_STATE_DONE"),
+          step("edge", "Opening the product on 443", "UPGRADE_STEP_STATE_FAILED", {
+            detail: "The product didn't open on 443 in time.",
+          }),
+        ])}
+      />,
+    );
+    const failed = within(
+      screen.getAllByRole("listitem").find((item) => item.dataset.state === "failed")!,
+    );
+    expect(failed.getByText("The product didn't open on 443 in time.")).toBeInTheDocument();
+    expect(failed.getByText("Failed")).toBeInTheDocument();
   });
 });

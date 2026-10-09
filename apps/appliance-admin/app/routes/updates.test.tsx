@@ -628,7 +628,7 @@ describe("Updates", () => {
       expect(after.product).toMatchObject({ installedVersion: "0.2.0", stagedVersion: "" });
     });
 
-    it("clears the installing banner once the product runs on the new version", async () => {
+    it("shows the install's own step progress, then clears the installing banner once it runs", async () => {
       applyMockScenario("product-staged");
       const user = userEvent.setup();
       await openPage();
@@ -640,14 +640,17 @@ describe("Updates", () => {
       await user.click(dialog.getByRole("button", { name: "Install and restart the product" }));
       expect(await screen.findByText("Installing product 0.2.0")).toBeInTheDocument();
       expect(await product.findByText("stopped")).toBeInTheDocument();
-      expect(await product.findByText("running", {}, { timeout: 5000 })).toBeInTheDocument();
+      // Something says which step it's on, the whole way through (issue sneakers-appliance
+      // #218): not just the static banner above.
+      expect(await screen.findByRole("region", { name: "Update progress" })).toBeInTheDocument();
+      expect(await product.findByText("running", {}, { timeout: 10_000 })).toBeInTheDocument();
       expect(product.getByText("Installed 0.2.0")).toBeInTheDocument();
       await vi.waitFor(() =>
         expect(screen.queryByText("Installing product 0.2.0")).not.toBeInTheDocument(),
       );
-    });
+    }, 15_000);
 
-    it("clears the installing banner when the product's restart fails, and shows the failure", async () => {
+    it("clears the installing banner when the product doesn't open on 443 in time", async () => {
       applyMockScenario("product-staged");
       applyMockScenario("product-restart-fails");
       const user = userEvent.setup();
@@ -660,11 +663,42 @@ describe("Updates", () => {
       await user.click(dialog.getByRole("button", { name: "Install and restart the product" }));
       expect(await screen.findByText("Installing product 0.2.0")).toBeInTheDocument();
       expect(
-        await screen.findByText("The last update didn't finish", {}, { timeout: 5000 }),
+        await screen.findByText("The last update didn't finish", {}, { timeout: 12_000 }),
       ).toBeInTheDocument();
+      expect(screen.getByText(/didn't open on 443 in time/)).toBeInTheDocument();
       await vi.waitFor(() =>
         expect(screen.queryByText("Installing product 0.2.0")).not.toBeInTheDocument(),
       );
+    }, 15_000);
+
+    it("steps the product install through k0s, images, manifests, pods and edge", async () => {
+      applyMockScenario("product-staged");
+      signInAs("alice");
+      await upgrade.apply("123456", undefined, "UPDATE_TARGET_PRODUCT");
+      const ids = async () => {
+        const response = await upgrade.get();
+        return response.upgradeProgress?.steps ?? [];
+      };
+      const until = async (id: string) => {
+        for (let tick = 0; tick < 10; tick++) {
+          const steps = await ids();
+          const active = steps.find((step) => step.state === "UPGRADE_STEP_STATE_ACTIVE");
+          if (active?.id === id) return active;
+        }
+        throw new Error(`never reached ${id}`);
+      };
+      const images = await until("images");
+      expect(images.detail).toBe("3 of 7 images imported");
+      const pods = await until("pods");
+      expect(pods.detail).toBe("4 of 5 pods ready");
+      const edge = await until("edge");
+      expect(edge.label).toBe("Opening the product on 443");
+      const final = await upgrade.get();
+      expect(final.upgradeProgress?.inProgress).toBe(false);
+      expect(
+        final.upgradeProgress?.steps.every((step) => step.state === "UPGRADE_STEP_STATE_DONE"),
+      ).toBe(true);
+      expect(final.product?.running).toBe(true);
     });
 
     it("reverts the product to the previous slot", async () => {

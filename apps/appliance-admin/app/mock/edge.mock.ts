@@ -237,35 +237,74 @@ const restart = () => {
 };
 /** The last stage, apply or revert, step by step, as osadmin keeps it. */
 let upgradeProgress: undefined | UpgradeProgress;
-/** A product install or revert restarts the product services: they answer running after this
- * many GetUpgrades, or the restart step fails when productRestartFails is set. */
-const PRODUCT_RESTART_POLLS = 2;
+/** A product install or revert restarts the product services, then osadmin's own ticks take
+ * over (sneakers-appliance#218): starting k0s, pulling the product's images, applying its
+ * manifests, waiting for its pods, then opening it on 443. "restart" stays showing for this
+ * many GetUpgrades before the ticks start, so it isn't a one-frame flash. */
+const PRODUCT_RESTART_POLLS = 1;
 let productRestartPolls = 0;
 let productRestartFails = false;
+/** -1 until the first tick starts; then the index of PRODUCT_TICKS last shown active. */
+let productInstallStep = -1;
+const PRODUCT_TICKS: readonly { detail?: string; id: string }[] = [
+  { id: "k0s" },
+  { detail: "3 of 7 images imported", id: "images" },
+  { id: "manifests" },
+  { detail: "4 of 5 pods ready", id: "pods" },
+  { id: "edge" },
+];
 /** Starts the product services' restart on version, stopped until it ends. */
 const restartProduct = (action: "apply" | "revert", version: string) => {
   upgradeProgress = progressAt(action, "UPDATE_TARGET_PRODUCT", version, "restart", "ACTIVE");
   productRestartPolls = PRODUCT_RESTART_POLLS;
+  productInstallStep = -1;
 };
-/** One GetUpgrades further into the product's restart. */
+/** One GetUpgrades further into the product's restart, then its install ticks. A step can go
+ * back (a pod that comes up then falls over), so the UI must read each step's own state rather
+ * than assume the order; this mock only ever moves forward, but nothing here or in UpgradeSteps
+ * relies on that. productRestartFails fails the box at the edge tick, the way a start timeout
+ * does on the real one (UPGRADE_PRODUCT_START). */
 const advanceProductRestart = () => {
-  if (productRestartPolls === 0 || --productRestartPolls > 0 || !upgradeProgress) return;
+  if (!upgradeProgress?.inProgress || upgradeProgress.target !== "UPDATE_TARGET_PRODUCT") return;
   const { action, version } = upgradeProgress;
-  if (productRestartFails) {
-    upgradeProgress = progressAt(action, "UPDATE_TARGET_PRODUCT", version, "restart", "FAILED", {
-      detail: "The product services didn't come up.",
+  if (productRestartPolls > 0) {
+    if (--productRestartPolls > 0) return;
+    productInstallStep = 0;
+    const tick = PRODUCT_TICKS[0]!;
+    upgradeProgress = progressAt(action, "UPDATE_TARGET_PRODUCT", version, tick.id, "ACTIVE", {
+      detail: tick.detail,
     });
     return;
   }
-  upgradeProgress = progressAt(action, "UPDATE_TARGET_PRODUCT", version, "restart", "DONE");
-  product = { ...product, running: true };
+  const next = PRODUCT_TICKS[productInstallStep + 1];
+  if (!next) {
+    if (productRestartFails) {
+      upgradeProgress = progressAt(action, "UPDATE_TARGET_PRODUCT", version, "edge", "FAILED", {
+        code: "UPGRADE_PRODUCT_START",
+        detail: "The product didn't open on 443 in time.",
+      });
+      return;
+    }
+    upgradeProgress = progressAt(action, "UPDATE_TARGET_PRODUCT", version, "edge", "DONE");
+    product = { ...product, running: true };
+    return;
+  }
+  productInstallStep += 1;
+  upgradeProgress = progressAt(action, "UPDATE_TARGET_PRODUCT", version, next.id, "ACTIVE", {
+    detail: next.detail,
+  });
 };
 /** After a reboot the box checks its health this long before it marks the release good. */
 const CHECK_MS = 1500;
 let checkingUntil = 0;
 const STEP_LABELS: Record<string, string> = {
+  edge: "Opening the product on 443",
   health: "Checking health",
+  images: "Pulling the product's images",
+  k0s: "Starting k0s",
+  manifests: "Applying the product's manifests",
   mark_good: "Marking good",
+  pods: "Waiting for the product's pods",
   reboot: "Rebooting",
   restart: "Restarting the product",
   switch: "Switching slots",
@@ -274,7 +313,7 @@ const STEP_LABELS: Record<string, string> = {
 const stepIds = (action: UpgradeProgress["action"], target: UpdateTarget): string[] => {
   const after =
     target === "UPDATE_TARGET_PRODUCT"
-      ? ["switch", "restart"]
+      ? ["switch", "restart", ...PRODUCT_TICKS.map((tick) => tick.id)]
       : ["switch", "reboot", "health", "mark_good"];
   return action === "revert" ? after : ["verify", "stage", ...after];
 };
@@ -1910,6 +1949,7 @@ export const resetMockWorld = (): void => {
   upgradeProgress = undefined;
   productRestartPolls = 0;
   productRestartFails = false;
+  productInstallStep = -1;
   checkingUntil = 0;
   uploads.clear();
   uploadInfo.clear();

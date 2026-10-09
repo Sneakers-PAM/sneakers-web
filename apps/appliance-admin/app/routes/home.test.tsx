@@ -1,7 +1,7 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { status } from "@/lib/osadmin/client";
+import { status, upgrade } from "@/lib/osadmin/client";
 import { applyMockScenario } from "@/mock/edge.mock";
 import Home from "@/routes/home";
 import { renderPage } from "@/test/renderPage";
@@ -81,6 +81,16 @@ describe("Home", () => {
     applyMockScenario("failed");
     renderPage(Home);
     expect(await screen.findByText("Failed: 0.2.0")).toHaveClass("text-danger");
+  });
+
+  it("shows the product install's own steps on Status, the same as Updates", async () => {
+    applyMockScenario("product-staged");
+    signInAs("alice");
+    await upgrade.apply("123456", undefined, "UPDATE_TARGET_PRODUCT");
+    renderPage(Home);
+    const progress = within(await screen.findByRole("region", { name: "Update progress" }));
+    expect(progress.getByText("Updating to 0.2.0")).toBeInTheDocument();
+    expect(await progress.findByRole("list", { name: "Update steps" })).toBeInTheDocument();
   });
 
   it("shows a factory reset waiting for its quorum", async () => {
