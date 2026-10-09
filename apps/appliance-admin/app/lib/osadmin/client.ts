@@ -382,7 +382,14 @@ export const upgrade = {
       { uploadId },
       wire.stageUpdate,
     ),
-  upload: (file: Blob, onProgress?: (fraction: number) => void) => edge.upload(file, onProgress),
+  /**
+   * Drops a held upload by id, or with none unstages the staged release of target (the base
+   * release's boot entry, or the product's staged slot). Owner, no code.
+   */
+  discard: (uploadId: string, target: UpdateTarget = "UPDATE_TARGET_UNSPECIFIED") =>
+    call<{ version?: string }>("UpgradeService", "DiscardUpdate", { target, uploadId }),
+  upload: (file: File, onProgress?: (fraction: number) => void, signal?: AbortSignal) =>
+    edge.upload(file, onProgress, { fileName: file.name, signal }),
 };
 
 export const modules = {

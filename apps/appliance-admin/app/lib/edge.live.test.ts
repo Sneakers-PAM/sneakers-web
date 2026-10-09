@@ -20,6 +20,10 @@ class FakeRequest {
     FakeRequest.last = this;
   }
 
+  abort() {
+    this.events.dispatchEvent(new Event("abort"));
+  }
+
   addEventListener(type: string, listener: () => void) {
     this.events.addEventListener(type, listener);
   }
@@ -69,6 +73,30 @@ describe("live edge upload", () => {
     request.answer(200, JSON.stringify({ uploadId: "u1" }));
     await expect(pending).resolves.toEqual({ uploadId: "u1" });
     expect(seen).toEqual([0.25, 1]);
+  });
+
+  it("sends the file's name for the held upload's card", async () => {
+    void edge.upload(new Blob(["bin"]), undefined, { fileName: "sneakers appliance 0.2.0.bin" });
+    expect(FakeRequest.last.headers["X-File-Name"]).toBe("sneakers%20appliance%200.2.0.bin");
+  });
+
+  it("stops the transfer when the page cancels it", async () => {
+    const controller = new AbortController();
+    const pending = edge.upload(new Blob(["bin"]), undefined, { signal: controller.signal });
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ code: "cancelled", symbol: "UPLOAD_CANCELLED" });
+  });
+
+  it("reads the box's 409 as another file in hand", async () => {
+    const pending = edge.upload(new Blob(["bin"]));
+    FakeRequest.last.answer(
+      409,
+      "UPGRADE_BUSY: a file is already waiting (x.bin); verify it or cancel it first\n",
+    );
+    await expect(pending).rejects.toMatchObject({
+      code: "failed_precondition",
+      symbol: "UPGRADE_BUSY",
+    });
   });
 
   it("turns a plain-text refusal into an error naming its symbol", async () => {

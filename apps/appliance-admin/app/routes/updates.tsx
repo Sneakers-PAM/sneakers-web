@@ -32,6 +32,7 @@ import type {
   Elevation,
   ElevationOverride,
   GetUpgradesResponse,
+  HeldUpload,
   ListProductVersionsResponse,
   UpdatePackage,
   UpdateTarget,
@@ -90,6 +91,8 @@ const holder = (elevation: Elevation): string =>
 
 /**
  * Where the file in hand is: nothing yet, sending, on the box, being verified, refused, or done.
+ * The box holds one file at a time, so a file it holds (GetUpgrades.heldUpload) shows as
+ * received, with Verify and Cancel, even after a reload.
  */
 type Step =
   | {
@@ -97,6 +100,8 @@ type Step =
       fileName: string;
       kind: "refused";
       reason: string;
+      /** The upload the refusal was about, when the box may still hold it. */
+      uploadId?: string;
     }
   | { fileName: string; kind: "received"; uploadId: string; via: Via }
   | { fileName: string; kind: "uploading"; progress: number }
@@ -111,9 +116,23 @@ const describePolicy = (policy: UpgradePolicy): string =>
     ? "Manual only: an owner applies each update."
     : `Daily at ${policy.windowStart} for ${String(policy.windowMinutes)} minutes: a staged release applies in the window.`;
 
+/** A product bundle's base range as the page says it, or its exact bases for an older bundle. */
+const baseRange = ({
+  bases,
+  maxBase,
+  minBase,
+}: {
+  bases: string[];
+  maxBase: string;
+  minBase: string;
+}): string => {
+  if (!minBase) return bases.join(", ");
+  return maxBase ? `${minBase} to ${maxBase}` : `${minBase} or newer`;
+};
+
 const describePackage = (updatePackage: UpdatePackage): string => {
   if (updatePackage.target === PRODUCT)
-    return `product bundle ${updatePackage.version}, fits base ${updatePackage.bases.join(", ")}`;
+    return `product bundle ${updatePackage.version}, fits base ${baseRange(updatePackage)}`;
   return updatePackage.kind === "patch"
     ? `patch ${updatePackage.version} for ${updatePackage.bases.join(", ")}`
     : `full release ${updatePackage.version}`;
@@ -123,11 +142,20 @@ const errorText = (error: unknown): string =>
   error instanceof Error ? error.message : "The appliance refused the file.";
 
 /** A refusal for the result panel: the box's reason and, apart, the error code it named. */
-const refusedStep = (fileName: string, error: unknown): Step => ({
+const refusedStep = (fileName: string, error: unknown, uploadId?: string): Step => ({
   code: symbolOf(errorText(error)),
   fileName,
   kind: "refused",
   reason: error instanceof Error ? reasonOf(error) : errorText(error),
+  ...(uploadId ? { uploadId } : {}),
+});
+
+/** The file the box holds, as the panel shows it after a reload. */
+const heldStep = (held: HeldUpload): Step => ({
+  fileName: held.fileName || `upload ${held.uploadId}`,
+  kind: "received",
+  uploadId: held.uploadId,
+  via: held.source === "upload" ? "Uploaded" : "Fetched",
 });
 
 /** True when the box refused the call's own authenticator code: empty, wrong or used already. */
@@ -136,6 +164,10 @@ const isCodeRefusal = (error: unknown): boolean =>
 
 /** How an apply or revert ended: started, held by an elevated shell, or its code refused. */
 type Outcome = "held" | "refused" | "started";
+
+/** The small label in the Base system and Product cards' headers; ink on the tinted header. */
+const ACCENT_TAG =
+  "rounded-sm border border-border-strong bg-surface px-2 py-0.5 text-small font-bold text-ink";
 
 /** How often the page asks for the steps while a stage or an update is under way. */
 export const STEPS_POLL_MS = 1000;
@@ -160,6 +192,10 @@ export default function Updates() {
   } | null>(null);
   const [confirmRevert, setConfirmRevert] = useState(false);
   const [confirmProductRevert, setConfirmProductRevert] = useState<null | string>(null);
+  const [confirmDiscard, setConfirmDiscard] = useState<{
+    target: UpdateTarget;
+    version: string;
+  } | null>(null);
   const [offer, setOffer] = useState<Offer>({ kind: "unavailable" });
   const [picked, setPicked] = useState("");
   const [direct, setDirect] = useState(false);
@@ -173,6 +209,7 @@ export default function Updates() {
   const [unavailable, setUnavailable] = useState(false);
   const [restartSteps, setRestartSteps] = useState<UpgradeProgress>();
   const fileInput = useRef<HTMLInputElement>(null);
+  const uploadAbort = useRef<AbortController | null>(null);
 
   // A product install or revert ends when the product runs on its version, or when its restart
   // fails (the failed steps show in their own card).
@@ -224,15 +261,19 @@ export default function Updates() {
         ),
       );
   useEffect(reload, []);
-  // While a file stages, or an update is under way (the window's, say), the steps are asked for
-  // each second; only the answer's data is replaced, not the product offer.
+  // While a file stages, a file is coming in (the box notices a cancelled upload a moment after
+  // the browser stops it), or an update is under way (the window's, say), the box is asked each
+  // second; only the answer's data is replaced, not the product offer.
   const productRestart =
     rebooting?.kind === "installing" || rebooting?.kind === "reverting-product";
   const watching =
     !unavailable &&
     (rebooting?.kind === "applying" || rebooting?.kind === "reverting"
       ? false
-      : productRestart || step.kind === "verifying" || !!data?.upgradeProgress?.inProgress);
+      : productRestart ||
+        step.kind === "verifying" ||
+        !!data?.receiving ||
+        !!data?.upgradeProgress?.inProgress);
   useEffect(() => {
     if (!watching) return;
     const poll = setInterval(() => {
@@ -247,19 +288,61 @@ export default function Updates() {
     return () => clearInterval(poll);
   }, [watching]);
 
+  // Cancel aborts the transfer; the box drops what it got, and Upload unlocks.
   const sendFile = () => {
     const file = fileInput.current?.files?.[0];
     if (!file) return;
+    const controller = new AbortController();
+    uploadAbort.current = controller;
     setStep({ fileName: file.name, kind: "uploading", progress: 0 });
     upgrade
-      .upload(file, (fraction) =>
-        setStep({ fileName: file.name, kind: "uploading", progress: Math.round(fraction * 100) }),
+      .upload(
+        file,
+        (fraction) =>
+          setStep({ fileName: file.name, kind: "uploading", progress: Math.round(fraction * 100) }),
+        controller.signal,
       )
-      .then(({ uploadId }) =>
-        setStep({ fileName: file.name, kind: "received", uploadId, via: "Uploaded" }),
-      )
-      .catch((error: unknown) => setStep(refusedStep(file.name, error)));
+      .then(({ uploadId }) => {
+        setStep({ fileName: file.name, kind: "received", uploadId, via: "Uploaded" });
+        reload();
+      })
+      .catch((error: unknown) => {
+        if (error instanceof OsadminError && error.symbol === "UPLOAD_CANCELLED") {
+          setStep({ kind: "idle" });
+          if (fileInput.current) fileInput.current.value = "";
+          reload();
+          return;
+        }
+        setStep(refusedStep(file.name, error));
+        reload();
+      })
+      .finally(() => {
+        if (uploadAbort.current === controller) uploadAbort.current = null;
+      });
   };
+
+  const cancelUpload = () => uploadAbort.current?.abort();
+
+  // Cancel on a received file deletes it from the box, which unlocks Upload and Fetch.
+  const discardFile = (uploadId: string) =>
+    void runAction(() => upgrade.discard(uploadId), {
+      onSuccess: () => {
+        setStep({ kind: "idle" });
+        if (fileInput.current) fileInput.current.value = "";
+        reload();
+      },
+      successMessage: "Cancelled. The file was deleted from the appliance.",
+    });
+
+  const unstage = (target: UpdateTarget) =>
+    void runAction(() => upgrade.discard("", target), {
+      onSuccess: () => {
+        setConfirmDiscard(null);
+        setStep((current) => (current.kind === "verified" ? { kind: "idle" } : current));
+        reload();
+      },
+      successMessage: "The staged release was removed.",
+    });
 
   const fetchFile = (name = mirrorFile) => {
     const fileName = name.trim();
@@ -295,7 +378,7 @@ export default function Updates() {
         try {
           return await upgrade.stage(uploadId);
         } catch (error) {
-          setStep(refusedStep(fileName, error));
+          setStep(refusedStep(fileName, error, uploadId));
           reload();
           return null;
         }
@@ -421,13 +504,22 @@ export default function Updates() {
   const product = data.product;
   const versions = offer.kind === "listed" ? (offer.list.versions ?? []) : [];
   const progress = data.upgradeProgress;
+  // One file at a time: while one is coming in, held or being checked, nothing new comes in.
+  const heldFile = data.heldUpload;
+  const shown: Step = step.kind === "idle" && heldFile ? heldStep(heldFile) : step;
+  const locked =
+    data.receiving ||
+    !!heldFile ||
+    step.kind === "uploading" ||
+    step.kind === "received" ||
+    step.kind === "verifying";
   // The file panel shows its own stage; this card is for everything else under way or failed.
   const showProgress =
     !!progress &&
     (progress.inProgress || progress.failed) &&
-    step.kind !== "verifying" &&
-    step.kind !== "refused" &&
-    step.kind !== "verified";
+    shown.kind !== "verifying" &&
+    shown.kind !== "refused" &&
+    shown.kind !== "verified";
 
   return (
     <div className="flex flex-col gap-5 p-5.5">
@@ -506,92 +598,140 @@ export default function Updates() {
         </Alert>
       )}
 
-      <Card>
-        <CardHeader title="Base system" />
-        <div className="flex flex-col gap-2 p-5.5 text-small">
-          <p className="flex flex-wrap items-center gap-1.5 font-bold">
-            Running <VersionChip kind="running" version={data.runningVersion} /> in the active slot
-          </p>
-          {staged ? (
-            <p className="flex flex-wrap items-center gap-1.5">
-              Other slot: staged <VersionChip kind="staged" version={staged} />
-            </p>
-          ) : revertTarget ? (
-            <p>Other slot: {revertTarget} (revert target)</p>
-          ) : (
-            <p>Other slot: empty</p>
-          )}
-        </div>
-        {isOwner && (staged || revertTarget) && (
-          <div className="flex flex-wrap gap-3 border-t border-border p-5.5">
-            {staged && (
-              <Button
-                onClick={() => setConfirmApply({ target: BASE, version: staged })}
-                size="lg"
-                variant="primary"
-              >
-                Apply {staged}
-              </Button>
-            )}
-            {revertTarget && (
-              <Button onClick={() => setConfirmRevert(true)} size="lg" variant="secondary">
-                Revert to {revertTarget}
-              </Button>
-            )}
-          </div>
-        )}
-      </Card>
-
-      {product && (
-        <section aria-label="Product">
-          <Card>
-            <CardHeader subtitle="k0s and Sneakers-PAM, without a reboot" title="Product" />
+      <div
+        className={product ? "grid grid-cols-1 gap-5 desktop:grid-cols-2" : "grid grid-cols-1"}
+        data-testid="system-cards"
+      >
+        <section aria-label="Base system">
+          <Card
+            className="h-full border-t-4 border-t-primary"
+            data-accent="base"
+            data-testid="card-base"
+          >
+            <CardHeader
+              aside={<span className={ACCENT_TAG}>Reboots</span>}
+              className="rounded-t-xl bg-primary-soft"
+              subtitle={<span className="text-ink">The appliance OS, in two slots</span>}
+              title="Base system"
+            />
             <div className="flex flex-col gap-2 p-5.5 text-small">
-              {product.installedVersion ? (
-                <p className="flex items-center gap-2 font-bold">
-                  <span>Installed {product.installedVersion}</span>
-                  <Badge tone={product.running ? "ok" : "warn"}>
-                    {product.running ? "running" : "stopped"}
-                  </Badge>
-                </p>
-              ) : (
-                <p className="font-bold">
-                  Not installed yet. Sneakers-PAM starts once you install it below.
-                </p>
-              )}
-              <p>{product.stagedVersion ? `Staged ${product.stagedVersion}` : "Nothing staged"}</p>
-              <p>
-                {product.previousVersion
-                  ? `Previous ${product.previousVersion}`
-                  : "No previous version to go back to"}
+              <p className="flex flex-wrap items-center gap-1.5 font-bold">
+                Running <VersionChip kind="running" version={data.runningVersion} /> in the active
+                slot
               </p>
+              {staged ? (
+                <p className="flex flex-wrap items-center gap-1.5">
+                  Other slot: staged <VersionChip kind="staged" version={staged} />
+                </p>
+              ) : revertTarget ? (
+                <p>Other slot: {revertTarget} (revert target)</p>
+              ) : (
+                <p>Other slot: empty</p>
+              )}
             </div>
-            {isOwner && (product.stagedVersion || product.previousVersion) && (
+            {isOwner && (staged || revertTarget) && (
               <div className="flex flex-wrap gap-3 border-t border-border p-5.5">
-                {product.stagedVersion && (
+                {staged && (
                   <Button
-                    onClick={() =>
-                      setConfirmApply({ target: PRODUCT, version: product.stagedVersion ?? "" })
-                    }
+                    onClick={() => setConfirmApply({ target: BASE, version: staged })}
                     size="lg"
+                    variant="primary"
                   >
-                    Install product {product.stagedVersion}
+                    Apply {staged}
                   </Button>
                 )}
-                {product.previousVersion && (
+                {staged && (
                   <Button
-                    onClick={() => setConfirmProductRevert(product.previousVersion ?? "")}
+                    onClick={() => setConfirmDiscard({ target: BASE, version: staged })}
                     size="lg"
                     variant="secondary"
                   >
-                    Revert product to {product.previousVersion}
+                    Cancel staged {staged}
+                  </Button>
+                )}
+                {revertTarget && (
+                  <Button onClick={() => setConfirmRevert(true)} size="lg" variant="secondary">
+                    Revert to {revertTarget}
                   </Button>
                 )}
               </div>
             )}
           </Card>
         </section>
-      )}
+
+        {product && (
+          <section aria-label="Product">
+            <Card
+              className="h-full border-t-4 border-t-sole"
+              data-accent="product"
+              data-testid="card-product"
+            >
+              <CardHeader
+                aside={<span className={ACCENT_TAG}>No reboot</span>}
+                className="rounded-t-xl bg-hatch"
+                subtitle={<span className="text-ink">k0s and Sneakers-PAM</span>}
+                title="Product"
+              />
+              <div className="flex flex-col gap-2 p-5.5 text-small">
+                {product.installedVersion ? (
+                  <p className="flex items-center gap-2 font-bold">
+                    <span>Installed {product.installedVersion}</span>
+                    <Badge tone={product.running ? "ok" : "warn"}>
+                      {product.running ? "running" : "stopped"}
+                    </Badge>
+                  </p>
+                ) : (
+                  <p className="font-bold">
+                    Not installed yet. Sneakers-PAM starts once you install it below.
+                  </p>
+                )}
+                <p>
+                  {product.stagedVersion ? `Staged ${product.stagedVersion}` : "Nothing staged"}
+                </p>
+                <p>
+                  {product.previousVersion
+                    ? `Previous ${product.previousVersion}`
+                    : "No previous version to go back to"}
+                </p>
+              </div>
+              {isOwner && (product.stagedVersion || product.previousVersion) && (
+                <div className="flex flex-wrap gap-3 border-t border-border p-5.5">
+                  {product.stagedVersion && (
+                    <Button
+                      onClick={() =>
+                        setConfirmApply({ target: PRODUCT, version: product.stagedVersion ?? "" })
+                      }
+                      size="lg"
+                    >
+                      Install product {product.stagedVersion}
+                    </Button>
+                  )}
+                  {product.stagedVersion && (
+                    <Button
+                      onClick={() =>
+                        setConfirmDiscard({ target: PRODUCT, version: product.stagedVersion ?? "" })
+                      }
+                      size="lg"
+                      variant="secondary"
+                    >
+                      Cancel staged product {product.stagedVersion}
+                    </Button>
+                  )}
+                  {product.previousVersion && (
+                    <Button
+                      onClick={() => setConfirmProductRevert(product.previousVersion ?? "")}
+                      size="lg"
+                      variant="secondary"
+                    >
+                      Revert product to {product.previousVersion}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </Card>
+          </section>
+        )}
+      </div>
 
       {!isOwner && <Alert tone="info">Only an owner can install, apply or revert updates.</Alert>}
 
@@ -607,11 +747,23 @@ export default function Updates() {
             </p>
             {removes && <p>Staging a base update removes {removes} and its files.</p>}
             <div className="flex flex-wrap items-center gap-3">
-              <input accept=".bin" aria-label="Update .bin file" ref={fileInput} type="file" />
-              <Button disabled={step.kind === "uploading"} onClick={sendFile}>
+              <input
+                accept=".bin"
+                aria-label="Update .bin file"
+                disabled={locked}
+                ref={fileInput}
+                type="file"
+              />
+              <Button disabled={locked} onClick={sendFile}>
                 Upload
               </Button>
             </div>
+            {heldFile && (
+              <p className="text-muted">
+                A file is waiting on the appliance: verify it or cancel it below before you upload
+                or fetch another.
+              </p>
+            )}
             {data.airGapped ? (
               <Alert title="Air-gapped: upload only" tone="info">
                 No mirror is set, so this appliance never fetches updates from the network.
@@ -628,7 +780,7 @@ export default function Updates() {
                     value={mirrorFile}
                   />
                 </Field>
-                <Button onClick={() => fetchFile()} variant="secondary">
+                <Button disabled={locked} onClick={() => fetchFile()} variant="secondary">
                   Fetch
                 </Button>
               </div>
@@ -668,14 +820,15 @@ export default function Updates() {
                           <span className="font-bold">{v.version}</span>
                           <span className="text-muted">
                             {v.channel}, {v.arch}, {Math.round(Number(v.size) / 1_048_576)} MB, from
-                            the {v.source === "direct" ? "release source" : "mirror"}
+                            the {v.source === "direct" ? "release source" : "mirror"}, base{" "}
+                            {baseRange(v)}
                           </span>
                         </label>
                       ))}
                     </fieldset>
                     <div>
                       <Button
-                        disabled={!picked}
+                        disabled={!picked || locked}
                         onClick={() =>
                           fetchFile(versions.find((v) => v.version === picked)?.fileName ?? "")
                         }
@@ -689,10 +842,13 @@ export default function Updates() {
               </div>
             )}
             <UpdateStep
+              heldId={heldFile?.uploadId}
+              onCancel={discardFile}
+              onCancelUpload={cancelUpload}
               onVerify={verifyAndStage}
               progress={progress}
               removes={removes}
-              step={step}
+              step={shown}
             />
           </div>
         </Card>
@@ -847,6 +1003,33 @@ export default function Updates() {
         )}
       </Dialog>
 
+      <Dialog onOpenChange={(open) => !open && setConfirmDiscard(null)} open={!!confirmDiscard}>
+        {confirmDiscard && (
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {confirmDiscard.target === PRODUCT
+                  ? `Cancel staged product ${confirmDiscard.version}`
+                  : `Cancel staged ${confirmDiscard.version}`}
+              </DialogTitle>
+              <DialogDescription>
+                {confirmDiscard.target === PRODUCT
+                  ? `The staged product bundle ${confirmDiscard.version} is removed from the product's other slot. The installed product keeps running.`
+                  : `${confirmDiscard.version} is removed from the other slot and never boots. Nothing reboots; staging the base update already removed the release that was kept for a revert.`}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button onClick={() => setConfirmDiscard(null)} variant="secondary">
+                Keep it staged
+              </Button>
+              <Button onClick={() => unstage(confirmDiscard.target)} variant="danger">
+                Remove the staged release
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
+
       <Dialog onOpenChange={setConfirmRevert} open={confirmRevert}>
         {confirmRevert && (
           <ConfirmUpdateDialog
@@ -864,11 +1047,18 @@ export default function Updates() {
 }
 
 const UpdateStep = ({
+  heldId,
+  onCancel,
+  onCancelUpload,
   onVerify,
   progress,
   removes,
   step,
 }: {
+  /** The upload the box holds, if any: a refusal about it can still verify or cancel it. */
+  heldId?: string;
+  onCancel: (uploadId: string) => void;
+  onCancelUpload: () => void;
   onVerify: (fileName: string, uploadId: string) => void;
   /** The box's update steps: while the file stages, they're its stage's. */
   progress?: UpgradeProgress;
@@ -893,9 +1083,12 @@ const UpdateStep = ({
               {step.via} {step.fileName}. It hasn&apos;t been checked yet.
             </p>
             {removal}
-            <div>
+            <div className="flex flex-wrap gap-3">
               <Button onClick={() => onVerify(step.fileName, step.uploadId)} size="lg">
                 Verify and stage
+              </Button>
+              <Button onClick={() => onCancel(step.uploadId)} size="lg" variant="secondary">
+                Cancel
               </Button>
             </div>
           </div>
@@ -912,6 +1105,19 @@ const UpdateStep = ({
                 Error code: <code className="font-mono">{step.code}</code>
               </p>
             )}
+            {step.uploadId && step.uploadId === heldId && (
+              <>
+                <p>The file is still on the appliance.</p>
+                <div className="flex flex-wrap gap-3">
+                  <Button onClick={() => onVerify(step.fileName, heldId)} size="lg">
+                    Verify again
+                  </Button>
+                  <Button onClick={() => onCancel(heldId)} size="lg" variant="secondary">
+                    Cancel
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </ResultPanel>
       );
@@ -919,12 +1125,19 @@ const UpdateStep = ({
     case "uploading": {
       return (
         <ResultPanel title={`Uploading ${step.fileName}: ${String(step.progress)}%`} tone="info">
-          <progress
-            aria-label="Upload progress"
-            className="h-3 w-full accent-primary"
-            max={100}
-            value={step.progress}
-          />
+          <div className="flex flex-col gap-3">
+            <progress
+              aria-label="Upload progress"
+              className="h-3 w-full accent-primary"
+              max={100}
+              value={step.progress}
+            />
+            <div>
+              <Button onClick={onCancelUpload} size="lg" variant="secondary">
+                Cancel upload
+              </Button>
+            </div>
+          </div>
         </ResultPanel>
       );
     }

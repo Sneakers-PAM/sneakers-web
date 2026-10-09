@@ -1,6 +1,5 @@
 import { MOCK_MARKER } from "@sneakers-web/mock-gateway";
 
-import type { Edge } from "@/lib/osadmin/edgeTypes";
 import type {
   AccessPolicy,
   Admin,
@@ -17,6 +16,7 @@ import type {
   UpgradeStep,
 } from "@/lib/osadmin/types";
 
+import { type Edge, UPLOAD_CANCELLED, type UploadOptions } from "@/lib/osadmin/edgeTypes";
 import { OsadminError } from "@/lib/osadmin/errors";
 import { getSession } from "@/lib/osadmin/sessionStore";
 import {
@@ -356,6 +356,17 @@ const checkCallCode = (code: unknown): void => {
   checkCredentials(caller(), null, value);
 };
 const uploads = new Map<string, Blob>();
+/** What the box knows of each held upload, for GetUpgrades.heldUpload. */
+const uploadInfo = new Map<string, { fileName: string; receivedAt: string; source: string }>();
+/** True while an upload is coming in. */
+let receiving = false;
+/** GetUpgrades answers still to say receiving after a cancel, as the box notices it late. */
+let receivingAfterCancel = 0;
+const noticeCancel = () => {
+  if (receivingAfterCancel === 0) return false;
+  receivingAfterCancel--;
+  return true;
+};
 let uploadCount = 0;
 /** Scenario switches for the review screen list and the tests (see applyMockScenario). */
 let uploadStalls = false;
@@ -401,7 +412,7 @@ const STEP_UP_METHODS = new Set([
 ]);
 
 const historyEntry = (
-  action: "apply" | "fetch" | "revert" | "stage",
+  action: "apply" | "discard" | "fetch" | "revert" | "stage",
   version: string,
   code = "",
   detail = "",
@@ -418,22 +429,59 @@ const historyEntry = (
     version,
   });
 
+const holdUpload = (uploadId: string, blob: Blob, fileName: string, source: string) => {
+  uploads.set(uploadId, blob);
+  uploadInfo.set(uploadId, { fileName, receivedAt: new Date().toISOString(), source });
+};
+
+const dropUpload = (uploadId: string) => {
+  uploads.delete(uploadId);
+  uploadInfo.delete(uploadId);
+};
+
+/** As on the box: one file at a time, so a file coming in or held refuses the next. */
+const checkNotBusy = () => {
+  if (receiving)
+    throw new OsadminError(
+      "failed_precondition",
+      "UPGRADE_BUSY: a file is already coming in; wait for it, or cancel it, first",
+    );
+  const held = [...uploadInfo.entries()].at(-1);
+  if (held)
+    throw new OsadminError(
+      "failed_precondition",
+      `UPGRADE_BUSY: a file is already waiting (${held[1].fileName || `upload ${held[0]}`}); verify it or cancel it first`,
+    );
+};
+
+const heldUpload = () => {
+  const held = [...uploadInfo.entries()].at(-1);
+  if (!held) return;
+  const [uploadId, info] = held;
+  return { ...info, size: String(uploads.get(uploadId)?.size ?? 0), uploadId };
+};
+
+/** A product bundle's base range fits base: at least min, and at most max when it has one. */
+const inRange = (base: string, minBase: string, maxBase: string) =>
+  !newer(minBase, base) && (!maxBase || !newer(base, maxBase));
+
 // The mock box's verification: a file whose content says "tampered" fails the signature, and
-// "lab" fails the channel, the way a real .bin's signed header would.
+// "lab" fails the channel, the way a real .bin's signed header would. A product bundle that
+// says "needs 9.0.0" needs a newer base than the box runs.
 const verify = async (uploadId: string): Promise<UpdatePackage> => {
   const blob = uploads.get(uploadId);
   if (!blob)
     throw new OsadminError("failed_precondition", `UPGRADE_UPLOAD: there is no upload ${uploadId}`);
   const content = await blob.text();
   if (content.includes("tampered")) {
-    uploads.delete(uploadId);
+    dropUpload(uploadId);
     throw new OsadminError(
       "failed_precondition",
       "UPGRADE_SIGNATURE: the update package isn't signed by this box's release key, or it changed after it was signed",
     );
   }
   if (content.includes("lab")) {
-    uploads.delete(uploadId);
+    dropUpload(uploadId);
     throw new OsadminError(
       "failed_precondition",
       "UPGRADE_CHANNEL: a lab package never installs on a production box",
@@ -441,11 +489,21 @@ const verify = async (uploadId: string): Promise<UpdatePackage> => {
   }
   if (content.includes("product")) {
     const version = /\d+\.\d+\.\d+/.exec(content)?.[0] ?? "0.2.0";
+    const needs = /needs (\d+\.\d+\.\d+)/.exec(content)?.[1];
+    if (needs && !inRange(runningVersion, needs, "")) {
+      dropUpload(uploadId);
+      throw new OsadminError(
+        "failed_precondition",
+        `UPGRADE_PRODUCT_BASE: the product bundle ${version} needs base ${needs} or newer; this box runs ${runningVersion}`,
+      );
+    }
     return {
       arch: "amd64",
-      bases: [runningVersion],
+      bases: [],
       channel: "stable",
       kind: "full",
+      maxBase: "",
+      minBase: needs ?? runningVersion,
       sha256: Array.from({ length: 32 }, (_, index) =>
         (index * 5 + 3).toString(16).padStart(2, "0"),
       ).join(""),
@@ -461,6 +519,8 @@ const verify = async (uploadId: string): Promise<UpdatePackage> => {
     bases: patch ? [runningVersion] : [],
     channel: "stable",
     kind: patch ? "patch" : "full",
+    maxBase: "",
+    minBase: "",
     sha256: Array.from({ length: 32 }, (_, index) =>
       (index * 7 + 11).toString(16).padStart(2, "0"),
     ).join(""),
@@ -842,6 +902,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
       return {};
     }
     case "ModulesService/AddModule": {
+      dropUpload(body.uploadId as string);
       modules.available.push({ active: false, name: "uploaded-module", version: "0.0.1" });
       return {};
     }
@@ -1268,18 +1329,51 @@ const route = async (service: string, method: string, body: Record<string, unkno
       restart();
       return {};
     }
+    case "UpgradeService/DiscardUpdate": {
+      const uploadId = (body.uploadId as string | undefined) ?? "";
+      if (uploadId) {
+        if (!uploads.has(uploadId))
+          throw new OsadminError(
+            "failed_precondition",
+            `UPGRADE_UPLOAD: there is no upload ${uploadId}`,
+          );
+        dropUpload(uploadId);
+        historyEntry("discard", "", "", `upload ${uploadId}`);
+        return {};
+      }
+      const notStaged = () =>
+        new OsadminError("failed_precondition", "UPGRADE_NOT_STAGED: no release is staged");
+      if (isProduct(body.target)) {
+        const version = product.stagedVersion;
+        if (!version) throw notStaged();
+        product = { ...product, stagedVersion: "" };
+        historyEntry("discard", version, "", "unstaged", "UPDATE_TARGET_PRODUCT");
+        return { version };
+      }
+      const version = stagedVersion;
+      if (!version) throw notStaged();
+      stagedVersion = "";
+      historyEntry("discard", version, "", "unstaged");
+      return { version };
+    }
     case "UpgradeService/FetchUpdate": {
       if (isAirGapped())
         throw new OsadminError(
           "failed_precondition",
           "UPGRADE_AIR_GAPPED: no mirror is configured, so this box never fetches; upload the .bin instead",
         );
+      checkNotBusy();
       const fileName = body.fileName as string;
       fromMirror();
       const productFile = /^sneakers-product-(\d+\.\d+\.\d+)-(amd64|arm64)\.bin$/.exec(fileName);
       if (productFile) {
         const uploadId = `fetch-${String(++uploadCount)}`;
-        uploads.set(uploadId, new Blob([`signed product ${productFile[1] ?? ""}`]));
+        holdUpload(
+          uploadId,
+          new Blob([`signed product ${productFile[1] ?? ""}`]),
+          fileName,
+          upgradePolicy.mirrorUrl ? "mirror" : "direct",
+        );
         historyEntry("fetch", productFile[1] ?? "", "", "", "UPDATE_TARGET_PRODUCT");
         return { source: upgradePolicy.mirrorUrl ? "mirror" : "direct", uploadId };
       }
@@ -1289,9 +1383,11 @@ const route = async (service: string, method: string, body: Record<string, unkno
           `UPGRADE_UPLOAD: "${fileName}" isn't a sneakers-appliance .bin name`,
         );
       const uploadId = `fetch-${String(++uploadCount)}`;
-      uploads.set(
+      holdUpload(
         uploadId,
         new Blob([fileName.includes("0.1.1") ? "signed patch" : "signed release"]),
+        fileName,
+        "mirror",
       );
       historyEntry("fetch", "");
       return { uploadId };
@@ -1304,6 +1400,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
         airGapped: isAirGapped(),
         directAvailable: DIRECT_AVAILABLE,
         failedVersion,
+        heldUpload: heldUpload(),
         ...reverted,
         history: structuredClone(upgradeHistory),
         mirrorStatus: mirrorStatus(upgradePolicy.mirrorUrl),
@@ -1312,6 +1409,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
         policy: structuredClone(upgradePolicy),
         ...previousSlot(),
         product: structuredClone(product),
+        receiving: receiving || noticeCancel(),
         runningVersion,
         stagedVersion,
         upgradeProgress: structuredClone(upgradeProgress),
@@ -1326,7 +1424,9 @@ const route = async (service: string, method: string, body: Record<string, unkno
       fromMirror();
       const versions = world.PRODUCT_VERSIONS.filter(
         (v) =>
-          v.bases.includes(runningVersion) &&
+          (v.minBase
+            ? inRange(runningVersion, v.minBase, v.maxBase)
+            : v.bases.includes(runningVersion)) &&
           (!product.installedVersion || newer(v.version, product.installedVersion)),
       ).map((v) => ({ ...v, source: upgradePolicy.mirrorUrl ? "mirror" : "direct" }));
       return { baseVersion: runningVersion, versions };
@@ -1417,6 +1517,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
           "stage",
           "DONE",
         );
+        dropUpload(uploadId);
         if (isProduct(updatePackage.target)) product.stagedVersion = updatePackage.version;
         else {
           stagedVersion = updatePackage.version;
@@ -1467,11 +1568,26 @@ export const edge: Edge = {
   async upload(
     bytes: Blob,
     onProgress?: (fraction: number) => void,
+    options: UploadOptions = {},
   ): Promise<{ uploadId: string }> {
+    checkNotBusy();
+    receiving = true;
     onProgress?.(0.4);
-    if (uploadStalls) return never();
+    if (uploadStalls || options.signal?.aborted) {
+      // A stalled upload ends only when the page cancels it; the box drops what it got.
+      await new Promise<never>((_, reject) => {
+        const cancel = () => {
+          receiving = false;
+          receivingAfterCancel = 1;
+          reject(new OsadminError("cancelled", UPLOAD_CANCELLED, "UPLOAD_CANCELLED"));
+        };
+        if (options.signal?.aborted) cancel();
+        options.signal?.addEventListener("abort", cancel);
+      });
+    }
+    receiving = false;
     const uploadId = `upload-${String(++uploadCount)}`;
-    uploads.set(uploadId, bytes);
+    holdUpload(uploadId, bytes, options.fileName ?? "", "upload");
     onProgress?.(1);
     return { uploadId };
   },
@@ -1486,18 +1602,20 @@ const MOCK_SCENARIOS = [
   "elevated",
   "failed",
   "first-boot",
+  "held",
   "invited",
   "locked",
   "locked-until-unlocked",
   "manual",
   "no-previous",
   "no-product",
+  "product-range",
   "product-restart-fails",
   "product-staged",
   "reduced",
-  "reverted",
   "reset-countdown",
   "reset-pending",
+  "reverted",
   "setup-admin",
   "setup-finish",
   "setup-keys",
@@ -1604,6 +1722,15 @@ export const applyMockScenario = (scenario: MockScenario): void => {
       firstBoot();
       break;
     }
+    case "held": {
+      holdUpload(
+        "upload-held",
+        new Blob(["signed release"]),
+        "sneakers-appliance-0.2.0-amd64.bin",
+        "upload",
+      );
+      break;
+    }
     case "invited": {
       if (!findAdmin("carol"))
         admins.push({
@@ -1644,6 +1771,15 @@ export const applyMockScenario = (scenario: MockScenario): void => {
         running: false,
         stagedVersion: "",
       };
+      break;
+    }
+    case "product-range": {
+      holdUpload(
+        "upload-range",
+        new Blob(["signed product 0.4.0 needs 9.0.0"]),
+        "sneakers-product-0.4.0-amd64.bin",
+        "upload",
+      );
       break;
     }
     case "product-restart-fails": {
@@ -1757,6 +1893,9 @@ export const resetMockWorld = (): void => {
   productRestartFails = false;
   checkingUntil = 0;
   uploads.clear();
+  uploadInfo.clear();
+  receiving = false;
+  receivingAfterCancel = 0;
   uploadCount = 0;
   uploadStalls = false;
   statusFails = false;

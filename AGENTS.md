@@ -169,7 +169,23 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   the release source (`UpgradePolicy.direct`) on a build that has one (`directAvailable`).
   Owners upload a `.bin` (`edge.upload`, an
   `XMLHttpRequest` because only XHR reports upload progress; `/upload` answers errors as plain
-  text) or fetch one from the mirror, which is hidden on an air-gapped box (no mirror set).
+  text, and the file's name goes along in `X-File-Name`) or fetch one from the mirror, which is
+  hidden on an air-gapped box (no mirror set). **One file at a time:** while a file is coming
+  in or waiting on the box (`GetUpgrades.receiving`, `heldUpload`) or being checked, the file
+  input, Upload and both Fetch buttons are locked, and the box refuses another anyway
+  (`UPGRADE_BUSY`, a 409 from `/upload`). Cancel upload aborts the transfer (an `AbortSignal`
+  on the XHR; the box drops the partial file). A received file shows Verify and stage and
+  Cancel; Cancel calls `DiscardUpdate` with its id, which deletes it on the box and unlocks
+  Upload. The held file comes back from `GetUpgrades.heldUpload` after a reload, and a refusal
+  that leaves the file on the box offers Verify again and Cancel. A staged base release or
+  product bundle shows Cancel staged next to Apply or Install, behind a confirm (no code):
+  `DiscardUpdate` with no id and the target unstages it. The Base system and Product cards
+  sit side by side from the `desktop` breakpoint (stacked below it), each with its own accent:
+  a `primary` top border and `primary-soft` header for the base, `sole` and `hatch` for the
+  product, with ink text on the tinted headers (AA in light and dark). A product bundle names
+  its base range (`minBase` to `maxBase`, or "or newer"); the version list says it, and a
+  bundle outside it is refused at verify with the range and the running base
+  (`UPGRADE_PRODUCT_BASE`).
   `UpgradeService.StageUpdate` is one call that verifies the signature, channel and hash and only
   then unpacks and stages, so the page shows "Verifying" while it runs, with the update's steps
   (`GetUpgrades.upgradeProgress`, asked for each second while it runs; `app/components/UpgradeSteps.tsx`:
@@ -267,7 +283,9 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   reverted from 0.2.0; Status and Updates say "Reverted from", not "Failed"), `manual`, `no-product` (before the first product
   install), `status-fails` (Status answers unavailable, as while accessd isn't answering), `product-staged` (0.2.0 staged, 0.0.9 in the previous slot; a product install or revert restarts the product services, stopped for two GetUpgrades, then running), `product-restart-fails` (that restart's step fails instead), `elevated` (bob has an elevated shell open, so
   Apply and Revert are refused without an owner's override), `uploading` and `verifying` (the upload or the
-  verification never finishes), `stepup` (the next step-up-gated call is refused once, so the
+  verification never finishes; a stalled upload ends only when it is cancelled), `held` (an uploaded `.bin` waits on the box to be verified or
+  cancelled), `product-range` (a held product bundle that needs base 9.0.0, refused at verify),
+  `stepup` (the next step-up-gated call is refused once, so the
   dialog asks for a code), `locked`, `locked-until-unlocked` (bob is locked out, for 12
   minutes or until an owner unlocks him), `throttled` (this address has to wait), `first-boot` (no admin yet; the setup code is
   `MOCK_SETUP_CODE`), `setup-admin`, `setup-keys`, `setup-network`, `setup-protection` and

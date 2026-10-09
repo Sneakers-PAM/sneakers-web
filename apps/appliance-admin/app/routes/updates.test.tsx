@@ -712,4 +712,148 @@ describe("Updates", () => {
       expect(screen.queryByRole("region", { name: "Product" })).not.toBeInTheDocument();
     });
   });
+
+  describe("one file at a time", () => {
+    it("cancels an upload under way: the box keeps nothing and Upload unlocks", async () => {
+      applyMockScenario("uploading");
+      const user = userEvent.setup();
+      await openPage();
+      await user.upload(screen.getByLabelText("Update .bin file"), binFile("signed release"));
+      await user.click(screen.getByRole("button", { name: "Upload" }));
+      expect(screen.getByRole("button", { name: "Upload" })).toBeDisabled();
+      await user.click(await screen.findByRole("button", { name: "Cancel upload" }));
+      // The box still says a file is coming in for one answer; the page asks again until it doesn't.
+      await vi.waitFor(() => expect(screen.getByRole("button", { name: "Upload" })).toBeEnabled(), {
+        timeout: 5000,
+      });
+      expect(screen.queryByRole("region", { name: "Verify result" })).not.toBeInTheDocument();
+      const after = await upgrade.get();
+      expect(after.heldUpload).toBeUndefined();
+      expect(after.receiving).toBe(false);
+    });
+
+    it("locks Upload and Fetch while a file waits, and Cancel deletes it and unlocks them", async () => {
+      const user = userEvent.setup();
+      await openPage();
+      await user.upload(screen.getByLabelText("Update .bin file"), binFile("signed release"));
+      await user.click(screen.getByRole("button", { name: "Upload" }));
+      const result = await panel();
+      expect(within(result).getByRole("button", { name: "Verify and stage" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Upload" })).toBeDisabled();
+      expect(screen.getByLabelText("Update .bin file")).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Fetch" })).toBeDisabled();
+      expect(screen.getByText(/A file is waiting on the appliance/)).toBeInTheDocument();
+      await user.click(within(result).getByRole("button", { name: "Cancel" }));
+      await vi.waitFor(() => expect(screen.getByRole("button", { name: "Upload" })).toBeEnabled());
+      expect(screen.getByRole("button", { name: "Fetch" })).toBeEnabled();
+      expect(screen.queryByRole("region", { name: "Verify result" })).not.toBeInTheDocument();
+      const after = await upgrade.get();
+      expect(after.heldUpload).toBeUndefined();
+    });
+
+    it("refuses a second upload while one waits, as the box does", async () => {
+      applyMockScenario("held");
+      await expect(upgrade.upload(binFile("signed release"))).rejects.toThrow(/UPGRADE_BUSY/);
+      await expect(upgrade.fetch("sneakers-appliance-0.2.0-amd64.bin")).rejects.toThrow(
+        /UPGRADE_BUSY/,
+      );
+    });
+
+    it("shows the file the box holds after a reload, with Verify and Cancel", async () => {
+      applyMockScenario("held");
+      const user = userEvent.setup();
+      await openPage();
+      const result = await panel();
+      expect(
+        within(result).getByText(/Uploaded sneakers-appliance-0.2.0-amd64.bin/),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Upload" })).toBeDisabled();
+      await user.click(within(result).getByRole("button", { name: "Verify and stage" }));
+      expect(await screen.findByText("Verified")).toBeInTheDocument();
+      await vi.waitFor(() => expect(screen.getByRole("button", { name: "Upload" })).toBeEnabled());
+    });
+
+    it("unlocks Upload once the file is verified and staged", async () => {
+      const user = userEvent.setup();
+      await openPage();
+      await uploadAndVerify(user, binFile("signed release"));
+      expect(await screen.findByText("Verified")).toBeInTheDocument();
+      await vi.waitFor(() => expect(screen.getByRole("button", { name: "Upload" })).toBeEnabled());
+    });
+  });
+
+  describe("cancelling a staged release", () => {
+    it("unstages the base release after a confirm, with no code", async () => {
+      applyMockScenario("staged");
+      const user = userEvent.setup();
+      await openPage();
+      const base = within(screen.getByRole("region", { name: "Base system" }));
+      await user.click(base.getByRole("button", { name: "Cancel staged 0.2.0" }));
+      const dialog = within(await screen.findByRole("dialog"));
+      expect(dialog.getByText(/never boots/)).toBeInTheDocument();
+      expect(dialog.queryByLabelText("Authenticator code")).not.toBeInTheDocument();
+      await user.click(dialog.getByRole("button", { name: "Remove the staged release" }));
+      expect(await screen.findByText("Other slot: empty")).toBeInTheDocument();
+      expect(base.queryByRole("button", { name: /Apply/ })).not.toBeInTheDocument();
+    });
+
+    it("keeps the staged release when the confirm is dismissed", async () => {
+      applyMockScenario("staged");
+      const user = userEvent.setup();
+      await openPage();
+      await user.click(screen.getByRole("button", { name: "Cancel staged 0.2.0" }));
+      await user.click(await screen.findByRole("button", { name: "Keep it staged" }));
+      const after = await upgrade.get();
+      expect(after.stagedVersion).toBe("0.2.0");
+    });
+
+    it("unstages the product bundle and keeps the installed one", async () => {
+      applyMockScenario("product-staged");
+      const user = userEvent.setup();
+      await openPage();
+      const product = within(screen.getByRole("region", { name: "Product" }));
+      await user.click(product.getByRole("button", { name: "Cancel staged product 0.2.0" }));
+      await user.click(
+        within(await screen.findByRole("dialog")).getByRole("button", {
+          name: "Remove the staged release",
+        }),
+      );
+      expect(await product.findByText("Nothing staged")).toBeInTheDocument();
+      expect(product.getByText("Installed 0.1.0")).toBeInTheDocument();
+    });
+  });
+
+  describe("the base range", () => {
+    it("shows a product bundle refused for its base range with the range and the running base", async () => {
+      applyMockScenario("product-range");
+      const user = userEvent.setup();
+      await openPage();
+      await user.click(within(await panel()).getByRole("button", { name: "Verify and stage" }));
+      const result = await panel();
+      await vi.waitFor(() => expect(result).toHaveAttribute("data-tone", "danger"));
+      expect(
+        within(result).getByText(/needs base 9.0.0 or newer; this box runs 0.1.0/),
+      ).toBeInTheDocument();
+      expect(within(result).getByText("UPGRADE_PRODUCT_BASE")).toBeInTheDocument();
+      await vi.waitFor(() => expect(screen.getByRole("button", { name: "Upload" })).toBeEnabled());
+    });
+
+    it("names each offered product version's base range", async () => {
+      await openPage();
+      const versions = within(await screen.findByRole("radiogroup", { name: "Product versions" }));
+      expect(versions.getAllByText(/base 0.1.0 to 0.1.9/)).toHaveLength(2);
+    });
+  });
+
+  it("puts the Base system and Product cards side by side on a wide screen, each with its accent", async () => {
+    await openPage();
+    const cards = screen.getByTestId("system-cards");
+    expect(cards).toHaveClass("grid-cols-1", "desktop:grid-cols-2");
+    const base = within(screen.getByRole("region", { name: "Base system" }));
+    const product = within(screen.getByRole("region", { name: "Product" }));
+    expect(base.getByText("Reboots")).toBeInTheDocument();
+    expect(product.getByText("No reboot")).toBeInTheDocument();
+    expect(screen.getByTestId("card-base")).toHaveClass("border-t-primary");
+    expect(screen.getByTestId("card-product")).toHaveClass("border-t-sole");
+  });
 });

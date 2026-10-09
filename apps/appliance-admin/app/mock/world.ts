@@ -346,6 +346,8 @@ export const PRODUCT_VERSIONS: ProductVersion[] = ["0.3.0", "0.2.0", "0.1.1", "0
     bases: version === "0.3.0" ? ["0.2.0"] : ["0.1.0"],
     channel: "stable",
     fileName: `sneakers-product-${version}-amd64.bin`,
+    maxBase: version === "0.3.0" ? "" : "0.1.9",
+    minBase: version === "0.3.0" ? "0.2.0" : "0.1.0",
     size: "734003200",
     source: "mirror",
     version,

@@ -1,11 +1,15 @@
-import type { Edge } from "@/lib/osadmin/edgeTypes";
+import { type Edge, UPLOAD_CANCELLED, type UploadOptions } from "@/lib/osadmin/edgeTypes";
 import { csrfToken } from "@/lib/osadmin/sessionStore";
 import { OsadminError, parseOsadminError, symbolOf } from "@/lib/osadmin/errors";
 
 const uploadError = (status: number, text: string): OsadminError => {
   const message = text.trim() || `osadmin answered ${String(status)}`;
   return new OsadminError(
-    status === 403 ? "permission_denied" : "invalid_argument",
+    status === 403
+      ? "permission_denied"
+      : status === 409
+        ? "failed_precondition"
+        : "invalid_argument",
     message,
     symbolOf(message),
   );
@@ -48,14 +52,29 @@ export const edge: Edge = {
     return (await response.json()) as Result;
   },
   // XMLHttpRequest rather than fetch: only XHR reports upload progress, and a release .bin
-  // can be gigabytes. /upload answers errors as plain text, not a Connect JSON body.
-  upload(bytes: Blob, onProgress?: (fraction: number) => void): Promise<{ uploadId: string }> {
+  // can be gigabytes. /upload answers errors as plain text, not a Connect JSON body; 409 is
+  // UPGRADE_BUSY (another file is coming in or held).
+  upload(
+    bytes: Blob,
+    onProgress?: (fraction: number) => void,
+    options: UploadOptions = {},
+  ): Promise<{ uploadId: string }> {
     return new Promise((resolve, reject) => {
       const request = new XMLHttpRequest();
       request.open("POST", "/upload");
       request.withCredentials = true;
       const csrf = csrfToken();
       if (csrf) request.setRequestHeader("X-CSRF-Token", csrf);
+      if (options.fileName)
+        request.setRequestHeader("X-File-Name", encodeURIComponent(options.fileName));
+      if (options.signal?.aborted) {
+        reject(new OsadminError("cancelled", UPLOAD_CANCELLED, "UPLOAD_CANCELLED"));
+        return;
+      }
+      options.signal?.addEventListener("abort", () => request.abort());
+      request.addEventListener("abort", () =>
+        reject(new OsadminError("cancelled", UPLOAD_CANCELLED, "UPLOAD_CANCELLED")),
+      );
       request.upload.addEventListener("progress", (event) => {
         if (event.lengthComputable) onProgress?.(event.loaded / event.total);
       });

@@ -31,6 +31,7 @@ import type {
   GetStatusResponse,
   GetUpgradesResponse,
   MirrorStatus,
+  HeldUpload,
   HostKey,
   Invitation,
   IssueRootShellCodeResponse,
@@ -536,6 +537,8 @@ const productVersion = (w: Wire<ProductVersion>): ProductVersion => ({
   bases: texts(w.bases),
   channel: w.channel ?? "",
   fileName: w.fileName ?? "",
+  maxBase: w.maxBase ?? "",
+  minBase: w.minBase ?? "",
   size: w.size ?? "",
   source: w.source ?? "",
   version: w.version ?? "",
@@ -554,6 +557,8 @@ const updatePackage = (w: Wire<UpdatePackage> = {}): UpdatePackage => ({
   bases: texts(w.bases),
   channel: w.channel ?? "",
   kind: word(w.kind),
+  maxBase: w.maxBase ?? "",
+  minBase: w.minBase ?? "",
   sha256: w.sha256 ?? "",
   size: w.size ?? "",
   uploadId: w.uploadId ?? "",
@@ -617,11 +622,20 @@ export const upgradeProgress = (w: Wire<UpgradeProgress>): UpgradeProgress => ({
   version: w.version ?? "",
 });
 
+const heldUpload = (w: Wire<HeldUpload>): HeldUpload => ({
+  ...w,
+  fileName: w.fileName ?? "",
+  size: w.size ?? "0",
+  source: w.source ?? "",
+  uploadId: w.uploadId ?? "",
+});
+
 export const getUpgrades = (w: Wire<GetUpgradesResponse>): GetUpgradesResponse => ({
   ...w,
   activeElevations: list(w.activeElevations, elevation),
   airGapped: w.airGapped ?? false,
   failedVersion: w.failedVersion ?? "",
+  heldUpload: optional(w.heldUpload, heldUpload),
   history: list(w.history, upgradeEvent),
   mirrorStatus: optional(w.mirrorStatus, mirrorStatus),
   nextStageRemoves: texts(w.nextStageRemoves),
@@ -629,6 +643,7 @@ export const getUpgrades = (w: Wire<GetUpgradesResponse>): GetUpgradesResponse =
   previousSlot: w.previousSlot ?? "",
   previousVersion: w.previousVersion ?? "",
   product: optional(w.product, productSlots),
+  receiving: w.receiving ?? false,
   runningVersion: w.runningVersion ?? "",
   stagedVersion: w.stagedVersion ?? "",
   upgradeProgress: optional(w.upgradeProgress, upgradeProgress),

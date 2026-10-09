@@ -60,6 +60,18 @@ const SCENARIOS = [
   { name: "updates-mirror-wrong-ca", route: "/updates", scenario: "mirror-wrong-ca" },
   { name: "updates-mirror-pin-mismatch", route: "/updates", scenario: "mirror-pin-mismatch" },
   { name: "certificates-update-trust", route: "/certificates", scenario: "mirror-custom-ca" },
+  { name: "updates-held-file", route: "/updates", scenario: "held" },
+  { name: "updates-uploading", route: "/updates", scenario: "uploading" },
+  { name: "updates-staged", route: "/updates", scenario: "staged,product-staged" },
+  {
+    act: async (page) => {
+      await page.getByRole("button", { name: "Verify and stage" }).click();
+      await page.getByText("UPGRADE_PRODUCT_BASE").waitFor();
+    },
+    name: "updates-product-range-refused",
+    route: "/updates",
+    scenario: "product-range",
+  },
   { name: "access-locked-invited", route: "/access", scenario: "locked,invited,elevated" },
   {
     act: async (page) => {
