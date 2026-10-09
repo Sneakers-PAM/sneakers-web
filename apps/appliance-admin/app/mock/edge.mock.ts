@@ -228,6 +228,17 @@ let mcpEnabled = true;
 /** The product's product.yaml declares an mcp switch. */
 let mcpSwitch = true;
 let machineApiEnabled = false;
+/** The Import page: an open import's key, its files and its steps. */
+const freshImport = () => ({
+  files: [] as { kind: string; size: number; uploadedAt: string }[],
+  imported: false,
+  importedBundle: "",
+  open: false,
+  ownerPassword: "",
+  recipient: "",
+  runs: [] as Record<string, unknown>[],
+});
+let mockImport = freshImport();
 let backupPolicy = structuredClone(world.BACKUP_POLICY);
 const backupSets = structuredClone(world.BACKUP_SETS);
 let factoryReset: FactoryReset | undefined;
@@ -498,6 +509,10 @@ const sessionOf = (admin: Admin): Session =>
 const STEP_UP_METHODS = new Set([
   "AccessService/AddAdmin",
   "AccessService/UnrevokeKey",
+  "ImportService/CloseImport",
+  "ImportService/OpenImport",
+  "ImportService/RunImportStep",
+  "ImportService/TakeOwnerPassword",
   "McpService/SetMcp",
   "NetworkService/SetNetwork",
   "PowerService/ApproveFactoryReset",
@@ -1051,6 +1066,69 @@ const route = async (service: string, method: string, body: Record<string, unkno
       const elevation = elevations.find((item) => item.id === body.id);
       if (elevation) elevation.state = "ended";
       return {};
+    }
+    case "ImportService/CloseImport": {
+      const imported = mockImport.imported;
+      const bundle = mockImport.importedBundle;
+      mockImport = freshImport();
+      mockImport.imported = imported;
+      mockImport.importedBundle = bundle;
+      return {};
+    }
+    case "ImportService/GetImport": {
+      if (!product.installedVersion)
+        return { reason: "NOT_AVAILABLE (3703): no product is installed" };
+      return {
+        available: true,
+        files: mockImport.files,
+        imported: mockImport.imported,
+        importedBundle: mockImport.importedBundle,
+        label: "Import from an earlier Sneakers",
+        open: mockImport.open,
+        recipient: mockImport.recipient,
+        runs: mockImport.runs,
+      };
+    }
+    case "ImportService/OpenImport": {
+      mockImport.open = true;
+      mockImport.recipient ||= "age1mockimportrecipientexampleexampleexampleexampleexampleexample";
+      mockImport.files = [{ kind: "bundle", size: 53_798, uploadedAt: new Date().toISOString() }];
+      return { recipient: mockImport.recipient };
+    }
+    case "ImportService/RunImportStep": {
+      const step = body.step as string;
+      const job = `sneakers-migrate-${step}-${String(mockImport.runs.length + 1)}`;
+      const now = new Date().toISOString();
+      const owner = step === "import" && Boolean(body.ownerEmail);
+      if (owner) mockImport.ownerPassword = "mock-one-time-password";
+      mockImport.runs.push({
+        exitCode: 0,
+        finishedAt: now,
+        job,
+        output: `${step}: done (mock)\nparity (source / dropped / created / expected / target):\n  secrets 116 8 0 108 108  ok\n`,
+        ownerEmail: body.ownerEmail ?? "",
+        ownerPasswordWaiting: owner,
+        rehearsal: body.rehearsal ?? false,
+        startedAt: now,
+        state: "passed",
+        step,
+        wipe: body.wipe ?? false,
+      });
+      if (step === "import") {
+        mockImport.imported = true;
+        mockImport.importedBundle = "mock-bundle";
+      }
+      return { job };
+    }
+    case "ImportService/TakeOwnerPassword": {
+      const run = mockImport.runs.find((r) => r.job === body.job);
+      if (!run?.ownerPasswordWaiting)
+        throw new OsadminError(
+          "failed_precondition",
+          "NOT_AVAILABLE (3703): the one-time password was already shown",
+        );
+      run.ownerPasswordWaiting = false;
+      return { password: mockImport.ownerPassword };
     }
     case "McpService/GetMcp": {
       // The words osadmin answers with: the product's mcp switch, as its product.yaml has it.
@@ -2333,6 +2411,7 @@ export const resetMockWorld = (): void => {
   mcpEnabled = true;
   mcpSwitch = true;
   machineApiEnabled = false;
+  mockImport = freshImport();
   quorum = structuredClone(world.QUORUM);
   accessPolicy = structuredClone(world.ACCESS_POLICY);
   keySerial = 100;

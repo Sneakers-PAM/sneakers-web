@@ -21,6 +21,7 @@ import type {
   GetBackupsResponse,
   GetCertificateStoreResponse,
   GetExposedValueResponse,
+  GetImportResponse,
   GetMcpResponse,
   GetNetworkResponse,
   GetPhaseResponse,
@@ -53,10 +54,13 @@ import type {
   UpdateTarget,
   UpdateTrust,
   UpgradePolicy,
+  RunImportStepRequest,
 } from "@/lib/osadmin/types";
 
 import * as wire from "@/lib/osadmin/wire";
 import type { Wire } from "@/lib/osadmin/wire";
+import { OsadminError, symbolOf } from "@/lib/osadmin/errors";
+import { csrfToken } from "@/lib/osadmin/sessionStore";
 import { trackRequest } from "@/lib/readiness";
 
 /**
@@ -341,6 +345,39 @@ export const mcp = {
   get: () => call<GetMcpResponse>("McpService", "GetMcp", {}, wire.getMcp),
   set: (mcpEnabled: boolean, machineApiEnabled: boolean) =>
     call<Record<string, never>>("McpService", "SetMcp", { machineApiEnabled, mcpEnabled }),
+};
+
+export const importer = {
+  close: () => call<Record<string, never>>("ImportService", "CloseImport", {}),
+  get: () => call<GetImportResponse>("ImportService", "GetImport", {}, wire.getImport),
+  open: () => call<{ recipient?: string }>("ImportService", "OpenImport", {}),
+  run: (request: RunImportStepRequest) =>
+    call<{ job?: string }>("ImportService", "RunImportStep", request),
+  takeOwnerPassword: (job: string) =>
+    call<{ password?: string }>("ImportService", "TakeOwnerPassword", { job }),
+  /** One file of the open import (POST /import/upload): bundle, mapping, sheet or types. */
+  upload: (kind: string, file: Blob) => trackRequest(uploadImportFile(kind, file)),
+};
+
+const uploadImportFile = async (kind: string, file: Blob): Promise<{ bytes?: number }> => {
+  const headers: Record<string, string> = { "Content-Type": "application/octet-stream" };
+  const csrf = csrfToken();
+  if (csrf) headers["X-CSRF-Token"] = csrf;
+  const response = await fetch(`/import/upload?kind=${encodeURIComponent(kind)}`, {
+    body: file,
+    credentials: "same-origin",
+    headers,
+    method: "POST",
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new OsadminError(
+      response.status === 403 ? "permission_denied" : "invalid_argument",
+      text.trim() || `osadmin answered ${String(response.status)}`,
+      symbolOf(text),
+    );
+  }
+  return JSON.parse(text) as { bytes?: number };
 };
 
 export const backup = {
