@@ -54,7 +54,6 @@ import {
   symbolOf,
 } from "@/lib/osadmin/errors";
 import { refusalMessage } from "@/lib/osadmin/refusal";
-import { stepUpPending, subscribeStepUp } from "@/lib/osadmin/stepUpController";
 import { useSession } from "@/lib/useSession";
 
 /** An apply or revert the box refused because an elevated shell is open. */
@@ -89,9 +88,7 @@ const holder = (elevation: Elevation): string =>
   `${elevation.admin} holds an elevated shell (${elevation.id})${elevation.started ? `, open since ${shortDate(elevation.started)}` : ""}: ${elevation.reason}`;
 
 /**
- * Where the file in hand is: nothing yet, sending, on the box, waiting for a fresh code, being
- * verified, refused, or done. A refused file that's still on the box keeps its upload id, so it
- * can be verified again.
+ * Where the file in hand is: nothing yet, sending, on the box, being verified, refused, or done.
  */
 type Step =
   | {
@@ -99,9 +96,7 @@ type Step =
       fileName: string;
       kind: "refused";
       reason: string;
-      retry?: { uploadId: string; via: Via };
     }
-  | { fileName: string; kind: "held"; uploadId: string; via: Via }
   | { fileName: string; kind: "received"; uploadId: string; via: Via }
   | { fileName: string; kind: "uploading"; progress: number }
   | { fileName: string; kind: "verified"; slot?: string; updatePackage: UpdatePackage }
@@ -250,25 +245,6 @@ export default function Updates() {
     }, STEPS_POLL_MS);
     return () => clearInterval(poll);
   }, [watching]);
-  // A stage held for a fresh code ends as a refusal when the step-up dialog is cancelled; when
-  // the code is taken, the retry moves the step on to verifying in the same update.
-  useEffect(
-    () =>
-      subscribeStepUp(() =>
-        setStep((current) =>
-          current.kind === "held" && !stepUpPending()
-            ? {
-                code: "ACCESS_STEPUP_REQUIRED",
-                fileName: current.fileName,
-                kind: "refused",
-                reason: "The check needs a fresh authenticator code, and none was given.",
-                retry: { uploadId: current.uploadId, via: current.via },
-              }
-            : current,
-        ),
-      ),
-    [],
-  );
 
   const sendFile = () => {
     const file = fileInput.current?.files?.[0];
@@ -308,19 +284,16 @@ export default function Updates() {
     );
   };
 
-  // StageUpdate verifies first and only then unpacks; a refused file is deleted on the box.
-  // Refusals are shown in place, not as a toast, so the reason stays on screen.
-  const verifyAndStage = (fileName: string, uploadId: string, via: Via) => {
+  // StageUpdate verifies first and only then unpacks; a refused file is deleted on the box. It
+  // asks for no authenticator code: only Apply and Revert do. Refusals are shown in place, not
+  // as a toast, so the reason stays on screen.
+  const verifyAndStage = (fileName: string, uploadId: string) => {
     void runAction(
       async () => {
         setStep({ fileName, kind: "verifying", uploadId });
         try {
           return await upgrade.stage(uploadId);
         } catch (error) {
-          if (isStepUpRequired(error)) {
-            setStep({ fileName, kind: "held", uploadId, via });
-            throw error;
-          }
           setStep(refusedStep(fileName, error));
           reload();
           return null;
@@ -890,7 +863,7 @@ const UpdateStep = ({
   removes,
   step,
 }: {
-  onVerify: (fileName: string, uploadId: string, via: Via) => void;
+  onVerify: (fileName: string, uploadId: string) => void;
   /** The box's update steps: while the file stages, they're its stage's. */
   progress?: UpgradeProgress;
   /** The base releases the stage removes, joined; empty when it removes none. */
@@ -903,16 +876,6 @@ const UpdateStep = ({
       <p>This removes {removes} and its files.</p>
     ) : null;
   switch (step.kind) {
-    case "held": {
-      return (
-        <ResultPanel title="Waiting for your authenticator code" tone="warn">
-          <p>
-            {step.via} {step.fileName}. Verifying it needs a fresh authenticator code; the check
-            goes ahead once the box takes it.
-          </p>
-        </ResultPanel>
-      );
-    }
     case "idle": {
       return null;
     }
@@ -925,7 +888,7 @@ const UpdateStep = ({
             </p>
             {removal}
             <div>
-              <Button onClick={() => onVerify(step.fileName, step.uploadId, step.via)} size="lg">
+              <Button onClick={() => onVerify(step.fileName, step.uploadId)} size="lg">
                 Verify and stage
               </Button>
             </div>
@@ -934,7 +897,6 @@ const UpdateStep = ({
       );
     }
     case "refused": {
-      const { retry } = step;
       return (
         <ResultPanel title={`${step.fileName} was refused`} tone="danger">
           <div className="flex flex-col gap-2">
@@ -943,17 +905,6 @@ const UpdateStep = ({
               <p>
                 Error code: <code className="font-mono">{step.code}</code>
               </p>
-            )}
-            {retry && removal}
-            {retry && (
-              <div>
-                <Button
-                  onClick={() => onVerify(step.fileName, retry.uploadId, retry.via)}
-                  size="lg"
-                >
-                  Verify and stage
-                </Button>
-              </div>
             )}
           </div>
         </ResultPanel>
@@ -1000,8 +951,7 @@ const UpdateStep = ({
 
 /**
  * The one place a file's upload, verify and stage result shows, toned by the outcome: info while
- * it's received, sending or being checked, amber while it waits for a code, green once verified
- * and red when refused.
+ * it's received, sending or being checked, green once verified and red when refused.
  */
 const ResultPanel = ({
   children,
