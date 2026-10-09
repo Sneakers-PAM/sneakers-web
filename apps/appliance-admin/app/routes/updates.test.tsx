@@ -655,6 +655,45 @@ describe("Updates", () => {
       expect(after.product).toMatchObject({ installedVersion: "0.2.0", stagedVersion: "" });
     });
 
+    it("clears the installing banner once the product runs on the new version", async () => {
+      applyMockScenario("product-staged");
+      const user = userEvent.setup();
+      await openPage();
+      const product = within(screen.getByRole("region", { name: "Product" }));
+      await user.click(product.getByRole("button", { name: "Install product 0.2.0" }));
+      const dialog = within(await screen.findByRole("dialog"));
+      await user.type(dialog.getByLabelText("Type 0.2.0 to confirm"), "0.2.0");
+      await user.type(dialog.getByLabelText("Authenticator code"), "123456");
+      await user.click(dialog.getByRole("button", { name: "Install and restart the product" }));
+      expect(await screen.findByText("Installing product 0.2.0")).toBeInTheDocument();
+      expect(await product.findByText("stopped")).toBeInTheDocument();
+      expect(await product.findByText("running", {}, { timeout: 5000 })).toBeInTheDocument();
+      expect(product.getByText("Installed 0.2.0")).toBeInTheDocument();
+      await vi.waitFor(() =>
+        expect(screen.queryByText("Installing product 0.2.0")).not.toBeInTheDocument(),
+      );
+    });
+
+    it("clears the installing banner when the product's restart fails, and shows the failure", async () => {
+      applyMockScenario("product-staged");
+      applyMockScenario("product-restart-fails");
+      const user = userEvent.setup();
+      await openPage();
+      const product = within(screen.getByRole("region", { name: "Product" }));
+      await user.click(product.getByRole("button", { name: "Install product 0.2.0" }));
+      const dialog = within(await screen.findByRole("dialog"));
+      await user.type(dialog.getByLabelText("Type 0.2.0 to confirm"), "0.2.0");
+      await user.type(dialog.getByLabelText("Authenticator code"), "123456");
+      await user.click(dialog.getByRole("button", { name: "Install and restart the product" }));
+      expect(await screen.findByText("Installing product 0.2.0")).toBeInTheDocument();
+      expect(
+        await screen.findByText("The last update didn't finish", {}, { timeout: 5000 }),
+      ).toBeInTheDocument();
+      await vi.waitFor(() =>
+        expect(screen.queryByText("Installing product 0.2.0")).not.toBeInTheDocument(),
+      );
+    });
+
     it("reverts the product to the previous slot", async () => {
       applyMockScenario("product-staged");
       const user = userEvent.setup();

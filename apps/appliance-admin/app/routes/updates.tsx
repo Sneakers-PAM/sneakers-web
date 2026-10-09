@@ -178,11 +178,24 @@ export default function Updates() {
   const [restartSteps, setRestartSteps] = useState<UpgradeProgress>();
   const fileInput = useRef<HTMLInputElement>(null);
 
+  // A product install or revert ends when the product runs on its version, or when its restart
+  // fails (the failed steps show in their own card).
+  const settleProductRestart = (response: GetUpgradesResponse) =>
+    setRebooting((current) => {
+      if (current?.kind !== "installing" && current?.kind !== "reverting-product") return current;
+      const progress = response.upgradeProgress;
+      const failed = !!progress?.failed && progress.target === PRODUCT;
+      const running =
+        !!response.product?.running && response.product.installedVersion === current.version;
+      return failed || running ? null : current;
+    });
+
   const reload = () =>
     void upgrade
       .get()
       .then((response) => {
         setData(response);
+        settleProductRestart(response);
         if (response.policy) {
           setMode(response.policy.mode);
           setWindowStart(response.policy.windowStart);
@@ -217,17 +230,22 @@ export default function Updates() {
   useEffect(reload, []);
   // While a file stages, or an update is under way (the window's, say), the steps are asked for
   // each second; only the answer's data is replaced, not the product offer.
+  const productRestart =
+    rebooting?.kind === "installing" || rebooting?.kind === "reverting-product";
   const watching =
     !unavailable &&
     (rebooting?.kind === "applying" || rebooting?.kind === "reverting"
       ? false
-      : step.kind === "verifying" || !!data?.upgradeProgress?.inProgress);
+      : productRestart || step.kind === "verifying" || !!data?.upgradeProgress?.inProgress);
   useEffect(() => {
     if (!watching) return;
     const poll = setInterval(() => {
       void upgrade
         .get()
-        .then(setData)
+        .then((response) => {
+          setData(response);
+          settleProductRestart(response);
+        })
         .catch(() => {});
     }, STEPS_POLL_MS);
     return () => clearInterval(poll);
