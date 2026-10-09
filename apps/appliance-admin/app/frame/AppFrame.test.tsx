@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { createRoutesStub } from "react-router";
 
 import { AppFrame } from "@/frame/AppFrame";
-import { upgrade } from "@/lib/osadmin/client";
+import { status, upgrade } from "@/lib/osadmin/client";
 import { setSession } from "@/lib/osadmin/sessionStore";
 import { applyMockScenario } from "@/mock/edge.mock";
 
@@ -11,7 +11,10 @@ const stub = (start: string) => {
   const Stub = createRoutesStub([
     { Component: () => <p>Sign-in page</p>, path: "/" },
     {
-      children: [{ Component: () => <p>Status page</p>, path: "home" }],
+      children: [
+        { Component: () => <p>Status page</p>, path: "home" },
+        { Component: () => <p>Network page</p>, path: "network" },
+      ],
       Component: AppFrame,
     },
   ]);
@@ -52,6 +55,47 @@ describe("AppFrame", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("alice (owner)")).toBeInTheDocument();
     expect(screen.queryByText(/gateway/i)).not.toBeInTheDocument();
+  });
+
+  it("shows a pending network change and its countdown on every page but Network", async () => {
+    applyMockScenario("network-pending");
+    setSession({ admin: "alice", csrfToken: "test-csrf", role: "ROLE_OWNER" });
+    stub("/home");
+    expect(
+      await screen.findByText(
+        /A network change \(net-7\) is waiting to be kept\. It reverts in 9\d seconds/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open Network" })).toHaveAttribute("href", "/network");
+  });
+
+  it("leaves the pending change to the Network page's own banner there", async () => {
+    applyMockScenario("network-pending");
+    setSession({ admin: "alice", csrfToken: "test-csrf", role: "ROLE_OWNER" });
+    stub("/network");
+    expect(await screen.findByText("Network page")).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.queryByText(/is waiting to be kept/)).not.toBeInTheDocument();
+  });
+
+  it("warns before a base update another admin started ends this session", async () => {
+    const get = status.get.bind(status);
+    vi.spyOn(status, "get").mockImplementation(async () => ({
+      ...(await get()),
+      upgradeProgress: {
+        action: "apply",
+        code: "",
+        failed: false,
+        inProgress: true,
+        steps: [],
+        target: "UPDATE_TARGET_BASE",
+        version: "0.2.0",
+      },
+    }));
+    setSession({ admin: "alice", csrfToken: "test-csrf", role: "ROLE_OWNER" });
+    stub("/home");
+    expect(await screen.findByText(/An update to 0\.2\.0 is under way/)).toBeInTheDocument();
+    expect(screen.getByText(/every session ends, this one included/)).toBeInTheDocument();
   });
 
   it("tells the admin the box's notices after signing in", async () => {

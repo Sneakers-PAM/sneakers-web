@@ -132,6 +132,8 @@ export type WarningKind =
   | "WARNING_KIND_CONSOLE_RECOVERY"
   | "WARNING_KIND_EXPOSURE"
   | "WARNING_KIND_FACTORY_RESET"
+  | "WARNING_KIND_NETWORK_PENDING"
+  | "WARNING_KIND_NETWORK_REVERTED"
   | "WARNING_KIND_NTP_UNSYNCED"
   | "WARNING_KIND_REDUCED_PROTECTION"
   | "WARNING_KIND_SELF_SIGNED_TLS"
@@ -181,6 +183,20 @@ export interface GetPhaseResponse {
   upgradeProgress?: UpgradeProgress;
 }
 
+/** The network change window, as GetStatus gives it so every page can show it. */
+export interface NetworkChange {
+  /** Names the pending change in the audit. */
+  changeId: string;
+  /** The last change that waited was undone; lastChangeId names it. */
+  lastReverted: boolean;
+  /** It was undone because the box stopped or restarted inside its window. */
+  lastRevertedAtStart: boolean;
+  lastChangeId: string;
+  /** A change waits for ConfirmNetwork. */
+  pending: boolean;
+  revertSecondsLeft: number;
+}
+
 export interface GetStatusResponse {
   channel: string;
   custodyMode: string;
@@ -191,6 +207,9 @@ export interface GetStatusResponse {
   health?: Component[];
   hostname: string;
   managementAddresses: string[];
+  /** The network change waiting for its confirmation, and how the last one ended; left out by a
+   * box from before it. */
+  networkChange?: NetworkChange;
   ntpSynced: boolean;
   phase: string;
   /** The slot the revert target is in, A or B; empty with no revert target, or when the box
@@ -306,6 +325,12 @@ export interface ListAdminsResponse {
   revokedKeys?: RevokedKey[];
   /** The box's root key (it never leaves the box): its type and fingerprint. */
   rootKey?: HostKey;
+  /** The box's SSH host CA, which signs sshd's host certificate: its type and fingerprint. */
+  hostCa?: HostKey;
+  /** The "@cert-authority <names> <host CA key>" line for a client's known_hosts. */
+  knownHosts: string;
+  /** The root key's public half: the user CA sshd trusts (an authorized_keys line). */
+  userCaPublicKey: string;
 }
 
 /** A one-time code for an admin to set a password and an authenticator. Shown once. */
@@ -343,6 +368,13 @@ export interface IssueSshKeyResponse {
   /** The exact OpenSSH command, with the certificate file named: `ssh -i <fileName> -o
    * CertificateFile=<certificateFileName> <admin>@<box>`. */
   sshCommand: string;
+  /** A known_hosts line trusting the box's host CA for its host name and management addresses
+   * ("@cert-authority <names> <host CA key>"), so the first login has no host key prompt. */
+  knownHosts: string;
+  /** known_hosts_<box>, for knownHosts. */
+  knownHostsFileName: string;
+  /** The box's user CA (its root key's public half), which signed the certificate. */
+  userCaPublicKey: string;
 }
 
 // ---- root shell ----
@@ -425,7 +457,19 @@ export interface NetdCheck {
 }
 
 export interface GetNetworkResponse {
+  /** The most recent change that waited for a confirmation was undone; lastChangeId names it. */
+  lastChangeReverted?: boolean;
+  /** It was undone because the box stopped or restarted inside its window. */
+  lastChangeRevertedAtStart?: boolean;
+  lastChangeId?: string;
+  /** What DHCP and router advertisements gave the box, management interface first; the
+   * resolver and the clock use them where the settings name none. */
+  learntDns?: string[];
+  learntNtp?: string[];
+  learntSearch?: string[];
   managementAddresses: string[];
+  /** The servers the clock asks now: the settings', else DHCP's, else the image's pool. */
+  ntpServers?: string[];
   ntpOffsetMs: string;
   ntpSynced: boolean;
   pending: boolean;
@@ -446,7 +490,10 @@ export interface SetNetworkResponse {
   newCertificate?: boolean;
   /** Where the box answers after the change, when the new address is known. */
   newUrl?: string;
+  /** The window; 0 when the change was kept at once. */
   revertAfterSeconds: number;
+  /** What ConfirmNetwork takes. Empty when the change was kept at once: one of only the DNS
+   * servers, search domains, NTP servers, time zone or proxy can't cut anyone off. */
   token: string;
 }
 
@@ -597,6 +644,35 @@ export interface ImportCertificateRequest {
 export interface AddedCertificate {
   certificate: StoredCertificate;
   checks: ValidationCheck[];
+}
+
+// ---- product ----
+
+/** One value the installed product's bundle lets owners and admins read without a root shell. */
+export interface ExposedValue {
+  /** True once a one-time value was used; it isn't shown again. */
+  consumed: boolean;
+  label: string;
+  /** The product page that takes the value; empty when the product names none. */
+  link: string;
+  /** The command word: "<product> <name>" in the closed shell. */
+  name: string;
+  oneTime: boolean;
+  roles: Role[];
+}
+
+export interface ListExposedValuesResponse {
+  /** The installed product's command word; empty with no product. */
+  product: string;
+  productTitle: string;
+  values: ExposedValue[];
+}
+
+export interface GetExposedValueResponse {
+  entry?: ExposedValue;
+  productTitle: string;
+  /** Empty once a one-time value was used. */
+  value: string;
 }
 
 // ---- mcp ----

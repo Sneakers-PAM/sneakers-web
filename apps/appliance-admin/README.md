@@ -31,9 +31,16 @@ single-name request made on the box (RSA 4096 by default, no wildcards). Each on
 lists every check, then applies to :8443 live. Every change needs an owner and a recent sign-in.
 Each endpoint lists the names a certificate is checked against: the box's host name and its
 management addresses. When the box has no host name, the page says so and links to Network to set
-it, and a refusal for that reason (`TLS_NO_HOSTNAME`) carries the same link. The mock box's states
-are `cert-assigned`, `cert-csr-pending`, `cert-expiring`, `cert-no-hostname` and `cert-not-served`
-(`?mockScenario=` on a mock build).
+it, and a refusal for that reason (`TLS_NO_HOSTNAME`) carries the same link.
+
+Product (443), the product's edge, is available once a product is installed. An owner assigns a
+store certificate to it, or reverts it to the box's own (the one :8443 has); the box checks that
+443 serves the new one within 3 minutes, and puts the previous one back if it doesn't
+(`TLS_NOT_SERVED`). The row says which happened, served or rolled back, with the code, rather
+than a toast. ACME stays "not available yet" until the product bundle's cert-manager is wired up.
+The mock box's states are `cert-assigned`, `cert-csr-pending`, `cert-expiring`, `cert-no-hostname`,
+`cert-not-served`, `cert-product-assigned` and `cert-product-not-served` (`?mockScenario=` on a
+mock build).
 
 ## Updates
 
@@ -82,8 +89,19 @@ reports and keeps its Confirm button after a reload, because `GetNetwork` return
 change's token to owner sessions. When a change moves the management address, the banner names
 the new URL to sign in at and confirm from; when it changes the name or address, it warns that
 the box makes a new certificate. A Confirm that can't reach the box says so, with the seconds
-left, rather than the browser's network error. **Run checks** shows each check as OK (green),
-Warning (yellow), Failed (red) or Unknown, with its `NET_*` code and detail. Toasts sit at the
+left, rather than the browser's network error.
+
+A change of only the DNS servers, search domains, NTP servers, time zone or proxy can't cut
+anyone off, so the box keeps it at once (`SetNetwork` answers no token and 0 seconds) and the
+page says so; anything else (an address, an interface, the host name, the allow-list, the
+cluster ranges) waits 120 seconds. When Apply asked for a fresh code first, the step-up dialog
+asks "Keep this change?" right after it, so the change is kept in one place. Every other page
+shows the pending change in a banner with the same countdown and a link to Network
+(`GetStatus.networkChange`). When the last change wasn't kept and the box undid it, by its
+window or because the box restarted inside it, Network and Status say so. **Run checks** shows each check as OK (green),
+Warning (yellow), Failed (red) or Unknown, with its `NET_*` code and detail. The Addresses card
+lists the DNS servers, search domains and NTP servers DHCP gave the box (`learntDns`,
+`learntSearch`, `learntNtp`) next to the typed ones, and the servers the clock asks now. Toasts sit at the
 bottom centre, clear of the accessibility widget.
 
 ## Logs and audit

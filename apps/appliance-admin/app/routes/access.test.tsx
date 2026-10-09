@@ -470,6 +470,44 @@ describe("Access", () => {
     expect(await account.findByText("work laptop")).toBeInTheDocument();
   });
 
+  it("groups a new SSH key's files by client, with the box's known_hosts line and user CA", async () => {
+    signInAsOwner();
+    const user = userEvent.setup();
+    renderPage(Access);
+    const account = within(await screen.findByRole("region", { name: "Your account" }));
+    await user.click(account.getByRole("button", { name: "Get an SSH key" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    await user.type(dialog.getByLabelText("Label"), "work laptop");
+    await user.type(dialog.getByLabelText("Authenticator code"), "123456");
+    await user.click(dialog.getByRole("button", { name: "Make the key" }));
+    const downloads = within(await dialog.findByRole("table", { name: "Downloads" }));
+    const groups = downloads.getAllByRole("rowheader").map((cell) => cell.textContent);
+    expect(groups).toEqual(["OpenSSH", "PuTTY and MobaXterm", "PEM, for other tools", "Box trust"]);
+    expect(
+      downloads.getByRole("row", { name: /id_ed25519_alice_sneakers_\d+\.ppk/ }),
+    ).toBeInTheDocument();
+    expect(
+      downloads.getByRole("button", {
+        name: /Download the known_hosts file \(known_hosts_appliance\)/,
+      }),
+    ).toBeInTheDocument();
+    for (const name of ["OpenSSH", "PuTTY", "MobaXterm", "PEM"])
+      expect(dialog.getByRole("region", { name })).toBeInTheDocument();
+    const openssh = within(dialog.getByRole("region", { name: "OpenSSH" }));
+    expect(openssh.getByText(world.KNOWN_HOSTS)).toBeInTheDocument();
+    expect(openssh.getByText(/no host key prompt on the first login/)).toBeInTheDocument();
+    expect(openssh.getByRole("button", { name: "Copy the known_hosts line" })).toBeInTheDocument();
+    expect(dialog.getByText(world.USER_CA_PUBLIC_KEY)).toBeInTheDocument();
+  });
+
+  it("shows the box's user CA and known_hosts line next to the key fingerprints", async () => {
+    renderPage(Access);
+    const card = within(await screen.findByRole("region", { name: "Key fingerprints" }));
+    expect(card.getByText(/SSH host CA ssh-ed25519 SHA256:hC4k/)).toBeInTheDocument();
+    expect(card.getByText(world.KNOWN_HOSTS)).toBeInTheDocument();
+    expect(card.getByText(world.USER_CA_PUBLIC_KEY)).toBeInTheDocument();
+  });
+
   it("asks for a fresh code to issue an SSH key, and keeps a wrong code's refusal in the dialog", async () => {
     signInAsOwner();
     await expect(access.issueSshKey("laptop", "")).rejects.toThrow(/ACCESS_CONFIRM/);

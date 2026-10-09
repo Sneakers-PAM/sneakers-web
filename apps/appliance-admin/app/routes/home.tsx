@@ -10,12 +10,20 @@ import {
 } from "@sneakers-web/ui";
 import { useEffect, useState } from "react";
 
-import type { GetStatusResponse } from "@/lib/osadmin/types";
+import type { GetStatusResponse, WarningKind } from "@/lib/osadmin/types";
 
+import { ProductValues } from "@/components/ProductValues";
 import { ResetCountdown } from "@/components/ResetCountdown";
+import { NetworkReverted } from "@/components/StatusBanners";
 import { UpgradeSteps } from "@/components/UpgradeSteps";
 import { VersionChip } from "@/components/VersionChip";
 import { status as statusClient } from "@/lib/osadmin/client";
+
+/** The frame's banner shows a pending network change, and the card below an undone one. */
+const NETWORK_WARNINGS = new Set<WarningKind>([
+  "WARNING_KIND_NETWORK_PENDING",
+  "WARNING_KIND_NETWORK_REVERTED",
+]);
 
 /** How often a factory reset in progress is re-read, so another admin's Cancel shows up. */
 const RESET_POLL_MS = 5000;
@@ -65,11 +73,19 @@ export default function Home() {
       {!data && !error && <Skeleton className="h-40 w-full" />}
       {data && (
         <>
-          {(data.warnings ?? []).map((warning) => (
-            <Alert key={warning.kind} role="status" tone="warn">
-              {warning.detail}
-            </Alert>
-          ))}
+          {(data.warnings ?? [])
+            .filter((warning) => !NETWORK_WARNINGS.has(warning.kind))
+            .map((warning) => (
+              <Alert key={warning.kind} role="status" tone="warn">
+                {warning.detail}
+              </Alert>
+            ))}
+          {data.networkChange?.lastReverted && !data.networkChange.pending && (
+            <NetworkReverted
+              atStart={data.networkChange.lastRevertedAtStart}
+              changeId={data.networkChange.lastChangeId}
+            />
+          )}
           {resetCancelled && <Alert tone="info">The factory reset was cancelled.</Alert>}
           {data.factoryReset?.state === "FACTORY_RESET_STATE_COUNTDOWN" && (
             <ResetCountdown
@@ -150,6 +166,7 @@ export default function Home() {
               </div>
             </Card>
           </div>
+          <ProductValues />
           <Card>
             <CardHeader title="Health" />
             <div className="flex flex-wrap gap-2 p-5.5">

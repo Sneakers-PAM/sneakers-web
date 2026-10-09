@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { createRoutesStub } from "react-router";
 
 import { setup } from "@/lib/osadmin/client";
+import { OsadminError } from "@/lib/osadmin/errors";
 import { csrfToken, getSession } from "@/lib/osadmin/sessionStore";
 import {
   applyMockScenario,
@@ -289,6 +290,24 @@ describe("Setup", () => {
     if (understood) await user.click(understood);
     await user.click(screen.getByRole("button", { name: "Sign in and finish" }));
     expect(await screen.findByRole("region", { name: "Restarting" })).toBeInTheDocument();
+  });
+
+  it("counts a Finish the box answers SETUP_DONE as finished, with no error", async () => {
+    applyMockScenario("setup-finish");
+    // The console can close setup on the sign-in itself, before the page's own Finish.
+    vi.spyOn(setup, "finish").mockRejectedValueOnce(
+      new OsadminError("failed_precondition", "SETUP_DONE (3712): setup is already done"),
+    );
+    const user = userEvent.setup();
+    open();
+    await screen.findByText("Step 6 of 6: Sign in to finish");
+    await user.type(screen.getByLabelText("Password"), MOCK_PASSWORD);
+    await user.type(screen.getByLabelText("Authenticator code"), "135790");
+    const understood = screen.queryByRole("checkbox", { name: /Go on with one admin/ });
+    if (understood) await user.click(understood);
+    await user.click(screen.getByRole("button", { name: "Sign in and finish" }));
+    expect(await screen.findByRole("region", { name: "Restarting" })).toBeInTheDocument();
+    expect(screen.queryByText(/SETUP_DONE/)).not.toBeInTheDocument();
   });
 
   it("takes an invitation code: the name is fixed, then a password and an authenticator", async () => {

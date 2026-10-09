@@ -21,11 +21,13 @@ import type {
   Component,
   Disk,
   Elevation,
+  ExposedValue,
   FactoryReset,
   FetchProgress,
   GenerateRecoveryKeyResponse,
   GetBackupsResponse,
   GetCertificateStoreResponse,
+  GetExposedValueResponse,
   GetMcpResponse,
   GetNetworkResponse,
   GetPhaseResponse,
@@ -43,12 +45,14 @@ import type {
   ListAdminsResponse,
   ListElevationsResponse,
   ListEventsResponse,
+  ListExposedValuesResponse,
   ListModulesResponse,
   ListProductVersionsResponse,
   ListSessionsResponse,
   NetdAddress,
   NetdCheck,
   NetdSettings,
+  NetworkChange,
   PendingCsr,
   ProductSlots,
   ProductVersion,
@@ -228,6 +232,15 @@ export const getPhase = (w: Wire<GetPhaseResponse>): GetPhaseResponse => ({
   upgradeProgress: optional(w.upgradeProgress, upgradeProgress),
 });
 
+const networkChange = (w: Wire<NetworkChange>): NetworkChange => ({
+  changeId: w.changeId ?? "",
+  lastChangeId: w.lastChangeId ?? "",
+  lastReverted: w.lastReverted ?? false,
+  lastRevertedAtStart: w.lastRevertedAtStart ?? false,
+  pending: w.pending ?? false,
+  revertSecondsLeft: w.revertSecondsLeft ?? 0,
+});
+
 export const getStatus = (w: Wire<GetStatusResponse>): GetStatusResponse => ({
   ...w,
   channel: w.channel ?? "",
@@ -238,6 +251,7 @@ export const getStatus = (w: Wire<GetStatusResponse>): GetStatusResponse => ({
   health: list(w.health, component),
   hostname: w.hostname ?? "",
   managementAddresses: texts(w.managementAddresses),
+  networkChange: optional(w.networkChange, networkChange),
   ntpSynced: w.ntpSynced ?? false,
   phase: w.phase ?? "",
   previousSlot: w.previousSlot ?? "",
@@ -305,6 +319,9 @@ export const listAdmins = (w: Wire<ListAdminsResponse>): ListAdminsResponse => (
   quorum: optional(w.quorum, quorum),
   revokedKeys: list(w.revokedKeys, revokedKey),
   rootKey: optional(w.rootKey, hostKey),
+  hostCa: optional(w.hostCa, hostKey),
+  knownHosts: w.knownHosts ?? "",
+  userCaPublicKey: w.userCaPublicKey ?? "",
 });
 
 const invitation = (w: Wire<Invitation> = {}): Invitation => ({
@@ -337,6 +354,9 @@ export const issueSshKey = (w: Wire<IssueSshKeyResponse>): IssueSshKeyResponse =
   publicKey: w.publicKey ?? "",
   publicKeyFileName: w.publicKeyFileName ?? "",
   sshCommand: w.sshCommand ?? "",
+  knownHosts: w.knownHosts ?? "",
+  knownHostsFileName: w.knownHostsFileName ?? "",
+  userCaPublicKey: w.userCaPublicKey ?? "",
 });
 
 // ---- root shell and elevation ----
@@ -385,7 +405,14 @@ const netdSettings = (w: Wire<NetdSettings>): NetdSettings => ({
 });
 
 export const getNetwork = (w: Wire<GetNetworkResponse>): GetNetworkResponse => ({
+  lastChangeId: w.lastChangeId ?? "",
+  lastChangeReverted: w.lastChangeReverted ?? false,
+  lastChangeRevertedAtStart: w.lastChangeRevertedAtStart ?? false,
+  learntDns: texts(w.learntDns),
+  learntNtp: texts(w.learntNtp),
+  learntSearch: texts(w.learntSearch),
   managementAddresses: texts(w.managementAddresses),
+  ntpServers: texts(w.ntpServers),
   ntpOffsetMs: w.ntpOffsetMs ?? "",
   ntpSynced: w.ntpSynced ?? false,
   pending: w.pending ?? false,
@@ -501,6 +528,31 @@ export const withUpdateTrust = (
   w: Wire<{ updateTrust: UpdateTrust }>,
 ): { updateTrust: UpdateTrust } => ({
   updateTrust: updateTrust(w.updateTrust ?? {}),
+});
+
+// ---- product ----
+
+const exposedValue = (w: Wire<ExposedValue>): ExposedValue => ({
+  consumed: w.consumed ?? false,
+  label: w.label ?? "",
+  link: w.link ?? "",
+  name: w.name ?? "",
+  oneTime: w.oneTime ?? false,
+  roles: (w.roles ?? []) as ExposedValue["roles"],
+});
+
+export const listExposedValues = (
+  w: Wire<ListExposedValuesResponse>,
+): ListExposedValuesResponse => ({
+  product: w.product ?? "",
+  productTitle: w.productTitle ?? "",
+  values: list(w.values, exposedValue),
+});
+
+export const getExposedValue = (w: Wire<GetExposedValueResponse>): GetExposedValueResponse => ({
+  entry: optional(w.entry, exposedValue),
+  productTitle: w.productTitle ?? "",
+  value: w.value ?? "",
 });
 
 // ---- mcp ----

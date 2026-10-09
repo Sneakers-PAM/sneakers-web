@@ -162,7 +162,38 @@ const setupSteps = () => {
   return { current: setupDone ? 0 : open + 1, steps };
 };
 
-let networkPending: { settings: NetdSettings; token: string; until: number } | null = null;
+let networkPending: { id: string; settings: NetdSettings; token: string; until: number } | null =
+  null;
+/** How the last change that waited ended, as netd reports it after a revert or a confirm. */
+let lastNetworkChange: { atStart: boolean; id: string; reverted: boolean } | null = null;
+let networkChangeCount = 0;
+/** As netd: a change nobody confirmed is undone when its window ends. */
+const expireNetworkChange = () => {
+  if (!networkPending || networkPending.until > Date.now()) return;
+  lastNetworkChange = { atStart: false, id: networkPending.id, reverted: true };
+  networkPending = null;
+};
+const networkSecondsLeft = () =>
+  networkPending ? Math.max(0, Math.ceil((networkPending.until - Date.now()) / 1000)) : 0;
+/** Only these can't cut anyone off, so netd keeps a change of nothing else at once. */
+const KEPT_AT_ONCE: ("proxy" | "timezone" | keyof NetdSettings)[] = [
+  "dns",
+  "ntp",
+  "proxy",
+  "searchDomains",
+  "timezone",
+];
+const keptAtOnce = (before: NetdSettings, after: NetdSettings) => {
+  const rest = (settings: NetdSettings) =>
+    JSON.stringify(
+      Object.fromEntries(
+        Object.entries(settings)
+          .filter(([key]) => !(KEPT_AT_ONCE as string[]).includes(key))
+          .toSorted(([a], [b]) => a.localeCompare(b)),
+      ),
+    );
+  return rest(before) === rest(after);
+};
 
 const NETWORK_REVERT_SECONDS = 120;
 const modules = structuredClone(world.MODULES);
@@ -192,7 +223,10 @@ const invite = (admin: string) => {
   return { admin, code: formatted, expires };
 };
 let networkSettings = structuredClone(world.NETWORK_SETTINGS);
+const exposedValues = structuredClone(world.EXPOSED_VALUES);
 let mcpEnabled = true;
+/** The product's product.yaml declares an mcp switch. */
+let mcpSwitch = true;
 let machineApiEnabled = false;
 let backupPolicy = structuredClone(world.BACKUP_POLICY);
 const backupSets = structuredClone(world.BACKUP_SETS);
@@ -464,6 +498,8 @@ const sessionOf = (admin: Admin): Session =>
 const STEP_UP_METHODS = new Set([
   "AccessService/AddAdmin",
   "AccessService/UnrevokeKey",
+  "McpService/SetMcp",
+  "NetworkService/SetNetwork",
   "PowerService/ApproveFactoryReset",
   "PowerService/StartFactoryReset",
   "TlsService/AssignCertificate",
@@ -761,9 +797,13 @@ const route = async (service: string, method: string, body: Record<string, unkno
   }
   if (key === "TlsService/SetUpdateTrust" || key === "TlsService/ClearUpdateTrust")
     return mirrorTrustRequest(method, body);
+  const installed = { productInstalled: !!product.installedVersion };
   if (key === "TlsService/GetCertificateStore")
-    return { ...(certificatesRequest(method, body) as object), updateTrust: updateTrust() };
-  if (service === "TlsService") return certificatesRequest(method, body);
+    return {
+      ...(certificatesRequest(method, body, installed) as object),
+      updateTrust: updateTrust(),
+    };
+  if (service === "TlsService") return certificatesRequest(method, body, installed);
   switch (key) {
     case "AccessService/AddAdmin": {
       const name = String(body.name ?? "").trim();
@@ -844,6 +884,8 @@ const route = async (service: string, method: string, body: Record<string, unkno
         certificateFileName,
         fileName,
         key,
+        knownHosts: world.KNOWN_HOSTS,
+        knownHostsFileName: `known_hosts_${networkSettings.hostname.split(".", 1)[0] || "sneakers"}`,
         pem: [
           "-----BEGIN PRIVATE KEY-----", // gitleaks:allow (a placeholder, not a key)
           "MOCK-PEM-PRIVATE-KEY-NOT-A-REAL-KEY-MOCK-PEM-PRIVATE-KEY-NOT-A-REAL-KEY",
@@ -875,6 +917,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
         publicKey: `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAMOCK ${admin.name}`,
         publicKeyFileName: `${fileName}.pub`,
         sshCommand: `ssh -i ${fileName} -o CertificateFile=${certificateFileName} ${admin.name}@${networkSettings.hostname}`,
+        userCaPublicKey: world.USER_CA_PUBLIC_KEY,
       };
     }
     case "AccessService/ListAdmins": {
@@ -890,10 +933,13 @@ const route = async (service: string, method: string, body: Record<string, unkno
             rootOperator: quorum.members.includes(admin.name),
           };
         }),
+        hostCa: world.HOST_CA,
         hostKeys: world.HOST_KEYS,
+        knownHosts: world.KNOWN_HOSTS,
         quorum,
         revokedKeys: structuredClone(revokedKeys),
         rootKey: world.ROOT_KEY,
+        userCaPublicKey: world.USER_CA_PUBLIC_KEY,
       };
     }
     case "AccessService/ReinviteAdmin": {
@@ -1007,9 +1053,22 @@ const route = async (service: string, method: string, body: Record<string, unkno
       return {};
     }
     case "McpService/GetMcp": {
-      return { machineApiEnabled, mcpEnabled, state: mcpEnabled ? "running" : "stopped" };
+      // The words osadmin answers with: the product's mcp switch, as its product.yaml has it.
+      if (!product.installedVersion) return { machineApiEnabled: true, state: "not installed" };
+      if (!mcpSwitch) return { machineApiEnabled: true, state: "not in this product" };
+      return { machineApiEnabled, mcpEnabled, state: mcpEnabled ? "on" : "off" };
     }
     case "McpService/SetMcp": {
+      if (!product.installedVersion)
+        throw new OsadminError(
+          "failed_precondition",
+          "NOT_AVAILABLE (3703): no product is installed",
+        );
+      if (!mcpSwitch)
+        throw new OsadminError(
+          "failed_precondition",
+          `NOT_AVAILABLE (3703): ${product.name ?? ""} has no MCP switch`,
+        );
       mcpEnabled = body.mcpEnabled as boolean;
       machineApiEnabled = body.machineApiEnabled as boolean;
       return {};
@@ -1023,25 +1082,36 @@ const route = async (service: string, method: string, body: Record<string, unkno
       return { available: [...modules.available], platform: modules.platform };
     }
     case "NetworkService/ConfirmNetwork": {
+      expireNetworkChange();
       if (networkPending && networkPending.token === body.token) {
         networkSettings = networkPending.settings;
+        lastNetworkChange = { atStart: false, id: networkPending.id, reverted: false };
         networkPending = null;
       }
       return {};
     }
     case "NetworkService/GetNetwork": {
+      expireNetworkChange();
       return {
+        ...(lastNetworkChange && {
+          lastChangeId: lastNetworkChange.id,
+          lastChangeReverted: lastNetworkChange.reverted,
+          lastChangeRevertedAtStart: lastNetworkChange.reverted && lastNetworkChange.atStart,
+        }),
+        learntDns: ["192.0.2.1"],
+        learntSearch: ["example.org"],
         managementAddresses: ["192.0.2.50"],
         ntpOffsetMs: "4",
+        ntpServers: (networkPending?.settings ?? networkSettings).ntp,
         ntpSynced: true,
         pending: !!networkPending,
         ...(networkPending && {
-          pendingChangeId: "net-1",
+          pendingChangeId: networkPending.id,
           pendingToken: networkPending.token,
-          revertSecondsLeft: Math.max(0, Math.ceil((networkPending.until - Date.now()) / 1000)),
+          revertSecondsLeft: networkSecondsLeft(),
         }),
         serviceAddresses: [],
-        settings: networkSettings,
+        settings: networkPending?.settings ?? networkSettings,
       };
     }
     case "NetworkService/RunChecks": {
@@ -1073,12 +1143,18 @@ const route = async (service: string, method: string, body: Record<string, unkno
       };
     }
     case "NetworkService/SetNetwork": {
+      expireNetworkChange();
       const token = Math.random().toString(36).slice(2);
       const next = body.settings as NetdSettings;
+      if (!networkPending && keptAtOnce(networkSettings, next)) {
+        networkSettings = next;
+        return {};
+      }
       const address = (s: NetdSettings) =>
         s.addresses.find((a) => a.family === "ipv4" && a.mode === "static")?.address;
       const moves = address(next) !== address(networkSettings);
       networkPending = {
+        id: `net-${String(++networkChangeCount)}`,
         settings: next,
         token,
         until: Date.now() + NETWORK_REVERT_SECONDS * 1000,
@@ -1128,6 +1204,40 @@ const route = async (service: string, method: string, body: Record<string, unkno
     case "PowerService/StartFactoryReset": {
       return {
         factoryReset: structuredClone(startReset(caller(), body.confirmHostname as string)),
+      };
+    }
+    case "ProductService/GetExposedValue": {
+      const entry = product.installedVersion
+        ? exposedValues.find((value) => value.name === body.name)
+        : undefined;
+      if (!entry)
+        throw new OsadminError(
+          "permission_denied",
+          `ACCESS_FORBIDDEN (3003): the installed product exposes no value named "${String(body.name)}"`,
+        );
+      auditEvents.unshift({
+        action: "product.value.read",
+        actor: caller(),
+        code: "",
+        detail: { name: entry.name, state: entry.consumed ? "consumed" : "shown" },
+        keyFingerprint: "",
+        outcome: "ok",
+        sourceAddress: "192.0.2.10",
+        target: entry.label,
+        time: new Date().toISOString(),
+      });
+      return {
+        entry: structuredClone(entry),
+        productTitle: product.name,
+        ...(entry.consumed ? {} : { value: world.MOCK_SETUP_TOKEN }),
+      };
+    }
+    case "ProductService/ListExposedValues": {
+      if (!product.installedVersion) return {};
+      return {
+        product: "sneakers",
+        productTitle: product.name,
+        values: structuredClone(exposedValues),
       };
     }
     case "RootShellService/IssueRootShellCode": {
@@ -1376,8 +1486,10 @@ const route = async (service: string, method: string, body: Record<string, unkno
           "the appliance services are unavailable; try again shortly",
         );
       powerState();
+      expireNetworkChange();
+      const base = world.status();
       return {
-        ...world.status(),
+        ...base,
         custodyMode,
         factoryReset: structuredClone(factoryReset),
         failedVersion,
@@ -1392,6 +1504,39 @@ const route = async (service: string, method: string, body: Record<string, unkno
         runningVersion,
         stagedVersion,
         upgradeProgress: structuredClone(upgradeProgress),
+        ...((networkPending || lastNetworkChange?.reverted) && {
+          networkChange: {
+            ...(networkPending && {
+              changeId: networkPending.id,
+              pending: true,
+              revertSecondsLeft: networkSecondsLeft(),
+            }),
+            ...(lastNetworkChange?.reverted && {
+              lastChangeId: lastNetworkChange.id,
+              lastReverted: true,
+              lastRevertedAtStart: lastNetworkChange.atStart,
+            }),
+          },
+        }),
+        warnings: [
+          ...(base.warnings ?? []),
+          ...(networkPending
+            ? [
+                {
+                  detail: `A network change (${networkPending.id}) waits for its confirmation; it reverts in ${String(networkSecondsLeft())} seconds.`,
+                  kind: "WARNING_KIND_NETWORK_PENDING" as const,
+                },
+              ]
+            : []),
+          ...(lastNetworkChange?.reverted
+            ? [
+                {
+                  detail: `The last network change (${lastNetworkChange.id}) wasn't confirmed and was undone.`,
+                  kind: "WARNING_KIND_NETWORK_REVERTED" as const,
+                },
+              ]
+            : []),
+        ],
       };
     }
     case "StatusService/SetSecureBoot": {
@@ -1811,6 +1956,10 @@ const MOCK_SCENARIOS = [
   "locked",
   "locked-until-unlocked",
   "manual",
+  "mcp-absent",
+  "network-pending",
+  "network-reverted",
+  "network-reverted-at-start",
   "no-previous",
   "no-product",
   "product-range",
@@ -1825,6 +1974,7 @@ const MOCK_SCENARIOS = [
   "setup-keys",
   "setup-network",
   "setup-protection",
+  "setup-token-used",
   "signed-in",
   "single-admin",
   "status-fails",
@@ -1971,6 +2121,27 @@ export const applyMockScenario = (scenario: MockScenario): void => {
       upgradePolicy = { ...upgradePolicy, mode: "manual" };
       break;
     }
+    case "mcp-absent": {
+      mcpSwitch = false;
+      break;
+    }
+    case "network-pending": {
+      networkPending = {
+        id: "net-7",
+        settings: { ...networkSettings, hostname: "box.example.org" },
+        token: "mock-pending-token",
+        until: Date.now() + 95_000,
+      };
+      break;
+    }
+    case "network-reverted": {
+      lastNetworkChange = { atStart: false, id: "net-6", reverted: true };
+      break;
+    }
+    case "network-reverted-at-start": {
+      lastNetworkChange = { atStart: true, id: "net-6", reverted: true };
+      break;
+    }
     case "no-previous": {
       previousVersion = "";
       break;
@@ -2035,6 +2206,10 @@ export const applyMockScenario = (scenario: MockScenario): void => {
     case "setup-network":
     case "setup-protection": {
       setupAt(scenario);
+      break;
+    }
+    case "setup-token-used": {
+      for (const value of exposedValues) value.consumed = true;
       break;
     }
     case "signed-in": {
@@ -2149,17 +2324,21 @@ export const resetMockWorld = (): void => {
   custodyMode = "tpm";
   refill(upgradeHistory, world.UPGRADE_HISTORY);
   networkPending = null;
+  lastNetworkChange = null;
+  networkChangeCount = 0;
   singleAdminAcknowledged = false;
   setupDone = true;
   secureBootOn = true;
   factoryReset = undefined;
   mcpEnabled = true;
+  mcpSwitch = true;
   machineApiEnabled = false;
   quorum = structuredClone(world.QUORUM);
   accessPolicy = structuredClone(world.ACCESS_POLICY);
   keySerial = 100;
   inviteCount = 0;
   networkSettings = structuredClone(world.NETWORK_SETTINGS);
+  refill(exposedValues, world.EXPOSED_VALUES);
   backupPolicy = structuredClone(world.BACKUP_POLICY);
   refill(modules.available, world.MODULES.available);
   refill(recoveryKeys, world.RECOVERY_KEYS);

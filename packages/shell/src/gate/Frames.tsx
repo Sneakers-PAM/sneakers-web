@@ -1,6 +1,7 @@
 import { Brand, cn, EnvironmentTag, Mark } from "@sneakers-web/ui";
 import { type ReactNode } from "react";
 
+import { versionLabel } from "#shell/gate/versionLabel";
 import { EdgeBanner } from "#shell/layout/EdgeBanner";
 import { useRootData } from "#shell/root/useRootData";
 
@@ -78,7 +79,7 @@ export const SignInLayout = ({ children }: { children: ReactNode }) => {
             </p>
           </div>
           <span className="hidden font-mono text-small text-muted desktop:block">
-            Open source · v{version}
+            Open source{version ? ` · ${versionLabel(version)}` : ""}
           </span>
         </aside>
         <main className="flex items-start justify-center bg-bg px-6 py-10 tablet:items-center tablet:p-12">

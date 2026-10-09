@@ -24,6 +24,19 @@ Before changing anything in the staff or admin apps, know two things:
   (`packages/api-client/src/edge/live.server.ts`) or, only for `--mode mock`, the mock edge
   (`packages/mock-gateway/src/edge.server.ts`). App code never checks which one it got.
 
+## Content-Security-Policy (staff and admin)
+
+The shell's `handleRequest` (`packages/shell/src/server/entry.server.tsx`) sets a fresh nonce on
+every server-rendered response and sends `Content-Security-Policy` with it
+(`packages/shell/src/server/csp.server.ts`): `script-src 'self' 'nonce-<n>'`, `default-src`,
+`connect-src`, `font-src` and `img-src` (plus `data:` and `blob:`) on `'self'`, `object-src` and
+`base-uri 'none'`, and `frame-ancestors 'none'`. The nonce reaches React's streaming scripts
+(`renderToPipeableStream`), `ServerRouter`, and the document's `<Scripts>`,
+`<ScrollRestoration>` and box poller through `NonceContext` (`packages/shell/src/root/nonce.tsx`).
+Styles allow `'unsafe-inline'`, for the toasts' and Radix's runtime styles. There is no
+`form-action`: the single sign-on form's redirect goes to the identity provider. The appliance
+admin's SPA prerender gets no nonce (osadmin sets its own policy), nor does the dev server.
+
 ## Mock rules
 
 - Mock mode comes only from `--mode mock` (`npm run dev:mock`, `build:mock`, or the image's
@@ -132,8 +145,11 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   pasted public key, `AddRecoveryKey`), 4 the network (read only, `AcknowledgeStep`), 5 the protection (read only),
   6 one sign-in with the password and a code, the single-admin warning, and `Finish`. The box
   restarts into normal operation after Finish, so the page shows the restart page and offers
-  Updates and Status (full page loads, signing in again) only once the box answers; a Finish
-  whose answer is lost to the restart counts as finished. A reload
+  Updates and Status (full page loads, signing in again) only once the box answers, and only
+  after it was seen down (or 90 seconds passed; `BoxRestarting`'s `waitForDownMs`), since the
+  box answers signed out for a few seconds before the reboot. A Finish whose answer is lost to
+  the restart, or that the box refuses with `SETUP_DONE` (the console closed setup on the
+  sign-in first), counts as finished. A reload
   asks `GetSession` and `GetSetup` and resumes at `current`, the box's first step not done.
   The same page takes an invitation or a Recover access code (`codeKind`), and then shows only
   the password and authenticator. Until the admin is signed in, the code session's calls carry
@@ -149,12 +165,22 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   setup `/setup` never shows the stepper: an anonymous visitor gets only the invitation or Recover
   access code form (`CodeStep afterSetup`), and the box refuses the setup-only calls anyway
   (`SETUP_DONE`).
+- **Plain refusals.** `plainMessage` (`app/lib/osadmin/errors.ts`) turns a refusal into the
+  box's reason as a sentence with its symbol after it ("Use at least 12 characters.
+  (ACCESS_PASSWORD)"), or, for a message that is only a code, a sentence for the code; toasts
+  and the in-place refusals use it, so a raw "ACCESS_PASSWORD (3016)" is never all an admin sees.
+- **The frame's notices (`app/components/StatusBanners.tsx`).** From `GetStatus`, on every
+  page change: a network change waiting to be kept (not on Network, which has its own), and a
+  base apply or revert under way (not on Updates), which will end this session too.
 - **One step-up dialog for every page.** A mutating call that answers
   `ACCESS_STEPUP_REQUIRED` (Connect `permission_denied`) doesn't build its own prompt; it calls
   `requestStepUp` (`app/lib/osadmin/stepUpController.ts`) through `runAction`
   (`app/lib/osadmin/action.ts`), which queues the retry behind the one `<StepUpDialog>` mounted
   in `AppFrame`. The dialog asks for a fresh TOTP code (`SignInService.StepUp`), keeps a
-  refusal in place, and retries the action once the box takes the code. A Connect `unimplemented` (a page's backend isn't on the box yet) becomes "Not
+  refusal in place, and retries the action once the box takes the code. Its button says
+  "Verify code", never "Confirm". It stays open while the retry runs, and a follow-up the action
+  hands back (`runAction`'s `afterStepUp`, a `StepUpFollowUp`) is asked in the same dialog: a
+  network change's "Keep this change?", whose button calls `ConfirmNetwork`. A Connect `unimplemented` (a page's backend isn't on the box yet) becomes "Not
   available in this release" (`app/components/NotAvailable.tsx`); the Updates page shows it in
   full when `GetUpgrades` answers that way.
 - **Updates (`app/routes/updates.tsx`).** One flow for the three update units
@@ -220,7 +246,10 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   slot, so the release there goes at the stage, not the apply: the Install an update card says
   "Staging a base update removes <version> and its files." and the panel's Verify and stage step
   (a received file) says "This removes <version> and its files.", both
-  from `GetUpgrades.nextStageRemoves`; a product bundle's stage names no base release. Apply, Revert, Install product and
+  from `GetUpgrades.nextStageRemoves`, and only while nothing is staged. With a base release
+  staged they say staging another replaces it ("0.2.0 is staged. Staging another base update
+  replaces it and its files.", "This replaces the staged 0.2.0 and its files."), never that it
+  removes the release just staged; a product bundle's stage names no base release. Apply, Revert, Install product and
   Revert product each need the version typed (the running one for a base revert) and a fresh
   authenticator code in the same dialog, every time (`totpCode`; the box checks it on every call,
   not the step-up window), and a refused code stays in the dialog with the tries left. Stage and
@@ -257,9 +286,16 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   (`Begin`/`CompleteTotpReplacement`), and "Get an SSH key" (`IssueSshKey`): the dialog takes a label and a
   fresh authenticator code every time (`totpCode`; the box checks it on every call, not the
   step-up window, and a refused code stays in the dialog with the tries left), the box makes the
-  key pair and signs it with its root key, and the dialog shows the private key once, with
-  downloads for the key and its `-cert.pub` certificate; SSH asks for the TOTP code after
-  login. Owners set the access settings (`SetAccessPolicy`: the lockout mode, the root-shell
+  key pair and signs it with its root key, and the dialog shows the private key once. It widens
+  to three columns from the desktop breakpoint (one below it): a Downloads table grouped by
+  client (OpenSSH: the key, its `-cert.pub` certificate and the public key; PuTTY and
+  MobaXterm: the `.ppk` with the certificate inside; PEM, for other tools; Box trust: the
+  `known_hosts_<box>` file), the OpenSSH command with Copy and the `@cert-authority`
+  known_hosts line (`IssueSshKeyResponse.knownHosts`, so the first login has no host key
+  prompt) with Copy, the box's user CA (`userCaPublicKey`), and the PuTTY, MobaXterm and PEM
+  steps; SSH asks for the TOTP code after login. The Key fingerprints card shows the same
+  known_hosts line, the user CA and the host CA's fingerprint (`ListAdmins.knownHosts`,
+  `userCaPublicKey`, `hostCa`). Owners set the access settings (`SetAccessPolicy`: the lockout mode, the root-shell
   code and session minutes, 10 by default, and the SSH key validity) and the root-operator
   roster (`SetQuorum`; the same roster approves a factory reset). The page also lists the
   revoked login keys (`ListAdmins.revokedKeys`: whose key it was, the fingerprint, the type,
@@ -279,6 +315,17 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   `app/components/ResetCountdown.tsx` shows the 10-minute countdown with the one big Cancel any
   admin may press, on Power and on Status. Both pages re-read every 5 seconds while a reset is in
   progress.
+- **MCP (`app/routes/mcp.tsx`, under the product's nav section).** `GetMcp.state` is one of
+  osadmin's words, each shown as a badge and one sentence: `on` and `off` show the MCP and
+  machine API switches (`SetMcp`, step-up; the box restarts the product's MCP stacks), and
+  `not in this product` (the product.yaml declares no MCP switch) and `not installed` show no
+  switch. The mock's `mcp-absent` state is the product with no MCP switch.
+- **Product values (`app/components/ProductValues.tsx`, on Status).** The values the installed
+  product's bundle exposes to the signed-in admin's role (`ProductService.ListExposedValues`,
+  such as Sneakers' one-time setup token), each read only on Show (`GetExposedValue`, which the
+  box audits by name, never the value), with Copy and the product page that takes it. A one-time
+  value already used says the product is already set up and has no Show. There is no panel with
+  no product, no declared value, or a box that doesn't answer ProductService.
 - **The update mirror (`app/components/updates/MirrorStatusCard.tsx`,
   `app/components/certificates/UpdateTrustCard.tsx`).** The manual source takes an
   `http://` or `https://` URL. The Update mirror card on Updates shows `GetUpgrades.mirrorStatus`:
@@ -294,9 +341,11 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   `mirror-wrong-ca` and `mirror-pin-mismatch`; its internal CA's PEM is `MOCK_INTERNAL_CA_PEM`.
 - **Mock scenarios.** `applyMockScenario` (`app/mock/edge.mock.ts`), or `?mockScenario=a,b` on a
   mock build's URL, puts the mock box into a state for the tests and the review screen list:
-  `air-gapped`, `staged`, `no-previous` (nothing in the other slot; by default 0.0.9 is kept
+  `air-gapped`, `staged`, `network-pending` (net-7, a host name change, waits 95 seconds),
+  `network-reverted` and `network-reverted-at-start` (net-6 was undone by its window, or when the
+  box started again), `no-previous` (nothing in the other slot; by default 0.0.9 is kept
   there for a revert), `failed` (boot counting fell back from 0.2.0), `reverted` (alice
-  reverted from 0.2.0; Status and Updates say "Reverted from", not "Failed"), `manual`, `no-product` (before the first product
+  reverted from 0.2.0; Status and Updates say "Reverted from", not "Failed"), `manual`, `mcp-absent`, `no-product` (before the first product
   install), `status-fails` (Status answers unavailable, as while accessd isn't answering), `product-staged` (0.2.0 staged, 0.0.9 in the previous slot; a product install or revert restarts the product services, stopped for two GetUpgrades, then running), `product-restart-fails` (that restart's step fails instead), `elevated` (bob has an elevated shell open, so
   Apply and Revert are refused without an owner's override), `uploading` and `verifying` (the upload or the
   verification never finishes; a stalled upload ends only when it is cancelled), `held` (an uploaded `.bin` waits on the box to be verified or
@@ -312,8 +361,8 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   minutes or until an owner unlocks him), `throttled` (this address has to wait), `first-boot` (no admin yet; the setup code is
   `MOCK_SETUP_CODE`), `setup-admin`, `setup-keys`, `setup-network`, `setup-protection` and
   `setup-finish` (setup part-way, as a reload finds it), `reduced` (no Secure Boot, no TPM),
-  `invited` (carol's invitation, `MOCK_INVITE_CODE`), `signed-in` (the box still knows this
-  browser), `single-admin`, `reset-pending` and
+  `invited` (carol's invitation, `MOCK_INVITE_CODE`), `setup-token-used` (the product's
+  one-time setup token was used), `signed-in` (the box still knows this browser), `single-admin`, `reset-pending` and
   `reset-countdown`. The mock verifies an upload by its content: one containing "tampered" fails
   the signature, "lab" the channel, and "patch" is a patch for the running version. A key removed
   in the mock lands on its revoked list as revoked by the signed-in admin, as on the box, and the

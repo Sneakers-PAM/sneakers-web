@@ -48,12 +48,13 @@ import type {
 import { AccessSettingsCard } from "@/features/access/AccessSettingsCard";
 import { AccountCard } from "@/features/access/AccountCard";
 import { adminStatus } from "@/features/access/adminStatus";
+import { CopyLine } from "@/features/access/CopyLine";
 import { InvitationDialog } from "@/features/access/InvitationDialog";
 import { removeBlocked } from "@/features/access/removeBlocked";
 import { RootShellsCard } from "@/features/access/RootShellsCard";
 import { runAction } from "@/lib/osadmin/action";
 import { access, elevation as elevationClient } from "@/lib/osadmin/client";
-import { isNotAvailable, isStepUpRequired, reasonOf } from "@/lib/osadmin/errors";
+import { isNotAvailable, isStepUpRequired, plainMessage, reasonOf } from "@/lib/osadmin/errors";
 import { useSession } from "@/lib/useSession";
 
 const clamp = (value: number, min: number, max: number): number =>
@@ -415,21 +416,57 @@ export default function Access() {
           />
         )}
       </Dialog>
-      <Card>
-        <CardHeader title="Key fingerprints" />
-        <div className="flex flex-col gap-1 p-5.5 font-mono text-[0.8125rem]">
-          {data.rootKey && (
-            <p className="break-all">
-              Root key {data.rootKey.type} {data.rootKey.fingerprint}
-            </p>
+      <section aria-label="Key fingerprints">
+        <Card>
+          <CardHeader title="Key fingerprints" />
+          <div className="flex flex-col gap-1 p-5.5 font-mono text-[0.8125rem]">
+            {data.rootKey && (
+              <p className="break-all">
+                Root key {data.rootKey.type} {data.rootKey.fingerprint}
+              </p>
+            )}
+            {data.hostCa && (
+              <p className="break-all">
+                SSH host CA {data.hostCa.type} {data.hostCa.fingerprint}
+              </p>
+            )}
+            {data.hostKeys.map((key) => (
+              <p className="break-all" key={key.fingerprint}>
+                SSH host key {key.type} {key.fingerprint}
+              </p>
+            ))}
+          </div>
+          {(data.knownHosts || data.userCaPublicKey) && (
+            <div className="flex flex-col gap-2 border-t border-border p-5.5 text-small">
+              {data.knownHosts && (
+                <>
+                  <p className="m-0 text-muted">
+                    The known_hosts line: added to ~/.ssh/known_hosts, it trusts the box&apos;s host
+                    CA, so SSH doesn&apos;t ask about the host key on the first login.
+                  </p>
+                  <CopyLine
+                    copied="known_hosts line copied."
+                    label="Copy the known_hosts line"
+                    value={data.knownHosts}
+                  />
+                </>
+              )}
+              {data.userCaPublicKey && (
+                <>
+                  <p className="m-0 text-muted">
+                    The user CA (the root key&apos;s public half): sshd takes only keys it signed.
+                  </p>
+                  <CopyLine
+                    copied="User CA key copied."
+                    label="Copy the user CA key"
+                    value={data.userCaPublicKey}
+                  />
+                </>
+              )}
+            </div>
           )}
-          {data.hostKeys.map((key) => (
-            <p className="break-all" key={key.fingerprint}>
-              SSH host key {key.type} {key.fingerprint}
-            </p>
-          ))}
-        </div>
-      </Card>
+        </Card>
+      </section>
       {isOwner && <AccessSettingsCard onSaved={reload} policy={data.accessPolicy} />}
       {isOwner && (
         <Card>
@@ -692,7 +729,7 @@ const UnrevokeDialog = ({
           return true;
         } catch (error) {
           if (isStepUpRequired(error)) throw error;
-          setRefusal(error instanceof Error ? error.message : "The appliance refused.");
+          setRefusal(error instanceof Error ? plainMessage(error) : "The appliance refused.");
           return false;
         }
       },

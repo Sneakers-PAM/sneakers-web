@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 
 import { status, upgrade } from "@/lib/osadmin/client";
 import { applyMockScenario } from "@/mock/edge.mock";
+import * as world from "@/mock/world";
 import Home from "@/routes/home";
 import { renderPage } from "@/test/renderPage";
 import { signInAs } from "@/test/session";
@@ -22,6 +23,47 @@ describe("Home", () => {
     expect(await screen.findByText(/Running/)).toBeInTheDocument();
     expect(screen.getByText("Full")).toBeInTheDocument();
     expect(screen.getByText(/self-signed/)).toBeInTheDocument();
+  });
+
+  it("says when the last network change was undone, once, without the raw warning", async () => {
+    applyMockScenario("network-reverted");
+    renderPage(Home);
+    expect(
+      await screen.findAllByText(/The last network change \(net-6\) wasn't kept/),
+    ).not.toHaveLength(0);
+    expect(screen.getAllByText(/before its window ended/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/wasn't confirmed and was undone/)).not.toBeInTheDocument();
+  });
+
+  it("lists the product's exposed values, and shows one only on Show", async () => {
+    signInAs("bob");
+    const user = userEvent.setup();
+    renderPage(Home);
+    const panel = within(await screen.findByRole("region", { name: "Product values" }));
+    expect(panel.getByText("Sneakers setup token")).toBeInTheDocument();
+    expect(panel.queryByText(world.MOCK_SETUP_TOKEN)).not.toBeInTheDocument();
+    await user.click(panel.getByRole("button", { name: "Show Sneakers setup token" }));
+    expect(await panel.findByText(world.MOCK_SETUP_TOKEN)).toBeInTheDocument();
+    expect(panel.getByRole("link", { name: /admin\/setup/ })).toHaveAttribute(
+      "href",
+      "https://appliance.example.org/admin/setup",
+    );
+    expect(panel.getByText(/the box doesn't show it again/)).toBeInTheDocument();
+  });
+
+  it("says a one-time product value is already used, with nothing to show", async () => {
+    applyMockScenario("setup-token-used");
+    renderPage(Home);
+    const panel = within(await screen.findByRole("region", { name: "Product values" }));
+    expect(panel.getByText(/Sneakers is already set up/)).toBeInTheDocument();
+    expect(panel.queryByRole("button", { name: /^Show/ })).not.toBeInTheDocument();
+  });
+
+  it("has no product values panel with no product installed", async () => {
+    applyMockScenario("no-product");
+    renderPage(Home);
+    await screen.findByText(/Running/);
+    expect(screen.queryByRole("region", { name: "Product values" })).not.toBeInTheDocument();
   });
 
   it("wraps the TLS fingerprint instead of letting it run off the card", async () => {

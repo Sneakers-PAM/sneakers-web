@@ -15,7 +15,7 @@ import { useState } from "react";
 import type { IssueRootShellCodeResponse } from "@/lib/osadmin/types";
 
 import { rootShell } from "@/lib/osadmin/client";
-import { refusalOf } from "@/lib/osadmin/errors";
+import { plainMessage, refusalOf } from "@/lib/osadmin/errors";
 import { refusalMessage } from "@/lib/osadmin/refusal";
 import { useSession } from "@/lib/useSession";
 
@@ -54,7 +54,7 @@ export default function RootShell() {
           refusalOf(error)
             ? refusalMessage(error, { what: "code", who: session.admin })
             : error instanceof Error
-              ? error.message
+              ? plainMessage(error)
               : "The appliance refused.",
         );
         setCode("");

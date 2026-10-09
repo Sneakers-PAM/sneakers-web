@@ -6,6 +6,7 @@ import type {
   BackupPolicy,
   BackupSet,
   Elevation,
+  ExposedValue,
   FactoryReset,
   GetStatusResponse,
   HostKey,
@@ -86,6 +87,20 @@ export const ROOT_KEY: HostKey = {
   fingerprint: "SHA256:rT9k3Vw7Qm2Xp5Ln8Hc4Zb6Yd1Fs0Ga7Ej2Ku9Wq3Mo",
   type: "ssh-ed25519",
 };
+
+/** The root key's public half: the user CA sshd trusts, which signs every issued key. */
+export const USER_CA_PUBLIC_KEY =
+  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMOCKUSERCANOTAREALKEYMOCKUSERCANOTAREALKEY sneakers-user-ca";
+
+/** The box's SSH host CA, which signs sshd's host certificate. */
+export const HOST_CA: HostKey = {
+  fingerprint: "SHA256:hC4k3Vw7Qm2Xp5Ln8Hc4Zb6Yd1Fs0Ga7Ej2Ku9Wq3Mo",
+  type: "ssh-ed25519",
+};
+
+/** The known_hosts line that trusts the host CA for the box's name and management address. */
+export const KNOWN_HOSTS =
+  "@cert-authority appliance.example.org,192.0.2.50 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMOCKHOSTCANOTAREALKEYMOCKHOSTCANOTAREALKEY";
 
 export const ACCESS_POLICY: AccessPolicy = {
   lockoutMode: "LOCKOUT_MODE_TIMED",
@@ -344,6 +359,21 @@ export const SESSIONS: ActiveSession[] = [
 ];
 
 /** The mock box runs product 0.1.0, with nothing staged and no previous slot. */
+/** The mock product's one-time setup token, an exposed value (ProductService). */
+export const MOCK_SETUP_TOKEN = "MOCK-SETUP-TOKEN-7Q2K-NOT-A-REAL-ONE";
+
+/** What the mock product's product.yaml exposes. */
+export const EXPOSED_VALUES: ExposedValue[] = [
+  {
+    consumed: false,
+    label: "Sneakers setup token",
+    link: "https://appliance.example.org/admin/setup",
+    name: "setup-token",
+    oneTime: true,
+    roles: ["ROLE_OWNER", "ROLE_ADMIN"],
+  },
+];
+
 export const PRODUCT_SLOTS: ProductSlots = {
   installedVersion: "0.1.0",
   name: "Sneakers",

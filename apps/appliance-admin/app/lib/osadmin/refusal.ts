@@ -1,6 +1,6 @@
 import { clockTime, plural } from "@sneakers-web/ui";
 
-import { refusalOf } from "@/lib/osadmin/errors";
+import { plainMessage, refusalOf } from "@/lib/osadmin/errors";
 
 /**
  * One plain sentence for a refused sign-in, step-up or one-time code: the tries left, the
@@ -24,5 +24,5 @@ export const refusalMessage = (
   if (refusal && refusal.attemptsLeft > 0)
     return `${opening} ${plural(refusal.attemptsLeft, "try", "tries")} left before the account locks.`;
   if (refusal) return opening;
-  return error instanceof Error ? error.message : "The appliance refused.";
+  return error instanceof Error ? plainMessage(error) : "The appliance refused.";
 };

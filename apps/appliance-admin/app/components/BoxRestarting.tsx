@@ -49,6 +49,7 @@ export const BoxRestarting = ({
   pollMs = RESTART_POLL_MS,
   slowMs = RESTART_SLOW_MS,
   title = "The box is restarting",
+  waitForDownMs = 0,
 }: {
   children?: ReactNode;
   /** The update's steps as the page that started the restart last saw them. */
@@ -57,6 +58,12 @@ export const BoxRestarting = ({
   pollMs?: number;
   slowMs?: number;
   title?: string;
+  /**
+   * Until the box was seen down, or this long passed, a signed-out answer isn't "back": setup's
+   * Finish ends the session before the reboot starts, so the box answers signed out for a few
+   * seconds first, and links offered then would land on a box going down.
+   */
+  waitForDownMs?: number;
 }) => {
   const [phase, setPhase] = useState<Phase>("going");
   const [answered, setProgress] = useState<UpgradeProgress>();
@@ -70,6 +77,8 @@ export const BoxRestarting = ({
   useEffect(() => {
     let busy = false;
     let done = false;
+    let seenDown = false;
+    const started = Date.now();
     const tick = () => {
       if (busy || done) return;
       busy = true;
@@ -80,8 +89,12 @@ export const BoxRestarting = ({
         .then((answer) => {
           if (done) return;
           if (steps) setProgress(steps);
-          if (answer === "down") setPhase("down");
+          if (answer === "down") {
+            seenDown = true;
+            setPhase("down");
+          }
           if (answer !== "signed-out") return;
+          if (waitForDownMs > 0 && !seenDown && Date.now() - started < waitForDownMs) return;
           if (steps?.inProgress) {
             setPhase("checking");
             return;
@@ -105,7 +118,7 @@ export const BoxRestarting = ({
       clearInterval(poll);
       clearTimeout(late);
     };
-  }, [pollMs, slowMs]);
+  }, [pollMs, slowMs, waitForDownMs]);
 
   const shown = progress && phase === "down" ? rebootingNow(progress) : progress;
   const heading =
