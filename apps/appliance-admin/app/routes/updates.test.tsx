@@ -702,6 +702,46 @@ describe("Updates", () => {
       );
     }, 15_000);
 
+    it("opens the install's progress while the install call is still answering", async () => {
+      applyMockScenario("product-staged");
+      const apply = upgrade.apply;
+      let answered = false;
+      // The box answers the install only after the product's restart; its steps run meanwhile.
+      const slow = vi.spyOn(upgrade, "apply").mockImplementation(async (...callArguments) => {
+        const done = await apply(...callArguments);
+        await new Promise((resolve) => setTimeout(resolve, 6000));
+        answered = true;
+        return done;
+      });
+      const user = userEvent.setup();
+      await openPage();
+      const product = within(screen.getByRole("region", { name: "Product" }));
+      await user.click(product.getByRole("button", { name: "Install product 0.2.0" }));
+      const dialog = within(await screen.findByRole("dialog"));
+      await user.type(dialog.getByLabelText("Type 0.2.0 to confirm"), "0.2.0");
+      await user.type(dialog.getByLabelText("Authenticator code"), "123456");
+      await user.click(dialog.getByRole("button", { name: "Install and restart the product" }));
+      expect(
+        await product.findByRole("region", { name: "Update progress" }, { timeout: 4000 }),
+      ).toBeInTheDocument();
+      expect(answered).toBe(false);
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(screen.getByText("Installing product 0.2.0")).toBeInTheDocument();
+      slow.mockRestore();
+    }, 15_000);
+
+    it("opens the progress by itself when an install starts elsewhere", async () => {
+      applyMockScenario("product-staged");
+      await openPage();
+      const product = within(screen.getByRole("region", { name: "Product" }));
+      expect(product.queryByRole("region", { name: "Update progress" })).not.toBeInTheDocument();
+      // Another admin's tab, or the update window, starts it.
+      await upgrade.apply("123456", undefined, "UPDATE_TARGET_PRODUCT");
+      expect(
+        await product.findByRole("region", { name: "Update progress" }, { timeout: 8000 }),
+      ).toBeInTheDocument();
+    }, 15_000);
+
     it("clears the installing banner when the product doesn't open on 443 in time", async () => {
       applyMockScenario("product-staged");
       applyMockScenario("product-restart-fails");

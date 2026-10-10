@@ -270,7 +270,11 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   failed step stops it there ("The update didn't finish", the step marked failed) with a Sign in
   button. Outside a stage, an update under way (the window's, say) or the last one that failed
   shows its steps in the "Update progress" card, and the page asks for them each second while one
-  runs.
+  runs. A product install or revert answers only after the product's restart, so while its call
+  is out the page asks each second too, and the card (and the "Installing" banner) opens as soon
+  as the box reports the steps, closing the confirm dialog. An idle page asks every 5 seconds
+  (`IDLE_POLL_MS`), so an update another tab, another admin or the window starts opens its card
+  by itself.
   While an elevated shell is open (`GetUpgrades.activeElevations`) the page names who holds it,
   and an apply or revert the box refuses with `UPGRADE_ELEVATED` stays on the page with the
   holder. From there an owner can end the shell: the override dialog takes a reason and the

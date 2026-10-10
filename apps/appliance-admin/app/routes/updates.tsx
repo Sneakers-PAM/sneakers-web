@@ -204,6 +204,8 @@ type Outcome = "held" | "refused" | "started";
 
 /** How often the page asks for the steps while a stage or an update is under way. */
 export const STEPS_POLL_MS = 1000;
+/** How often an idle page asks, so an update another tab or the window starts shows by itself. */
+export const IDLE_POLL_MS = 5000;
 
 /** What an update in progress, or one that failed, is doing, as its card's title says it. */
 const progressTitle = (progress: UpgradeProgress): string => {
@@ -281,6 +283,10 @@ export default function Updates() {
   const [channel, setChannel] = useState<"" | ReleaseChannel>("");
   const [unavailable, setUnavailable] = useState(false);
   const [restartSteps, setRestartSteps] = useState<UpgradeProgress>();
+  // A product install or revert whose call hasn't answered yet: the box answers only after the
+  // product's restart, and its steps run meanwhile.
+  const [calling, setCalling] = useState(false);
+  const pending = useRef<{ action: Held["action"]; version: string } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const uploadAbort = useRef<AbortController | null>(null);
   const checkedOnce = useRef(false);
@@ -289,6 +295,16 @@ export default function Updates() {
   // fails (the failed steps show in their own card).
   const settleProductRestart = (response: GetUpgradesResponse) =>
     setRebooting((current) => {
+      if (!current && pending.current) {
+        const progress = response.upgradeProgress;
+        if (!progress?.inProgress || progress.target !== PRODUCT) return current;
+        // The steps have begun: the progress shows now, not once the call answers.
+        setConfirm(null);
+        const { action, version } = pending.current;
+        return action === "apply"
+          ? { kind: "installing", version }
+          : { kind: "reverting-product", version };
+      }
       if (current?.kind !== "installing" && current?.kind !== "reverting-product") return current;
       const progress = response.upgradeProgress;
       const failed = !!progress?.failed && progress.target === PRODUCT;
@@ -382,6 +398,7 @@ export default function Updates() {
     (rebooting?.kind === "applying" || rebooting?.kind === "reverting"
       ? false
       : productRestart ||
+        calling ||
         fetching ||
         step.kind === "verifying" ||
         !!data?.receiving ||
@@ -400,6 +417,19 @@ export default function Updates() {
     }, STEPS_POLL_MS);
     return () => clearInterval(poll);
   }, [watching]);
+  // Idle, the page still asks now and then, so an install, update or revert started from another
+  // tab, by another admin or by the update window opens its progress by itself.
+  const idle = !unavailable && !watching && !rebooting;
+  useEffect(() => {
+    if (!idle) return;
+    const poll = setInterval(() => {
+      void upgrade
+        .get()
+        .then(setData)
+        .catch(() => {});
+    }, IDLE_POLL_MS);
+    return () => clearInterval(poll);
+  }, [idle]);
 
   // Cancel aborts the transfer; the box drops what it got, and Upload unlocks.
   const sendFile = () => {
@@ -566,6 +596,10 @@ export default function Updates() {
   ) =>
     runAction(
       async (): Promise<Outcome> => {
+        if (target === PRODUCT) {
+          pending.current = { action, version };
+          setCalling(true);
+        }
         try {
           const update = action === "apply" ? upgrade.apply : upgrade.revert;
           await update(code, undefined, target);
@@ -587,6 +621,9 @@ export default function Updates() {
           setHeld({ action, message: errorText(error), target, version });
           reload();
           return "held";
+        } finally {
+          pending.current = null;
+          setCalling(false);
         }
       },
       {
