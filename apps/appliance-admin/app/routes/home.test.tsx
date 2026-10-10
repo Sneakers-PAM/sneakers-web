@@ -152,4 +152,79 @@ describe("Home", () => {
     expect(await screen.findByText("The factory reset was cancelled.")).toBeInTheDocument();
     expect(screen.queryByRole("timer")).not.toBeInTheDocument();
   });
+
+  it("lets any admin hide the reduced-protection notice with a plain confirm", async () => {
+    applyMockScenario("reduced");
+    signInAs("bob");
+    const user = userEvent.setup();
+    renderPage(Home);
+    const banner = await screen.findByRole("region", { name: "Reduced protection" });
+    expect(banner).toHaveTextContent(/Protection: reduced/);
+    await user.click(within(banner).getByRole("button", { name: "Hide this notice" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText("Hide this notice?")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "It won't be shown again. Protection stays reduced until it's raised; the Status page still lists it.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByRole("textbox")).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Hide" }));
+    expect(
+      await screen.findByText(/^The notice is hidden for everyone \(by bob/),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Reduced protection" })).not.toBeInTheDocument();
+    const card = within(screen.getByRole("region", { name: "Protection" }));
+    expect(card.getByText("Reduced")).toBeInTheDocument();
+    expect(card.getByText(/Protection: reduced/)).toBeInTheDocument();
+    expect(card.getByText(/To raise it|can be raised only/)).toBeInTheDocument();
+  });
+
+  it("keeps the reduced-protection notice on Cancel", async () => {
+    applyMockScenario("reduced");
+    signInAs("bob");
+    const user = userEvent.setup();
+    renderPage(Home);
+    const banner = await screen.findByRole("region", { name: "Reduced protection" });
+    await user.click(within(banner).getByRole("button", { name: "Hide this notice" }));
+    await user.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Cancel" }),
+    );
+    expect(screen.getByRole("region", { name: "Reduced protection" })).toBeInTheDocument();
+    const after = await status.get();
+    expect(after.protectionNotice).toBeUndefined();
+  });
+
+  it("keeps the notice hidden for every admin once one hid it", async () => {
+    applyMockScenario("reduced");
+    signInAs("bob");
+    const user = userEvent.setup();
+    const view = renderPage(Home);
+    const banner = await screen.findByRole("region", { name: "Reduced protection" });
+    await user.click(within(banner).getByRole("button", { name: "Hide this notice" }));
+    await user.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Hide" }),
+    );
+    await screen.findByText(/^The notice is hidden for everyone/);
+    view.unmount();
+    signInAs("alice");
+    renderPage(Home);
+    expect(
+      await screen.findByText(/^The notice is hidden for everyone \(by bob/),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Reduced protection" })).not.toBeInTheDocument();
+  });
+
+  it("offers no Hide on a box that can't hide the notice, or on any other warning", async () => {
+    applyMockScenario("reduced");
+    const { protectionDetail, protectionNotice, ...older } = await status.get();
+    expect(protectionDetail).toBeTruthy();
+    expect(protectionNotice).toBeUndefined();
+    vi.spyOn(status, "get").mockResolvedValueOnce(older);
+    renderPage(Home);
+    const banner = await screen.findByRole("region", { name: "Reduced protection" });
+    expect(within(banner).getByText(/Protection: reduced/)).toBeInTheDocument();
+    expect(screen.getByText(/self-signed/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Hide this notice" })).not.toBeInTheDocument();
+  });
 });

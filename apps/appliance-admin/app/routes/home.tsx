@@ -14,6 +14,7 @@ import type { GetStatusResponse, WarningKind } from "@/lib/osadmin/types";
 
 import { DiskCard } from "@/components/DiskCard";
 import { ProductValues } from "@/components/ProductValues";
+import { ReducedProtectionNotice } from "@/components/ProtectionNotice";
 import { ResetCountdown } from "@/components/ResetCountdown";
 import { NetworkReverted } from "@/components/StatusBanners";
 import { UpgradeSteps } from "@/components/UpgradeSteps";
@@ -66,15 +67,25 @@ export default function Home() {
         <>
           {(data.warnings ?? [])
             .filter((warning) => !NETWORK_WARNINGS.has(warning.kind))
-            .map((warning) => (
-              <Alert
-                key={`${warning.kind}:${warning.detail}`}
-                role={warning.critical ? "alert" : "status"}
-                tone={warning.critical ? "danger" : "warn"}
-              >
-                {warning.detail}
-              </Alert>
-            ))}
+            .map((warning) =>
+              warning.kind === "WARNING_KIND_REDUCED_PROTECTION" ? (
+                <ReducedProtectionNotice
+                  canHide={!!data.protectionDetail}
+                  detail={warning.detail}
+                  key={warning.kind}
+                  onHidden={reload}
+                  reason={data.protectionReason}
+                />
+              ) : (
+                <Alert
+                  key={`${warning.kind}:${warning.detail}`}
+                  role={warning.critical ? "alert" : "status"}
+                  tone={warning.critical ? "danger" : "warn"}
+                >
+                  {warning.detail}
+                </Alert>
+              ),
+            )}
           {data.networkChange?.lastReverted && !data.networkChange.pending && (
             <NetworkReverted
               atStart={data.networkChange.lastRevertedAtStart}
@@ -135,7 +146,7 @@ export default function Home() {
                 )}
               </div>
             </Card>
-            <Card>
+            <Card aria-label="Protection">
               <CardHeader title="Protection" />
               <div className="flex flex-col gap-1 p-5.5 text-small">
                 <Badge tone={data.protection === "PROTECTION_FULL" ? "ok" : "warn"}>
@@ -143,6 +154,12 @@ export default function Home() {
                 </Badge>
                 <p>At-rest custody: {data.custodyMode}</p>
                 {data.protectionReason && <p>{data.protectionReason}</p>}
+                {data.protectionDetail && <p>{data.protectionDetail}</p>}
+                {data.protectionNotice?.hidden && (
+                  <p className="text-muted">
+                    {`The notice is hidden for everyone (by ${data.protectionNotice.hiddenBy}${data.protectionNotice.hiddenAt ? `, ${shortDate(data.protectionNotice.hiddenAt)}` : ""}). It shows again if protection changes.`}
+                  </p>
+                )}
               </div>
             </Card>
           </div>

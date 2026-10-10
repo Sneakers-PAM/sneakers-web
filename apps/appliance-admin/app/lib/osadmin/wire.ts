@@ -63,6 +63,7 @@ import type {
   PendingCsr,
   ProductSlots,
   ProductVersion,
+  ProtectionNotice,
   Quorum,
   RecoveryKey,
   RedeemCodeResponse,
@@ -209,6 +210,12 @@ const warning = (w: Wire<Warning>): Warning => ({
   kind: w.kind ?? "WARNING_KIND_UNSPECIFIED",
 });
 
+const protectionNotice = (w: Wire<ProtectionNotice>): ProtectionNotice => ({
+  ...w,
+  hidden: w.hidden ?? false,
+  hiddenBy: w.hiddenBy ?? "",
+});
+
 const volume = (w: Wire<Volume>): Volume => ({
   ...w,
   label: w.label ?? "",
@@ -308,6 +315,7 @@ export const getStatus = (w: Wire<GetStatusResponse>): GetStatusResponse => ({
   previousSlot: w.previousSlot ?? "",
   previousVersion: w.previousVersion ?? "",
   protection: w.protection ?? "PROTECTION_UNSPECIFIED",
+  protectionNotice: optional(w.protectionNotice, protectionNotice),
   protectionReason: w.protectionReason ?? "",
   runningVersion: w.runningVersion ?? "",
   stagedVersion: w.stagedVersion ?? "",
