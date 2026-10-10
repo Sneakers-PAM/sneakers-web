@@ -1228,7 +1228,12 @@ const route = async (service: string, method: string, body: Record<string, unkno
       // The words osadmin answers with: the product's mcp switch, as its product.yaml has it.
       if (!product.installedVersion) return { machineApiEnabled: true, state: "not installed" };
       if (!mcpSwitch) return { machineApiEnabled: true, state: "not in this product" };
-      return { machineApiEnabled, mcpEnabled, state: mcpEnabled ? "on" : "off" };
+      return {
+        machineApiEnabled,
+        mcpEnabled,
+        readiness: mcpEnabled ? "ready" : "",
+        state: mcpEnabled ? "on" : "off",
+      };
     }
     case "McpService/SetMcp": {
       if (!product.installedVersion)

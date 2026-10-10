@@ -107,7 +107,8 @@ export default function Mcp() {
 
 /**
  * The words osadmin's GetMcp answers with (the product's mcp switch, from its product.yaml),
- * as a badge and one sentence. Any other word is shown as the box gave it.
+ * as a badge and one sentence; with MCP on, its readiness (starting, ready or failed, with the
+ * box's detail) decides between Starting, Failed and On. Any other word is shown as the box gave it.
  */
 const stateLook = (
   data: GetMcpResponse,
@@ -137,6 +138,22 @@ const stateLook = (
       };
     }
     case "on": {
+      if (data.readiness === "starting") {
+        return {
+          label: "Starting",
+          sentence:
+            `MCP is starting: ${productName} isn't ready with it yet. ${data.detail ?? ""}`.trim(),
+          tone: "warn",
+        };
+      }
+      if (data.readiness === "failed") {
+        return {
+          label: "Failed",
+          sentence:
+            `MCP is switched on, but ${productName} didn't come up with it: ${data.detail ?? ""}`.trim(),
+          tone: "warn",
+        };
+      }
       return {
         label: "On",
         sentence: `MCP is on: agents can reach ${productName} through MCP, each with its own sign-in.`,

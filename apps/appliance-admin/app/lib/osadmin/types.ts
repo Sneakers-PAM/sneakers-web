@@ -755,8 +755,12 @@ export interface GetExposedValueResponse {
 // ---- mcp ----
 
 export interface GetMcpResponse {
+  /** What a starting or failed MCP waits for, in the box's words. */
+  detail?: string;
   machineApiEnabled: boolean;
   mcpEnabled: boolean;
+  /** While MCP is on: how far the product has come up with it. Empty while it's off. */
+  readiness?: "" | "failed" | "ready" | "starting";
   state: string;
 }
 
