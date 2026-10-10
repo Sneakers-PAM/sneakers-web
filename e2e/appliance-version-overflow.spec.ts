@@ -82,6 +82,17 @@ const check = async (page: Page, route: string, selector: string, name: string) 
   expect(problems, problems.join("\n")).toEqual([]);
 };
 
+// The width of a page's own content column, the first thing #main renders -- used to catch a
+// page that caps itself below the others instead of filling #main like they do. Issue #263.
+const contentWidth = async (page: Page, route: string) => {
+  await navigate(page, route);
+  await page.waitForURL(`**${route}`);
+  await waitForReady(page, route);
+  return page
+    .locator("#main > :first-child")
+    .evaluate((element) => element.getBoundingClientRect().width);
+};
+
 // 390: a mobile width. 1280, 1440, 1920: real desktop widths; 1440 is the sizing base, 1280 is
 // under it.
 for (const width of [390, 1280, 1440, 1920]) {
@@ -116,6 +127,15 @@ for (const width of [390, 1280, 1440, 1920]) {
         `the Admins table needs ${String(overflowX)}px of sideways scroll at ${String(width)}px`,
       ).toBeLessThanOrEqual(0);
       await expect(page.getByRole("button", { name: "Remove admin" }).first()).toBeInViewport();
+
+      // Root shell's content used to sit in a max-w-3xl box, well short of Home's full column.
+      await check(page, "/root-shell", "#main", `root-shell-lab-names-${String(width)}`);
+      const homeWidth = await contentWidth(page, "/home");
+      const rootShellWidth = await contentWidth(page, "/root-shell");
+      expect(
+        rootShellWidth,
+        `root shell's content is ${String(rootShellWidth)}px, home's is ${String(homeWidth)}px, at ${String(width)}px`,
+      ).toBeGreaterThanOrEqual(homeWidth - 1);
     }
   });
 }
