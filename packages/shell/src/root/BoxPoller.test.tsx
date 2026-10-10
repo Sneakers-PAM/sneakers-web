@@ -38,4 +38,40 @@ describe("the appliance box-state poller tag", () => {
     await screen.findByText("loaded");
     expect(container.querySelector("script")).toBeNull();
   });
+
+  it("reloads into the box-state page when a request is held by the box", async () => {
+    const reload = vi.fn();
+    vi.stubGlobal("location", { ...globalThis.location, reload });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response("", { headers: { "Sneakers-Box-State": "updating" }, status: 503 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const Stub = page(true);
+    render(<Stub initialEntries={["/"]} />);
+    await screen.findByText("loaded");
+    await fetch("/secret/s-1.data");
+    expect(reload).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+
+  it("doesn't watch requests off the appliance", async () => {
+    const reload = vi.fn();
+    vi.stubGlobal("location", { ...globalThis.location, reload });
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response("", { headers: { "Sneakers-Box-State": "updating" }, status: 503 }),
+        ),
+    );
+    const Stub = page(false);
+    render(<Stub initialEntries={["/"]} />);
+    await screen.findByText("loaded");
+    await fetch("/x.data");
+    expect(reload).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
 });

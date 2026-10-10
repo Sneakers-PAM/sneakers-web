@@ -291,8 +291,9 @@ export default function Updates() {
   const uploadAbort = useRef<AbortController | null>(null);
   const checkedOnce = useRef(false);
 
-  // A product install or revert ends when the product runs on its version, or when its restart
-  // fails (the failed steps show in their own card).
+  // A product install or revert ends when its steps are done and the product runs on its version,
+  // or when a step fails (the failed steps show in their own card). k0s runs again a moment after
+  // the restart, long before the rollout is done, so running alone isn't the end.
   const settleProductRestart = (response: GetUpgradesResponse) =>
     setRebooting((current) => {
       if (!current && pending.current) {
@@ -308,9 +309,10 @@ export default function Updates() {
       if (current?.kind !== "installing" && current?.kind !== "reverting-product") return current;
       const progress = response.upgradeProgress;
       const failed = !!progress?.failed && progress.target === PRODUCT;
+      const following = !!progress?.inProgress && progress.target === PRODUCT;
       const running =
         !!response.product?.running && response.product.installedVersion === current.version;
-      return failed || running ? null : current;
+      return failed || (running && !following) ? null : current;
     });
 
   // Check now: the box reads the index again and answers each unit's offers. An air-gapped box
@@ -599,6 +601,8 @@ export default function Updates() {
         if (target === PRODUCT) {
           pending.current = { action, version };
           setCalling(true);
+          // The verify result gives way to the install's own progress.
+          setStep((current) => (current.kind === "verified" ? { kind: "idle" } : current));
         }
         try {
           const update = action === "apply" ? upgrade.apply : upgrade.revert;

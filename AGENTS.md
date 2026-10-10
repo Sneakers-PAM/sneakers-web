@@ -768,6 +768,14 @@ nobody else can decide, the requester confirms the task once with their second f
   a `script-src` the script needs `'self'`, and the brand logo comes from
   `/_box/logo` (`img-src 'self'`). In sneakers-release it is `env.APPLIANCE_BOX_POLLER: "true"` in
   the web-staff and web-admin values. The appliance admin (`:8443`) never loads it.
+  Two more pieces cover a tab whose own requests meet the box restarting or updating. With the
+  poller on, `BoxPoller` also watches the page's requests (`watchBoxState`): one answered with
+  `Sneakers-Box-State` (the edge holding the product) reloads the tab into the box-state page,
+  which comes back by itself. And on the appliance (the poller loaded) the root error screen asks
+  `/_box/state` before it shows a crash or "can't reach the server" (`BoxWait`): while the box
+  isn't running, or doesn't answer, it says "Sneakers-PAM is starting" (updating, rebooting, can't
+  be reached) in the box-state page's words, asks every second, and reloads once the box runs and
+  the page answers without the box-state header. When the box runs, the real error shows.
 
 ## Logging
 

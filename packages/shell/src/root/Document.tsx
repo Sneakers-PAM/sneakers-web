@@ -27,6 +27,7 @@ import { copyWithNotice, DIAGNOSTICS_ROUTE } from "#shell/diagnostics/copy";
 import { problemFor, setCurrentRoute } from "#shell/diagnostics/problems";
 import { NotSetUpScreen } from "#shell/gate/Screens";
 import { installIssueCopyCapture } from "#shell/issueCopy/errorBuffer";
+import { watchBoxState } from "#shell/root/boxState";
 import { useNonce } from "#shell/root/nonce";
 import { useRootData } from "#shell/root/useRootData";
 
@@ -39,6 +40,12 @@ import { useRootData } from "#shell/root/useRootData";
 export const BoxPoller = () => {
   const { boxPoller } = useRootData();
   const nonce = useNonce();
+  // A request the edge holds (the box starting or updating) reloads the tab into the box-state
+  // page, which goes back to the product by itself once it's ready.
+  useEffect(() => {
+    if (!boxPoller) return;
+    return watchBoxState(() => globalThis.location.reload());
+  }, [boxPoller]);
   return boxPoller ? <script defer nonce={nonce} src="/_box/poll.js" /> : null;
 };
 
