@@ -73,8 +73,30 @@ const idOnlyUser = (id: string): SessionUser => ({
   username: id,
 });
 
+/** Resource routes carry no page of their own: a background fetch to one (the notifications
+ * badge polling, diagnostics, display, step-up) that happens to find the session dead must
+ * never become where sign-in sends the admin back to. */
+const isResourceRoute = (path: string): boolean => path.startsWith("/resources/");
+
+/**
+ * Where sign-in should return to: the request's own path, unless it's a resource route's
+ * background fetch, in which case its Referer names the real page that made the fetch (with
+ * no usable Referer, or one outside the app, the app's start).
+ */
+const nextAfterSignIn = (request: Request): string => {
+  const path = pathInApp(new URL(request.url));
+  if (!isResourceRoute(path)) return path;
+  const referer = request.headers.get("Referer");
+  if (!referer) return appPath("");
+  try {
+    return isResourceRoute(pathInApp(new URL(referer))) ? appPath("") : pathInApp(new URL(referer));
+  } catch {
+    return appPath("");
+  }
+};
+
 const signInRedirect = (request: Request, gw: GatewayClient, ended: boolean) => {
-  const q = new URLSearchParams({ next: pathInApp(new URL(request.url)) });
+  const q = new URLSearchParams({ next: nextAfterSignIn(request) });
   if (ended) q.set("ended", "1");
   return redirect(`${appPath("sign-in")}?${q.toString()}`, { headers: relayCookies(gw) });
 };

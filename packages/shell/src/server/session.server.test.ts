@@ -24,6 +24,33 @@ describe("requireUser", () => {
     expect(r.headers.get("Location")).toBe("/sign-in?next=%2Fcheckouts%3Fx%3D1");
   });
 
+  it("sends a background fetch to a resource route back to the page that made it, not the route", async () => {
+    const r = await thrown(
+      requireUser(
+        appRequest("/resources/notifications?count=1", {
+          headers: { Referer: "https://app.example.invalid/secrets?page=2" },
+        }),
+      ),
+    );
+    expect(r.headers.get("Location")).toBe("/sign-in?next=%2Fsecrets%3Fpage%3D2");
+  });
+
+  it("sends a resource route's fetch with no Referer to the app's start, not the route", async () => {
+    const r = await thrown(requireUser(appRequest("/resources/notifications?count=1")));
+    expect(r.headers.get("Location")).toBe("/sign-in?next=%2F");
+  });
+
+  it("never returns to a resource route even by way of another resource route's Referer", async () => {
+    const r = await thrown(
+      requireUser(
+        appRequest("/resources/notifications?count=1", {
+          headers: { Referer: "https://app.example.invalid/resources/diagnostics" },
+        }),
+      ),
+    );
+    expect(r.headers.get("Location")).toBe("/sign-in?next=%2F");
+  });
+
   it("says the session ended when the cookie is there but the gateway no longer knows it", async () => {
     const r = await thrown(requireUser(appRequest("/", { cookie: "mock_sneakers_sid=gone" })));
     expect(r.headers.get("Location")).toContain("ended=1");

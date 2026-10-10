@@ -572,6 +572,12 @@ Paths inside an app are base-free (`appPath("sign-in")` is `/sign-in` in both ap
 Router adds the `/admin/` basename to links and redirects; a redirect that leaves the app (single
 sign-on) uses an absolute URL.
 
+`requireUser`'s sign-in redirect (`session.server.ts`) keeps where the admin was going as `next`,
+but a background fetch to a resource route (the notifications badge's poll, diagnostics, display,
+step-up) that happens to find the session dead never becomes that `next`: `nextAfterSignIn` reads
+the fetch's own `Referer` for the real page it was made from, falling back to the app's start when
+there's no usable Referer or it's itself a resource route.
+
 ## Refusals and step-up
 
 - A gateway refusal arrives as `GraphQLRequestError` with `code`, `reason` and `metadata`. In an
