@@ -63,7 +63,7 @@ export default function RootShell() {
   };
 
   return (
-    <div className="flex max-w-3xl flex-col gap-5 p-5.5">
+    <div className="flex flex-col gap-5 p-5.5">
       <PageHeader eyebrow="Access" title="Root shell" />
       {issued ? (
         <section aria-label="Your root-shell code">
