@@ -56,6 +56,29 @@ describe("buildReport", () => {
     expect(text).toContain("  connector: 0.1.0 (abc1234)");
   });
 
+  it("copies each build's short commit, never the full one", () => {
+    const full = "be456ff05e19b96c8b8978785c6fd7a437524bbb";
+    const { json, text } = buildReport({
+      data: {
+        app: { commit: full, name: "staff", version: "0.1.0" },
+        gateway: {
+          ...data.gateway!,
+          gateway: { ...component("gateway", "0.1.0"), commit: full },
+          services: [{ ...component("vault", "0.1.0"), commit: full }],
+        },
+      },
+      now: at,
+      timeZone: "UTC",
+      url: "https://pam.example.org/",
+      userAgent: "Mozilla/5.0 Test",
+    });
+    expect(text).toContain("App: staff 0.1.0 (be456ff)");
+    expect(text).toContain("Gateway: 0.1.0 (be456ff)");
+    expect(text).toContain("  vault: 0.1.0 (be456ff)");
+    expect(json.app.commit).toBe("be456ff");
+    expect(text).not.toContain(full);
+  });
+
   it("says so when the product version or the box isn't known", () => {
     const { json, text } = buildReport({
       data,
@@ -96,7 +119,7 @@ describe("buildReport", () => {
     expect(json.problem).toMatchObject({ operation: "CheckOut", reason: "CHECKOUT_LEASE_HELD" });
     expect(json.user).toEqual({ id: "user-1", roles: ["user", "site-admin"], username: "morgan" });
     const { app } = json;
-    expect(app).toEqual({ commit: "f00dfeed", name: "staff", version: "0.4.0" });
+    expect(app).toEqual({ commit: "f00dfee", name: "staff", version: "0.4.0" });
     expect(json.appliance).toBe("not appliance");
     expect(json.services).toContainEqual({
       commit: null,

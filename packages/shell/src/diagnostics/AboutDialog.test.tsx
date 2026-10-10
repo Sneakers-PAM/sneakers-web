@@ -61,6 +61,22 @@ describe("AboutDialog", () => {
     expect(within(dialog).queryByText(/not appliance/)).not.toBeInTheDocument();
   });
 
+  it("shows each build's short commit, never the full one", async () => {
+    const full = "be456ff05e19b96c8b8978785c6fd7a437524bbb";
+    renderAbout({
+      app: { commit: full, name: "staff", version: "0.1.0" },
+      gateway: {
+        ...onBox.gateway!,
+        gateway: component("gateway", "0.1.0", full),
+        services: [component("vault", "0.1.0", full)],
+      },
+    });
+    const dialog = await screen.findByRole("dialog", { name: "About and diagnostics" });
+    expect(await within(dialog).findByText("staff 0.1.0 (be456ff)")).toBeInTheDocument();
+    expect(within(dialog).getAllByText("0.1.0 (be456ff)")).toHaveLength(2);
+    expect(dialog).not.toHaveTextContent(full);
+  });
+
   it("says when it isn't an appliance and the product version isn't known", async () => {
     renderAbout({
       ...onBox,

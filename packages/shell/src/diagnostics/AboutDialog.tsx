@@ -8,7 +8,7 @@ import {
 } from "@sneakers-web/ui";
 import { useEffect, useState } from "react";
 
-import { type DiagnosticsData, productText } from "#shell/diagnostics/report";
+import { type DiagnosticsData, productText, shortCommit } from "#shell/diagnostics/report";
 
 /** A component as the gateway answers it (or as the report keeps it). */
 interface ComponentLike {
@@ -24,7 +24,7 @@ import { CopyDiagnostics, DiagnosticsUrl } from "#shell/diagnostics/CopyDiagnost
 
 const buildOf = (c: ComponentLike): string => {
   const version = c.version ?? "unknown";
-  return c.commit ? `${version} (${c.commit})` : version;
+  return c.commit ? `${version} (${shortCommit(c.commit)})` : version;
 };
 
 const versionOf = (c: ComponentLike): string => {
@@ -78,7 +78,11 @@ const Body = ({ url }: { url: string }) => {
         <Row label="Product" value={productText(g?.productVersion)} />
         <Row
           label="App"
-          value={data ? `${data.app.name} ${data.app.version} (${data.app.commit})` : "unknown"}
+          value={
+            data
+              ? `${data.app.name} ${data.app.version} (${shortCommit(data.app.commit)})`
+              : "unknown"
+          }
         />
         {g?.box ? (
           <>
@@ -92,7 +96,7 @@ const Body = ({ url }: { url: string }) => {
         {g && (
           <Row
             label="Gateway"
-            value={`${g.gateway.version ?? "unknown"} (${g.gateway.commit ?? "unknown"})`}
+            value={`${g.gateway.version ?? "unknown"} (${shortCommit(g.gateway.commit ?? "unknown")})`}
           />
         )}
         {g && (
