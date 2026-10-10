@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { importer } from "@/lib/osadmin/client";
+import { importer, setup } from "@/lib/osadmin/client";
 import { applyMockScenario } from "@/mock/edge.mock";
 import Import from "@/routes/import";
 import { renderPage } from "@/test/renderPage";
@@ -57,6 +57,26 @@ describe("Import", () => {
     await user.click(await screen.findByRole("button", { name: "Open an import" }));
     await user.click(await screen.findByRole("button", { name: "Close the import" }));
     expect(await screen.findByRole("button", { name: "Open an import" })).toBeInTheDocument();
+  });
+
+  it("offers the escrow download before the import is closed, and after", async () => {
+    const user = userEvent.setup();
+    const escrow = vi.spyOn(setup, "downloadEscrow");
+    renderPage(Import);
+    await user.click(await screen.findByRole("button", { name: "Open an import" }));
+    await user.click(await screen.findByLabelText("Rehearsal"));
+    await user.type(screen.getByLabelText("First admin's email"), "admin@example.org");
+    await user.click(screen.getByRole("button", { name: "Import" }));
+    expect(await screen.findByText("Imported-users mode")).toBeInTheDocument();
+    expect(screen.getAllByText(/carries .* keys/).length).toBeGreaterThan(0);
+    const before = screen.getAllByRole("button", { name: "Download the escrow" });
+    expect(before).toHaveLength(2);
+    for (const button of before) await user.click(button);
+    await vi.waitFor(() => expect(escrow).toHaveBeenCalledTimes(2));
+    await user.click(screen.getByRole("button", { name: "Close the import" }));
+    await screen.findByRole("button", { name: "Open an import" });
+    await user.click(screen.getByRole("button", { name: "Download the escrow" }));
+    await vi.waitFor(() => expect(escrow).toHaveBeenCalledTimes(3));
   });
 
   it("has nothing to show with no product installed", async () => {

@@ -18,11 +18,14 @@ import { Link } from "react-router";
 import type { GetBackupsResponse, RecoveryKey } from "@/lib/osadmin/types";
 
 import { NotAvailable } from "@/components/NotAvailable";
+import { downloadEscrow, ESCROW_NOTE } from "@/features/setup/RecoveryKeysStep";
 import { runAction } from "@/lib/osadmin/action";
 import { backup, setup } from "@/lib/osadmin/client";
 import { isNotAvailable } from "@/lib/osadmin/errors";
+import { useSession } from "@/lib/useSession";
 
 export default function Backups() {
+  const { isOwner } = useSession();
   const [data, setData] = useState<GetBackupsResponse>();
   const [recoveryKeys, setRecoveryKeys] = useState<RecoveryKey[]>();
   const [schedule, setSchedule] = useState("");
@@ -86,6 +89,17 @@ export default function Backups() {
             </p>
           ))}
         </div>
+        {isOwner && (
+          <div className="flex flex-col gap-3 px-5.5 pb-5.5">
+            <p className="m-0 text-small">
+              Download the escrow after the product is installed, after an import, and after
+              anything that changes the keys. {ESCROW_NOTE}
+            </p>
+            <Button className="self-start" onClick={downloadEscrow} variant="secondary">
+              Download the escrow
+            </Button>
+          </div>
+        )}
       </Card>
       <Card>
         <CardHeader title="Policy" />
