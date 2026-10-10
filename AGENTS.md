@@ -775,8 +775,10 @@ nobody else can decide, the requester confirms the task once with their second f
   which comes back by itself. And on the appliance (the poller loaded) the root error screen asks
   `/_box/state` before it shows a crash or "can't reach the server" (`BoxWait`): while the box
   isn't running, or doesn't answer, it says "Sneakers-PAM is starting" (updating, rebooting, can't
-  be reached) in the box-state page's words, asks every second, and reloads once the box runs and
-  the page answers without the box-state header. When the box runs, the real error shows.
+  be reached) in the box-state page's words, asks every second (one ask at a time, each given 5
+  seconds, none while the tab is hidden, and a failure while hidden doesn't count), and reloads once
+  the box runs and the page answers without the box-state header. When the box runs, the real error
+  shows and it stops asking.
 
 ## Logging
 
