@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 import type { GetImportResponse, ImportRun } from "@/lib/osadmin/types";
 
 import { NotAvailable } from "@/components/NotAvailable";
+import { downloadEscrow, ESCROW_NOTE } from "@/features/setup/RecoveryKeysStep";
 import { runAction } from "@/lib/osadmin/action";
 import { importer } from "@/lib/osadmin/client";
 import { isNotAvailable } from "@/lib/osadmin/errors";
@@ -136,7 +137,13 @@ export default function Import() {
       <PageHeader eyebrow={product.name} title="Import" />
       {data.imported && (
         <Alert title="Imported-users mode" tone="ok">
-          {`This box's users and data came from an import (bundle ${data.importedBundle}). ${product.name}'s own first-run setup is skipped: each user sets a new password with "Forgot password" and enrols a second factor at first sign-in.`}
+          <span>
+            {`This box's users and data came from an import (bundle ${data.importedBundle}). ${product.name}'s own first-run setup is skipped: each user sets a new password with "Forgot password" and enrols a second factor at first sign-in. `}
+            {ESCROW_NOTE}
+          </span>
+          <Button className="mt-3 self-start" onClick={downloadEscrow} variant="secondary">
+            Download the escrow
+          </Button>
         </Alert>
       )}
       {!data.available && (
@@ -326,21 +333,30 @@ export default function Import() {
               subtitle="Removes the export, the import key and the outputs from the box, and the migrate service account with them."
               title="Close the import"
             />
-            <div className="p-5.5">
-              <Button
-                disabled={running}
-                onClick={() =>
-                  void runAction(() => importer.close(), {
-                    onSuccess: () => {
-                      setShown(undefined);
-                      reload();
-                    },
-                  })
-                }
-                variant="danger"
-              >
-                Close the import
-              </Button>
+            <div className="flex flex-col gap-4 p-5.5">
+              <p className="m-0 text-small">
+                After Verify passes, download the escrow and keep it with the recovery keys.{" "}
+                {ESCROW_NOTE}
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Button onClick={downloadEscrow} variant="secondary">
+                  Download the escrow
+                </Button>
+                <Button
+                  disabled={running}
+                  onClick={() =>
+                    void runAction(() => importer.close(), {
+                      onSuccess: () => {
+                        setShown(undefined);
+                        reload();
+                      },
+                    })
+                  }
+                  variant="danger"
+                >
+                  Close the import
+                </Button>
+              </div>
             </div>
           </Card>
         </>

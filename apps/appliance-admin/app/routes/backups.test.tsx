@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { backup } from "@/lib/osadmin/client";
+import { backup, setup } from "@/lib/osadmin/client";
 import { OsadminError } from "@/lib/osadmin/errors";
 import Backups from "@/routes/backups";
 import { renderPage } from "@/test/renderPage";
@@ -31,6 +31,23 @@ describe("Backups", () => {
     await user.click(screen.getByRole("button", { name: "Run now" }));
     await screen.findByText("Backups");
     expect(await screen.findAllByText(/^bk-/)).toHaveLength(before + 1);
+  });
+
+  it("downloads the escrow from the recovery keys card, after setup too", async () => {
+    const user = userEvent.setup();
+    const escrow = vi.spyOn(setup, "downloadEscrow");
+    signInAs("alice");
+    renderPage(Backups);
+    await user.click(await screen.findByRole("button", { name: "Download the escrow" }));
+    await vi.waitFor(() => expect(escrow).toHaveBeenCalledTimes(1));
+    expect(screen.getByText(/carries .* keys/)).toBeInTheDocument();
+  });
+
+  it("offers the escrow download to owners only", async () => {
+    signInAs("bob");
+    renderPage(Backups);
+    await screen.findByText("Recovery keys");
+    expect(screen.queryByRole("button", { name: "Download the escrow" })).not.toBeInTheDocument();
   });
 
   it("wraps a recovery key's fingerprint instead of letting it run off the card", async () => {

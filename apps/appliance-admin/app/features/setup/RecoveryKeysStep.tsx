@@ -8,6 +8,10 @@ import { noAutofill } from "@/lib/noAutofill";
 import { runAction } from "@/lib/osadmin/action";
 import { setup } from "@/lib/osadmin/client";
 
+/** Why the escrow is downloaded again once a product is installed or imported. */
+export const ESCROW_NOTE =
+  "The escrow carries the product's keys (the vault's root key and the TOTP key), sealed to the recovery keys; a restore onto a new box can't open the product's data without them.";
+
 /** Saves the newest escrow file the box wrote for the recovery keys. */
 export const downloadEscrow = () =>
   void runAction(async () => {
