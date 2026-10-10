@@ -32,6 +32,23 @@ Saving asks for a fresh code and applies the product again; **Send test email** 
 through the settings on the page without saving them. A product that sends no mail gets no form.
 The mock's `email-absent` scenario shows that case.
 
+## Status: the disk
+
+The Disk card on Status lists each of the box's volumes (state, product data and backup) with
+its use and its level: OK, **Warning** from 80% used, **Critical** from 90%, each clearing 5 points
+below (the box's disk guard sets them; `GetStatus.volumes`). Product data sits on the state volume
+and says so. Under them are the product's data paths with their size, daily growth and write-ahead
+log against its limit (`data_paths`), and the last cleanup: when, why (on the hour, when a volume
+passed 80%, or on request and by whom) and what it freed (`last_cleanup`). The disk guard's
+warnings show at the top of the page with the others; a critical one is a red alert. **Clean up
+now** runs the box's cleanup at once (`StatusService.CleanUpDisk`, an admin with a recent code;
+the step-up dialog asks for one) and the card reads Status again. The box cleans up by itself every
+hour and when a volume passes 80%, and never touches product data, secrets, backups or either
+release; see the appliance's `docs/disk-layout.md`. A box from before the disk guard sends no
+volumes, and the card shows its state volume's use as before. The mock states are `disk-warning`,
+`disk-critical` (both cleaned up by Clean up now) and `disk-stuck` (93% full of what the cleanup
+may not remove, with a write-ahead log over its limit).
+
 ## Certificates
 
 The Certificates page runs the box's certificate store (`TlsService`): the certificates with

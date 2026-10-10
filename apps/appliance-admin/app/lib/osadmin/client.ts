@@ -14,6 +14,7 @@ import type {
   CheckPasswordResponse,
   CheckUpdatesResponse,
   Certificate,
+  DiskCleanup,
   ElevationOverride,
   FactoryReset,
   GenerateCsrRequest,
@@ -167,6 +168,9 @@ export const status = {
   getPhase: () => call<GetPhaseResponse>("StatusService", "GetPhase", {}, wire.getPhase),
   setSecureBoot: (on: boolean, confirmHostname: string) =>
     call<Record<string, never>>("StatusService", "SetSecureBoot", { confirmHostname, on }),
+  /** Runs the disk cleanup now (a step-up); answers what each step freed. */
+  cleanUpDisk: () =>
+    call<{ cleanup: DiskCleanup }>("StatusService", "CleanUpDisk", {}, wire.withCleanup),
 };
 
 export const access = {
