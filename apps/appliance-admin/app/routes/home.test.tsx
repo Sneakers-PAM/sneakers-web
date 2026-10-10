@@ -8,7 +8,7 @@ import Home from "@/routes/home";
 import { renderPage } from "@/test/renderPage";
 import { signInAs } from "@/test/session";
 
-/** The paragraph whose whole text is `text`, even when a version chip splits it up. */
+/** The paragraph whose whole text is `text`. */
 const line = (text: RegExp | string) =>
   screen.getByText(
     (_, element) =>
@@ -72,16 +72,15 @@ describe("Home", () => {
     expect(fingerprint.className).toContain("break-all");
   });
 
-  it("highlights the running version, and a staged one in a quieter tone", async () => {
+  it("shows the running and staged versions as their own build name, each with its channel", async () => {
     applyMockScenario("staged");
     renderPage(Home);
-    const running = within(await screen.findByText(/^Running/)).getByText("0.1.0");
-    expect(running).toHaveAttribute("data-version", "running");
-    expect(running).toHaveClass("bg-primary-soft", "text-primary");
-    expect(line(/^Running 0\.1\.0 on /)).toBeInTheDocument();
-    const staged = within(line("Staged: 0.2.0")).getByText("0.2.0");
-    expect(staged).toHaveAttribute("data-version", "staged");
-    expect(staged).toHaveClass("bg-neutral-soft");
+    const running = await screen.findByText("0.1.0", { selector: "[data-version=running]" });
+    expect(running).toBeInTheDocument();
+    expect(line(/^In the active slot, on /)).toBeInTheDocument();
+    const staged = screen.getByText("0.2.0", { selector: "[data-version=staged]" });
+    expect(staged).toBeInTheDocument();
+    expect(screen.getAllByText("Stable").length).toBeGreaterThanOrEqual(2);
   });
 
   it("renders without warnings or health when the box leaves them out of the reply", async () => {
@@ -106,7 +105,7 @@ describe("Home", () => {
     applyMockScenario("staged");
     renderPage(Home);
     expect(await screen.findByText("Status")).toBeInTheDocument();
-    expect(line("Staged: 0.2.0")).toBeInTheDocument();
+    expect(screen.getByText("0.2.0", { selector: "[data-version=staged]" })).toBeInTheDocument();
     expect(screen.queryByText(/revert target/)).not.toBeInTheDocument();
   });
 

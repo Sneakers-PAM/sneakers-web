@@ -2,7 +2,7 @@ import { Badge } from "@sneakers-web/ui";
 
 import type { UnitOffer } from "@/lib/osadmin/types";
 
-import { shortLabel } from "@/components/updates/shortLabel";
+import { shortName } from "@/lib/parseVersion";
 
 /** A size in MB, one decimal under 10 MB. */
 export const megabytes = (bytes: number | string): string => {
@@ -14,8 +14,9 @@ export const megabytes = (bytes: number | string): string => {
 export const offerKey = (offer: UnitOffer): string => `${offer.version}/${offer.kind}`;
 
 /**
- * What the source offers for one unit, newest first, each line labelled full or patch with its
- * size and what it needs; the line the box prefers is picked to begin with.
+ * What the source offers for one unit, newest first, by its build names, not the raw versions:
+ * a patch reads as "Patch <running> -> <offered>", a full file as its own build name with a
+ * "full" badge. The line the box prefers is picked to begin with.
  */
 export const OfferList = ({
   label,
@@ -23,12 +24,15 @@ export const OfferList = ({
   offers,
   onPick,
   picked,
+  runningVersion,
 }: {
   label: string;
   legend?: string;
   offers: UnitOffer[];
   onPick: (key: string) => void;
   picked: string;
+  /** What a patch offer is relative to: the unit's own currently running version. */
+  runningVersion: string;
 }) => (
   <fieldset aria-label={label} className="m-0 flex flex-col gap-2 border-0 p-0" role="radiogroup">
     <legend className="mb-1 text-[0.875rem] font-bold text-ink">{legend}</legend>
@@ -45,17 +49,23 @@ export const OfferList = ({
           type="radio"
           value={offer.version}
         />
-        <span className="inline-block max-w-[22ch] truncate font-bold" title={offer.version}>
-          {shortLabel(offer.version)}
-        </span>
-        <Badge tone={offer.kind === "patch" ? "ok" : "neutral"}>{offer.kind}</Badge>
+        {offer.kind === "patch" ? (
+          <span className="font-bold">
+            {`Patch ${shortName(runningVersion)} → ${shortName(offer.version)}`}
+          </span>
+        ) : (
+          <>
+            <span className="font-bold">{shortName(offer.version)}</span>
+            <Badge tone="neutral">full</Badge>
+          </>
+        )}
         <span className="text-muted">
-          {megabytes(offer.size)}
+          {`(${megabytes(offer.size)})`}
           {offer.needs ? `, base ${offer.needs}` : ""}
         </span>
         {offer.includesBaseWeb && (
           <span className="w-full text-muted" title={offer.includesBaseWeb}>
-            Includes Base Web {shortLabel(offer.includesBaseWeb)}
+            {`Includes Base Web ${shortName(offer.includesBaseWeb)}`}
           </span>
         )}
         {offer.note && <span className="w-full text-muted">{offer.note}</span>}

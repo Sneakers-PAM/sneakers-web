@@ -17,8 +17,9 @@ import { ProductValues } from "@/components/ProductValues";
 import { ResetCountdown } from "@/components/ResetCountdown";
 import { NetworkReverted } from "@/components/StatusBanners";
 import { UpgradeSteps } from "@/components/UpgradeSteps";
-import { VersionChip } from "@/components/VersionChip";
+import { VersionFields } from "@/components/VersionFields";
 import { status as statusClient } from "@/lib/osadmin/client";
+import { shortName } from "@/lib/parseVersion";
 
 /** The frame's banner shows a pending network change, and the card below an undone one. */
 const NETWORK_WARNINGS = new Set<WarningKind>([
@@ -115,25 +116,23 @@ export default function Home() {
           <div className="grid grid-cols-1 gap-4 tablet:grid-cols-2 desktop:grid-cols-3">
             <Card>
               <CardHeader title="Version" />
-              <div className="flex flex-col gap-1 p-5.5 text-small">
-                <p className="flex flex-wrap items-center gap-1.5">
-                  Running <VersionChip kind="running" version={data.runningVersion} /> on{" "}
-                  {data.channel}
-                </p>
+              <div className="flex flex-col gap-3 p-5.5 text-small">
+                <VersionFields label="Running" version={data.runningVersion} />
+                <p className="m-0 text-muted">{`In the active slot, on ${data.channel}`}</p>
                 {data.stagedVersion && (
-                  <p className="flex flex-wrap items-center gap-1.5">
-                    Staged: <VersionChip kind="staged" version={data.stagedVersion} />
-                  </p>
+                  <VersionFields label="Staged" version={data.stagedVersion} />
                 )}
                 {!data.stagedVersion && data.previousVersion && (
-                  <p>Other slot: {data.previousVersion} (revert target)</p>
+                  <p>{`Other slot: ${shortName(data.previousVersion)} (revert target)`}</p>
                 )}
                 {data.revertedVersion && (
                   <p>
-                    {`Reverted from ${data.revertedVersion} (by ${data.revertedBy ?? "an admin"}${data.revertedAt ? `, ${shortDate(data.revertedAt)}` : ""})`}
+                    {`Reverted from ${shortName(data.revertedVersion)} (by ${data.revertedBy ?? "an admin"}${data.revertedAt ? `, ${shortDate(data.revertedAt)}` : ""})`}
                   </p>
                 )}
-                {data.failedVersion && <p className="text-danger">Failed: {data.failedVersion}</p>}
+                {data.failedVersion && (
+                  <p className="text-danger">{`Failed: ${shortName(data.failedVersion)}`}</p>
+                )}
               </div>
             </Card>
             <Card>

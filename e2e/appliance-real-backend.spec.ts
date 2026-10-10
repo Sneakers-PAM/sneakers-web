@@ -57,7 +57,8 @@ test("every page renders against a real-shaped backend, with unimplemented pages
   // Updates leaves `history` out of the reply; the page used to throw a TypeError on it.
   await navigate(page, "/updates");
   await page.waitForURL("**/updates");
-  await expect(page.getByText("Running 0.1.0 in the active slot")).toBeVisible();
+  await expect(page.getByTestId("card-base").getByText("0.1.0")).toBeVisible();
+  await expect(page.getByText("In the active slot.")).toBeVisible();
   await expect(page.getByRole("table", { name: "Update history" }).getByRole("row")).toHaveCount(1);
 
   for (const { heading, name, route } of UNAVAILABLE) {

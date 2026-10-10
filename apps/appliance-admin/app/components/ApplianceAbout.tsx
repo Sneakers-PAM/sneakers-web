@@ -20,12 +20,15 @@ import {
   buildApplianceReportText,
 } from "@/lib/diagnostics/report";
 import { status as statusClient } from "@/lib/osadmin/client";
+import { shortName } from "@/lib/parseVersion";
 import { useSession } from "@/lib/useSession";
 
-const Row = ({ label, value }: { label: string; value: string }) => (
+const Row = ({ label, title, value }: { label: string; title?: string; value: string }) => (
   <div className="flex gap-3 py-1 text-[0.875rem]">
     <dt className="w-32 flex-none text-muted">{label}</dt>
-    <dd className="m-0 min-w-0 font-mono text-[0.8125rem] break-all">{value}</dd>
+    <dd className="m-0 min-w-0 font-mono text-[0.8125rem] break-all" title={title}>
+      {value}
+    </dd>
   </div>
 );
 
@@ -82,7 +85,11 @@ const Body = ({ open }: { open: boolean }) => {
         />
         {report.box ? (
           <>
-            <Row label="Box version" value={report.box.version} />
+            <Row
+              label="Box version"
+              title={report.box.version}
+              value={shortName(report.box.version)}
+            />
             <Row label="Slot" value={report.box.slot} />
             <Row label="Protection" value={report.box.protection} />
             <Row label="Secure Boot" value={report.box.secureBoot} />

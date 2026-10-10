@@ -2313,7 +2313,7 @@ export const applyMockScenario = (scenario: MockScenario): void => {
       break;
     }
     case "lab-names": {
-      stagedVersion = "0.0.0-lab.20261009m1.r20261009215558-g79c3ceb";
+      stagedVersion = "0.0.0-lab.20261009m2.r20261010031325-g79c3ceb";
       previousVersion = "";
       units.setLabBaseOffer();
       break;
