@@ -81,6 +81,15 @@ uploaded file under **Install an update** until it's verified), toned by the out
 
 ### The update mirror
 
+With the built-in list, a production box's source is the project's GitHub Releases. The card
+names the repository, the channel it follows and the release it last picked ("GitHub source:
+Sneakers-PAM/sneakers-appliance, the rc channel (this build's default), release v0.1.0-rc.2."),
+and while GitHub's API rate limit is used up, until when. An owner picks the channel under
+**GitHub channel**: **Stable** takes stable releases only; **Release candidates (rc)** takes the
+newest rc or stable release, whichever is newer. A box running a pre-release starts on rc. Saving
+the source without touching the choice keeps the box's channel. The appliance's
+`docs/upgrades.md` (the GitHub source) has the rules and the hosts the box needs to reach.
+
 The manual source takes an `http://` or `https://` URL: an air-gapped site's own web
 server. Every file's signature is checked either way. The **Update mirror** card shows how the box
 reaches it: for plain HTTP, "integrity from the signature only"; for HTTPS, the server

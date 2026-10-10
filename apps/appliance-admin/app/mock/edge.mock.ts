@@ -7,6 +7,7 @@ import type {
   CodeKind,
   ElevationOverride,
   FactoryReset,
+  MirrorStatus,
   NetdSettings,
   Session,
   UpdatePackage,
@@ -277,6 +278,16 @@ const isAirGapped = () => {
 };
 /** The built-in source list: the release download location. */
 const BUILTIN_URLS = ["https://github.com/Sneakers-PAM/sneakers-appliance/releases"];
+/** The GitHub source's part of the status, for the channel the policy names (stable by default:
+ * the mock box runs 0.1.0). */
+const githubStatus = (status: MirrorStatus | undefined): MirrorStatus | undefined =>
+  status && {
+    ...status,
+    releaseChannel: upgradePolicy.releaseChannel || "stable",
+    releaseChannelDefault: !upgradePolicy.releaseChannel,
+    releaseRepo: "Sneakers-PAM/sneakers-appliance",
+    releaseTag: (upgradePolicy.releaseChannel || "stable") === "rc" ? "v0.2.0-rc.1" : "v0.2.0",
+  };
 /** In the "web-updated" scenario every answer names newer pages than the page was built as. */
 let webUpdatedTo = "";
 /** A fetch tries the mirror first; its refusal stands when there's no release source to try. */
@@ -1859,7 +1870,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
         lastCheck: units.lastCheckAnswer(),
         mirrorStatus:
           sourceOf() === "builtin"
-            ? mirrorStatus(BUILTIN_URLS[0] ?? "", "builtin", BUILTIN_URLS)
+            ? githubStatus(mirrorStatus(BUILTIN_URLS[0] ?? "", "builtin", BUILTIN_URLS))
             : sourceOf() === "none"
               ? undefined
               : mirrorStatus(upgradePolicy.mirrorUrl),
@@ -1965,7 +1976,13 @@ const route = async (service: string, method: string, body: Record<string, unkno
           "invalid_argument",
           "ACCESS_CONFIRM: the window starts at HH:MM and lasts 45 to 720 minutes",
         );
-      upgradePolicy = { ...policy, mirrorUrl: policy.mirrorUrl.trim().replace(/\/+$/, "") };
+      // As on the box: a save that leaves the channel or the repository out keeps them.
+      upgradePolicy = {
+        ...policy,
+        mirrorUrl: policy.mirrorUrl.trim().replace(/\/+$/, ""),
+        releaseChannel: policy.releaseChannel ?? upgradePolicy.releaseChannel,
+        releaseRepo: policy.releaseRepo ?? upgradePolicy.releaseRepo,
+      };
       return {};
     }
     case "UpgradeService/StageUpdate": {
