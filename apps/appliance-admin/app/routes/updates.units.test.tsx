@@ -31,12 +31,12 @@ describe("Updates: the three update units", () => {
     const user = userEvent.setup();
     await openPage();
     const web = within(screen.getByRole("region", { name: "Base Web" }));
-    expect(web.getByText(/\(built-in pages\)/)).toBeInTheDocument();
+    expect(web.getByText("Serving the built-in pages.")).toBeInTheDocument();
     expect(web.getByText(/Previous: none/)).toBeInTheDocument();
     const offers = within(await web.findByRole("radiogroup", { name: "Base Web versions" }));
     expect(offers.getByRole("radio", { name: /0\.1\.2/ })).toBeChecked();
     expect(offers.getByText(/base 0.1.0 to before 0.2.0/)).toBeInTheDocument();
-    await user.click(web.getByRole("button", { name: "Fetch pages 0.1.2" }));
+    await user.click(web.getByRole("button", { name: "Fetch 0.1.2" }));
     await user.click(await web.findByRole("button", { name: "Verify and stage" }));
     const result = await web.findByRole("region", { name: "Verify result" });
     expect(await within(result).findByText("Verified")).toBeInTheDocument();
@@ -45,14 +45,14 @@ describe("Updates: the three update units", () => {
     await user.click(await web.findByRole("button", { name: "Apply pages 0.1.2" }));
     expect(within(await screen.findByRole("dialog")).getByText(/no reboot/)).toBeInTheDocument();
     await confirmWith(user, "0.1.2", "Switch the admin pages");
-    expect(await web.findByText(/\(web slot a\)/)).toBeInTheDocument();
+    expect(await web.findByText("Web slot a.")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Restarting" })).not.toBeInTheDocument();
-    expect(
-      within(screen.getByRole("region", { name: "Base OS" })).getByText(/in the active slot/),
-    ).toHaveTextContent("Running 0.1.0 in the active slot");
+    const base = within(screen.getByRole("region", { name: "Base OS" }));
+    expect(base.getByText("0.1.0", { selector: "[data-version=running]" })).toBeInTheDocument();
+    expect(base.getByText("In the active slot.")).toBeInTheDocument();
     await user.click(web.getByRole("button", { name: "Revert pages to built-in" }));
     await confirmWith(user, "0.1.0", "Switch back");
-    expect(await web.findByText(/\(built-in pages\)/)).toBeInTheDocument();
+    expect(await web.findByText("Serving the built-in pages.")).toBeInTheDocument();
     const after = await upgrade.get();
     expect(after.baseWeb?.canRevert).toBe(false);
     expect(after.history?.[0]).toMatchObject({

@@ -44,22 +44,21 @@ describe("Updates", () => {
 
   it("shows the running version, the other slot, the update window and the history", async () => {
     await openPage();
-    const running = within(line("Running 0.1.0 in the active slot")).getByText("0.1.0");
-    expect(running).toHaveAttribute("data-version", "running");
-    expect(running).toHaveClass("bg-primary-soft", "text-primary");
-    expect(screen.getByText("Other slot: 0.0.9 (revert target)")).toBeInTheDocument();
+    const base = within(screen.getByRole("region", { name: "Base OS" }));
+    expect(base.getByText("0.1.0", { selector: "[data-version=running]" })).toBeInTheDocument();
+    expect(base.getByText("In the active slot.")).toBeInTheDocument();
+    expect(base.getByText("Other slot: 0.0.9 (revert target)")).toBeInTheDocument();
     expect(screen.getByText(/Daily at 02:00 for 120 minutes/)).toBeInTheDocument();
     const history = screen.getByRole("table", { name: "Update history" });
     expect(within(history).getAllByRole("row").length).toBeGreaterThan(1);
   });
 
-  it("shows a staged base release in a quieter tone than the running one", async () => {
+  it("shows a staged base release next to the running one", async () => {
     applyMockScenario("staged");
     await openPage();
-    const staged = within(line("Other slot: staged 0.2.0")).getByText("0.2.0");
-    expect(staged).toHaveAttribute("data-version", "staged");
-    expect(staged).toHaveClass("bg-neutral-soft");
-    expect(staged).not.toHaveClass("bg-primary-soft");
+    const base = within(screen.getByRole("region", { name: "Base OS" }));
+    expect(base.getByText("0.2.0", { selector: "[data-version=staged]" })).toBeInTheDocument();
+    expect(base.queryByText(/revert target/)).not.toBeInTheDocument();
   });
 
   it("uploads a .bin, then shows the verified signature, channel and hash before it stages", async () => {
@@ -68,12 +67,13 @@ describe("Updates", () => {
     await user.upload(screen.getByLabelText("Update .bin file"), binFile("signed release"));
     await user.click(screen.getByRole("button", { name: "Upload" }));
     expect(await screen.findByText(/Uploaded\. It hasn't been checked yet/)).toBeInTheDocument();
-    expect(screen.getByText("sneakers-appliance-0.2.0-amd64.bin")).toBeInTheDocument();
+    expect(screen.getByText("Full")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy the file name" })).toBeInTheDocument();
     expect(screen.queryByText(/Signature: verified/)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Verify and stage" }));
     const result = await screen.findByRole("region", { name: "Verify result" });
     expect(within(result).getByText("Verified")).toBeInTheDocument();
-    expect(within(result).getByText("sneakers-appliance-0.2.0-amd64.bin")).toBeInTheDocument();
+    expect(within(result).getByText("Full")).toBeInTheDocument();
     const terms = within(result)
       .getAllByRole("term")
       .map((term) => term.textContent);
@@ -87,11 +87,11 @@ describe("Updates", () => {
     expect(values[3]).toBe("stable");
     expect(values[4]).toMatch(/^[0-9a-f]{64}Copy$/);
     expect(values[5]).toBe("Staged into slot B");
-    expect(within(result).getAllByRole("button", { name: "Copy" })).toHaveLength(2);
+    expect(within(result).getByRole("button", { name: "Copy" })).toBeInTheDocument();
+    expect(within(result).getByRole("button", { name: "Copy the file name" })).toBeInTheDocument();
     expect(
       await screen.findByText("0.2.0", { selector: "[data-version=staged]" }),
     ).toBeInTheDocument();
-    expect(line("Other slot: staged 0.2.0")).toBeInTheDocument();
   });
 
   it("verifies a patch .bin against the running version", async () => {
@@ -150,14 +150,20 @@ describe("Updates", () => {
       expect(result.getByText("Writing the release into slot B.")).toBeInTheDocument();
     });
 
-    it("says which step a refused file failed at when the page is opened again", async () => {
+    it("says which step a refused file failed at when the page is opened again, inside the Base OS row", async () => {
       const { uploadId } = await upgrade.upload(binFile("tampered release"));
       await expect(upgrade.stage(uploadId)).rejects.toThrow();
       await openPage();
-      const last = within(await screen.findByRole("region", { name: "Update progress" }));
+      const base = within(screen.getByRole("region", { name: "Base OS" }));
+      const last = within(await base.findByRole("region", { name: "Update progress" }));
       expect(last.getByText("The last update didn't finish")).toBeInTheDocument();
       const failed = last.getAllByRole("listitem").find((item) => item.dataset.state === "failed");
       expect(failed).toHaveTextContent("Verifying (signature, channel, SHA-256)");
+      expect(
+        within(screen.getByRole("region", { name: "Product" })).queryByRole("region", {
+          name: "Update progress",
+        }),
+      ).not.toBeInTheDocument();
     });
 
     it("shows the restart page with the box rebooting into the release", async () => {
@@ -256,13 +262,13 @@ describe("Updates", () => {
       const user = userEvent.setup();
       await openPage();
       const base = within(screen.getByRole("region", { name: "Base OS" }));
-      await user.click(await base.findByRole("button", { name: "Fetch 0.2.0 patch" }));
+      await user.click(await base.findByRole("button", { name: "Fetch 0.2.0" }));
       const result = within(screen.getByRole("region", { name: "Base OS" })).getByRole("region", {
         name: "Verify result",
       });
       expect(result).toHaveAttribute("data-tone", "danger");
       expect(within(result).getByText("The file was refused")).toBeInTheDocument();
-      expect(within(result).getByText(/baseOS-patch-0.2.0/)).toBeInTheDocument();
+      expect(within(result).getByText("Patch")).toBeInTheDocument();
       expect(within(result).getByText("UPGRADE_UPLOAD")).toBeInTheDocument();
     });
 
@@ -286,18 +292,16 @@ describe("Updates", () => {
     const [patch, full] = offers.getAllByRole("radio");
     expect(patch).toBeChecked();
     expect(full).not.toBeChecked();
-    expect(offers.getByText("patch")).toBeInTheDocument();
+    expect(offers.getByText("Patch 0.1.0 → 0.2.0")).toBeInTheDocument();
     expect(offers.getByText("full")).toBeInTheDocument();
-    expect(offers.getByText("1.4 MB")).toBeInTheDocument();
-    expect(offers.getByText("72 MB")).toBeInTheDocument();
-    await user.click(base.getByRole("button", { name: "Fetch 0.2.0 patch" }));
+    expect(offers.getByText("(1.4 MB)")).toBeInTheDocument();
+    expect(offers.getByText("(72 MB)")).toBeInTheDocument();
+    await user.click(base.getByRole("button", { name: "Fetch 0.2.0" }));
     expect(await base.findByText(/Fetched\. It hasn't been checked yet/)).toBeInTheDocument();
-    expect(
-      base.getByText(/sneakers-appliance-baseOS-patch-0.2.0-g1a2b3c4-from-0.1.0/),
-    ).toBeInTheDocument();
+    expect(base.getByText("Patch")).toBeInTheDocument();
     expect(base.getByRole("button", { name: "Verify and stage" })).toBeInTheDocument();
     await user.click(full as HTMLElement);
-    expect(base.getByRole("button", { name: "Fetch 0.2.0 full" })).toBeDisabled();
+    expect(base.getByRole("button", { name: "Fetch 0.2.0" })).toBeDisabled();
   });
 
   it("hides the mirror fetch on an air-gapped box", async () => {
@@ -482,7 +486,7 @@ describe("Updates", () => {
   it("shows a staged release in the other slot, with nothing to revert to", async () => {
     applyMockScenario("staged");
     await openPage();
-    expect(line("Other slot: staged 0.2.0")).toBeInTheDocument();
+    expect(screen.getByText("0.2.0", { selector: "[data-version=staged]" })).toBeInTheDocument();
     expect(screen.queryByText(/revert target/)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Revert to/ })).not.toBeInTheDocument();
   });
@@ -608,8 +612,10 @@ describe("Updates", () => {
       applyMockScenario("product-staged");
       await openPage();
       const product = within(screen.getByRole("region", { name: "Product" }));
-      expect(product.getByText("Installed 0.1.0")).toBeInTheDocument();
-      expect(product.getByText("Staged 0.2.0")).toBeInTheDocument();
+      expect(
+        product.getByText("0.1.0", { selector: "[data-version=installed]" }),
+      ).toBeInTheDocument();
+      expect(product.getByText("0.2.0", { selector: "[data-version=staged]" })).toBeInTheDocument();
       expect(product.getByText("Previous 0.0.9")).toBeInTheDocument();
       expect(product.getByText("running")).toBeInTheDocument();
     });
@@ -632,11 +638,13 @@ describe("Updates", () => {
       await user.click(offers.getByRole("radio", { name: /0\.2\.0/ }));
       await user.click(product.getByRole("button", { name: "Fetch 0.2.0" }));
       expect(await screen.findByText(/Fetched\. It hasn't been checked yet/)).toBeInTheDocument();
-      expect(screen.getByText("sneakers-product-0.2.0-amd64.bin")).toBeInTheDocument();
+      expect(screen.getByText("Full")).toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: "Verify and stage" }));
       const result = await screen.findByRole("region", { name: "Verify result" });
       expect(within(result).getByText(/product bundle 0.2.0/)).toBeInTheDocument();
-      expect(await product.findByText("Staged 0.2.0")).toBeInTheDocument();
+      expect(
+        await product.findByText("0.2.0", { selector: "[data-version=staged]" }),
+      ).toBeInTheDocument();
       await user.click(product.getByRole("button", { name: "Install product 0.2.0" }));
       const dialog = within(await screen.findByRole("dialog"));
       expect(dialog.getByText(/no reboot/)).toBeInTheDocument();
@@ -661,10 +669,12 @@ describe("Updates", () => {
       expect(await screen.findByText("Installing product 0.2.0")).toBeInTheDocument();
       expect(await product.findByText("stopped")).toBeInTheDocument();
       // Something says which step it's on, the whole way through (issue sneakers-appliance
-      // #218): not just the static banner above.
-      expect(await screen.findByRole("region", { name: "Update progress" })).toBeInTheDocument();
+      // #218), inside the Product row itself, not a banner above all three units.
+      expect(await product.findByRole("region", { name: "Update progress" })).toBeInTheDocument();
       expect(await product.findByText("running", {}, { timeout: 10_000 })).toBeInTheDocument();
-      expect(product.getByText("Installed 0.2.0")).toBeInTheDocument();
+      expect(
+        product.getByText("0.2.0", { selector: "[data-version=installed]" }),
+      ).toBeInTheDocument();
       await vi.waitFor(() =>
         expect(screen.queryByText("Installing product 0.2.0")).not.toBeInTheDocument(),
       );
@@ -798,12 +808,13 @@ describe("Updates", () => {
       expect(within(result).getByRole("button", { name: "Verify and stage" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Upload" })).toBeDisabled();
       expect(screen.getByLabelText("Update .bin file")).toBeDisabled();
-      const fetchButton = await screen.findByRole("button", { name: "Fetch 0.2.0 patch" });
+      const base = within(screen.getByRole("region", { name: "Base OS" }));
+      const fetchButton = await base.findByRole("button", { name: "Fetch 0.2.0" });
       expect(fetchButton).toBeDisabled();
       expect(screen.getByText(/A file is waiting on the appliance/)).toBeInTheDocument();
       await user.click(within(result).getByRole("button", { name: "Cancel" }));
       await vi.waitFor(() => expect(screen.getByRole("button", { name: "Upload" })).toBeEnabled());
-      expect(screen.getByRole("button", { name: "Fetch 0.2.0 patch" })).toBeEnabled();
+      expect(base.getByRole("button", { name: "Fetch 0.2.0" })).toBeEnabled();
       expect(screen.queryByRole("region", { name: "Verify result" })).not.toBeInTheDocument();
       const after = await upgrade.get();
       expect(after.heldUpload).toBeUndefined();
@@ -823,7 +834,7 @@ describe("Updates", () => {
       await openPage();
       const result = await panel();
       expect(within(result).getByText(/Uploaded\. It hasn't been checked yet/)).toBeInTheDocument();
-      expect(within(result).getByText("sneakers-appliance-0.2.0-amd64.bin")).toBeInTheDocument();
+      expect(within(result).getByText("Full")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Upload" })).toBeDisabled();
       await user.click(within(result).getByRole("button", { name: "Verify and stage" }));
       expect(await screen.findByText("Verified")).toBeInTheDocument();
@@ -876,7 +887,9 @@ describe("Updates", () => {
         }),
       );
       expect(await product.findByText("Nothing staged")).toBeInTheDocument();
-      expect(product.getByText("Installed 0.1.0")).toBeInTheDocument();
+      expect(
+        product.getByText("0.1.0", { selector: "[data-version=installed]" }),
+      ).toBeInTheDocument();
     });
   });
 
@@ -902,10 +915,10 @@ describe("Updates", () => {
     });
   });
 
-  it("puts the Base OS, Base Web and Product cards side by side on a wide screen, each with its colour", async () => {
+  it("puts the Base OS, Base Web and Product units in their own rows, each with its colour", async () => {
     await openPage();
     const cards = screen.getByTestId("unit-cards");
-    expect(cards).toHaveClass("grid-cols-1", "cards:grid-cols-3");
+    expect(cards).toHaveClass("flex", "flex-col");
     const regions = within(cards)
       .getAllByRole("region")
       .filter((region) =>
