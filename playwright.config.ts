@@ -12,6 +12,9 @@ const APPLIANCE_PORT = 4179;
 // The same live build, served against a real-osadmin-shaped backend
 // (e2e/applianceRealBackendServer.mjs): issue #201.
 const APPLIANCE_REAL_PORT = 4180;
+// The appliance admin's mock build (fixture data, the dev quick login and `?mockScenario=`),
+// served the same way, for checks that need a scenario the real-backend shape can't fake.
+const APPLIANCE_MOCK_PORT = 4181;
 
 // The staff server trusts a proxy in front of it and the admin server doesn't, so e2e/proxy.spec.ts
 // can check both.
@@ -57,6 +60,17 @@ const applianceReal = {
   url: `http://127.0.0.1:${APPLIANCE_REAL_PORT}/favicon.svg`,
 };
 
+// A separate build (npm run gallery:appliance-admin builds it the same way): the mock mode flag
+// is baked in at build time, so this can't share the "appliance" build above.
+const applianceMock = {
+  command:
+    "npm run build:mock -w @sneakers-web/appliance-admin && node e2e/applianceAdminServer.mjs",
+  env: { APP_BUILD_DIR: "build-mock", PORT: String(APPLIANCE_MOCK_PORT) },
+  reuseExistingServer: false,
+  timeout: 180_000,
+  url: `http://127.0.0.1:${APPLIANCE_MOCK_PORT}/favicon.svg`,
+};
+
 export default defineConfig({
   forbidOnly: !!process.env.CI,
   projects: [
@@ -86,6 +100,11 @@ export default defineConfig({
       testMatch: /appliance-(real-backend|viewport)\.spec\.ts$/,
       use: { ...devices["Desktop Chrome"], baseURL: `http://127.0.0.1:${APPLIANCE_REAL_PORT}` },
     },
+    {
+      name: "appliance-updates-overflow",
+      testMatch: "appliance-updates-overflow.spec.ts",
+      use: { ...devices["Desktop Chrome"], baseURL: `http://127.0.0.1:${APPLIANCE_MOCK_PORT}` },
+    },
   ],
   reporter: process.env.CI ? "github" : "list",
   retries: process.env.CI ? 1 : 0,
@@ -100,5 +119,6 @@ export default defineConfig({
     fresh,
     appliance,
     applianceReal,
+    applianceMock,
   ],
 });
