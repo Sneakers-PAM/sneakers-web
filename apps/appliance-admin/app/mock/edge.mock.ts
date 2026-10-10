@@ -5,6 +5,7 @@ import type {
   Admin,
   BackupPolicy,
   CodeKind,
+  DiskCleanup,
   ElevationOverride,
   FactoryReset,
   MirrorStatus,
@@ -501,6 +502,12 @@ let uploadCount = 0;
 let uploadStalls = false;
 /** Status answers as the box does while accessd isn't answering. */
 let statusFails = false;
+/**
+ * The disk scenarios: the state volume 85% ("warning") or 93% ("critical") full of what the
+ * cleanup may remove, or 93% full of what it never touches ("stuck"); "" is the healthy box.
+ */
+let diskState: "" | "critical" | "stuck" | "warning" = "";
+let lastCleanup: DiskCleanup | undefined;
 let verifyStalls = false;
 let stepUpOnce = false;
 /** Sign-in failures in the current window, and the lockouts they caused, by admin. */
@@ -544,6 +551,7 @@ const STEP_UP_METHODS = new Set([
   "NetworkService/SetNetwork",
   "PowerService/ApproveFactoryReset",
   "PowerService/StartFactoryReset",
+  "StatusService/CleanUpDisk",
   "TlsService/AssignCertificate",
   "TlsService/RevertToSelfSigned",
 ]);
@@ -1619,6 +1627,26 @@ const route = async (service: string, method: string, body: Record<string, unkno
       cookieSession = session;
       return { session };
     }
+    case "StatusService/CleanUpDisk": {
+      const freed =
+        diskState === "warning" || diskState === "critical" ? world.DISK_JUNK_BYTES : 4096;
+      lastCleanup = {
+        actor: caller(),
+        categories: [
+          { error: "", freedBytes: freed - 4096, name: "pod-logs", note: "" },
+          { error: "", freedBytes: 4096, name: "os-audit", note: "" },
+          { error: "", freedBytes: 0, name: "images", note: "" },
+          { error: "", freedBytes: 0, name: "updates", note: "" },
+          { error: "", freedBytes: 0, name: "tmp", note: "" },
+          { error: "", freedBytes: 0, name: "wal", note: "within the limit" },
+        ],
+        freedBytes: freed,
+        time: new Date().toISOString(),
+        trigger: "admin",
+      };
+      if (diskState !== "stuck") diskState = "";
+      return { cleanup: structuredClone(lastCleanup) };
+    }
     case "StatusService/GetPhase": {
       if (restartingUntil && Date.now() < restartingUntil)
         throw new OsadminError("unavailable", "The appliance didn't answer.");
@@ -1650,6 +1678,8 @@ const route = async (service: string, method: string, body: Record<string, unkno
         runningVersion,
         stagedVersion,
         upgradeProgress: structuredClone(upgradeProgress),
+        ...(lastCleanup && { lastCleanup: structuredClone(lastCleanup) }),
+        ...(diskState && { volumes: world.fullVolumes(diskState === "warning" ? 85 : 93) }),
         ...((networkPending || lastNetworkChange?.reverted) && {
           networkChange: {
             ...(networkPending && {
@@ -1666,6 +1696,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
         }),
         warnings: [
           ...(base.warnings ?? []),
+          ...(diskState ? world.diskWarnings(diskState) : []),
           ...(networkPending
             ? [
                 {
@@ -2100,6 +2131,9 @@ const refill = <T>(target: T[], source: readonly T[]) => {
 
 const MOCK_SCENARIOS = [
   "air-gapped",
+  "disk-critical",
+  "disk-stuck",
+  "disk-warning",
   "elevated",
   "failed",
   "first-boot",
@@ -2222,6 +2256,18 @@ export const applyMockScenario = (scenario: MockScenario): void => {
   switch (scenario) {
     case "air-gapped": {
       upgradePolicy = { ...upgradePolicy, mirrorUrl: "" };
+      break;
+    }
+    case "disk-critical": {
+      diskState = "critical";
+      break;
+    }
+    case "disk-stuck": {
+      diskState = "stuck";
+      break;
+    }
+    case "disk-warning": {
+      diskState = "warning";
       break;
     }
     case "elevated": {
@@ -2471,6 +2517,8 @@ export const resetMockWorld = (): void => {
   uploadCount = 0;
   uploadStalls = false;
   statusFails = false;
+  diskState = "";
+  lastCleanup = undefined;
   verifyStalls = false;
   stepUpOnce = false;
   failures.clear();

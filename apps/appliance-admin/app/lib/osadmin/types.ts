@@ -129,7 +129,11 @@ export interface TotpEnrolment {
 export type Protection = "PROTECTION_FULL" | "PROTECTION_REDUCED" | "PROTECTION_UNSPECIFIED";
 
 export type WarningKind =
+  | "WARNING_KIND_AUDIT_ARCHIVE"
   | "WARNING_KIND_CONSOLE_RECOVERY"
+  | "WARNING_KIND_DATA_WAL"
+  | "WARNING_KIND_DISK_GROWTH"
+  | "WARNING_KIND_DISK_SPACE"
   | "WARNING_KIND_EXPOSURE"
   | "WARNING_KIND_FACTORY_RESET"
   | "WARNING_KIND_NETWORK_PENDING"
@@ -143,6 +147,8 @@ export type WarningKind =
   | "WARNING_KIND_UNSPECIFIED";
 
 export interface Warning {
+  /** Needs action now, such as a volume 90% full; the mock leaves it out when it's false. */
+  critical?: boolean;
   detail: string;
   kind: WarningKind;
 }
@@ -158,6 +164,58 @@ export interface Disk {
   path: string;
   totalBytes: number;
   usedBytes: number;
+}
+
+/** A volume's alert level: a warning from 80% used, critical from 90%, each clearing 5 points
+ * below where it starts. */
+export type DiskLevel =
+  "DISK_LEVEL_CRITICAL" | "DISK_LEVEL_OK" | "DISK_LEVEL_UNSPECIFIED" | "DISK_LEVEL_WARNING";
+
+/** One of the box's volumes, as the disk guard reads it. */
+export interface Volume {
+  label: string;
+  level: DiskLevel;
+  /** When the level began. */
+  levelSince?: string;
+  /** state, data or backup. */
+  name: string;
+  path: string;
+  percent: number;
+  /** The volume this one is on when it isn't a filesystem of its own; it has no alert then. */
+  sharedWith: string;
+  /** What's usable: used plus available. */
+  totalBytes: number;
+  usedBytes: number;
+}
+
+/** One of the product's data paths the box watches for growth. */
+export interface DataPath {
+  growthBytesPerDay: number;
+  label: string;
+  name: string;
+  sizeBytes: number;
+  /** The write-ahead log's size and the size it shouldn't pass; both 0 when it declares none. */
+  walBytes: number;
+  walWarnBytes: number;
+}
+
+/** One step of a cleanup run: pod-logs, os-audit, images, updates, tmp or wal (check only). */
+export interface DiskCleanupCategory {
+  error: string;
+  freedBytes: number;
+  name: string;
+  note: string;
+}
+
+/** One run of the disk cleanup. */
+export interface DiskCleanup {
+  /** The admin who asked, or disk-guard. */
+  actor: string;
+  categories: DiskCleanupCategory[];
+  freedBytes: number;
+  time?: string;
+  /** timer (the hourly run), alert (a volume passed 80%) or admin. */
+  trigger: string;
 }
 
 export interface FactoryReset {
@@ -231,6 +289,12 @@ export interface GetStatusResponse {
   /** The last stage, apply or revert, step by step; left out when the box has made none. */
   upgradeProgress?: UpgradeProgress;
   version: string;
+  /** The product's data paths; left out by a box from before the disk guard, or with none. */
+  dataPaths?: DataPath[];
+  /** The disk cleanup's last run since the box's services started; left out before the first. */
+  lastCleanup?: DiskCleanup;
+  /** Each volume with its alert level; left out by a box from before the disk guard. */
+  volumes?: Volume[];
   /** Empty lists are left out of the JSON: a box with nothing to warn about leaves this out. */
   warnings?: Warning[];
 }

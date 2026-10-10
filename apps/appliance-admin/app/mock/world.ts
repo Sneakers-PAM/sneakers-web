@@ -21,6 +21,8 @@ import type {
   Session,
   UpgradeEvent,
   UpgradePolicy,
+  Volume,
+  Warning,
 } from "@/lib/osadmin/types";
 
 const now = () => new Date().toISOString();
@@ -267,9 +269,97 @@ export const NETWORK_SETTINGS: NetdSettings = {
   searchDomains: ["example.org"],
 };
 
+const GIB = 1_073_741_824;
+const STATE_TOTAL = 100 * GIB;
+
+/** The box's volumes with the state volume pct full (product data is on it). */
+export const fullVolumes = (pct: number): Volume[] => {
+  const used = Math.round((STATE_TOTAL * pct) / 100);
+  const level =
+    pct >= 90 ? "DISK_LEVEL_CRITICAL" : pct >= 80 ? "DISK_LEVEL_WARNING" : "DISK_LEVEL_OK";
+  return [
+    {
+      label: "State",
+      level,
+      ...(level !== "DISK_LEVEL_OK" && { levelSince: soon(-12) }),
+      name: "state",
+      path: "/var/lib/sneakers",
+      percent: pct,
+      sharedWith: "",
+      totalBytes: STATE_TOTAL,
+      usedBytes: used,
+    },
+    {
+      label: "Product data",
+      level: "DISK_LEVEL_UNSPECIFIED",
+      name: "data",
+      path: "/var/lib/sneakers-data",
+      percent: pct,
+      sharedWith: "state",
+      totalBytes: STATE_TOTAL,
+      usedBytes: used,
+    },
+    {
+      label: "Backup",
+      level: "DISK_LEVEL_OK",
+      name: "backup",
+      path: "/var/lib/sneakers/backup",
+      percent: 31,
+      sharedWith: "",
+      totalBytes: 40 * GIB,
+      usedBytes: Math.round(40 * GIB * 0.31),
+    },
+  ];
+};
+
+/** What the mock's cleanup frees from a box full of removable files. */
+export const DISK_JUNK_BYTES = 60 * GIB;
+
+/** The disk guard's warnings for a disk scenario. */
+export const diskWarnings = (state: "critical" | "stuck" | "warning"): Warning[] => {
+  if (state === "warning")
+    return [
+      {
+        detail:
+          "The state volume is 85% full (85.0 GiB of 100.0 GiB). The box cleans up on its own every hour; if it stays this full, grow the disk.",
+        kind: "WARNING_KIND_DISK_SPACE",
+      },
+      {
+        detail:
+          "The state volume grew 6.0 GiB in the last day; at that rate it fills in about 2 days.",
+        kind: "WARNING_KIND_DISK_GROWTH",
+      },
+    ];
+  const out: Warning[] = [
+    {
+      critical: true,
+      detail:
+        "The state volume is 93% full (93.0 GiB of 100.0 GiB). The box has cleaned up what it may; writes will soon fail. Free space or grow the disk now.",
+      kind: "WARNING_KIND_DISK_SPACE",
+    },
+  ];
+  if (state === "stuck")
+    out.push({
+      detail:
+        "The database's write-ahead log is 1.4 GiB, over its 1.0 GiB limit. The database keeps it in check through its own settings; one that keeps growing means its checkpoints or its archiving are stuck.",
+      kind: "WARNING_KIND_DATA_WAL",
+    });
+  return out;
+};
+
 export const status: () => GetStatusResponse = () => ({
   channel: "stable",
   custodyMode: "tpm",
+  dataPaths: [
+    {
+      growthBytesPerDay: 52_428_800,
+      label: "The database",
+      name: "database",
+      sizeBytes: 3 * GIB,
+      walBytes: 201_326_592,
+      walWarnBytes: GIB,
+    },
+  ],
   disk: {
     growthBytesPerDay: 10_485_760,
     path: "/var/lib/sneakers",
@@ -296,6 +386,7 @@ export const status: () => GetStatusResponse = () => ({
   tlsFingerprint: "SHA256:dK1X8qf9w2v6z4m7h5s1rQwQEuY7zL5mZ8w5z6c1h9",
   tlsSelfSigned: true,
   version: "0.1.0",
+  volumes: fullVolumes(20),
   warnings: [
     { detail: "The :8443 certificate is self-signed.", kind: "WARNING_KIND_SELF_SIGNED_TLS" },
   ],
