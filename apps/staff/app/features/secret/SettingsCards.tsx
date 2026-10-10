@@ -4,6 +4,7 @@ import { type ReactNode, useId } from "react";
 import type { SecretPage } from "@/features/secret/secret.server";
 
 import { Panel } from "@/features/secret/Panel";
+import { notRotating } from "@/features/secret/rotation";
 import { useSecretFetcher } from "@/features/secret/useSecretFetcher";
 
 /** Shown under a settings card the viewer can see but not change: the vault's own reason, not ours. */
@@ -68,7 +69,9 @@ export const AutomationCard = ({ page }: { page: SecretPage }) => {
         <Setting
           body={
             type?.rotation
-              ? `Every ${secret.rotationIntervalDays ?? 30} days, from the policy`
+              ? rotationOff || !notRotating(page)
+                ? `Every ${secret.rotationIntervalDays ?? 30} days, from the policy`
+                : "Not rotating: it needs a target with a connection."
               : "This type can't rotate."
           }
           checked={!!type?.rotation && !rotationOff}

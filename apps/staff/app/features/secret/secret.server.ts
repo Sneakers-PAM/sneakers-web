@@ -64,7 +64,7 @@ export interface SecretPage {
   /** Whether the person holds the recovery role, so the history offers a restore. */
   recovery: boolean;
   secret: SecretView;
-  target: { hostname: string; id: string; name: string } | null;
+  target: { connectionId: string; hostname: string; id: string; name: string } | null;
   type: null | SecretType;
   /** The signed-in user's id, to tell their own lease from someone else's. */
   viewerId: string;
