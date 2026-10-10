@@ -63,6 +63,11 @@ export const OfferList = ({
           {`(${megabytes(offer.size)})`}
           {offer.needs ? `, base ${offer.needs}` : ""}
         </span>
+        {offer.includesBaseWeb && (
+          <span className="w-full text-muted" title={offer.includesBaseWeb}>
+            {`Includes Base Web ${shortName(offer.includesBaseWeb)}`}
+          </span>
+        )}
         {offer.note && <span className="w-full text-muted">{offer.note}</span>}
         {offer.outsideProductRange && (
           <span className="w-full text-muted">

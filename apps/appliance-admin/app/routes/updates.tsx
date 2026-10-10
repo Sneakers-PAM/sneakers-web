@@ -884,7 +884,14 @@ export default function Updates() {
           <VersionFields label="Running" version={data.runningVersion} />
           <p className="m-0 text-muted">In the active slot.</p>
           {staged ? (
-            <VersionFields label="Staged" version={staged} />
+            <>
+              <VersionFields label="Staged" version={staged} />
+              {data.stagedIncludesBaseWeb && (
+                <p className="m-0 text-muted" title={data.stagedIncludesBaseWeb}>
+                  {`Includes Base Web ${shortName(data.stagedIncludesBaseWeb)}, which serves after the reboot unless the installed Base Web is newer.`}
+                </p>
+              )}
+            </>
           ) : revertTarget ? (
             <p>{`Other slot: ${shortName(revertTarget)} (revert target)`}</p>
           ) : (

@@ -1908,6 +1908,8 @@ const route = async (service: string, method: string, body: Record<string, unkno
         // As on the box: staging writes over the other slot, so it removes what's there.
         nextStageRemoves: [stagedVersion || previousVersion].filter(Boolean),
         policy: { ...structuredClone(upgradePolicy), source: sourceOf() },
+        // As on the box: a Base OS ships with its own Base Web, of its version.
+        stagedIncludesBaseWeb: stagedVersion,
         ...previousSlot(),
         product: structuredClone(product),
         receiving: receiving || noticeCancel(),
