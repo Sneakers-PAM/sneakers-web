@@ -38,6 +38,8 @@ export interface DiagnosticsReport {
   /** Null off the appliance. */
   box: BoxEntry | null;
   browser: string;
+  /** The features the owner switches on and off (MCP), apart from the services. */
+  features: FeatureEntry[];
   gateway: ComponentEntry | null;
   generatedAt: null | string;
   page: { path: string; route: null | string };
@@ -50,6 +52,13 @@ export interface DiagnosticsReport {
   time: { local: string; timeZone: string; utc: string };
   traceId: null | string;
   user: { id: string; roles: string[]; username: string } | null;
+}
+
+/** A feature the owner switches on and off: on, with its build (or its trouble), or off. */
+export interface FeatureEntry {
+  build: null | string;
+  name: string;
+  on: boolean;
 }
 
 /** The problem a report is about: what the screen said and, for a refusal, what the gateway said. */
@@ -178,6 +187,31 @@ export const productText = (version: null | string | undefined): string =>
 
 const lower = (s: string): string => s.toLowerCase().replaceAll("_", " ");
 
+/** The services that are features the owner switches on and off, not parts that must run. */
+export const CONTROLLABLE_FEATURES: readonly string[] = ["mcp"];
+
+/** The gateway answers NOT_CONFIGURED for a part this install doesn't use, or a feature that's off. */
+export const NOT_CONFIGURED = "NOT_CONFIGURED";
+
+/** A third-party component the install uses: one it doesn't is left out. */
+export const inUse = (c: { status: string }): boolean => c.status !== NOT_CONFIGURED;
+
+export const isFeature = (c: { name: string }): boolean => CONTROLLABLE_FEATURES.includes(c.name);
+
+const feature = (c: ComponentEntry): FeatureEntry => {
+  if (c.status === NOT_CONFIGURED) return { build: null, name: c.name, on: false };
+  const build = c.version ? `${c.version}${c.commit ? ` (${c.commit})` : ""}` : null;
+  return {
+    build: c.status === "OK" ? build : [lower(c.status), build].filter(Boolean).join(", "),
+    name: c.name,
+    on: true,
+  };
+};
+
+/** A feature as one line's value: "off", or "on" with its build or trouble. */
+export const featureText = (f: FeatureEntry): string =>
+  f.on ? (f.build ? `on, ${f.build}` : "on") : "off";
+
 const depText = (d: DependencyEntry): string => {
   const why = [d.error, d.required ? undefined : "optional"].filter(Boolean).join(", ");
   return `${d.name} ${lower(d.state)}${d.version ? ` ${d.version}` : ""}${why ? ` (${why})` : ""}`;
@@ -211,14 +245,17 @@ export const buildReport = (input: ReportInput): { json: DiagnosticsReport; text
       ? { baseOS: scrub(g.box.baseOS), baseWeb: scrub(g.box.baseWeb), fqdn: scrub(g.box.fqdn) }
       : null,
     browser: scrub(input.userAgent),
+    features: entries(g?.services)
+      .filter((c) => isFeature(c))
+      .map((c) => feature(c)),
     gateway: entry(g?.gateway),
     generatedAt: g?.generatedAt ? scrub(g.generatedAt) : null,
     page: { path: pathOf(input.url), route: input.route ? scrub(input.route) : null },
     problem: cleanProblem(input.problem),
     product: g?.productVersion ? scrub(g.productVersion) : null,
     publicUrl: g?.publicUrl ? scrub(g.publicUrl) : null,
-    services: entries(g?.services),
-    thirdParty: entries(g?.thirdParty),
+    services: entries(g?.services).filter((c) => !isFeature(c)),
+    thirdParty: entries(g?.thirdParty).filter((c) => inUse(c)),
     time: {
       local: localTime(input.now, input.timeZone),
       timeZone: scrub(input.timeZone),
@@ -266,9 +303,14 @@ export const buildReport = (input: ReportInput): { json: DiagnosticsReport; text
       `Gateway: ${json.gateway.version ?? "unknown"} (${json.gateway.commit ?? "unknown"})`,
       "Services:",
       ...json.services.map((c) => line(c)),
-      "Third party:",
-      ...json.thirdParty.map((c) => line(c)),
     );
+    if (json.features.length > 0) {
+      lines.push(
+        "Controllable features:",
+        ...json.features.map((f) => `  ${f.name}: ${featureText(f)}`),
+      );
+    }
+    lines.push("Third party:", ...json.thirdParty.map((c) => line(c)));
   } else {
     lines.push("Gateway: not reachable");
   }

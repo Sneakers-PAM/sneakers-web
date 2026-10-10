@@ -100,7 +100,8 @@ describe("Copy diagnostics", () => {
     expect(text).toContain("User: alice (mock-user-alice)");
     expect(text).toContain("App: staff");
     expect(text).toContain("vault: mock-vault-1.0.0");
-    expect(text).toContain("rabbitmq: not configured");
+    expect(text).not.toContain("rabbitmq");
+    expect(text).toContain("Controllable features:\n  mcp: on, unavailable");
     expect(text).not.toMatch(/mock_sneakers_sid|sid=/);
   });
 

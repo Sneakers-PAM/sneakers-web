@@ -35,6 +35,9 @@ docker build --build-arg APP=staff --build-arg VERSION=v0.1.0 --build-arg COMMIT
 ```
 
 `VERSION` and `COMMIT` stamp the build shown under About and diagnostics.
+About and diagnostics lists the services and the third-party components the install uses; one the
+gateway reports as not configured isn't listed. MCP shows under Controllable features as on or off,
+apart from the services.
 
 The server listens on `PORT` (3000) and answers `GET /healthz`. Runtime settings: `GATEWAY_URL`,
 `TRUST_PROXY`, `APP_ENV`, `LOG_LEVEL`, `LOG_FORMAT`, `SSO_ENABLED`, `STAFF_URL`, `ADMIN_URL`,
