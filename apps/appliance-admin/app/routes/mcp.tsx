@@ -9,6 +9,9 @@ import { mcp } from "@/lib/osadmin/client";
 import { isNotAvailable } from "@/lib/osadmin/errors";
 import { useInstalledProduct } from "@/lib/useInstalledProduct";
 
+/** How often an open MCP page reads the switch again, so a change made elsewhere (the closed shell) shows. */
+export const MCP_POLL_MS = 5000;
+
 /** One of the installed product's pages: with no product installed there's nothing here. */
 export default function Mcp() {
   const { loaded, product } = useInstalledProduct();
@@ -22,7 +25,12 @@ export default function Mcp() {
         if (isNotAvailable(error)) setUnavailable(true);
       });
   useEffect(() => {
-    if (product) reload();
+    if (!product) return;
+    reload();
+    const timer = setInterval(() => {
+      if (!document.hidden) reload();
+    }, MCP_POLL_MS);
+    return () => clearInterval(timer);
   }, [product]);
 
   if (!loaded) return null;

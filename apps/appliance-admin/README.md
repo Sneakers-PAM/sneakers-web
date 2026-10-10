@@ -21,6 +21,12 @@ list is `app/frame/productPages.tsx`). With no product installed the section isn
 product page's address shows "Nothing here" without naming the page. The nav reads the product
 again on each page change, so installing one from Updates shows its section on the next page.
 
+## MCP
+
+The product's MCP page shows the MCP switch (and the machine API switch, when the product declares
+one) and sets them with a fresh code. While it's open it reads the switches again every 5 seconds
+(`MCP_POLL_MS`), so a switch made from the closed shell (`sneakers mcp on`) shows without a reload.
+
 ## Email
 
 The product's Email page sets the mail relay the product sends through (`EmailService`): host,

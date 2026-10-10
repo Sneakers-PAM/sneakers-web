@@ -5,7 +5,7 @@ import { StepUpDialog } from "@/components/StepUpDialog";
 import { mcp } from "@/lib/osadmin/client";
 import { OsadminError } from "@/lib/osadmin/errors";
 import { applyMockScenario } from "@/mock/edge.mock";
-import Mcp from "@/routes/mcp";
+import Mcp, { MCP_POLL_MS } from "@/routes/mcp";
 import { renderPage } from "@/test/renderPage";
 import { signInAs } from "@/test/session";
 
@@ -79,6 +79,25 @@ describe("Mcp", () => {
     renderPage(Mcp);
     await screen.findByRole("switch", { name: "MCP on" });
     expect(screen.getByText("Sneakers")).toBeInTheDocument();
+  });
+
+  it("follows a switch made elsewhere (the closed shell) while it's open", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const get = vi.spyOn(mcp, "get").mockResolvedValue({
+        machineApiEnabled: true,
+        mcpEnabled: false,
+        state: "off",
+      });
+      renderPage(Mcp);
+      expect(await screen.findByText(/MCP is off/)).toBeInTheDocument();
+      get.mockResolvedValue({ machineApiEnabled: true, mcpEnabled: true, state: "on" });
+      await vi.advanceTimersByTimeAsync(MCP_POLL_MS);
+      expect(await screen.findByText(/MCP is on: agents can reach/)).toBeInTheDocument();
+      expect(screen.getByRole("switch", { name: "MCP on" })).toBeChecked();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("has nothing to show, and doesn't name MCP, with no product installed", async () => {
