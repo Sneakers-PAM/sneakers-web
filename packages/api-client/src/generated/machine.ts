@@ -95,6 +95,7 @@ export type MutationCreateSecretForPrincipalArgs = {
   disableRotation?: InputMaybe<Scalars["Boolean"]["input"]>;
   fields: Array<SecretFieldInput>;
   folderId: Scalars["ID"]["input"];
+  keepFolder?: InputMaybe<Scalars["Boolean"]["input"]>;
   name: Scalars["String"]["input"];
   targetId?: InputMaybe<Scalars["ID"]["input"]>;
   typeId: Scalars["ID"]["input"];
@@ -105,6 +106,7 @@ export type MutationGenerateSecretForPrincipalArgs = {
   disableRotation?: InputMaybe<Scalars["Boolean"]["input"]>;
   fields: Array<SecretFieldInput>;
   folderId: Scalars["ID"]["input"];
+  keepFolder?: InputMaybe<Scalars["Boolean"]["input"]>;
   name: Scalars["String"]["input"];
   policyId?: InputMaybe<Scalars["ID"]["input"]>;
   returnValue?: InputMaybe<Scalars["Boolean"]["input"]>;
@@ -185,6 +187,7 @@ export type Query = {
   machineHealth: Scalars["Boolean"]["output"];
   machineWhoami: MachinePrincipal;
   secretCheckStatus: SecretCheckStatus;
+  secretForPrincipal: SecretSummary;
   secretTypes: Array<SecretTypeSummary>;
   secretUse: SecretUse;
   secretUseRun: Array<SecretUse>;
@@ -192,6 +195,7 @@ export type Query = {
 };
 
 export type QueryFindSecretsForPrincipalArgs = {
+  changedSince?: InputMaybe<Scalars["String"]["input"]>;
   folderId?: InputMaybe<Scalars["ID"]["input"]>;
   query?: InputMaybe<Scalars["String"]["input"]>;
   typeId?: InputMaybe<Scalars["ID"]["input"]>;
@@ -204,6 +208,10 @@ export type QueryFoldersForPrincipalArgs = {
 
 export type QuerySecretCheckStatusArgs = {
   secretId: Scalars["ID"]["input"];
+};
+
+export type QuerySecretForPrincipalArgs = {
+  id: Scalars["ID"]["input"];
 };
 
 export type QuerySecretUseArgs = {
@@ -236,14 +244,31 @@ export type SecretFieldInput = {
   value: Scalars["String"]["input"];
 };
 
+export type SecretPlacement = {
+  folderId: Scalars["ID"]["output"];
+  reason: Scalars["String"]["output"];
+  requestedFolderId: Scalars["ID"]["output"];
+  rule: Scalars["String"]["output"];
+};
+
 export type SecretSummary = {
   folderId: Scalars["ID"]["output"];
+  heartbeatEnabled: Scalars["Boolean"]["output"];
   heartbeatOptOut: Scalars["Boolean"]["output"];
   id: Scalars["ID"]["output"];
+  lastHeartbeatResult?: Maybe<Scalars["String"]["output"]>;
+  lastRotationResult?: Maybe<Scalars["String"]["output"]>;
   name: Scalars["String"]["output"];
+  nextRotationAt?: Maybe<Scalars["String"]["output"]>;
+  placement?: Maybe<SecretPlacement>;
+  rotatedAt?: Maybe<Scalars["String"]["output"]>;
+  rotatesOnCheckin: Scalars["Boolean"]["output"];
+  rotationEnabled: Scalars["Boolean"]["output"];
   rotationOptOut: Scalars["Boolean"]["output"];
   targetId?: Maybe<Scalars["ID"]["output"]>;
   typeId: Scalars["ID"]["output"];
+  valueChangedAt?: Maybe<Scalars["String"]["output"]>;
+  valueVersion: Scalars["Int"]["output"];
 };
 
 export type SecretTypeField = {

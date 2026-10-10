@@ -101,8 +101,10 @@ export const shellHandlers = [
           diagnostics: {
             actor: { id: userId, roles: u?.roles ?? [], username: u?.username ?? userId },
             appliance: "mock-appliance-1.0.0",
+            box: null,
             gateway: mockComponent("gateway"),
             generatedAt: new Date().toISOString(),
+            productVersion: "0.0.0-mock",
             publicUrl: "https://mock-gateway.example.invalid",
             services: [
               ...["identity", "vault", "workflow", "audit", "notify", "sshbroker"].map((n) =>

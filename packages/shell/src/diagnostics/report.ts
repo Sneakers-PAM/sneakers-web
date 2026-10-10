@@ -1,5 +1,12 @@
 import type { DiagnosticsQuery } from "@sneakers-web/api-client";
 
+/** The appliance the product runs on, as the box gave it. */
+export interface BoxEntry {
+  baseOS: string;
+  baseWeb: string;
+  fqdn: string;
+}
+
 export interface ComponentEntry {
   commit: null | string;
   /** What the component reported about its own dependencies, when it did. */
@@ -26,12 +33,17 @@ export interface DiagnosticsData {
 
 export interface DiagnosticsReport {
   app: DiagnosticsData["app"];
+  /** The Base OS version, or "not appliance". */
   appliance: string;
+  /** Null off the appliance. */
+  box: BoxEntry | null;
   browser: string;
   gateway: ComponentEntry | null;
   generatedAt: null | string;
   page: { path: string; route: null | string };
   problem: null | Problem;
+  /** The product release the install runs; null when it doesn't say. */
+  product: null | string;
   publicUrl: null | string;
   services: ComponentEntry[];
   thirdParty: ComponentEntry[];
@@ -156,6 +168,10 @@ const cleanProblem = (p: Problem | undefined): null | Problem => {
   return Object.keys(out).length > 0 ? out : null;
 };
 
+/** The product line: "Sneakers <version>", once, at the top. */
+export const productText = (version: null | string | undefined): string =>
+  version ? `Sneakers ${version}` : "Sneakers (version unknown)";
+
 const lower = (s: string): string => s.toLowerCase().replaceAll("_", " ");
 
 const depText = (d: DependencyEntry): string => {
@@ -186,12 +202,16 @@ export const buildReport = (input: ReportInput): { json: DiagnosticsReport; text
       name: scrub(input.data?.app.name ?? "unknown"),
       version: scrub(input.data?.app.version ?? "unknown"),
     },
-    appliance: g?.appliance ? scrub(g.appliance) : "not appliance",
+    appliance: g?.appliance ? scrub(g.appliance) : g?.box ? scrub(g.box.baseOS) : "not appliance",
+    box: g?.box
+      ? { baseOS: scrub(g.box.baseOS), baseWeb: scrub(g.box.baseWeb), fqdn: scrub(g.box.fqdn) }
+      : null,
     browser: scrub(input.userAgent),
     gateway: entry(g?.gateway),
     generatedAt: g?.generatedAt ? scrub(g.generatedAt) : null,
     page: { path: pathOf(input.url), route: input.route ? scrub(input.route) : null },
     problem: cleanProblem(input.problem),
+    product: g?.productVersion ? scrub(g.productVersion) : null,
     publicUrl: g?.publicUrl ? scrub(g.publicUrl) : null,
     services: entries(g?.services),
     thirdParty: entries(g?.thirdParty),
@@ -214,6 +234,7 @@ export const buildReport = (input: ReportInput): { json: DiagnosticsReport; text
   const { local, timeZone, utc } = json.time;
   const lines = [
     "Sneakers-PAM diagnostics",
+    `Product: ${productText(json.product)}`,
     `Time: ${utc} (${local} ${timeZone})`,
     `Page: ${json.page.path}${json.page.route ? ` (${json.page.route})` : ""}`,
   ];
@@ -233,7 +254,7 @@ export const buildReport = (input: ReportInput): { json: DiagnosticsReport; text
       ? `User: ${json.user.username} (${json.user.id}), roles: ${json.user.roles.join(", ") || "none"}`
       : "User: not signed in, or unknown",
     `App: ${json.app.name} ${json.app.version} (${json.app.commit})`,
-    `Appliance: ${json.appliance}`,
+    `Appliance: ${json.box ? `Base OS ${json.box.baseOS}, Base Web ${json.box.baseWeb}, ${json.box.fqdn}` : json.appliance}`,
   );
   if (json.publicUrl) lines.push(`Public URL: ${json.publicUrl}`);
   if (json.gateway) {

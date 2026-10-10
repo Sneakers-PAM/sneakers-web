@@ -1117,7 +1117,9 @@ export type DiagnosticsQuery = {
     generatedAt: string;
     traceId: string;
     publicUrl: string;
+    productVersion: string | null;
     appliance: string | null;
+    box: { baseOS: string; baseWeb: string; fqdn: string } | null;
     actor: { id: string; username: string; roles: Array<string> };
     gateway: {
       name: string;
@@ -4421,7 +4423,13 @@ export const DiagnosticsDocument = new TypedDocumentString(`
     generatedAt
     traceId
     publicUrl
+    productVersion
     appliance
+    box {
+      baseOS
+      baseWeb
+      fqdn
+    }
     actor {
       id
       username

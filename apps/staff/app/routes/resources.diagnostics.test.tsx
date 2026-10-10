@@ -110,7 +110,10 @@ describe("Copy diagnostics", () => {
     await user.click(await screen.findByRole("button", { name: /^Account: / }));
     await user.click(await screen.findByRole("menuitem", { name: "About and diagnostics" }));
     const dialog = await screen.findByRole("dialog", { name: "About and diagnostics" });
-    expect(await within(dialog).findByText("mock-vault-1.0.0")).toBeInTheDocument();
+    expect(
+      await within(dialog).findByText(/^mock-vault-1\.0\.0 \(mock-vault-commit\)/),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText("Sneakers 0.0.0-mock")).toBeInTheDocument();
     expect(within(dialog).getByText("mock-appliance-1.0.0")).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Copy diagnostics" }));
     await waitFor(() => expect(writeText).toHaveBeenCalledOnce());

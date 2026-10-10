@@ -53,7 +53,13 @@ query Diagnostics {
     generatedAt
     traceId
     publicUrl
+    productVersion
     appliance
+    box {
+      baseOS
+      baseWeb
+      fqdn
+    }
     actor {
       id
       username

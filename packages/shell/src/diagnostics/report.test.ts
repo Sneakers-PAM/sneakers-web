@@ -14,8 +14,10 @@ const data: DiagnosticsData = {
   gateway: {
     actor: { id: "user-1", roles: ["user", "site-admin"], username: "morgan" },
     appliance: null,
+    box: null,
     gateway: component("gateway", "v0.1.0"),
     generatedAt: "2026-10-05T12:00:00Z",
+    productVersion: null,
     publicUrl: "https://pam.example.org",
     services: [component("vault", "v0.1.0"), component("connector", null, "NOT_CONFIGURED")],
     thirdParty: [component("postgres", "17.11"), component("rabbitmq", null, "NOT_CONFIGURED")],
@@ -26,6 +28,48 @@ const data: DiagnosticsData = {
 const at = new Date("2026-10-05T13:14:15Z");
 
 describe("buildReport", () => {
+  it("names the product once and, on the appliance, the box", () => {
+    const onBox: DiagnosticsData = {
+      ...data,
+      gateway: {
+        ...data.gateway!,
+        appliance: "0.1.0-m",
+        box: { baseOS: "0.1.0-m", baseWeb: "0.1.0-m2", fqdn: "box1.example.org" },
+        productVersion: "0.1.0",
+        services: [component("identity", "0.1.0"), component("connector", "0.1.0")],
+      },
+    };
+    const { json, text } = buildReport({
+      data: onBox,
+      now: at,
+      timeZone: "UTC",
+      url: "https://box1.example.org/",
+      userAgent: "Mozilla/5.0 Test",
+    });
+    expect(json.product).toBe("0.1.0");
+    expect(json.box).toEqual({ baseOS: "0.1.0-m", baseWeb: "0.1.0-m2", fqdn: "box1.example.org" });
+    expect(json.appliance).toBe("0.1.0-m");
+    const lines = text.split("\n");
+    expect(lines[1]).toBe("Product: Sneakers 0.1.0");
+    expect(lines.filter((l) => l.startsWith("Product:"))).toHaveLength(1);
+    expect(text).toContain("Appliance: Base OS 0.1.0-m, Base Web 0.1.0-m2, box1.example.org");
+    expect(text).toContain("  connector: 0.1.0 (abc1234)");
+  });
+
+  it("says so when the product version or the box isn't known", () => {
+    const { json, text } = buildReport({
+      data,
+      now: at,
+      timeZone: "UTC",
+      url: "https://pam.example.org/",
+      userAgent: "Mozilla/5.0 Test",
+    });
+    expect(json.product).toBeNull();
+    expect(json.box).toBeNull();
+    expect(text).toContain("Product: Sneakers (version unknown)");
+    expect(text).toContain("Appliance: not appliance");
+  });
+
   it("names the time, page, problem, user, builds and browser", () => {
     const { json, text } = buildReport({
       data,
