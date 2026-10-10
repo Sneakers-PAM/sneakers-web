@@ -815,9 +815,18 @@ export interface UpgradePolicy {
    * answers it filled in; a box from before the source leaves it out.
    */
   source?: UpdateSource;
+  /**
+   * The channel the GitHub source follows: stable, or rc (the newest rc or stable release). Empty
+   * is the build's default (rc on a pre-release build); left out of a save, the box keeps its own.
+   */
+  releaseChannel?: ReleaseChannel | "";
+  /** A lab build's GitHub repository override (owner/name); a production box refuses it. */
+  releaseRepo?: string;
 }
 
 export type UpdateSource = "builtin" | "manual" | "none";
+
+export type ReleaseChannel = "rc" | "stable";
 
 /**
  * What an update changes, one of the three update units: the Base OS (the root image, its slots
@@ -1125,6 +1134,17 @@ export interface MirrorStatus {
   builtinUrls: string[];
   source: string;
   url: string;
+  /** The GitHub source: the channel in effect and whether it's the build's default, the
+   * repository (empty when the build has none), the release last picked, when the releases list
+   * was read, the rate limit's end while it's used up, and whether this build may override the
+   * repository (a lab build). */
+  releaseChannel: string;
+  releaseChannelDefault: boolean;
+  releaseRepo: string;
+  releaseTag: string;
+  releasesCheckedAt?: string;
+  rateLimitedUntil?: string;
+  releaseRepoOverrideAllowed: boolean;
   /** The server certificate the last HTTPS fetch was presented with, refused or not. */
   serverIssuer: string;
   serverNotAfter?: string;

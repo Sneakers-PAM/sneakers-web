@@ -761,6 +761,39 @@ describe("Updates", () => {
       expect(await mirror.findByText(/Source: the built-in list/)).toBeInTheDocument();
     });
 
+    it("lets an owner choose the channel the GitHub source follows", async () => {
+      const user = userEvent.setup();
+      await openPage();
+      const mirror = within(screen.getByRole("region", { name: "Update mirror" }));
+      await user.click(mirror.getByRole("radio", { name: "Built-in list" }));
+      await user.click(mirror.getByRole("button", { name: "Save source" }));
+      expect(
+        await mirror.findByText(
+          /GitHub source: Sneakers-PAM\/sneakers-appliance, the stable channel \(this build's default\)/,
+        ),
+      ).toBeInTheDocument();
+      await user.click(mirror.getByRole("radio", { name: "Release candidates (rc)" }));
+      await user.click(mirror.getByRole("button", { name: "Save source" }));
+      await vi.waitFor(async () => {
+        const after = await upgrade.get();
+        expect(after.policy?.releaseChannel).toBe("rc");
+        expect(after.mirrorStatus?.releaseChannel).toBe("rc");
+      });
+      expect(
+        await mirror.findByText(
+          /GitHub source: Sneakers-PAM\/sneakers-appliance, the rc channel, release v0\.2\.0-rc\.1/,
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("keeps the channel choice off a manual mirror", async () => {
+      const user = userEvent.setup();
+      await openPage();
+      const mirror = within(screen.getByRole("region", { name: "Update mirror" }));
+      await user.click(mirror.getByRole("radio", { name: "Manual" }));
+      expect(mirror.queryByRole("radiogroup", { name: "GitHub channel" })).not.toBeInTheDocument();
+    });
+
     it("hides the product when the box's backend doesn't report one", async () => {
       const { product, ...rest } = await upgrade.get();
       expect(product).toBeDefined();
