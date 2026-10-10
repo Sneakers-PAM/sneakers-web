@@ -549,6 +549,14 @@ sensitive one through the same audited `intent: "reveal", purpose: "copy"` the s
 to that secret's route, so the vault's step-up and super-sensitive rules still apply without
 opening the secret.
 
+A folder manager reorders the grid's active secrets from the reorder column on the left: drag a
+row by its handle onto another row (it takes that row's place), click the up/down arrows, or press
+the arrow keys on the handle. Every way posts the same `intent: "reorder-secrets"` with the full
+order, switches the grid to index sort, and announces "<name> moved to position N of M." through
+the live region; the focus stays on the handle when the arrow that moved the row ends up disabled.
+The order logic is `features/browse/reorder.ts` (native drag events, no drag library). Someone who
+can't manage the folder gets no reorder column.
+
 Paths inside an app are base-free (`appPath("sign-in")` is `/sign-in` in both apps). React
 Router adds the `/admin/` basename to links and redirects; a redirect that leaves the app (single
 sign-on) uses an absolute URL.
