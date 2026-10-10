@@ -27,6 +27,19 @@ const confirmWith = async (
 describe("Updates: the three update units", () => {
   beforeEach(() => signInAs("alice"));
 
+  it("labels every unit's staged button Apply update, with no version in it", async () => {
+    applyMockScenario("staged");
+    applyMockScenario("web-staged");
+    applyMockScenario("product-staged");
+    await openPage();
+    for (const name of ["Base OS", "Base Web", "Product"]) {
+      const unit = within(screen.getByRole("region", { name }));
+      const apply = unit.getByRole("button", { name: "Apply update" });
+      expect(apply.textContent).toBe("Apply update");
+      expect(unit.queryByRole("button", { name: /^(Apply|Install) .*\d/ })).not.toBeInTheDocument();
+    }
+  });
+
   it("fetches, verifies, applies and reverts the Base Web with no reboot", async () => {
     const user = userEvent.setup();
     await openPage();
@@ -42,7 +55,7 @@ describe("Updates: the three update units", () => {
     expect(await within(result).findByText("Verified")).toBeInTheDocument();
     expect(within(result).getByText("admin pages 0.1.2")).toBeInTheDocument();
     expect(within(result).getByText("Staged into web slot a")).toBeInTheDocument();
-    await user.click(await web.findByRole("button", { name: "Apply pages 0.1.2" }));
+    await user.click(await web.findByRole("button", { name: "Apply update" }));
     expect(within(await screen.findByRole("dialog")).getByText(/no reboot/)).toBeInTheDocument();
     await confirmWith(user, "0.1.2", "Switch the admin pages");
     expect(await web.findByText("Web slot a.")).toBeInTheDocument();

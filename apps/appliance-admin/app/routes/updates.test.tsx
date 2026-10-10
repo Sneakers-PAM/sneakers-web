@@ -170,7 +170,7 @@ describe("Updates", () => {
       applyMockScenario("staged");
       const user = userEvent.setup();
       await openPage();
-      await user.click(screen.getByRole("button", { name: "Apply 0.2.0" }));
+      await user.click(screen.getByRole("button", { name: "Apply update" }));
       const dialog = await screen.findByRole("dialog");
       await user.type(within(dialog).getByLabelText("Type 0.2.0 to confirm"), "0.2.0");
       await user.type(within(dialog).getByLabelText("Authenticator code"), "123456");
@@ -316,7 +316,7 @@ describe("Updates", () => {
     applyMockScenario("staged");
     const user = userEvent.setup();
     await openPage();
-    await user.click(screen.getByRole("button", { name: "Apply 0.2.0" }));
+    await user.click(screen.getByRole("button", { name: "Apply update" }));
     const dialog = await screen.findByRole("dialog");
     const confirm = within(dialog).getByRole("button", { name: "Apply and reboot" });
     expect(confirm).toBeDisabled();
@@ -336,7 +336,7 @@ describe("Updates", () => {
     applyMockScenario("staged");
     const user = userEvent.setup();
     await openPage();
-    await user.click(screen.getByRole("button", { name: "Apply 0.2.0" }));
+    await user.click(screen.getByRole("button", { name: "Apply update" }));
     const dialog = await screen.findByRole("dialog");
     await user.type(within(dialog).getByLabelText("Type 0.2.0 to confirm"), "0.2.0");
     await user.type(within(dialog).getByLabelText("Authenticator code"), "000000");
@@ -363,7 +363,7 @@ describe("Updates", () => {
     applyMockScenario("elevated");
     const user = userEvent.setup();
     await openPage();
-    await user.click(screen.getByRole("button", { name: "Apply 0.2.0" }));
+    await user.click(screen.getByRole("button", { name: "Apply update" }));
     await user.type(screen.getByLabelText("Type 0.2.0 to confirm"), "0.2.0");
     await user.type(screen.getByLabelText("Authenticator code"), "123456");
     await user.click(screen.getByRole("button", { name: "Apply and reboot" }));
@@ -667,7 +667,7 @@ describe("Updates", () => {
       expect(
         await product.findByText("0.2.0", { selector: "[data-version=staged]" }),
       ).toBeInTheDocument();
-      await user.click(product.getByRole("button", { name: "Install product 0.2.0" }));
+      await user.click(product.getByRole("button", { name: "Apply update" }));
       const dialog = within(await screen.findByRole("dialog"));
       expect(dialog.getByText(/no reboot/)).toBeInTheDocument();
       await user.type(dialog.getByLabelText("Type 0.2.0 to confirm"), "0.2.0");
@@ -683,7 +683,7 @@ describe("Updates", () => {
       const user = userEvent.setup();
       await openPage();
       const product = within(screen.getByRole("region", { name: "Product" }));
-      await user.click(product.getByRole("button", { name: "Install product 0.2.0" }));
+      await user.click(product.getByRole("button", { name: "Apply update" }));
       const dialog = within(await screen.findByRole("dialog"));
       await user.type(dialog.getByLabelText("Type 0.2.0 to confirm"), "0.2.0");
       await user.type(dialog.getByLabelText("Authenticator code"), "123456");
@@ -716,7 +716,7 @@ describe("Updates", () => {
       const user = userEvent.setup();
       await openPage();
       const product = within(screen.getByRole("region", { name: "Product" }));
-      await user.click(product.getByRole("button", { name: "Install product 0.2.0" }));
+      await user.click(product.getByRole("button", { name: "Apply update" }));
       const dialog = within(await screen.findByRole("dialog"));
       await user.type(dialog.getByLabelText("Type 0.2.0 to confirm"), "0.2.0");
       await user.type(dialog.getByLabelText("Authenticator code"), "123456");
@@ -729,6 +729,40 @@ describe("Updates", () => {
       expect(screen.getByText("Installing product 0.2.0")).toBeInTheDocument();
       slow.mockRestore();
     }, 15_000);
+
+    it("keeps the install's progress open in the tab that verified and installed it", async () => {
+      applyMockScenario("no-product");
+      const get = upgrade.get;
+      // On the box k0s runs again right after the restart, long before the rollout is done.
+      const running = vi.spyOn(upgrade, "get").mockImplementation(async () => {
+        const response = await get();
+        return response.product
+          ? { ...response, product: { ...response.product, running: true } }
+          : response;
+      });
+      const user = userEvent.setup();
+      await openPage();
+      const product = within(screen.getByRole("region", { name: "Product" }));
+      const offers = within(await product.findByRole("radiogroup", { name: "Product versions" }));
+      await user.click(offers.getByRole("radio", { name: /0\.2\.0/ }));
+      await user.click(product.getByRole("button", { name: "Fetch 0.2.0" }));
+      await user.click(await screen.findByRole("button", { name: "Verify and stage" }));
+      await screen.findByRole("region", { name: "Verify result" });
+      await user.click(await product.findByRole("button", { name: "Apply update" }));
+      const dialog = within(await screen.findByRole("dialog"));
+      await user.type(dialog.getByLabelText("Type 0.2.0 to confirm"), "0.2.0");
+      await user.type(dialog.getByLabelText("Authenticator code"), "123456");
+      await user.click(dialog.getByRole("button", { name: "Install and restart the product" }));
+      expect(await product.findByRole("region", { name: "Update progress" })).toBeInTheDocument();
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+      expect(product.getByRole("region", { name: "Update progress" })).toBeInTheDocument();
+      expect(screen.getByText("Installing product 0.2.0")).toBeInTheDocument();
+      await vi.waitFor(
+        () => expect(screen.queryByText("Installing product 0.2.0")).not.toBeInTheDocument(),
+        { timeout: 12_000 },
+      );
+      running.mockRestore();
+    }, 25_000);
 
     it("opens the progress by itself when an install starts elsewhere", async () => {
       applyMockScenario("product-staged");
@@ -748,7 +782,7 @@ describe("Updates", () => {
       const user = userEvent.setup();
       await openPage();
       const product = within(screen.getByRole("region", { name: "Product" }));
-      await user.click(product.getByRole("button", { name: "Install product 0.2.0" }));
+      await user.click(product.getByRole("button", { name: "Apply update" }));
       const dialog = within(await screen.findByRole("dialog"));
       await user.type(dialog.getByLabelText("Type 0.2.0 to confirm"), "0.2.0");
       await user.type(dialog.getByLabelText("Authenticator code"), "123456");
