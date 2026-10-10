@@ -207,7 +207,9 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   (`baseWebWaits`). A Base OS always ships with its own Base Web: each Base OS offer and a staged
   Base OS say "Includes Base Web <version>" (`includesBaseWeb`, `stagedIncludesBaseWeb`), which
   the box serves after the reboot unless the installed Base Web is newer. Below the cards, the **Update mirror** card: the source (the built-in list,
-  a manual URL or upload only, `UpgradePolicy.source`), its status (`MirrorStatusCard`), the
+  a manual URL or upload only, `UpgradePolicy.source`), with the built-in list the GitHub
+  source's line and channel choice (`mirrorStatus.releaseChannel`, `releaseRepo`, `releaseTag`,
+  `rateLimitedUntil`; saved as `UpgradePolicy.releaseChannel` only when the owner changed it), its status (`MirrorStatusCard`), the
   last check and what it listed, and Check now; then **Install an update**, upload only, for
   an air-gapped box: the uploaded file's panel stays there until it's verified, and then its
   signed header picks its card. An air-gapped box (`UPGRADE_AIR_GAPPED`) isn't asked to check,

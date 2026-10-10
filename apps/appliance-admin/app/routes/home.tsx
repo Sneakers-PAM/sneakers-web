@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 
 import type { GetStatusResponse, WarningKind } from "@/lib/osadmin/types";
 
+import { DiskCard } from "@/components/DiskCard";
 import { ProductValues } from "@/components/ProductValues";
 import { ResetCountdown } from "@/components/ResetCountdown";
 import { NetworkReverted } from "@/components/StatusBanners";
@@ -29,17 +30,6 @@ const NETWORK_WARNINGS = new Set<WarningKind>([
 const RESET_POLL_MS = 5000;
 /** How often an update or a product install's own steps are re-read while one is under way. */
 const PROGRESS_POLL_MS = 1000;
-
-const bytes = (n: number): string => {
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let value = n;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit++;
-  }
-  return `${value.toFixed(1)} ${units[unit]}`;
-};
 
 export default function Home() {
   const [data, setData] = useState<GetStatusResponse>();
@@ -76,7 +66,11 @@ export default function Home() {
           {(data.warnings ?? [])
             .filter((warning) => !NETWORK_WARNINGS.has(warning.kind))
             .map((warning) => (
-              <Alert key={warning.kind} role="status" tone="warn">
+              <Alert
+                key={`${warning.kind}:${warning.detail}`}
+                role={warning.critical ? "alert" : "status"}
+                tone={warning.critical ? "danger" : "warn"}
+              >
                 {warning.detail}
               </Alert>
             ))}
@@ -152,20 +146,8 @@ export default function Home() {
                 {data.protectionReason && <p>{data.protectionReason}</p>}
               </div>
             </Card>
-            <Card>
-              <CardHeader title="Disk" />
-              <div className="flex flex-col gap-1 p-5.5 text-small">
-                {data.disk && (
-                  <p>
-                    {bytes(data.disk.usedBytes)} of {bytes(data.disk.totalBytes)} used
-                    {data.disk.growthBytesPerDay > 0 &&
-                      `, growing ${bytes(data.disk.growthBytesPerDay)}/day`}
-                  </p>
-                )}
-                <p>{data.disk?.path}</p>
-              </div>
-            </Card>
           </div>
+          <DiskCard data={data} onCleaned={reload} />
           <ProductValues />
           <Card>
             <CardHeader title="Health" />

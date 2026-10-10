@@ -5,8 +5,10 @@ import type {
   Admin,
   BackupPolicy,
   CodeKind,
+  DiskCleanup,
   ElevationOverride,
   FactoryReset,
+  MirrorStatus,
   NetdSettings,
   Session,
   UpdatePackage,
@@ -277,6 +279,16 @@ const isAirGapped = () => {
 };
 /** The built-in source list: the release download location. */
 const BUILTIN_URLS = ["https://github.com/Sneakers-PAM/sneakers-appliance/releases"];
+/** The GitHub source's part of the status, for the channel the policy names (stable by default:
+ * the mock box runs 0.1.0). */
+const githubStatus = (status: MirrorStatus | undefined): MirrorStatus | undefined =>
+  status && {
+    ...status,
+    releaseChannel: upgradePolicy.releaseChannel || "stable",
+    releaseChannelDefault: !upgradePolicy.releaseChannel,
+    releaseRepo: "Sneakers-PAM/sneakers-appliance",
+    releaseTag: (upgradePolicy.releaseChannel || "stable") === "rc" ? "v0.2.0-rc.1" : "v0.2.0",
+  };
 /** In the "web-updated" scenario every answer names newer pages than the page was built as. */
 let webUpdatedTo = "";
 /** A fetch tries the mirror first; its refusal stands when there's no release source to try. */
@@ -490,6 +502,12 @@ let uploadCount = 0;
 let uploadStalls = false;
 /** Status answers as the box does while accessd isn't answering. */
 let statusFails = false;
+/**
+ * The disk scenarios: the state volume 85% ("warning") or 93% ("critical") full of what the
+ * cleanup may remove, or 93% full of what it never touches ("stuck"); "" is the healthy box.
+ */
+let diskState: "" | "critical" | "stuck" | "warning" = "";
+let lastCleanup: DiskCleanup | undefined;
 let verifyStalls = false;
 let stepUpOnce = false;
 /** Sign-in failures in the current window, and the lockouts they caused, by admin. */
@@ -533,6 +551,7 @@ const STEP_UP_METHODS = new Set([
   "NetworkService/SetNetwork",
   "PowerService/ApproveFactoryReset",
   "PowerService/StartFactoryReset",
+  "StatusService/CleanUpDisk",
   "TlsService/AssignCertificate",
   "TlsService/RevertToSelfSigned",
 ]);
@@ -1608,6 +1627,26 @@ const route = async (service: string, method: string, body: Record<string, unkno
       cookieSession = session;
       return { session };
     }
+    case "StatusService/CleanUpDisk": {
+      const freed =
+        diskState === "warning" || diskState === "critical" ? world.DISK_JUNK_BYTES : 4096;
+      lastCleanup = {
+        actor: caller(),
+        categories: [
+          { error: "", freedBytes: freed - 4096, name: "pod-logs", note: "" },
+          { error: "", freedBytes: 4096, name: "os-audit", note: "" },
+          { error: "", freedBytes: 0, name: "images", note: "" },
+          { error: "", freedBytes: 0, name: "updates", note: "" },
+          { error: "", freedBytes: 0, name: "tmp", note: "" },
+          { error: "", freedBytes: 0, name: "wal", note: "within the limit" },
+        ],
+        freedBytes: freed,
+        time: new Date().toISOString(),
+        trigger: "admin",
+      };
+      if (diskState !== "stuck") diskState = "";
+      return { cleanup: structuredClone(lastCleanup) };
+    }
     case "StatusService/GetPhase": {
       if (restartingUntil && Date.now() < restartingUntil)
         throw new OsadminError("unavailable", "The appliance didn't answer.");
@@ -1639,6 +1678,8 @@ const route = async (service: string, method: string, body: Record<string, unkno
         runningVersion,
         stagedVersion,
         upgradeProgress: structuredClone(upgradeProgress),
+        ...(lastCleanup && { lastCleanup: structuredClone(lastCleanup) }),
+        ...(diskState && { volumes: world.fullVolumes(diskState === "warning" ? 85 : 93) }),
         ...((networkPending || lastNetworkChange?.reverted) && {
           networkChange: {
             ...(networkPending && {
@@ -1655,6 +1696,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
         }),
         warnings: [
           ...(base.warnings ?? []),
+          ...(diskState ? world.diskWarnings(diskState) : []),
           ...(networkPending
             ? [
                 {
@@ -1859,7 +1901,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
         lastCheck: units.lastCheckAnswer(),
         mirrorStatus:
           sourceOf() === "builtin"
-            ? mirrorStatus(BUILTIN_URLS[0] ?? "", "builtin", BUILTIN_URLS)
+            ? githubStatus(mirrorStatus(BUILTIN_URLS[0] ?? "", "builtin", BUILTIN_URLS))
             : sourceOf() === "none"
               ? undefined
               : mirrorStatus(upgradePolicy.mirrorUrl),
@@ -1967,7 +2009,13 @@ const route = async (service: string, method: string, body: Record<string, unkno
           "invalid_argument",
           "ACCESS_CONFIRM: the window starts at HH:MM and lasts 45 to 720 minutes",
         );
-      upgradePolicy = { ...policy, mirrorUrl: policy.mirrorUrl.trim().replace(/\/+$/, "") };
+      // As on the box: a save that leaves the channel or the repository out keeps them.
+      upgradePolicy = {
+        ...policy,
+        mirrorUrl: policy.mirrorUrl.trim().replace(/\/+$/, ""),
+        releaseChannel: policy.releaseChannel ?? upgradePolicy.releaseChannel,
+        releaseRepo: policy.releaseRepo ?? upgradePolicy.releaseRepo,
+      };
       return {};
     }
     case "UpgradeService/StageUpdate": {
@@ -2085,6 +2133,9 @@ const refill = <T>(target: T[], source: readonly T[]) => {
 
 const MOCK_SCENARIOS = [
   "air-gapped",
+  "disk-critical",
+  "disk-stuck",
+  "disk-warning",
   "elevated",
   "failed",
   "first-boot",
@@ -2207,6 +2258,18 @@ export const applyMockScenario = (scenario: MockScenario): void => {
   switch (scenario) {
     case "air-gapped": {
       upgradePolicy = { ...upgradePolicy, mirrorUrl: "" };
+      break;
+    }
+    case "disk-critical": {
+      diskState = "critical";
+      break;
+    }
+    case "disk-stuck": {
+      diskState = "stuck";
+      break;
+    }
+    case "disk-warning": {
+      diskState = "warning";
       break;
     }
     case "elevated": {
@@ -2456,6 +2519,8 @@ export const resetMockWorld = (): void => {
   uploadCount = 0;
   uploadStalls = false;
   statusFails = false;
+  diskState = "";
+  lastCleanup = undefined;
   verifyStalls = false;
   stepUpOnce = false;
   failures.clear();

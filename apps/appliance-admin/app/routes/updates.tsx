@@ -32,6 +32,8 @@ import type {
   ElevationOverride,
   GetUpgradesResponse,
   HeldUpload,
+  MirrorStatus,
+  ReleaseChannel,
   UnitOffer,
   UpdatePackage,
   UpdateSource,
@@ -219,6 +221,23 @@ const SOURCES: { label: string; value: UpdateSource }[] = [
   { label: "Upload only", value: "none" },
 ];
 
+/** The GitHub source's channels, as the Update mirror card's choice says them. */
+const CHANNELS: { label: string; value: ReleaseChannel }[] = [
+  { label: "Stable", value: "stable" },
+  { label: "Release candidates (rc)", value: "rc" },
+];
+
+/** The GitHub source in one line: the repository, the channel and the release picked. */
+const githubLine = (status: MirrorStatus): string => {
+  const parts = [
+    `GitHub source: ${status.releaseRepo}, the ${status.releaseChannel} channel${status.releaseChannelDefault ? " (this build's default)" : ""}`,
+  ];
+  if (status.releaseTag) parts.push(`release ${status.releaseTag}`);
+  if (status.rateLimitedUntil)
+    parts.push(`GitHub's rate limit is used up until ${shortDate(status.rateLimitedUntil)}`);
+  return `${parts.join(", ")}.`;
+};
+
 /** The offer the box prefers, or the first one. */
 const preferredKey = (offers: UnitOffer[]): string => {
   const offer = offers.find((o) => o.preferred) ?? offers[0];
@@ -272,6 +291,7 @@ export default function Updates() {
   const [windowMinutes, setWindowMinutes] = useState(120);
   const [mirrorUrl, setMirrorUrl] = useState("");
   const [source, setSource] = useState<UpdateSource>("none");
+  const [channel, setChannel] = useState<"" | ReleaseChannel>("");
   const [unavailable, setUnavailable] = useState(false);
   const [restartSteps, setRestartSteps] = useState<UpgradeProgress>();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -353,6 +373,8 @@ export default function Updates() {
             response.policy.source ??
               (response.policy.mirrorUrl ? "manual" : response.policy.direct ? "builtin" : "none"),
           );
+          const inEffect = response.mirrorStatus?.releaseChannel;
+          setChannel(inEffect === "rc" || inEffect === "stable" ? inEffect : "");
         }
         if (!checkedOnce.current) {
           checkedOnce.current = true;
@@ -602,6 +624,10 @@ export default function Updates() {
           source,
           windowMinutes,
           windowStart,
+          // The channel only when the owner picked one: a save with it left out keeps the box's.
+          ...(what === "source" && channel && channel !== data?.mirrorStatus?.releaseChannel
+            ? { releaseChannel: channel }
+            : {}),
         }),
       {
         onSuccess: () => {
@@ -1120,6 +1146,9 @@ export default function Updates() {
               ? `Source: the mirror at ${data.policy?.mirrorUrl ?? ""}.`
               : "Source: none. This appliance never fetches; upload each .bin under Install an update."}
         </p>
+        {source === "builtin" && data.mirrorStatus?.releaseRepo && (
+          <p>{githubLine(data.mirrorStatus)}</p>
+        )}
         {data.airGapped && (
           <Alert title="Air-gapped: upload only" tone="info">
             The box has no update source, so it never fetches updates from the network.
@@ -1172,6 +1201,14 @@ export default function Updates() {
               options={SOURCES}
               value={source}
             />
+            {source === "builtin" && data.mirrorStatus?.releaseRepo && channel && (
+              <Segmented
+                label="GitHub channel"
+                onChange={setChannel}
+                options={CHANNELS}
+                value={channel}
+              />
+            )}
             {source === "manual" && (
               <Field
                 hint="An http:// or https:// URL. Every file's signature is checked either way."

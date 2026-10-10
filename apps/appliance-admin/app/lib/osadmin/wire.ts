@@ -23,7 +23,10 @@ import type {
   CheckUpdatesResponse,
   CheckPasswordResponse,
   Component,
+  DataPath,
   Disk,
+  DiskCleanup,
+  DiskCleanupCategory,
   Elevation,
   ExposedValue,
   FactoryReset,
@@ -77,6 +80,7 @@ import type {
   UpgradeProgress,
   UpgradeStep,
   ValidationCheck,
+  Volume,
   Warning,
   TrustedCa,
   UpdateTrust,
@@ -200,8 +204,49 @@ export const finish = (w: Wire<{ productSetupUrl: string }>): { productSetupUrl:
 // ---- status ----
 
 const warning = (w: Wire<Warning>): Warning => ({
+  critical: w.critical ?? false,
   detail: w.detail ?? "",
   kind: w.kind ?? "WARNING_KIND_UNSPECIFIED",
+});
+
+const volume = (w: Wire<Volume>): Volume => ({
+  ...w,
+  label: w.label ?? "",
+  level: w.level ?? "DISK_LEVEL_UNSPECIFIED",
+  name: w.name ?? "",
+  path: w.path ?? "",
+  percent: w.percent ?? 0,
+  sharedWith: w.sharedWith ?? "",
+  totalBytes: w.totalBytes ?? 0,
+  usedBytes: w.usedBytes ?? 0,
+});
+
+const dataPath = (w: Wire<DataPath>): DataPath => ({
+  growthBytesPerDay: w.growthBytesPerDay ?? 0,
+  label: w.label ?? "",
+  name: w.name ?? "",
+  sizeBytes: w.sizeBytes ?? 0,
+  walBytes: w.walBytes ?? 0,
+  walWarnBytes: w.walWarnBytes ?? 0,
+});
+
+const cleanupCategory = (w: Wire<DiskCleanupCategory>): DiskCleanupCategory => ({
+  error: w.error ?? "",
+  freedBytes: w.freedBytes ?? 0,
+  name: w.name ?? "",
+  note: w.note ?? "",
+});
+
+export const diskCleanup = (w: Wire<DiskCleanup> = {}): DiskCleanup => ({
+  ...w,
+  actor: w.actor ?? "",
+  categories: list(w.categories, cleanupCategory),
+  freedBytes: w.freedBytes ?? 0,
+  trigger: w.trigger ?? "",
+});
+
+export const withCleanup = (w: Wire<{ cleanup: DiskCleanup }>): { cleanup: DiskCleanup } => ({
+  cleanup: diskCleanup(w.cleanup),
 });
 
 const component = (w: Wire<Component>): Component => ({
@@ -249,11 +294,13 @@ export const getStatus = (w: Wire<GetStatusResponse>): GetStatusResponse => ({
   ...w,
   channel: w.channel ?? "",
   custodyMode: w.custodyMode ?? "",
+  dataPaths: list(w.dataPaths, dataPath),
   disk: optional(w.disk, disk),
   factoryReset: optional(w.factoryReset, factoryReset),
   failedVersion: w.failedVersion ?? "",
   health: list(w.health, component),
   hostname: w.hostname ?? "",
+  lastCleanup: optional(w.lastCleanup, diskCleanup),
   managementAddresses: texts(w.managementAddresses),
   networkChange: optional(w.networkChange, networkChange),
   ntpSynced: w.ntpSynced ?? false,
@@ -268,6 +315,7 @@ export const getStatus = (w: Wire<GetStatusResponse>): GetStatusResponse => ({
   tlsSelfSigned: w.tlsSelfSigned ?? false,
   upgradeProgress: optional(w.upgradeProgress, upgradeProgress),
   version: w.version ?? "",
+  volumes: list(w.volumes, volume),
   warnings: list(w.warnings, warning),
 });
 
@@ -781,6 +829,11 @@ const mirrorStatus = (w: Wire<MirrorStatus>): MirrorStatus => ({
   builtinUrls: texts(w.builtinUrls),
   source: w.source ?? "",
   url: w.url ?? "",
+  releaseChannel: w.releaseChannel ?? "",
+  releaseChannelDefault: w.releaseChannelDefault ?? false,
+  releaseRepo: w.releaseRepo ?? "",
+  releaseTag: w.releaseTag ?? "",
+  releaseRepoOverrideAllowed: w.releaseRepoOverrideAllowed ?? false,
   serverIssuer: w.serverIssuer ?? "",
   serverSha256: w.serverSha256 ?? "",
   serverSubject: w.serverSubject ?? "",
