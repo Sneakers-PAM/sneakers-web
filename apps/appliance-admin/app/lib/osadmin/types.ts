@@ -153,6 +153,13 @@ export interface Warning {
   kind: WarningKind;
 }
 
+/** Who hid the reduced-protection notice for every admin, and when. */
+export interface ProtectionNotice {
+  hidden: boolean;
+  hiddenAt?: string;
+  hiddenBy: string;
+}
+
 export interface Component {
   detail: string;
   name: string;
@@ -276,6 +283,12 @@ export interface GetStatusResponse {
   /** The older release kept in the other slot that a revert boots; empty when there's none. */
   previousVersion: string;
   protection: Protection;
+  /** The reduced level in plain words with how to raise it, hidden notice or not; empty at full
+   * protection, and left out by a box from before the notice could be hidden. */
+  protectionDetail?: string;
+  /** Set while an admin has hidden the reduced-protection notice for the box's level and reason;
+   * the warning is then left out of `warnings`. */
+  protectionNotice?: ProtectionNotice;
   protectionReason: string;
   /** When an admin reverted the base release: the release reverted from, who, and when. */
   revertedAt?: string;

@@ -171,6 +171,12 @@ export const status = {
   /** Runs the disk cleanup now (a step-up); answers what each step freed. */
   cleanUpDisk: () =>
     call<{ cleanup: DiskCleanup }>("StatusService", "CleanUpDisk", {}, wire.withCleanup),
+  /**
+   * Hides the reduced-protection notice for every admin, for the reason it was shown with;
+   * `hidden` is false when the box's protection changed since.
+   */
+  hideProtectionNotice: (reason: string) =>
+    call<{ hidden?: boolean }>("StatusService", "HideProtectionNotice", { reason }),
 };
 
 export const access = {

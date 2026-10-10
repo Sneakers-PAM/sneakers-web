@@ -261,6 +261,8 @@ let factoryReset: FactoryReset | undefined;
 let singleAdminAcknowledged = false;
 let setupDone = true;
 let secureBootOn = true;
+/** An admin's hiding of the reduced-protection notice, for the reason it was shown with. */
+let protectionAck: { at: string; by: string; reason: string } | null = null;
 let upgradePolicy = structuredClone(world.UPGRADE_POLICY);
 const upgradeHistory = structuredClone(world.UPGRADE_HISTORY);
 let runningVersion = "0.1.0";
@@ -531,6 +533,22 @@ const findAdmin = (name: string) => admins.find((a) => a.name === name);
 const never = () => new Promise<never>(() => {});
 
 const caller = (): string => getSession()?.admin ?? "";
+
+/** The box's reduced protection as Status gives it, with the box's own words; null when full. */
+const protectionNow = (): { detail: string; reason: string } | null => {
+  if (secureBootOn && custodyMode === "tpm") return null;
+  if (custodyMode === "tpm")
+    return {
+      detail:
+        "Protection: reduced (Secure Boot off). Someone with the disk or SD card can change this box's software. To raise it: an owner turns Secure Boot on from the :8443 Status page, then the box enrols the org keys and asks for Secure Boot to be switched on in the firmware. It reseals its key in place: no reinstall, the data stays.",
+      reason: "Secure Boot is off",
+    };
+  return {
+    detail:
+      "Protection: reduced (no Secure Boot, no TPM). Someone with the disk or SD card can change this box's software and read its data. This firmware has no Secure Boot. Protection can be raised only on firmware that has it (on a VM, EFI firmware with Secure Boot): then an owner turns Secure Boot on from the :8443 Status page, with no reinstall.",
+    reason: "Secure Boot isn't available on this hardware, and there is no TPM",
+  };
+};
 
 let lockoutMode: "LOCKOUT_MODE_TIMED" | "LOCKOUT_MODE_UNTIL_UNLOCKED" = "LOCKOUT_MODE_TIMED";
 
@@ -1662,18 +1680,21 @@ const route = async (service: string, method: string, body: Record<string, unkno
       powerState();
       expireNetworkChange();
       const base = world.status();
+      const reduced = protectionNow();
+      if (!reduced) protectionAck = null;
+      const hidden = reduced && protectionAck?.reason === reduced.reason ? protectionAck : null;
       return {
         ...base,
         custodyMode,
         factoryReset: structuredClone(factoryReset),
         failedVersion,
         ...reverted,
-        protection:
-          secureBootOn && custodyMode === "tpm" ? "PROTECTION_FULL" : "PROTECTION_REDUCED",
-        protectionReason:
-          secureBootOn && custodyMode === "tpm"
-            ? ""
-            : "Secure Boot isn't available on this hardware, and there is no TPM",
+        protection: reduced ? "PROTECTION_REDUCED" : "PROTECTION_FULL",
+        protectionDetail: reduced?.detail ?? "",
+        ...(hidden && {
+          protectionNotice: { hidden: true, hiddenAt: hidden.at, hiddenBy: hidden.by },
+        }),
+        protectionReason: reduced?.reason ?? "",
         ...previousSlot(),
         runningVersion,
         stagedVersion,
@@ -1696,6 +1717,9 @@ const route = async (service: string, method: string, body: Record<string, unkno
         }),
         warnings: [
           ...(base.warnings ?? []),
+          ...(reduced && !hidden
+            ? [{ detail: reduced.detail, kind: "WARNING_KIND_REDUCED_PROTECTION" as const }]
+            : []),
           ...(diskState ? world.diskWarnings(diskState) : []),
           ...(networkPending
             ? [
@@ -1715,6 +1739,12 @@ const route = async (service: string, method: string, body: Record<string, unkno
             : []),
         ],
       };
+    }
+    case "StatusService/HideProtectionNotice": {
+      const reduced = protectionNow();
+      if (!reduced || reduced.reason !== body.reason) return { hidden: false };
+      protectionAck = { at: new Date().toISOString(), by: caller(), reason: reduced.reason };
+      return { hidden: true };
     }
     case "StatusService/SetSecureBoot": {
       secureBootOn = body.on as boolean;
@@ -2543,6 +2573,7 @@ export const resetMockWorld = (): void => {
   singleAdminAcknowledged = false;
   setupDone = true;
   secureBootOn = true;
+  protectionAck = null;
   factoryReset = undefined;
   emailSettings = { ...NO_RELAY };
   emailPassword = "";

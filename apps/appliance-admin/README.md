@@ -55,6 +55,19 @@ volumes, and the card shows its state volume's use as before. The mock states ar
 `disk-critical` (both cleaned up by Clean up now) and `disk-stuck` (93% full of what the cleanup
 may not remove, with a write-ahead log over its limit).
 
+## Status: reduced protection
+
+At reduced protection Status shows a warning with the level in plain words and how to raise it.
+**Hide this notice** asks a plain confirm ("Hide this notice? It won't be shown again. Protection
+stays reduced until it's raised; the Status page still lists it.") with Hide and Cancel, no code.
+Any signed-in admin may hide it, and it is hidden for everyone: the box keeps the acknowledgement
+for the level and reason (`StatusService.HideProtectionNotice`, audited), so it holds across
+reboots and updates. Another reason, or protection raised to full and dropping again, shows it
+again. The Protection card keeps the level, the reason and how to raise it
+(`GetStatus.protectionDetail`), and says who hid the notice and when (`protectionNotice`). Only
+this warning can be hidden. A box from before the notice could be hidden sends no
+`protectionDetail`, and the page offers no Hide there. The mock's `reduced` scenario shows it.
+
 ## Certificates
 
 The Certificates page runs the box's certificate store (`TlsService`): the certificates with
