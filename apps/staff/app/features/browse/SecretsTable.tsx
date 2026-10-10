@@ -1,5 +1,6 @@
 import { StepUpDialog } from "@sneakers-web/shell";
 import {
+  announce,
   Badge,
   Button,
   Card,
@@ -28,14 +29,15 @@ import {
   TableRow,
   toast,
 } from "@sneakers-web/ui";
-import { ChevronDown, ChevronUp, Copy, Lock } from "lucide-react";
-import { useId, useState } from "react";
+import { ChevronDown, ChevronUp, Copy, GripVertical, Lock } from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
 import type { BrowseSecret, BrowseSecretType } from "@/features/browse/types";
 
 import { heartbeatOf } from "@/features/browse/heartbeat";
 import { primaryFieldsOf } from "@/features/browse/quickCopy";
+import { type Direction, movedBy, movedTo, moveNote } from "@/features/browse/reorder";
 import { useBrowseAction } from "@/features/browse/useBrowseAction";
 import { useQuickCopy } from "@/features/browse/useQuickCopy";
 
@@ -43,17 +45,6 @@ type Column = "heartbeat" | "type";
 type SortBy = "index" | "name" | "type";
 
 const COMING_SOON = "Coming soon: this bulk action isn't ready yet.";
-
-/** The active (non-retired) secret ids in their current manual order, up or down `id` by one;
- * null at an end, or if `id` isn't an active secret here. */
-const moved = (secrets: BrowseSecret[], id: string, direction: "down" | "up"): null | string[] => {
-  const ids = secrets.filter((s) => !s.retired).map((s) => s.id);
-  const at = ids.indexOf(id);
-  const to = direction === "up" ? at - 1 : at + 1;
-  if (at < 0 || to < 0 || to >= ids.length) return null;
-  [ids[at], ids[to]] = [ids[to] as string, ids[at] as string];
-  return ids;
-};
 
 /**
  * U-03 the folder's secrets: filter, retired toggle, column picker, selection with the bulk
@@ -85,6 +76,27 @@ export const SecretsTable = ({
   const restore = useBrowseAction();
   const quickCopy = useQuickCopy();
   const retiredId = useId();
+  const [dragging, setDragging] = useState<null | string>(null);
+  const [dropOn, setDropOn] = useState<null | string>(null);
+  const [focusHandle, setFocusHandle] = useState<null | string>(null);
+  const tableRef = useRef<HTMLElement>(null);
+
+  // After a move the row is drawn again in its new place. When the control that moved it ends up
+  // disabled (the row reached an end), the browser drops the focus; it goes back to the row's
+  // handle. Focus the person moved elsewhere is left alone.
+  useEffect(() => {
+    if (!focusHandle) return;
+    const active = document.activeElement as HTMLButtonElement | null;
+    const inTable = active !== null && tableRef.current?.contains(active) === true;
+    if (active && active !== document.body && !inTable) {
+      setFocusHandle(null);
+      return;
+    }
+    if (inTable && !active.disabled) return;
+    tableRef.current
+      ?.querySelector<HTMLElement>(`[data-reorder-handle="${CSS.escape(focusHandle)}"]`)
+      ?.focus();
+  }, [focusHandle, secrets]);
 
   const typeNameOf = (s: BrowseSecret) => types[s.typeId]?.name ?? s.typeId;
   const sortHeader = (column: SortBy) => () =>
@@ -96,12 +108,20 @@ export const SecretsTable = ({
       setDescending(false);
       return column;
     });
-  const move = (id: string, direction: "down" | "up") => {
-    const ids = moved(secrets, id, direction);
+  const save = (id: string, ids: null | string[]) => {
     if (!ids) return;
     setSortBy("index");
     setDescending(false);
+    setFocusHandle(id);
     restore.submit({ folderId, intent: "reorder-secrets", orderedIds: ids.join(",") });
+    const name = secrets.find((s) => s.id === id)?.name ?? "The secret";
+    announce(moveNote(name, ids, id));
+  };
+  const move = (id: string, direction: Direction) => save(id, movedBy(activeIds, id, direction));
+  const drop = (targetId: string) => {
+    if (dragging) save(dragging, movedTo(activeIds, dragging, targetId));
+    setDragging(null);
+    setDropOn(null);
   };
 
   const q = query.trim().toLowerCase();
@@ -178,7 +198,7 @@ export const SecretsTable = ({
           </Button>
         </div>
       )}
-      <Card>
+      <Card ref={tableRef}>
         <div className="flex flex-wrap items-center gap-4 border-b border-border px-4.5 py-4">
           <Input
             aria-label="Filter secrets"
@@ -239,6 +259,11 @@ export const SecretsTable = ({
           <Table>
             <TableHead>
               <tr>
+                {canManage && (
+                  <TableHeaderCell className="w-16">
+                    <span className="sr-only">Reorder</span>
+                  </TableHeaderCell>
+                )}
                 <TableHeaderCell className="w-12">
                   <Checkbox
                     aria-label="Select all"
@@ -325,21 +350,55 @@ export const SecretsTable = ({
                   <ContextMenu key={s.id}>
                     <ContextMenuTrigger asChild>
                       <TableRow
-                        className={cn(s.retired && "text-muted")}
+                        className={cn(
+                          s.retired && "text-muted",
+                          dropOn === s.id && dragging !== s.id && "bg-primary-soft",
+                          dragging === s.id && "opacity-50",
+                        )}
+                        onDragLeave={() => setDropOn((on) => (on === s.id ? null : on))}
+                        onDragOver={(event) => {
+                          if (!dragging || s.retired) return;
+                          event.preventDefault();
+                          setDropOn(s.id);
+                        }}
+                        onDrop={(event) => {
+                          if (!dragging || s.retired) return;
+                          event.preventDefault();
+                          drop(s.id);
+                        }}
                         selected={picked.has(s.id)}
                       >
-                        <TableCell>
-                          <Checkbox
-                            aria-label={`Select ${s.name}`}
-                            checked={picked.has(s.id)}
-                            onCheckedChange={(on) => toggle(s.id, on === true)}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {!s.retired && (
-                            <span className="inline-flex items-center gap-0.5">
-                              <span className="w-4 text-right tabular-nums">{s.position}</span>
-                              {canManage && (
+                        {canManage && (
+                          <TableCell>
+                            {!s.retired && (
+                              <span className="inline-flex items-center gap-0.5">
+                                <Button
+                                  aria-label={`Reorder ${s.name}: drag it, or use the up and down arrow keys`}
+                                  className="size-6 cursor-grab p-0 active:cursor-grabbing"
+                                  data-reorder-handle={s.id}
+                                  draggable
+                                  onDragEnd={() => {
+                                    setDragging(null);
+                                    setDropOn(null);
+                                  }}
+                                  onDragStart={(event) => {
+                                    event.dataTransfer?.setData("text/plain", s.id);
+                                    if (event.dataTransfer)
+                                      event.dataTransfer.effectAllowed = "move";
+                                    setDragging(s.id);
+                                  }}
+                                  onKeyDown={(event) => {
+                                    if (event.key !== "ArrowUp" && event.key !== "ArrowDown")
+                                      return;
+                                    event.preventDefault();
+                                    move(s.id, event.key === "ArrowUp" ? "up" : "down");
+                                  }}
+                                  size="sm"
+                                  title="Drag to reorder"
+                                  variant="ghost"
+                                >
+                                  <GripVertical aria-hidden className="size-3.5" />
+                                </Button>
                                 <span className="flex flex-col">
                                   <Button
                                     aria-label={`Move ${s.name} up`}
@@ -362,7 +421,21 @@ export const SecretsTable = ({
                                     <ChevronDown aria-hidden className="size-3" />
                                   </Button>
                                 </span>
-                              )}
+                              </span>
+                            )}
+                          </TableCell>
+                        )}
+                        <TableCell>
+                          <Checkbox
+                            aria-label={`Select ${s.name}`}
+                            checked={picked.has(s.id)}
+                            onCheckedChange={(on) => toggle(s.id, on === true)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {!s.retired && (
+                            <span className="inline-block w-4 text-right tabular-nums">
+                              {s.position}
                             </span>
                           )}
                         </TableCell>
@@ -479,8 +552,10 @@ export const SecretsTable = ({
         </p>
       )}
       <p className="text-small text-muted">
-        Right-click a row or press Shift+F10 for its menu. Change type and Export open a
-        &quot;coming soon&quot; note for now.
+        Right-click a row or press Shift+F10 for its menu.
+        {canManage &&
+          " Drag a row by its handle to reorder it, or use the arrows (or the arrow keys on the handle)."}{" "}
+        Change type and Export open a &quot;coming soon&quot; note for now.
       </p>
       <StepUpDialog {...quickCopy.dialog} />
     </div>
