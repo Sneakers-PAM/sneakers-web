@@ -35,12 +35,28 @@ let fetch: FetchProgress | undefined;
 let lastCheck: CheckUpdatesResponse | undefined;
 /** While set, the last fetch shows downloading, as a fetch under way does. */
 let fetching = false;
+/** While set, the Base OS patch offer uses this version and file name instead of the default. */
+let baseOsOffer: { fileName: string; version: string } | null = null;
 
 export const resetUnits = (): void => {
   web = fresh();
   fetch = undefined;
   lastCheck = undefined;
   fetching = false;
+  baseOsOffer = null;
+};
+
+/**
+ * The "lab-names" scenario's Base OS patch offer: the longest real build and patch names a lab
+ * box has shown (sneakers-appliance spec 7 issue, Updates cards overflow), so review and the
+ * overflow check exercise the short-label function on the real thing, not a stand-in.
+ */
+export const setLabBaseOffer = (): void => {
+  baseOsOffer = {
+    fileName:
+      "sneakers-appliance-baseOS-patch-0.0.0-lab.20261009m1.r20261009215558-g79c3ceb-from-0.0.0-lab.20261009m.r20261009215048-g79c3ceb-amd64-LAB.bin",
+    version: "0.0.0-lab.20261009m1.r20261009215558-g79c3ceb",
+  };
 };
 
 const slotOf = (version: string): string => (version === web.current ? "a" : "b");
@@ -120,14 +136,16 @@ export const checkUpdates = (
       ? [
           offer("UPDATE_TARGET_BASE", {
             bases: ["0.1.0"],
-            fileName: "sneakers-appliance-baseOS-patch-0.2.0-g1a2b3c4-from-0.1.0-amd64.bin",
+            fileName:
+              baseOsOffer?.fileName ??
+              "sneakers-appliance-baseOS-patch-0.2.0-g1a2b3c4-from-0.1.0-amd64.bin",
             kind: "patch",
             note: web.current
               ? `After the reboot the box serves the built-in pages of 0.2.0 until a Base Web that fits it is installed (the installed Base Web ${web.current} needs Base OS 0.1.0 to before 0.2.0).`
               : "",
             preferred: true,
             size: String(Math.round(1.4 * MB)),
-            version: "0.2.0",
+            version: baseOsOffer?.version ?? "0.2.0",
           }),
           offer("UPDATE_TARGET_BASE", {
             fileName: "sneakers-appliance-baseOS-0.2.0-g1a2b3c4-amd64.bin",

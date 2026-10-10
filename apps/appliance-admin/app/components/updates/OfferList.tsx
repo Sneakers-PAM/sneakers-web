@@ -2,6 +2,8 @@ import { Badge } from "@sneakers-web/ui";
 
 import type { UnitOffer } from "@/lib/osadmin/types";
 
+import { shortLabel } from "@/components/updates/shortLabel";
+
 /** A size in MB, one decimal under 10 MB. */
 export const megabytes = (bytes: number | string): string => {
   const mb = Number(bytes) / 1_048_576;
@@ -43,7 +45,9 @@ export const OfferList = ({
           type="radio"
           value={offer.version}
         />
-        <span className="font-bold">{offer.version}</span>
+        <span className="inline-block max-w-[22ch] truncate font-bold" title={offer.version}>
+          {shortLabel(offer.version)}
+        </span>
         <Badge tone={offer.kind === "patch" ? "ok" : "neutral"}>{offer.kind}</Badge>
         <span className="text-muted">
           {megabytes(offer.size)}
