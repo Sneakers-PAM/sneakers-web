@@ -67,36 +67,27 @@ describe("Updates", () => {
     await openPage();
     await user.upload(screen.getByLabelText("Update .bin file"), binFile("signed release"));
     await user.click(screen.getByRole("button", { name: "Upload" }));
-    expect(
-      await screen.findByText(/Uploaded sneakers-appliance-0.2.0-amd64.bin/),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/Uploaded\. It hasn't been checked yet/)).toBeInTheDocument();
+    expect(screen.getByText("sneakers-appliance-0.2.0-amd64.bin")).toBeInTheDocument();
     expect(screen.queryByText(/Signature: verified/)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Verify and stage" }));
     const result = await screen.findByRole("region", { name: "Verify result" });
     expect(within(result).getByText("Verified")).toBeInTheDocument();
+    expect(within(result).getByText("sneakers-appliance-0.2.0-amd64.bin")).toBeInTheDocument();
     const terms = within(result)
       .getAllByRole("term")
       .map((term) => term.textContent);
-    expect(terms).toEqual([
-      "File",
-      "Version",
-      "Architecture",
-      "Signature",
-      "Channel",
-      "SHA-256",
-      "Staged",
-    ]);
+    expect(terms).toEqual(["Version", "Architecture", "Signature", "Channel", "SHA-256", "Staged"]);
     const values = within(result)
       .getAllByRole("definition")
       .map((value) => value.textContent);
-    expect(values[0]).toBe("sneakers-appliance-0.2.0-amd64.bin");
-    expect(values[1]).toBe("full release 0.2.0");
-    expect(values[2]).toBe("amd64");
-    expect(values[3]).toBe("Verified against this appliance's release key");
-    expect(values[4]).toBe("stable");
-    expect(values[5]).toMatch(/^[0-9a-f]{64}Copy$/);
-    expect(values[6]).toBe("Staged into slot B");
-    expect(within(result).getByRole("button", { name: "Copy" })).toBeInTheDocument();
+    expect(values[0]).toBe("full release 0.2.0");
+    expect(values[1]).toBe("amd64");
+    expect(values[2]).toBe("Verified against this appliance's release key");
+    expect(values[3]).toBe("stable");
+    expect(values[4]).toMatch(/^[0-9a-f]{64}Copy$/);
+    expect(values[5]).toBe("Staged into slot B");
+    expect(within(result).getAllByRole("button", { name: "Copy" })).toHaveLength(2);
     expect(
       await screen.findByText("0.2.0", { selector: "[data-version=staged]" }),
     ).toBeInTheDocument();
@@ -270,7 +261,8 @@ describe("Updates", () => {
         name: "Verify result",
       });
       expect(result).toHaveAttribute("data-tone", "danger");
-      expect(within(result).getByText(/baseOS-patch-0.2.0.* was refused/)).toBeInTheDocument();
+      expect(within(result).getByText("The file was refused")).toBeInTheDocument();
+      expect(within(result).getByText(/baseOS-patch-0.2.0/)).toBeInTheDocument();
       expect(within(result).getByText("UPGRADE_UPLOAD")).toBeInTheDocument();
     });
 
@@ -299,8 +291,9 @@ describe("Updates", () => {
     expect(offers.getByText("1.4 MB")).toBeInTheDocument();
     expect(offers.getByText("72 MB")).toBeInTheDocument();
     await user.click(base.getByRole("button", { name: "Fetch 0.2.0 patch" }));
+    expect(await base.findByText(/Fetched\. It hasn't been checked yet/)).toBeInTheDocument();
     expect(
-      await base.findByText(/Fetched sneakers-appliance-baseOS-patch-0.2.0-g1a2b3c4-from-0.1.0/),
+      base.getByText(/sneakers-appliance-baseOS-patch-0.2.0-g1a2b3c4-from-0.1.0/),
     ).toBeInTheDocument();
     expect(base.getByRole("button", { name: "Verify and stage" })).toBeInTheDocument();
     await user.click(full as HTMLElement);
@@ -638,9 +631,8 @@ describe("Updates", () => {
       const offers = within(await product.findByRole("radiogroup", { name: "Product versions" }));
       await user.click(offers.getByRole("radio", { name: /0\.2\.0/ }));
       await user.click(product.getByRole("button", { name: "Fetch 0.2.0" }));
-      expect(
-        await screen.findByText(/Fetched sneakers-product-0.2.0-amd64.bin/),
-      ).toBeInTheDocument();
+      expect(await screen.findByText(/Fetched\. It hasn't been checked yet/)).toBeInTheDocument();
+      expect(screen.getByText("sneakers-product-0.2.0-amd64.bin")).toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: "Verify and stage" }));
       const result = await screen.findByRole("region", { name: "Verify result" });
       expect(within(result).getByText(/product bundle 0.2.0/)).toBeInTheDocument();
@@ -830,9 +822,8 @@ describe("Updates", () => {
       const user = userEvent.setup();
       await openPage();
       const result = await panel();
-      expect(
-        within(result).getByText(/Uploaded sneakers-appliance-0.2.0-amd64.bin/),
-      ).toBeInTheDocument();
+      expect(within(result).getByText(/Uploaded\. It hasn't been checked yet/)).toBeInTheDocument();
+      expect(within(result).getByText("sneakers-appliance-0.2.0-amd64.bin")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Upload" })).toBeDisabled();
       await user.click(within(result).getByRole("button", { name: "Verify and stage" }));
       expect(await screen.findByText("Verified")).toBeInTheDocument();
@@ -914,7 +905,7 @@ describe("Updates", () => {
   it("puts the Base OS, Base Web and Product cards side by side on a wide screen, each with its colour", async () => {
     await openPage();
     const cards = screen.getByTestId("unit-cards");
-    expect(cards).toHaveClass("grid-cols-1", "desktop:grid-cols-3");
+    expect(cards).toHaveClass("grid-cols-1", "cards:grid-cols-3");
     const regions = within(cards)
       .getAllByRole("region")
       .filter((region) =>

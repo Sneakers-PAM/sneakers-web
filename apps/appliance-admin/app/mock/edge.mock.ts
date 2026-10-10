@@ -1953,6 +1953,7 @@ const MOCK_SCENARIOS = [
   "first-boot",
   "held",
   "invited",
+  "lab-names",
   "locked",
   "locked-until-unlocked",
   "manual",
@@ -2104,6 +2105,12 @@ export const applyMockScenario = (scenario: MockScenario): void => {
           uid: 20_002,
         });
       invitations.set(normalCode(world.MOCK_INVITE_CODE), "carol");
+      break;
+    }
+    case "lab-names": {
+      stagedVersion = "0.0.0-lab.20261009m1.r20261009215558-g79c3ceb";
+      previousVersion = "";
+      units.setLabBaseOffer();
       break;
     }
     case "locked": {

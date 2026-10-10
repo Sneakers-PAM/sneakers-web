@@ -43,8 +43,10 @@ import type {
 import { BoxRestarting } from "@/components/BoxRestarting";
 import { NotAvailable } from "@/components/NotAvailable";
 import { FetchProgressLine, fetchRunning } from "@/components/updates/FetchProgressLine";
+import { FileDetails } from "@/components/updates/FileDetails";
 import { MirrorStatusCard } from "@/components/updates/MirrorStatusCard";
 import { offerKey, OfferList } from "@/components/updates/OfferList";
+import { withShortVersion } from "@/components/updates/shortLabel";
 import { UnitCard } from "@/components/updates/UnitCard";
 import { UpgradeSteps } from "@/components/UpgradeSteps";
 import { VersionChip } from "@/components/VersionChip";
@@ -222,6 +224,19 @@ const preferredKey = (offers: UnitOffer[]): string => {
   const offer = offers.find((o) => o.preferred) ?? offers[0];
   return offer ? offerKey(offer) : "";
 };
+
+/**
+ * A button's label with its version shortened: the short label shows, the full text sits in the
+ * tooltip, and the line fills the button's own width and ellipsizes there instead of wrapping
+ * or pushing the button past its card. Pair it with a Button given `className="min-w-0 shrink"`
+ * so the button can actually give up width to its card, rather than forcing it (shrink-0 by
+ * default, so it fits any one word on its own line, not a build name beside one).
+ */
+const ButtonVersion = ({ full, version }: { full: string; version: string }) => (
+  <span className="block max-w-full truncate" title={full}>
+    {withShortVersion(full, version)}
+  </span>
+);
 
 /** A confirm for an Apply or Revert of a unit. */
 interface Confirm {
@@ -706,7 +721,7 @@ export default function Updates() {
               onClick={() => fetchFile(chosen.fileName)}
               variant="secondary"
             >
-              {fetchLabel(chosen)}
+              <ButtonVersion full={fetchLabel(chosen)} version={chosen.version} />
             </Button>
           </div>
         )}
@@ -798,9 +813,9 @@ export default function Updates() {
       <div
         className={
           cardCount === 3
-            ? "grid grid-cols-1 gap-5 desktop:grid-cols-3"
+            ? "grid grid-cols-1 gap-5 cards:grid-cols-3"
             : cardCount === 2
-              ? "grid grid-cols-1 gap-5 desktop:grid-cols-2"
+              ? "grid grid-cols-1 gap-5 cards:grid-cols-2"
               : "grid grid-cols-1"
         }
         data-testid="unit-cards"
@@ -812,31 +827,34 @@ export default function Updates() {
               <>
                 {staged && (
                   <Button
+                    className="min-w-0 shrink"
                     onClick={() => setConfirm({ action: "apply", target: BASE, version: staged })}
                     size="lg"
                     variant="primary"
                   >
-                    Apply {staged}
+                    <ButtonVersion full={`Apply ${staged}`} version={staged} />
                   </Button>
                 )}
                 {staged && (
                   <Button
+                    className="min-w-0 shrink"
                     onClick={() => setConfirmDiscard({ target: BASE, version: staged })}
                     size="lg"
                     variant="secondary"
                   >
-                    Cancel staged {staged}
+                    <ButtonVersion full={`Cancel staged ${staged}`} version={staged} />
                   </Button>
                 )}
                 {revertTarget && (
                   <Button
+                    className="min-w-0 shrink"
                     onClick={() =>
                       setConfirm({ action: "revert", target: BASE, version: revertTarget })
                     }
                     size="lg"
                     variant="secondary"
                   >
-                    Revert to {revertTarget}
+                    <ButtonVersion full={`Revert to ${revertTarget}`} version={revertTarget} />
                   </Button>
                 )}
               </>
@@ -887,25 +905,34 @@ export default function Updates() {
                 <>
                   {web.stagedVersion && (
                     <Button
+                      className="min-w-0 shrink"
                       onClick={() =>
                         setConfirm({ action: "apply", target: WEB, version: web.stagedVersion })
                       }
                       size="lg"
                     >
-                      Apply pages {web.stagedVersion}
+                      <ButtonVersion
+                        full={`Apply pages ${web.stagedVersion}`}
+                        version={web.stagedVersion}
+                      />
                     </Button>
                   )}
                   {web.stagedVersion && (
                     <Button
+                      className="min-w-0 shrink"
                       onClick={() => setConfirmDiscard({ target: WEB, version: web.stagedVersion })}
                       size="lg"
                       variant="secondary"
                     >
-                      Cancel staged pages {web.stagedVersion}
+                      <ButtonVersion
+                        full={`Cancel staged pages ${web.stagedVersion}`}
+                        version={web.stagedVersion}
+                      />
                     </Button>
                   )}
                   {web.canRevert && (
                     <Button
+                      className="min-w-0 shrink"
                       onClick={() =>
                         setConfirm({
                           action: "revert",
@@ -916,7 +943,10 @@ export default function Updates() {
                       size="lg"
                       variant="secondary"
                     >
-                      Revert pages to {web.previousVersion || "built-in"}
+                      <ButtonVersion
+                        full={`Revert pages to ${web.previousVersion || "built-in"}`}
+                        version={web.previousVersion || "built-in"}
+                      />
                     </Button>
                   )}
                 </>
@@ -972,6 +1002,7 @@ export default function Updates() {
                 <>
                   {product.stagedVersion && (
                     <Button
+                      className="min-w-0 shrink"
                       onClick={() =>
                         setConfirm({
                           action: "apply",
@@ -981,22 +1012,30 @@ export default function Updates() {
                       }
                       size="lg"
                     >
-                      Install product {product.stagedVersion}
+                      <ButtonVersion
+                        full={`Install product ${product.stagedVersion}`}
+                        version={product.stagedVersion}
+                      />
                     </Button>
                   )}
                   {product.stagedVersion && (
                     <Button
+                      className="min-w-0 shrink"
                       onClick={() =>
                         setConfirmDiscard({ target: PRODUCT, version: product.stagedVersion ?? "" })
                       }
                       size="lg"
                       variant="secondary"
                     >
-                      Cancel staged product {product.stagedVersion}
+                      <ButtonVersion
+                        full={`Cancel staged product ${product.stagedVersion}`}
+                        version={product.stagedVersion}
+                      />
                     </Button>
                   )}
                   {product.previousVersion && (
                     <Button
+                      className="min-w-0 shrink"
                       onClick={() =>
                         setConfirm({
                           action: "revert",
@@ -1007,7 +1046,10 @@ export default function Updates() {
                       size="lg"
                       variant="secondary"
                     >
-                      Revert product to {product.previousVersion}
+                      <ButtonVersion
+                        full={`Revert product to ${product.previousVersion}`}
+                        version={product.previousVersion}
+                      />
                     </Button>
                   )}
                 </>
@@ -1437,9 +1479,8 @@ const UpdateStep = ({
       return (
         <ResultPanel title="Not checked yet" tone="info">
           <div className="flex flex-col gap-3">
-            <p>
-              {step.via} {step.fileName}. It hasn&apos;t been checked yet.
-            </p>
+            <p>{step.via}. It hasn&apos;t been checked yet.</p>
+            <FileDetails fileName={step.fileName} />
             {removal}
             <div className="flex flex-wrap gap-3">
               <Button onClick={() => onVerify(step.fileName, step.uploadId)} size="lg">
@@ -1455,8 +1496,9 @@ const UpdateStep = ({
     }
     case "refused": {
       return (
-        <ResultPanel title={`${step.fileName} was refused`} tone="danger">
+        <ResultPanel title="The file was refused" tone="danger">
           <div className="flex flex-col gap-2">
+            <FileDetails fileName={step.fileName} />
             <p>{step.reason} Nothing was staged.</p>
             {step.code && (
               <p>
@@ -1482,8 +1524,9 @@ const UpdateStep = ({
     }
     case "uploading": {
       return (
-        <ResultPanel title={`Uploading ${step.fileName}: ${String(step.progress)}%`} tone="info">
+        <ResultPanel title={`Uploading: ${String(step.progress)}%`} tone="info">
           <div className="flex flex-col gap-3">
+            <FileDetails fileName={step.fileName} />
             <progress
               aria-label="Upload progress"
               className="h-3 w-full accent-primary"
@@ -1514,8 +1557,9 @@ const UpdateStep = ({
           <div className="flex flex-col gap-3">
             <span className="flex items-center gap-3">
               <Spinner />
-              Verifying the signature, channel and hash of {step.fileName}, then staging it.
+              Verifying the signature, channel and hash, then staging it.
             </span>
+            <FileDetails fileName={step.fileName} />
             {progress?.action === "stage" && progress.inProgress && (
               <UpgradeSteps progress={progress} />
             )}
@@ -1559,7 +1603,6 @@ const VerifiedPanel = ({
   const product = updatePackage.target === PRODUCT;
   const web = updatePackage.target === WEB;
   const rows: [string, ReactNode][] = [
-    ["File", fileName],
     ["Version", describePackage(updatePackage)],
     ["Architecture", updatePackage.arch],
     ["Signature", "Verified against this appliance's release key"],
@@ -1590,6 +1633,7 @@ const VerifiedPanel = ({
   ];
   return (
     <ResultPanel title="Verified" tone="ok">
+      <FileDetails fileName={fileName} />
       <dl className="m-0 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5">
         {rows.map(([label, value]) => (
           <div className="contents" key={label}>
