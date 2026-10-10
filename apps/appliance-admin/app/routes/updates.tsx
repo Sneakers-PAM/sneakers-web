@@ -971,7 +971,11 @@ export default function Updates() {
             </p>
             {web.stagedVersion && <VersionFields label="Staged" version={web.stagedVersion} />}
             <p>
-              {web.canRevert ? `Previous: ${webBack}` : "Previous: none (the built-in pages serve)"}
+              {web.canRevert
+                ? `Previous: ${webBack}`
+                : web.previousVersion && web.source !== "slot"
+                  ? `Previous: ${shortName(web.previousVersion)}, older than the built-in pages (${shortName(web.builtinVersion)}), so a revert wouldn't change what serves and isn't offered.`
+                  : "Previous: none (the built-in pages serve)"}
             </p>
             {web.source !== "slot" && web.reason && web.currentVersion && (
               <Alert title="Serving the built-in pages" tone="warn">

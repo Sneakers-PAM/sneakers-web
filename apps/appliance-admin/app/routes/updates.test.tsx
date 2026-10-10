@@ -597,6 +597,28 @@ describe("Updates", () => {
     expect(within(table).queryAllByRole("row")).toHaveLength(1);
   });
 
+  it("doesn't offer a pages revert the built-in pages would outrank, and says why", async () => {
+    const got = await upgrade.get();
+    vi.spyOn(upgrade, "get").mockResolvedValue({
+      ...got,
+      baseWeb: {
+        ...got.baseWeb!,
+        builtinVersion: "0.3.0",
+        canRevert: false,
+        currentVersion: "0.2.1",
+        previousVersion: "0.2.0",
+        runningVersion: "0.3.0",
+        source: "built-in",
+      },
+    });
+    await openPage();
+    const card = screen.getByTestId("card-web");
+    expect(within(card).queryByRole("button", { name: /^Revert pages/ })).not.toBeInTheDocument();
+    expect(
+      within(card).getByText(/Previous: 0\.2\.0, older than the built-in pages/),
+    ).toBeInTheDocument();
+  });
+
   it("shows a non-owner the state but no install actions", async () => {
     signInAs("bob");
     await openPage();
