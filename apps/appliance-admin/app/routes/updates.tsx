@@ -1367,7 +1367,6 @@ export default function Updates() {
               started(override.held.action, override.held.version, override.held.target)
             }
             target={override.held.target}
-            version={override.held.version}
           />
         )}
       </Dialog>
@@ -1431,7 +1430,7 @@ const UnitConfirm = ({
         ? {
             confirmLabel: "Install and restart the product",
             description: `Sneakers-PAM's services restart on ${version}, with no reboot; k0s keeps running. Sneakers-PAM is unavailable until they're back; the previous version stays in the other slot.`,
-            title: `Install product ${version}`,
+            title: "Install the product update",
             word: version,
           }
         : {
@@ -1446,7 +1445,7 @@ const UnitConfirm = ({
           ? {
               confirmLabel: "Switch the admin pages",
               description: `The :8443 admin pages switch to ${version} in place: no reboot and no restart, you stay signed in, and the product keeps serving on 443. An open page offers a reload.`,
-              title: `Apply admin pages ${version}`,
+              title: "Apply the admin pages update",
               word: version,
             }
           : {
@@ -1459,7 +1458,7 @@ const UnitConfirm = ({
           ? {
               confirmLabel: "Apply and reboot",
               description: `The appliance reboots into ${version}. Every session ends, yours included, and the box is unavailable until it's back; sign in again then.`,
-              title: `Apply ${version}`,
+              title: "Apply the update",
               word: version,
             }
           : {
@@ -1769,14 +1768,12 @@ const OverrideDialog = ({
   onCancel,
   onDone,
   target,
-  version,
 }: {
   action: Held["action"];
   elevation: Elevation;
   onCancel: () => void;
   onDone: () => void;
   target: UpdateTarget;
-  version: string;
 }) => {
   const { session } = useSession();
   const [typed, setTyped] = useState("");
@@ -1816,7 +1813,7 @@ const OverrideDialog = ({
       <DialogHeader>
         <DialogTitle>
           End {elevation.admin}&apos;s elevated shell and{" "}
-          {action === "apply" ? `apply ${version}` : "revert"}
+          {action === "apply" ? "apply the update" : "revert"}
         </DialogTitle>
         <DialogDescription>
           {elevation.admin}&apos;s root shell ({elevation.id}) ends at once, and the end is written

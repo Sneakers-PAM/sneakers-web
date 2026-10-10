@@ -40,6 +40,32 @@ describe("Updates: the three update units", () => {
     }
   });
 
+  it("opens each unit's apply dialog with no version in its title or any button", async () => {
+    applyMockScenario("staged");
+    applyMockScenario("web-staged");
+    applyMockScenario("product-staged");
+    const user = userEvent.setup();
+    await openPage();
+    const versionLike = /\d+\.\d+\.\d+|-g[0-9a-f]{7}/;
+    const cases: { region: string; title: string; word: string }[] = [
+      { region: "Base OS", title: "Apply the update", word: "0.2.0" },
+      { region: "Base Web", title: "Apply the admin pages update", word: "0.1.2" },
+      { region: "Product", title: "Install the product update", word: "0.2.0" },
+    ];
+    for (const { region, title, word } of cases) {
+      const unit = within(screen.getByRole("region", { name: region }));
+      await user.click(unit.getByRole("button", { name: "Apply update" }));
+      const dialog = within(await screen.findByRole("dialog"));
+      expect(dialog.getByRole("heading", { name: title })).toBeInTheDocument();
+      for (const button of dialog.getAllByRole("button")) {
+        expect(button.textContent).not.toMatch(versionLike);
+      }
+      // The field still names the exact version: it's what the admin types to confirm.
+      expect(dialog.getByLabelText(`Type ${word} to confirm`)).toBeInTheDocument();
+      await user.click(dialog.getByRole("button", { name: "Cancel" }));
+    }
+  });
+
   it("fetches, verifies, applies and reverts the Base Web with no reboot", async () => {
     const user = userEvent.setup();
     await openPage();

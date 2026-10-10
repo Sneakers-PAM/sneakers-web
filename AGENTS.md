@@ -198,8 +198,10 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   progress (`GetUpgrades.fetchProgress`, asked each second while it runs: the state, the bytes
   and percentage, the speed and the time left), the file panel once the file is in (Verify and
   stage), and Apply, Cancel staged and Revert: Apply (`ApplyUpdate{target}`) on each card's
-  "Apply update" button (no version in the label; the card shows it in its fields), after the
-  version is typed and with a fresh code; Revert to the previous
+  "Apply update" button (no version in the label; the card shows it in its fields) opens a
+  confirm dialog whose own title also carries no version ("Apply the update", "Apply the admin
+  pages update", "Install the product update"); the version still shows in the dialog's
+  description and in the field it's typed into, confirmed with a fresh code; Revert to the previous
   slot, which for the Base Web is the previous web slot or the built-in pages. A Base Web
   apply or revert needs no maintenance and shows no restart page; the card shows the pages it
   serves (`web slot a` or `built-in pages`) and, when the installed one doesn't load or fit,
