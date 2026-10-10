@@ -5,7 +5,8 @@ import { CenteredFrame, FrameTitle } from "#shell/gate/Frames";
 import { BOX_STATE_HEADER } from "#shell/root/boxState";
 
 const POLL_MS = 1000;
-const TIMEOUT_MS = 1500;
+/** One ask at a time, given 5 seconds: a shorter wait gave up on answers already on their way. */
+const TIMEOUT_MS = 5000;
 
 /** The words the appliance's box-state page uses, so the two read the same. */
 const WORDS: Record<string, [string, string]> = {
@@ -64,8 +65,9 @@ type Seen = string;
 /**
  * On the appliance an error screen first asks the box what it's doing. While the box starts,
  * updates or can't be reached, the page says so in the box-state page's words instead of a
- * generic error, asks every second, and reloads once the box runs and the page itself answers
- * (not with the box-state page). When the box runs, the real error shows.
+ * generic error, asks every second (one ask at a time, never while the tab is hidden), and
+ * reloads once the box runs and the page itself answers (not with the box-state page). When the
+ * box runs, the real error shows and it stops asking.
  */
 export const BoxWait = ({ children }: { children: ReactNode }) => {
   const [seen, setSeen] = useState<Seen>("checking");
@@ -73,40 +75,73 @@ export const BoxWait = ({ children }: { children: ReactNode }) => {
     let live = true;
     let waited = false;
     let reloading = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let busy = false;
+    // Each ask is scheduled once the one before it has answered, so asks never overlap; a
+    // hidden tab doesn't ask, and once the box runs (and the page is the real error) it stops.
+    const next = () => {
+      clearTimeout(timer);
+      timer = undefined;
+      if (live && !reloading && !document.hidden) timer = setTimeout(() => void tick(), POLL_MS);
+    };
     const tick = async () => {
+      if (busy) return;
+      busy = true;
+      try {
+        if (await check()) next();
+      } finally {
+        busy = false;
+      }
+    };
+    /** One look at the box; false once there's nothing more to wait for. */
+    const check = async (): Promise<boolean> => {
       let state: string;
       try {
         state = await readState();
       } catch {
+        if (!live) return false;
+        // A browser holds back a hidden tab's requests, so a failed ask then says nothing.
+        if (document.hidden) return true;
         waited = true;
-        if (live) setSeen("unreachable");
-        return;
+        setSeen("unreachable");
+        return true;
       }
-      if (!live) return;
+      if (!live) return false;
       if (state !== "running") {
         waited = true;
         setSeen(state || "starting");
-        return;
+        return true;
       }
       if (!waited) {
         setSeen("running");
-        return;
+        return false;
       }
       try {
         const page = await ask(globalThis.location.href, "HEAD");
         if (page.ok && !page.headers.get(BOX_STATE_HEADER) && !reloading) {
           reloading = true;
           globalThis.location.reload();
+          return false;
         }
       } catch {
         // Not back yet; the next tick asks again.
       }
+      return true;
     };
+    const onVisibility = () => {
+      if (document.hidden) {
+        clearTimeout(timer);
+        timer = undefined;
+      } else if (!busy && !reloading) {
+        void tick();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
     void tick();
-    const timer = setInterval(() => void tick(), POLL_MS);
     return () => {
       live = false;
-      clearInterval(timer);
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
   if (seen === "running") return <>{children}</>;
