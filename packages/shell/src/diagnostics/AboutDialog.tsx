@@ -8,10 +8,11 @@ import {
 } from "@sneakers-web/ui";
 import { useEffect, useState } from "react";
 
-import type { DiagnosticsData } from "#shell/diagnostics/report";
+import { type DiagnosticsData, productText } from "#shell/diagnostics/report";
 
 /** A component as the gateway answers it (or as the report keeps it). */
 interface ComponentLike {
+  commit?: null | string;
   dependencies?: null | readonly { name: string; state: string }[];
   name: string;
   status: string;
@@ -21,9 +22,13 @@ interface ComponentLike {
 import { loadDiagnostics } from "#shell/diagnostics/copy";
 import { CopyDiagnostics, DiagnosticsUrl } from "#shell/diagnostics/CopyDiagnostics";
 
+const buildOf = (c: ComponentLike): string => {
+  const version = c.version ?? "unknown";
+  return c.commit ? `${version} (${c.commit})` : version;
+};
+
 const versionOf = (c: ComponentLike): string => {
-  const head =
-    c.status === "OK" ? (c.version ?? "unknown") : c.status.toLowerCase().replace("_", " ");
+  const head = c.status === "OK" ? buildOf(c) : c.status.toLowerCase().replace("_", " ");
   const trouble = (c.dependencies ?? [])
     .filter((d) => d.state !== "OK")
     .map((d) => `${d.name} ${d.state.toLowerCase()}`);
@@ -42,8 +47,9 @@ const Section = ({ items, title }: { items: readonly ComponentLike[]; title: str
     <section className="flex flex-col gap-1">
       <h3 className="m-0 text-small font-bold">{title}</h3>
       <dl className="m-0">
-        {items.map((c) => (
-          <Row key={c.name} label={c.name} value={versionOf(c)} />
+        {items.map((c, index) => (
+          // One service can answer more than once (a connector per worker).
+          <Row key={`${c.name}-${index}`} label={c.name} value={versionOf(c)} />
         ))}
       </dl>
     </section>
@@ -69,11 +75,20 @@ const Body = ({ url }: { url: string }) => {
   return (
     <div className="flex flex-col gap-4">
       <dl className="m-0">
+        <Row label="Product" value={productText(g?.productVersion)} />
         <Row
           label="App"
           value={data ? `${data.app.name} ${data.app.version} (${data.app.commit})` : "unknown"}
         />
-        <Row label="Appliance" value={g?.appliance ?? "not appliance"} />
+        {g?.box ? (
+          <>
+            <Row label="Base OS" value={g.box.baseOS} />
+            <Row label="Base Web" value={g.box.baseWeb} />
+            <Row label="Box" value={g.box.fqdn} />
+          </>
+        ) : (
+          <Row label="Appliance" value={g?.appliance ?? "not appliance"} />
+        )}
         {g && (
           <Row
             label="Gateway"

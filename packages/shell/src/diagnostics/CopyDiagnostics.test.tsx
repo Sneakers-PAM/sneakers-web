@@ -10,6 +10,7 @@ const data: DiagnosticsData = {
   gateway: {
     actor: { id: "user-1", roles: ["user"], username: "morgan" },
     appliance: "v0.1.0",
+    box: null,
     gateway: {
       commit: "abc",
       dependencies: null,
@@ -18,6 +19,7 @@ const data: DiagnosticsData = {
       version: "v0.1.0",
     },
     generatedAt: "2026-10-05T12:00:00Z",
+    productVersion: null,
     publicUrl: "https://pam.example.org",
     services: [
       { commit: "def", dependencies: null, name: "vault", status: "OK", version: "v0.1.0" },
