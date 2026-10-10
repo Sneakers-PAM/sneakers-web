@@ -85,3 +85,17 @@ describe("shortName", () => {
     expect(shortName("built-in")).toBe("built-in");
   });
 });
+
+describe("a dated lab build with a rebuild number", () => {
+  it("reads 0.0.0-lab.20261010n4.r20261010141538-g6f08507 apart", () => {
+    const parsed = parseVersion("0.0.0-lab.20261010n4.r20261010141538-g6f08507");
+    expect(parsed).toMatchObject({
+      build: "n4",
+      builtAt: "2026-10-10T14:15:38Z",
+      channel: "lab",
+      commit: "6f08507",
+      line: "0.0.0-lab",
+    });
+    expect(shortName("0.0.0-lab.20261010n4.r20261010141538-g6f08507")).toBe("n4");
+  });
+});

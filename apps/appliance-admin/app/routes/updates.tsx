@@ -891,7 +891,7 @@ export default function Updates() {
                     size="lg"
                     variant="primary"
                   >
-                    {`Apply ${shortName(staged)}`}
+                    Apply update
                   </Button>
                 )}
                 {staged && (
@@ -971,7 +971,7 @@ export default function Updates() {
                       }
                       size="lg"
                     >
-                      {`Apply pages ${shortName(web.stagedVersion)}`}
+                      Apply update
                     </Button>
                   )}
                   {web.stagedVersion && (
@@ -1060,7 +1060,7 @@ export default function Updates() {
                       }
                       size="lg"
                     >
-                      {`Install product ${shortName(product.stagedVersion)}`}
+                      Apply update
                     </Button>
                   )}
                   {product.stagedVersion && (
