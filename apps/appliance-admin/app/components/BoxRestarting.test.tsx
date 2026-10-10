@@ -161,3 +161,45 @@ describe("BoxRestarting with an update's steps", () => {
     expect(onBack).not.toHaveBeenCalled();
   });
 });
+
+describe("BoxRestarting when the product failed to start", () => {
+  const failedPhase = {
+    failedPhase: "phase:identity",
+    failedReason:
+      "Starting sign-in, identity and the vault: sneakers/sneakers-vault-7c9 CrashLoopBackOff",
+    phase: "normal",
+    state: "failed",
+  };
+
+  it("stops waiting, says so with the phase and the reason, and names where to look", async () => {
+    vi.spyOn(status, "getPhase")
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValue({ ...failedPhase, upgradeProgress: checking });
+    vi.spyOn(signIn, "getSession").mockRejectedValue(signedOut());
+    const onBack = vi.fn();
+    render(<BoxRestarting onBack={onBack} pollMs={5} />);
+    expect(
+      await screen.findByRole("heading", { name: "Sneakers-PAM failed to start" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Starting sign-in, identity and the vault: sneakers/sneakers-vault-7c9 CrashLoopBackOff",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Status, Logs/)).toBeInTheDocument();
+    expect(screen.queryByText(/checks its health/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(onBack).not.toHaveBeenCalled();
+  });
+
+  it("says so while the box still answers on the old session, too", async () => {
+    vi.spyOn(status, "getPhase").mockResolvedValue(failedPhase);
+    vi.spyOn(signIn, "getSession").mockResolvedValue(session);
+    render(<BoxRestarting onBack={vi.fn()} pollMs={5} />);
+    expect(
+      await screen.findByRole("heading", { name: "Sneakers-PAM failed to start" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Waiting for the box to go down/)).not.toBeInTheDocument();
+  });
+});

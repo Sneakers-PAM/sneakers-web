@@ -10,6 +10,10 @@ const TIMEOUT_MS = 5000;
 
 /** The words the appliance's box-state page uses, so the two read the same. */
 const WORDS: Record<string, [string, string]> = {
+  failed: [
+    "Sneakers-PAM failed to start",
+    "The box's administrator can revert or reapply the update on the admin pages. This page reloads when it's back.",
+  ],
   maintenance: [
     "Sneakers-PAM is in maintenance",
     "It comes back when the maintenance is over. This page reloads when it's ready.",
@@ -64,7 +68,8 @@ type Seen = string;
 
 /**
  * On the appliance an error screen first asks the box what it's doing. While the box starts,
- * updates or can't be reached, the page says so in the box-state page's words instead of a
+ * updates, failed to start (no spinner then: it waits for the admin, not for time) or can't be
+ * reached, the page says so in the box-state page's words instead of a
  * generic error, asks every second (one ask at a time, never while the tab is hidden), and
  * reloads once the box runs and the page itself answers (not with the box-state page). When the
  * box runs, the real error shows and it stops asking.
@@ -160,7 +165,7 @@ export const BoxWait = ({ children }: { children: ReactNode }) => {
     <CenteredFrame>
       <div aria-live="polite" className="flex flex-col gap-4" role="status">
         <FrameTitle body={body} title={title} />
-        <Spinner />
+        {seen !== "failed" && <Spinner />}
       </div>
     </CenteredFrame>
   );

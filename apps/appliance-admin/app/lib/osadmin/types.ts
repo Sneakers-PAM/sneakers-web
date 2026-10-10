@@ -242,7 +242,14 @@ export interface FactoryReset {
 
 /** StatusService.GetPhase: "firstboot" until setup's Finish, then "normal". */
 export interface GetPhaseResponse {
+  /** A failed product's step, such as phase:identity, while state is "failed"; "" otherwise. */
+  failedPhase?: string;
+  /** Why it failed, "<the step's label>: <why>", while state is "failed"; "" otherwise. */
+  failedReason?: string;
   phase: string;
+  /** What the box is doing, as the product edge's box-state page says it: running, starting,
+   * rebooting, shutting-down, updating, maintenance or failed (the product failed to start). */
+  state?: string;
   /** An update's steps while one runs and for 15 minutes after, for the restart page before
    * anyone signs in: the steps' ids, labels and states only, with no version, detail or code. */
   upgradeProgress?: UpgradeProgress;
