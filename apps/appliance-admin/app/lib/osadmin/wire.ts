@@ -284,7 +284,10 @@ export const withFactoryReset = (
 ): { factoryReset: FactoryReset } => ({ factoryReset: factoryReset(w.factoryReset) });
 
 export const getPhase = (w: Wire<GetPhaseResponse>): GetPhaseResponse => ({
+  failedPhase: w.failedPhase ?? "",
+  failedReason: w.failedReason ?? "",
   phase: w.phase ?? "",
+  state: w.state ?? "",
   upgradeProgress: optional(w.upgradeProgress, upgradeProgress),
 });
 

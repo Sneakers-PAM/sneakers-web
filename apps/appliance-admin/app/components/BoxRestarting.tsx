@@ -11,7 +11,10 @@ export const RESTART_POLL_MS = 2000;
 /** After this long without the box back, the page says how to get past a changed certificate. */
 export const RESTART_SLOW_MS = 10 * 60_000;
 
-type Phase = "back" | "checking" | "down" | "failed" | "going";
+type Phase = "back" | "checking" | "down" | "failed" | "going" | "product-failed";
+
+/** The box state GetPhase says when the product failed to start (a phase failed or timed out). */
+const PRODUCT_FAILED = "failed";
 
 /** While the box is down, the reboot is the step it's on: the steps before it are done. */
 const rebootingNow = (progress: UpgradeProgress): UpgradeProgress => {
@@ -39,8 +42,10 @@ const rebootingNow = (progress: UpgradeProgress): UpgradeProgress => {
  * the sign-in page on a new TLS session. After an apply or a revert it lists the update's steps
  * from the public GetPhase: rebooting while the box is down, then checking health and marking
  * good once it answers, and it goes on only when they're done; a failed step stops it there,
- * with a Sign in button. It never leaves a dead page: after RESTART_SLOW_MS it offers a reload,
- * which is how the browser gets to check a certificate that changed.
+ * with a Sign in button. When GetPhase says the product failed to start, it stops there too,
+ * with the phase and the reason the box gives and where an admin can look. It never leaves a
+ * dead page: after RESTART_SLOW_MS it offers a reload, which is how the browser gets to check a
+ * certificate that changed.
  */
 export const BoxRestarting = ({
   children,
@@ -67,6 +72,7 @@ export const BoxRestarting = ({
 }) => {
   const [phase, setPhase] = useState<Phase>("going");
   const [answered, setProgress] = useState<UpgradeProgress>();
+  const [reason, setReason] = useState("");
   const progress = answered ?? initialProgress;
   const [slow, setSlow] = useState(false);
   const back = useRef(onBack);
@@ -83,12 +89,21 @@ export const BoxRestarting = ({
       if (busy || done) return;
       busy = true;
       let steps: undefined | UpgradeProgress;
+      let failed: string | undefined;
       void boxAnswer((answer) => {
         steps = answer.upgradeProgress;
+        if (answer.state === PRODUCT_FAILED) failed = answer.failedReason ?? "";
       })
         .then((answer) => {
           if (done) return;
           if (steps) setProgress(steps);
+          // The product failed to start: nothing more comes by waiting, so the page stops here.
+          if (failed !== undefined) {
+            done = true;
+            setReason(failed);
+            setPhase("product-failed");
+            return;
+          }
           if (answer === "down") {
             seenDown = true;
             setPhase("down");
@@ -121,20 +136,23 @@ export const BoxRestarting = ({
   }, [pollMs, slowMs, waitForDownMs]);
 
   const shown = progress && phase === "down" ? rebootingNow(progress) : progress;
+  const stopped = (["back", "failed", "product-failed"] as Phase[]).includes(phase);
   const heading =
     phase === "back"
       ? "The box is back"
-      : phase === "failed"
-        ? "The update didn't finish"
-        : phase === "checking"
-          ? "The box is checking the release"
-          : title;
+      : phase === "product-failed"
+        ? "Sneakers-PAM failed to start"
+        : phase === "failed"
+          ? "The update didn't finish"
+          : phase === "checking"
+            ? "The box is checking the release"
+            : title;
   return (
     <section aria-label="Restarting" className="flex flex-col gap-4">
       <Card>
         <div className="flex flex-col gap-3 p-5.5 text-small" role="status">
           <div className="flex items-center gap-3">
-            {phase !== "back" && phase !== "failed" && <Spinner />}
+            {!stopped && <Spinner />}
             <h2 className="m-0 text-body font-bold">{heading}</h2>
           </div>
           {children}
@@ -149,8 +167,11 @@ export const BoxRestarting = ({
               "It answers again. Every session ended with the restart, so sign in again."}
             {phase === "failed" &&
               "The box answers again, but a step failed. Every session ended with the restart: sign in to see Updates."}
+            {phase === "product-failed" &&
+              "The box answers, but the product didn't come up, so 443 shows the box-state page instead of a half-started product. Sign in to see what holds it: Status, Logs, and kubectl in the root shell show it, without changing anything."}
           </p>
-          {phase === "failed" && (
+          {phase === "product-failed" && reason && <p className="m-0 font-bold">{reason}</p>}
+          {(phase === "failed" || phase === "product-failed") && (
             <div>
               <Button onClick={() => back.current()} size="lg">
                 Sign in
@@ -159,7 +180,7 @@ export const BoxRestarting = ({
           )}
         </div>
       </Card>
-      {slow && phase !== "back" && phase !== "failed" && (
+      {slow && !stopped && (
         <Alert
           action={
             <Button onClick={goToSignIn} size="sm" variant="secondary">

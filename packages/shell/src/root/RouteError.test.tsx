@@ -59,6 +59,15 @@ describe("RouteError on the appliance", () => {
     await vi.waitFor(() => expect(reload).toHaveBeenCalledTimes(1), { timeout: 4000 });
   });
 
+  it("says the product failed to start, with no spinner, while the box is failed", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(boxState("failed")));
+    renderFailing(data("held", { status: 503 }));
+    expect(await screen.findByText("Sneakers-PAM failed to start")).toBeInTheDocument();
+    expect(screen.queryByText("Sneakers-PAM is starting")).not.toBeInTheDocument();
+    // eslint-disable-next-line testing-library/no-node-access -- the spinner is aria-hidden, with no role to query.
+    expect(document.querySelector(".animate-spin")).toBeNull();
+  });
+
   it("shows the real error when the box is running", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(boxState("running")));
     renderFailing(new Error("boom"));

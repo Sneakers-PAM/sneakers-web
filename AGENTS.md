@@ -271,7 +271,10 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   `GetPhase.upgradeProgress` (the steps alone): rebooting while the box is down, then checking
   health and marking good once :8443 answers, and it goes to sign-in only when they're done. A
   failed step stops it there ("The update didn't finish", the step marked failed) with a Sign in
-  button. Outside a stage, an update under way (the window's, say) or the last one that failed
+  button. So does a product that failed to start: when `GetPhase.state` is `failed` it says
+  "Sneakers-PAM failed to start", with no spinner, shows `GetPhase.failedReason` (the phase's
+  label and why) and names where to look (Status, Logs, and kubectl in the root shell, all read
+  only), with a Sign in button. Outside a stage, an update under way (the window's, say) or the last one that failed
   shows its steps in the "Update progress" card, and the page asks for them each second while one
   runs. A product install or revert answers only after the product's restart, so while its call
   is out the page asks each second too, and the card (and the "Installing" banner) opens as soon
@@ -782,8 +785,8 @@ nobody else can decide, the requester confirms the task once with their second f
   `Sneakers-Box-State` (the edge holding the product) reloads the tab into the box-state page,
   which comes back by itself. And on the appliance (the poller loaded) the root error screen asks
   `/_box/state` before it shows a crash or "can't reach the server" (`BoxWait`): while the box
-  isn't running, or doesn't answer, it says "Sneakers-PAM is starting" (updating, rebooting, can't
-  be reached) in the box-state page's words, asks every second (one ask at a time, each given 5
+  isn't running, or doesn't answer, it says "Sneakers-PAM is starting" (updating, rebooting,
+  failed to start, without a spinner, can't be reached) in the box-state page's words, asks every second (one ask at a time, each given 5
   seconds, none while the tab is hidden, and a failure while hidden doesn't count), and reloads once
   the box runs and the page answers without the box-state header. When the box runs, the real error
   shows and it stops asking.
