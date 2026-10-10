@@ -49,13 +49,13 @@ export const resetUnits = (): void => {
 /**
  * The "lab-names" scenario's Base OS patch offer: the longest real build and patch names a lab
  * box has shown (sneakers-appliance spec 7 issue, Updates cards overflow), so review and the
- * overflow check exercise the short-label function on the real thing, not a stand-in.
+ * overflow check exercise parseVersion on the real thing, not a stand-in.
  */
 export const setLabBaseOffer = (): void => {
   baseOsOffer = {
     fileName:
-      "sneakers-appliance-baseOS-patch-0.0.0-lab.20261009m1.r20261009215558-g79c3ceb-from-0.0.0-lab.20261009m.r20261009215048-g79c3ceb-amd64-LAB.bin",
-    version: "0.0.0-lab.20261009m1.r20261009215558-g79c3ceb",
+      "sneakers-appliance-baseOS-patch-0.0.0-lab.20261009m2.r20261010031325-g79c3ceb-from-0.0.0-lab.20261009m.r20261009215048-g79c3ceb-amd64-LAB.bin",
+    version: "0.0.0-lab.20261009m2.r20261010031325-g79c3ceb",
   };
 };
 

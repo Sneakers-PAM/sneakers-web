@@ -101,8 +101,8 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"], baseURL: `http://127.0.0.1:${APPLIANCE_REAL_PORT}` },
     },
     {
-      name: "appliance-updates-overflow",
-      testMatch: "appliance-updates-overflow.spec.ts",
+      name: "appliance-version-overflow",
+      testMatch: "appliance-version-overflow.spec.ts",
       use: { ...devices["Desktop Chrome"], baseURL: `http://127.0.0.1:${APPLIANCE_MOCK_PORT}` },
     },
   ],

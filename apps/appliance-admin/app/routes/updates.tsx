@@ -48,10 +48,9 @@ import { FetchProgressLine, fetchRunning } from "@/components/updates/FetchProgr
 import { FileDetails } from "@/components/updates/FileDetails";
 import { MirrorStatusCard } from "@/components/updates/MirrorStatusCard";
 import { offerKey, OfferList } from "@/components/updates/OfferList";
-import { withShortVersion } from "@/components/updates/shortLabel";
 import { UnitCard } from "@/components/updates/UnitCard";
 import { UpgradeSteps } from "@/components/UpgradeSteps";
-import { VersionChip } from "@/components/VersionChip";
+import { VersionFields } from "@/components/VersionFields";
 import { runAction } from "@/lib/osadmin/action";
 import { upgrade } from "@/lib/osadmin/client";
 import {
@@ -63,6 +62,7 @@ import {
   symbolOf,
 } from "@/lib/osadmin/errors";
 import { refusalMessage } from "@/lib/osadmin/refusal";
+import { shortName } from "@/lib/parseVersion";
 import { useSession } from "@/lib/useSession";
 
 /** An apply or revert the box refused because an elevated shell is open. */
@@ -162,11 +162,11 @@ const baseRange = ({
 
 const describePackage = (updatePackage: UpdatePackage): string => {
   if (updatePackage.target === PRODUCT)
-    return `product bundle ${updatePackage.version}, fits base ${baseRange(updatePackage)}`;
-  if (updatePackage.target === WEB) return `admin pages ${updatePackage.version}`;
+    return `product bundle ${shortName(updatePackage.version)}, fits base ${baseRange(updatePackage)}`;
+  if (updatePackage.target === WEB) return `admin pages ${shortName(updatePackage.version)}`;
   return updatePackage.kind === "patch"
-    ? `patch ${updatePackage.version} for ${updatePackage.bases.join(", ")}`
-    : `full release ${updatePackage.version}`;
+    ? `patch ${shortName(updatePackage.version)} for ${updatePackage.bases.map((base) => shortName(base)).join(", ")}`
+    : `full release ${shortName(updatePackage.version)}`;
 };
 
 const errorText = (error: unknown): string =>
@@ -243,19 +243,6 @@ const preferredKey = (offers: UnitOffer[]): string => {
   const offer = offers.find((o) => o.preferred) ?? offers[0];
   return offer ? offerKey(offer) : "";
 };
-
-/**
- * A button's label with its version shortened: the short label shows, the full text sits in the
- * tooltip, and the line fills the button's own width and ellipsizes there instead of wrapping
- * or pushing the button past its card. Pair it with a Button given `className="min-w-0 shrink"`
- * so the button can actually give up width to its card, rather than forcing it (shrink-0 by
- * default, so it fits any one word on its own line, not a build name beside one).
- */
-const ButtonVersion = ({ full, version }: { full: string; version: string }) => (
-  <span className="block max-w-full truncate" title={full}>
-    {withShortVersion(full, version)}
-  </span>
-);
 
 /** A confirm for an Apply or Revert of a unit. */
 interface Confirm {
@@ -691,8 +678,25 @@ export default function Updates() {
     shown.kind !== "verifying" &&
     shown.kind !== "refused" &&
     shown.kind !== "verified";
-  const cardCount = 1 + (web ? 1 : 0) + (product ? 1 : 0);
   const fetchProgress = data.fetchProgress;
+
+  /**
+   * The apply, revert or stage steps, shown inside the unit's own row while they run instead of
+   * in a banner above all three (a progress with no target, from before per-unit targeting,
+   * reads as the Base OS's own).
+   */
+  const progressBlock = (target: UpdateTarget) =>
+    showProgress && progress && (progress.target ?? BASE) === target ? (
+      <section
+        aria-label="Update progress"
+        className="rounded-md border border-border bg-sunken p-4"
+      >
+        <p className="m-0 font-bold">{progressTitle(progress)}</p>
+        <div className="pt-2">
+          <UpgradeSteps progress={progress} />
+        </div>
+      </section>
+    ) : null;
 
   /** The file panel, on the card its file belongs to. */
   const panel = (place: Place) =>
@@ -723,7 +727,6 @@ export default function Updates() {
     label: string,
     list: UnitOffer[],
     empty: string,
-    fetchLabel: (offer: UnitOffer) => string,
     legend?: string,
   ) => {
     if (offers.kind === "air-gapped")
@@ -739,6 +742,7 @@ export default function Updates() {
           offers={list}
           onPick={(key) => setPicked((current) => ({ ...current, [place]: key }))}
           picked={picked[place]}
+          runningVersion={data.runningVersion}
         />
         {isOwner && chosen && (
           <div>
@@ -747,7 +751,7 @@ export default function Updates() {
               onClick={() => fetchFile(chosen.fileName)}
               variant="secondary"
             >
-              <ButtonVersion full={fetchLabel(chosen)} version={chosen.version} />
+              {`Fetch ${shortName(chosen.version)}`}
             </Button>
           </div>
         )}
@@ -755,7 +759,11 @@ export default function Updates() {
     );
   };
 
-  const webBack = web ? web.previousVersion || `the built-in pages (${web.builtinVersion})` : "";
+  const webBack = web
+    ? web.previousVersion
+      ? shortName(web.previousVersion)
+      : `the built-in pages (${shortName(web.builtinVersion)})`
+    : "";
 
   return (
     <div className="flex flex-col gap-5 p-5.5">
@@ -814,16 +822,6 @@ export default function Updates() {
           </Alert>
         </section>
       )}
-      {showProgress && (
-        <section aria-label="Update progress">
-          <Card>
-            <CardHeader title={progressTitle(progress)} />
-            <div className="p-5.5 text-small">
-              <UpgradeSteps progress={progress} />
-            </div>
-          </Card>
-        </section>
-      )}
       {data.failedVersion && (
         <Alert title={`${data.failedVersion} failed to boot`} tone="danger">
           The appliance went back to the release it runs now.
@@ -836,16 +834,11 @@ export default function Updates() {
       )}
       {!isOwner && <Alert tone="info">Only an owner can install, apply or revert updates.</Alert>}
 
-      <div
-        className={
-          cardCount === 3
-            ? "grid grid-cols-1 gap-5 cards:grid-cols-3"
-            : cardCount === 2
-              ? "grid grid-cols-1 gap-5 cards:grid-cols-2"
-              : "grid grid-cols-1"
-        }
-        data-testid="unit-cards"
-      >
+      {/* The three units as their own full-width rows, never side by side: a unit's offers,
+          its buttons and its own progress all need the width, and a "Fetch" or "Apply" button
+          sharing a third of the page with two other units is what overflowed in the first
+          place. */}
+      <div className="flex flex-col gap-5" data-testid="unit-cards">
         <UnitCard
           accent="base"
           actions={
@@ -853,34 +846,31 @@ export default function Updates() {
               <>
                 {staged && (
                   <Button
-                    className="min-w-0 shrink"
                     onClick={() => setConfirm({ action: "apply", target: BASE, version: staged })}
                     size="lg"
                     variant="primary"
                   >
-                    <ButtonVersion full={`Apply ${staged}`} version={staged} />
+                    {`Apply ${shortName(staged)}`}
                   </Button>
                 )}
                 {staged && (
                   <Button
-                    className="min-w-0 shrink"
                     onClick={() => setConfirmDiscard({ target: BASE, version: staged })}
                     size="lg"
                     variant="secondary"
                   >
-                    <ButtonVersion full={`Cancel staged ${staged}`} version={staged} />
+                    {`Cancel staged ${shortName(staged)}`}
                   </Button>
                 )}
                 {revertTarget && (
                   <Button
-                    className="min-w-0 shrink"
                     onClick={() =>
                       setConfirm({ action: "revert", target: BASE, version: revertTarget })
                     }
                     size="lg"
                     variant="secondary"
                   >
-                    <ButtonVersion full={`Revert to ${revertTarget}`} version={revertTarget} />
+                    {`Revert to ${shortName(revertTarget)}`}
                   </Button>
                 )}
               </>
@@ -891,25 +881,22 @@ export default function Updates() {
           testId="card-base"
           title="Base OS"
         >
-          <p className="flex flex-wrap items-center gap-1.5 font-bold">
-            Running <VersionChip kind="running" version={data.runningVersion} /> in the active slot
-          </p>
+          <VersionFields label="Running" version={data.runningVersion} />
+          <p className="m-0 text-muted">In the active slot.</p>
           {staged ? (
-            <p className="flex flex-wrap items-center gap-1.5">
-              Other slot: staged <VersionChip kind="staged" version={staged} />
-            </p>
+            <VersionFields label="Staged" version={staged} />
           ) : revertTarget ? (
-            <p>Other slot: {revertTarget} (revert target)</p>
+            <p>{`Other slot: ${shortName(revertTarget)} (revert target)`}</p>
           ) : (
             <p>Other slot: empty</p>
           )}
           {data.baseOsNote && <Alert tone="warn">{data.baseOsNote}</Alert>}
+          {progressBlock(BASE)}
           {offerBlock(
             "baseOs",
             "Base OS versions",
             check?.baseOs ?? [],
             "No newer Base OS on the mirror.",
-            (o) => `Fetch ${o.version} ${o.kind}`,
           )}
           {fetchLine(BASE)}
           {panel("baseOs")}
@@ -931,34 +918,25 @@ export default function Updates() {
                 <>
                   {web.stagedVersion && (
                     <Button
-                      className="min-w-0 shrink"
                       onClick={() =>
                         setConfirm({ action: "apply", target: WEB, version: web.stagedVersion })
                       }
                       size="lg"
                     >
-                      <ButtonVersion
-                        full={`Apply pages ${web.stagedVersion}`}
-                        version={web.stagedVersion}
-                      />
+                      {`Apply pages ${shortName(web.stagedVersion)}`}
                     </Button>
                   )}
                   {web.stagedVersion && (
                     <Button
-                      className="min-w-0 shrink"
                       onClick={() => setConfirmDiscard({ target: WEB, version: web.stagedVersion })}
                       size="lg"
                       variant="secondary"
                     >
-                      <ButtonVersion
-                        full={`Cancel staged pages ${web.stagedVersion}`}
-                        version={web.stagedVersion}
-                      />
+                      {`Cancel staged pages ${shortName(web.stagedVersion)}`}
                     </Button>
                   )}
                   {web.canRevert && (
                     <Button
-                      className="min-w-0 shrink"
                       onClick={() =>
                         setConfirm({
                           action: "revert",
@@ -969,10 +947,7 @@ export default function Updates() {
                       size="lg"
                       variant="secondary"
                     >
-                      <ButtonVersion
-                        full={`Revert pages to ${web.previousVersion || "built-in"}`}
-                        version={web.previousVersion || "built-in"}
-                      />
+                      {`Revert pages to ${web.previousVersion ? shortName(web.previousVersion) : "built-in"}`}
                     </Button>
                   )}
                 </>
@@ -983,15 +958,11 @@ export default function Updates() {
             testId="card-web"
             title="Base Web"
           >
-            <p className="flex flex-wrap items-center gap-1.5 font-bold">
-              Running <VersionChip kind="running" version={web.runningVersion} />
-              {web.source === "slot" ? ` (web slot ${web.slot})` : " (built-in pages)"}
+            <VersionFields label="Running" version={web.runningVersion} />
+            <p className="m-0 text-muted">
+              {web.source === "slot" ? `Web slot ${web.slot}.` : "Serving the built-in pages."}
             </p>
-            {web.stagedVersion && (
-              <p className="flex flex-wrap items-center gap-1.5">
-                Staged <VersionChip kind="staged" version={web.stagedVersion} />
-              </p>
-            )}
+            {web.stagedVersion && <VersionFields label="Staged" version={web.stagedVersion} />}
             <p>
               {web.canRevert ? `Previous: ${webBack}` : "Previous: none (the built-in pages serve)"}
             </p>
@@ -1000,12 +971,12 @@ export default function Updates() {
                 {`Base Web ${web.currentVersion} isn't served: ${web.reason}`}
               </Alert>
             )}
+            {progressBlock(WEB)}
             {offerBlock(
               "baseWeb",
               "Base Web versions",
               check?.baseWeb ?? [],
               "No newer Base Web for this Base OS on the mirror.",
-              (o) => `Fetch pages ${o.version}`,
             )}
             {check?.baseWebWaits && (
               <p className="text-muted">{`${check.baseWebWaits} Install that Base OS first.`}</p>
@@ -1028,7 +999,6 @@ export default function Updates() {
                 <>
                   {product.stagedVersion && (
                     <Button
-                      className="min-w-0 shrink"
                       onClick={() =>
                         setConfirm({
                           action: "apply",
@@ -1038,30 +1008,22 @@ export default function Updates() {
                       }
                       size="lg"
                     >
-                      <ButtonVersion
-                        full={`Install product ${product.stagedVersion}`}
-                        version={product.stagedVersion}
-                      />
+                      {`Install product ${shortName(product.stagedVersion)}`}
                     </Button>
                   )}
                   {product.stagedVersion && (
                     <Button
-                      className="min-w-0 shrink"
                       onClick={() =>
                         setConfirmDiscard({ target: PRODUCT, version: product.stagedVersion ?? "" })
                       }
                       size="lg"
                       variant="secondary"
                     >
-                      <ButtonVersion
-                        full={`Cancel staged product ${product.stagedVersion}`}
-                        version={product.stagedVersion}
-                      />
+                      {`Cancel staged product ${shortName(product.stagedVersion)}`}
                     </Button>
                   )}
                   {product.previousVersion && (
                     <Button
-                      className="min-w-0 shrink"
                       onClick={() =>
                         setConfirm({
                           action: "revert",
@@ -1072,10 +1034,7 @@ export default function Updates() {
                       size="lg"
                       variant="secondary"
                     >
-                      <ButtonVersion
-                        full={`Revert product to ${product.previousVersion}`}
-                        version={product.previousVersion}
-                      />
+                      {`Revert product to ${shortName(product.previousVersion)}`}
                     </Button>
                   )}
                 </>
@@ -1087,23 +1046,28 @@ export default function Updates() {
             title="Product"
           >
             {product.installedVersion ? (
-              <p className="flex items-center gap-2 font-bold">
-                <span>Installed {product.installedVersion}</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <VersionFields label="Installed" version={product.installedVersion} />
                 <Badge tone={product.running ? "ok" : "warn"}>
                   {product.running ? "running" : "stopped"}
                 </Badge>
-              </p>
+              </div>
             ) : (
               <p className="font-bold">
                 Not installed yet. Sneakers-PAM starts once you install it here.
               </p>
             )}
-            <p>{product.stagedVersion ? `Staged ${product.stagedVersion}` : "Nothing staged"}</p>
+            {product.stagedVersion ? (
+              <VersionFields label="Staged" version={product.stagedVersion} />
+            ) : (
+              <p>Nothing staged</p>
+            )}
             <p>
               {product.previousVersion
-                ? `Previous ${product.previousVersion}`
+                ? `Previous ${shortName(product.previousVersion)}`
                 : "No previous version to go back to"}
             </p>
+            {progressBlock(PRODUCT)}
             {offers.kind === "air-gapped" ? (
               <p className="text-muted">
                 To install or upgrade the product, upload the product bundle&apos;s .bin under
@@ -1114,9 +1078,8 @@ export default function Updates() {
                 "product",
                 "Product versions",
                 check?.product ?? [],
-                `No newer product version fits base ${data.runningVersion} yet.`,
-                (o) => `Fetch ${o.version}`,
-                `Product versions that fit base ${data.runningVersion}`,
+                `No newer product version fits base ${shortName(data.runningVersion)} yet.`,
+                `Product versions that fit base ${shortName(data.runningVersion)}`,
               )
             )}
             {fetchLine(PRODUCT)}
@@ -1670,7 +1633,7 @@ const VerifiedPanel = ({
   ];
   return (
     <ResultPanel title="Verified" tone="ok">
-      <FileDetails fileName={fileName} />
+      <FileDetails fileName={fileName} size={updatePackage.size} />
       <dl className="m-0 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5">
         {rows.map(([label, value]) => (
           <div className="contents" key={label}>
