@@ -198,8 +198,10 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   progress (`GetUpgrades.fetchProgress`, asked each second while it runs: the state, the bytes
   and percentage, the speed and the time left), the file panel once the file is in (Verify and
   stage), and Apply, Cancel staged and Revert: Apply (`ApplyUpdate{target}`) on each card's
-  "Apply update" button (no version in the label; the card shows it in its fields), after the
-  version is typed and with a fresh code; Revert to the previous
+  "Apply update" button (no version in the label; the card shows it in its fields) opens a
+  confirm dialog whose own title also carries no version ("Apply the update", "Apply the admin
+  pages update", "Install the product update"); the version still shows in the dialog's
+  description and in the field it's typed into, confirmed with a fresh code; Revert to the previous
   slot, which for the Base Web is the previous web slot or the built-in pages. A Base Web
   apply or revert needs no maintenance and shows no restart page; the card shows the pages it
   serves (`web slot a` or `built-in pages`) and, when the installed one doesn't load or fit,
@@ -569,6 +571,12 @@ can't manage the folder gets no reorder column.
 Paths inside an app are base-free (`appPath("sign-in")` is `/sign-in` in both apps). React
 Router adds the `/admin/` basename to links and redirects; a redirect that leaves the app (single
 sign-on) uses an absolute URL.
+
+`requireUser`'s sign-in redirect (`session.server.ts`) keeps where the admin was going as `next`,
+but a background fetch to a resource route (the notifications badge's poll, diagnostics, display,
+step-up) that happens to find the session dead never becomes that `next`: `nextAfterSignIn` reads
+the fetch's own `Referer` for the real page it was made from, falling back to the app's start when
+there's no usable Referer or it's itself a resource route.
 
 ## Refusals and step-up
 
