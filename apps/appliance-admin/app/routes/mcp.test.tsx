@@ -108,4 +108,44 @@ describe("Mcp", () => {
     expect(screen.queryByText(/mcp/i)).not.toBeInTheDocument();
     expect(get).not.toHaveBeenCalled();
   });
+  it("shows MCP starting, with what the product waits for, until it's ready", async () => {
+    vi.spyOn(mcp, "get").mockResolvedValue({
+      detail: "Rolling out (13 of 14 ready): waiting for sneakers/sneakers-mcp",
+      machineApiEnabled: true,
+      mcpEnabled: true,
+      readiness: "starting",
+      state: "on",
+    });
+    renderPage(Mcp);
+    expect(await screen.findByText("Starting")).toBeInTheDocument();
+    expect(screen.getByText(/waiting for sneakers\/sneakers-mcp/)).toBeInTheDocument();
+    expect(screen.queryByText(/MCP is on: agents can reach/)).not.toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "MCP on" })).toBeChecked();
+  });
+
+  it("shows MCP failed, with why, while the switch stays on and can go off", async () => {
+    vi.spyOn(mcp, "get").mockResolvedValue({
+      detail: "MCP is on, but the product isn't ready with it after 1m30s: x",
+      machineApiEnabled: true,
+      mcpEnabled: true,
+      readiness: "failed",
+      state: "on",
+    });
+    renderPage(Mcp);
+    expect(await screen.findByText("Failed")).toBeInTheDocument();
+    expect(screen.getByText(/isn't ready with it after 1m30s/)).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "MCP on" })).toBeChecked();
+  });
+
+  it("shows MCP on only once the product is ready with it", async () => {
+    vi.spyOn(mcp, "get").mockResolvedValue({
+      machineApiEnabled: true,
+      mcpEnabled: true,
+      readiness: "ready",
+      state: "on",
+    });
+    renderPage(Mcp);
+    expect(await screen.findByText(/MCP is on: agents can reach/)).toBeInTheDocument();
+    expect(screen.getByText("On")).toBeInTheDocument();
+  });
 });

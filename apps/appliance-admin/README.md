@@ -26,6 +26,9 @@ again on each page change, so installing one from Updates shows its section on t
 The product's MCP page shows the MCP switch (and the machine API switch, when the product declares
 one) and sets them with a fresh code. While it's open it reads the switches again every 5 seconds
 (`MCP_POLL_MS`), so a switch made from the closed shell (`sneakers mcp on`) shows without a reload.
+With MCP on, the badge follows the box's `readiness`, not just the saved switch: Starting (with what
+the product still waits for), Failed (with why the last switch-on gave up) or On once the product is
+ready with it. The switch stays usable in every one of them.
 
 ## Email
 
