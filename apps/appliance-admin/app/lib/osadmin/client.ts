@@ -20,6 +20,7 @@ import type {
   GenerateRecoveryKeyResponse,
   GetBackupsResponse,
   GetCertificateStoreResponse,
+  GetEmailResponse,
   GetExposedValueResponse,
   GetImportResponse,
   GetMcpResponse,
@@ -55,6 +56,8 @@ import type {
   UpdateTrust,
   UpgradePolicy,
   RunImportStepRequest,
+  SendTestEmailRequest,
+  SetEmailRequest,
 } from "@/lib/osadmin/types";
 
 import * as wire from "@/lib/osadmin/wire";
@@ -345,6 +348,14 @@ export const mcp = {
   get: () => call<GetMcpResponse>("McpService", "GetMcp", {}, wire.getMcp),
   set: (mcpEnabled: boolean, machineApiEnabled: boolean) =>
     call<Record<string, never>>("McpService", "SetMcp", { machineApiEnabled, mcpEnabled }),
+};
+
+export const email = {
+  get: () => call<GetEmailResponse>("EmailService", "GetEmail", {}, wire.getEmail),
+  set: (request: SetEmailRequest) =>
+    call<Record<string, never>>("EmailService", "SetEmail", request),
+  test: (request: SendTestEmailRequest) =>
+    call<{ answer?: string }>("EmailService", "SendTestEmail", request),
 };
 
 export const importer = {

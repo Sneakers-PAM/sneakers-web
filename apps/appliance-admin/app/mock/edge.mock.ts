@@ -224,6 +224,20 @@ const invite = (admin: string) => {
 };
 let networkSettings = structuredClone(world.NETWORK_SETTINGS);
 const exposedValues = structuredClone(world.EXPOSED_VALUES);
+/** The product's mail relay (the Email page): none saved yet. */
+const NO_RELAY = {
+  caPem: "",
+  from: "",
+  host: "",
+  port: 587,
+  tls: "EMAIL_TLS_STARTTLS",
+  username: "",
+  verify: true,
+} as const;
+let emailSettings: Record<string, unknown> = { ...NO_RELAY };
+let emailPassword = "";
+/** The product's product.yaml declares an email section. */
+let emailDeclared = true;
 let mcpEnabled = true;
 /** The product's product.yaml declares an mcp switch. */
 let mcpSwitch = true;
@@ -509,6 +523,8 @@ const sessionOf = (admin: Admin): Session =>
 const STEP_UP_METHODS = new Set([
   "AccessService/AddAdmin",
   "AccessService/UnrevokeKey",
+  "EmailService/SendTestEmail",
+  "EmailService/SetEmail",
   "ImportService/CloseImport",
   "ImportService/OpenImport",
   "ImportService/RunImportStep",
@@ -1065,6 +1081,47 @@ const route = async (service: string, method: string, body: Record<string, unkno
     case "ElevationService/TerminateElevation": {
       const elevation = elevations.find((item) => item.id === body.id);
       if (elevation) elevation.state = "ended";
+      return {};
+    }
+    case "EmailService/GetEmail": {
+      if (!product.installedVersion) return { settings: { ...NO_RELAY }, state: "not installed" };
+      if (!emailDeclared) return { settings: { ...NO_RELAY }, state: "not in this product" };
+      return {
+        encrypted: emailSettings.tls !== "EMAIL_TLS_NONE" && emailSettings.verify === true,
+        label: "Password resets, one-time codes and notices",
+        passwordSet: emailPassword !== "",
+        settings: { ...emailSettings },
+        state: emailSettings.host ? "set" : "not set",
+      };
+    }
+    case "EmailService/SendTestEmail": {
+      const host = String(
+        (body.settings as Record<string, unknown> | undefined)?.host ?? emailSettings.host,
+      );
+      if (!host)
+        throw new OsadminError("invalid_argument", "EMAIL_INVALID (3901): no relay is set");
+      if (host === "unreachable.example.org")
+        throw new OsadminError(
+          "failed_precondition",
+          "EMAIL_SEND (3902): the relay unreachable.example.org:587 can't be reached: connection refused",
+        );
+      return { answer: "the relay took the message" };
+    }
+    case "EmailService/SetEmail": {
+      if (!product.installedVersion || !emailDeclared)
+        throw new OsadminError(
+          "failed_precondition",
+          "NOT_AVAILABLE (3703): the product reads no email settings",
+        );
+      const next = body.settings as Record<string, unknown>;
+      if (next.host && !/^[^@\s]+@[^@\s]+$/.test(String(next.from ?? "")))
+        throw new OsadminError(
+          "invalid_argument",
+          `EMAIL_INVALID (3901): the from address "${String(next.from ?? "")}" isn't a plain email address`,
+        );
+      emailSettings = { ...next };
+      if (typeof body.password === "string") emailPassword = body.password;
+      if (!next.username) emailPassword = "";
       return {};
     }
     case "ImportService/CloseImport": {
@@ -2034,6 +2091,7 @@ const MOCK_SCENARIOS = [
   "locked",
   "locked-until-unlocked",
   "manual",
+  "email-absent",
   "mcp-absent",
   "network-pending",
   "network-reverted",
@@ -2151,6 +2209,10 @@ export const applyMockScenario = (scenario: MockScenario): void => {
     case "elevated": {
       if (!elevations.some((item) => item.id === world.ACTIVE_ELEVATION.id))
         elevations.push(structuredClone(world.ACTIVE_ELEVATION));
+      break;
+    }
+    case "email-absent": {
+      emailDeclared = false;
       break;
     }
     case "failed": {
@@ -2408,6 +2470,9 @@ export const resetMockWorld = (): void => {
   setupDone = true;
   secureBootOn = true;
   factoryReset = undefined;
+  emailSettings = { ...NO_RELAY };
+  emailPassword = "";
+  emailDeclared = true;
   mcpEnabled = true;
   mcpSwitch = true;
   machineApiEnabled = false;

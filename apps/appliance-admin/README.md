@@ -16,10 +16,21 @@ npm run build -w @sneakers-web/appliance-admin   # the live build, in build/clie
 
 The nav's base sections (Appliance, Advanced, Power) hold the appliance's own pages, the same on
 every box. An installed product adds its own section, labelled with the name the box gives it
-(`GetUpgrades.product.name`, such as "Sneakers"), holding the product's pages (today MCP; the
+(`GetUpgrades.product.name`, such as "Sneakers"), holding the product's pages (today MCP, Email and Import; the
 list is `app/frame/productPages.tsx`). With no product installed the section isn't there, and a
 product page's address shows "Nothing here" without naming the page. The nav reads the product
 again on each page change, so installing one from Updates shows its section on the next page.
+
+## Email
+
+The product's Email page sets the mail relay the product sends through (`EmailService`): host,
+port, from address, TLS (None, STARTTLS or TLS), certificate verification, an optional relay CA
+(pasted or uploaded as PEM), and a username and password. The password is write-only: the page
+shows only whether one is saved, keeps it unless a new one is typed, and can clear it. A warning,
+"Mail and the relay password are sent unencrypted", shows whenever TLS or verification is off.
+Saving asks for a fresh code and applies the product again; **Send test email** sends one message
+through the settings on the page without saving them. A product that sends no mail gets no form.
+The mock's `email-absent` scenario shows that case.
 
 ## Certificates
 
