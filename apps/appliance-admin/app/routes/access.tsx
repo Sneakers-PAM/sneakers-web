@@ -45,6 +45,7 @@ import type {
   RevokedKey,
 } from "@/lib/osadmin/types";
 
+import { CopyIconButton } from "@/components/CopyIconButton";
 import { AccessSettingsCard } from "@/features/access/AccessSettingsCard";
 import { AccountCard } from "@/features/access/AccountCard";
 import { adminStatus } from "@/features/access/adminStatus";
@@ -211,14 +212,21 @@ export default function Access() {
                       <ul className="flex flex-col gap-1">
                         {admin.keys.map((key) => (
                           <li
-                            className="flex items-center gap-2 font-mono text-[0.8125rem]"
+                            className="flex items-center gap-1.5 text-[0.8125rem]"
                             key={key.fingerprint}
                           >
-                            <span className="min-w-0 truncate">
-                              {key.comment ? `${key.comment}: ` : ""}
-                              {key.fingerprint}
-                              {key.validBefore ? ` (until ${shortDate(key.validBefore)})` : ""}
+                            <span className="min-w-0 truncate" title={key.fingerprint}>
+                              {key.comment || key.type}
+                              {key.validBefore && (
+                                <span className="text-muted">
+                                  {` · until ${shortDate(key.validBefore)}`}
+                                </span>
+                              )}
                             </span>
+                            <CopyIconButton
+                              label={`Copy ${admin.name}'s ${key.comment || key.type} key fingerprint`}
+                              value={key.fingerprint}
+                            />
                             {(isOwner || self) && (
                               <Button
                                 onClick={() => removeKey(admin, key.fingerprint)}

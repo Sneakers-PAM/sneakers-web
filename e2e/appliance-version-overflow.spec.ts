@@ -9,6 +9,10 @@ import { expect, type Page, test } from "@playwright/test";
 // and app/mock/units.mock.ts) and checks that nothing scrolls sideways, no button wraps onto a
 // second line, and no page has a `<details>` left in it -- at a mobile width and three real
 // desktop widths, the smallest (1280) being under the 1440px sizing base.
+//
+// Access also used to need a sideways scroll of its own on the Admins table at every desktop
+// width, which hid the actions column behind the scrollbar; the three desktop widths below also
+// check that table doesn't need one, and that its actions stay in view without scrolling.
 
 const waitForReady = (page: Page, route: string) =>
   page.waitForFunction((path) => document.documentElement.dataset.appReady === path, route, {
@@ -101,5 +105,17 @@ for (const width of [390, 1280, 1440, 1920]) {
     ).toHaveCount(0);
 
     await check(page, "/access", "#main", `access-${String(width)}`);
+    if (width !== 390) {
+      const admins = page.getByRole("table", { name: "Admins" });
+      const overflowX = await admins.evaluate((table) => {
+        const wrapper = table.parentElement as HTMLElement;
+        return wrapper.scrollWidth - wrapper.clientWidth;
+      });
+      expect(
+        overflowX,
+        `the Admins table needs ${String(overflowX)}px of sideways scroll at ${String(width)}px`,
+      ).toBeLessThanOrEqual(0);
+      await expect(page.getByRole("button", { name: "Remove admin" }).first()).toBeInViewport();
+    }
   });
 }
