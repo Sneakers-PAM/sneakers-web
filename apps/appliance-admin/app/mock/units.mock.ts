@@ -112,6 +112,7 @@ const offer = (target: UpdateTarget, fields: Partial<UnitOffer>): UnitOffer => (
   bases: [],
   commit: "1a2b3c4",
   fileName: "",
+  includesBaseWeb: "",
   kind: "full",
   needs: "",
   note: "",
@@ -139,6 +140,7 @@ export const checkUpdates = (
             fileName:
               baseOsOffer?.fileName ??
               "sneakers-appliance-baseOS-patch-0.2.0-g1a2b3c4-from-0.1.0-amd64.bin",
+            includesBaseWeb: baseOsOffer?.version ?? "0.2.0",
             kind: "patch",
             note: web.current
               ? `After the reboot the box serves the built-in pages of 0.2.0 until a Base Web that fits it is installed (the installed Base Web ${web.current} needs Base OS 0.1.0 to before 0.2.0).`
@@ -149,6 +151,7 @@ export const checkUpdates = (
           }),
           offer("UPDATE_TARGET_BASE", {
             fileName: "sneakers-appliance-baseOS-0.2.0-g1a2b3c4-amd64.bin",
+            includesBaseWeb: "0.2.0",
             size: String(72 * MB),
             version: "0.2.0",
           }),

@@ -46,7 +46,7 @@ import { FetchProgressLine, fetchRunning } from "@/components/updates/FetchProgr
 import { FileDetails } from "@/components/updates/FileDetails";
 import { MirrorStatusCard } from "@/components/updates/MirrorStatusCard";
 import { offerKey, OfferList } from "@/components/updates/OfferList";
-import { withShortVersion } from "@/components/updates/shortLabel";
+import { shortLabel, withShortVersion } from "@/components/updates/shortLabel";
 import { UnitCard } from "@/components/updates/UnitCard";
 import { UpgradeSteps } from "@/components/UpgradeSteps";
 import { VersionChip } from "@/components/VersionChip";
@@ -869,9 +869,17 @@ export default function Updates() {
             Running <VersionChip kind="running" version={data.runningVersion} /> in the active slot
           </p>
           {staged ? (
-            <p className="flex flex-wrap items-center gap-1.5">
-              Other slot: staged <VersionChip kind="staged" version={staged} />
-            </p>
+            <>
+              <p className="flex flex-wrap items-center gap-1.5">
+                Other slot: staged <VersionChip kind="staged" version={staged} />
+              </p>
+              {data.stagedIncludesBaseWeb && (
+                <p className="text-muted" title={data.stagedIncludesBaseWeb}>
+                  Includes Base Web {shortLabel(data.stagedIncludesBaseWeb)}, which serves after the
+                  reboot unless the installed Base Web is newer.
+                </p>
+              )}
+            </>
           ) : revertTarget ? (
             <p>Other slot: {revertTarget} (revert target)</p>
           ) : (

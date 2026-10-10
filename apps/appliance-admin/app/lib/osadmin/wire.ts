@@ -675,6 +675,7 @@ const unitOffer = (w: Wire<UnitOffer>): UnitOffer => ({
   bases: texts(w.bases),
   commit: w.commit ?? "",
   fileName: w.fileName ?? "",
+  includesBaseWeb: w.includesBaseWeb ?? "",
   kind: word(w.kind),
   needs: w.needs ?? "",
   note: w.note ?? "",
@@ -831,6 +832,7 @@ export const getUpgrades = (w: Wire<GetUpgradesResponse>): GetUpgradesResponse =
   product: optional(w.product, productSlots),
   receiving: w.receiving ?? false,
   runningVersion: w.runningVersion ?? "",
+  stagedIncludesBaseWeb: w.stagedIncludesBaseWeb ?? "",
   stagedVersion: w.stagedVersion ?? "",
   upgradeProgress: optional(w.upgradeProgress, upgradeProgress),
 });

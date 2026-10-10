@@ -98,6 +98,23 @@ describe("Updates: the three update units", () => {
     ).toBeInTheDocument();
   });
 
+  it("names the Base Web each Base OS ships with, offered and staged", async () => {
+    await openPage();
+    const base = within(screen.getByRole("region", { name: "Base OS" }));
+    const offers = within(await base.findByRole("radiogroup", { name: "Base OS versions" }));
+    expect(offers.getAllByText("Includes Base Web 0.2.0")).toHaveLength(2);
+  });
+
+  it("names the Base Web a staged Base OS ships with", async () => {
+    applyMockScenario("staged");
+    await openPage();
+    expect(
+      await within(screen.getByRole("region", { name: "Base OS" })).findByText(
+        /Includes Base Web 0\.2\.0, which serves after the reboot/,
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("says before a Base OS apply which pages serve after the reboot", async () => {
     applyMockScenario("staged");
     applyMockScenario("web-installed");

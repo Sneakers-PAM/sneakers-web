@@ -859,6 +859,8 @@ export interface UnitOffer {
   commit: string;
   /** What FetchUpdate takes. */
   fileName: string;
+  /** The Base Web a Base OS release ships with; empty for one from before the rule. */
+  includesBaseWeb: string;
   kind: "full" | "patch";
   /** What the file needs of the Base OS, such as "0.3.0 to before 0.4.0". */
   needs: string;
@@ -962,6 +964,8 @@ export interface UpdatePackage {
   channel: string;
   /** A Base OS patch's full release, which the box takes when the patch doesn't apply. */
   fullBin?: string;
+  /** The Base Web a Base OS release ships with. */
+  includesBaseWeb?: string;
   /** upload, mirror or direct. */
   source?: string;
   kind: "full" | "patch";
@@ -1097,6 +1101,9 @@ export interface GetUpgradesResponse {
   /** For a staged Base OS whose built-in pages the installed Base Web doesn't fit: what the box
    * serves after the reboot. */
   baseOsNote: string;
+  /** The Base Web the staged Base OS ships with; empty with none staged, or for a release from
+   * before the rule. */
+  stagedIncludesBaseWeb: string;
 }
 
 /**

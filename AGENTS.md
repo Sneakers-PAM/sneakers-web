@@ -204,7 +204,9 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   serves (`web slot a` or `built-in pages`) and, when the installed one doesn't load or fit,
   why the built-in pages serve. A staged Base OS whose built-in pages the installed Base Web
   doesn't fit says so (`baseOsNote`), and a newer Base Web that needs a newer Base OS is named
-  (`baseWebWaits`). Below the cards, the **Update mirror** card: the source (the built-in list,
+  (`baseWebWaits`). A Base OS always ships with its own Base Web: each Base OS offer and a staged
+  Base OS say "Includes Base Web <version>" (`includesBaseWeb`, `stagedIncludesBaseWeb`), which
+  the box serves after the reboot unless the installed Base Web is newer. Below the cards, the **Update mirror** card: the source (the built-in list,
   a manual URL or upload only, `UpgradePolicy.source`), its status (`MirrorStatusCard`), the
   last check and what it listed, and Check now; then **Install an update**, upload only, for
   an air-gapped box: the uploaded file's panel stays there until it's verified, and then its
