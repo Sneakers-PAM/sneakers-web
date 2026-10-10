@@ -8,7 +8,15 @@ import {
 } from "@sneakers-web/ui";
 import { useEffect, useState } from "react";
 
-import { type DiagnosticsData, productText, shortCommit } from "#shell/diagnostics/report";
+import {
+  type DiagnosticsData,
+  featureText,
+  inUse,
+  isFeature,
+  NOT_CONFIGURED,
+  productText,
+  shortCommit,
+} from "#shell/diagnostics/report";
 
 /** A component as the gateway answers it (or as the report keeps it). */
 interface ComponentLike {
@@ -42,14 +50,30 @@ const Row = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
-const Section = ({ items, title }: { items: readonly ComponentLike[]; title: string }) =>
+/** A feature the owner switches: "off", or "on" with its build or trouble. */
+const featureOf = (c: ComponentLike): string =>
+  featureText(
+    c.status === NOT_CONFIGURED
+      ? { build: null, name: c.name, on: false }
+      : { build: versionOf(c), name: c.name, on: true },
+  );
+
+const Section = ({
+  items,
+  title,
+  value = versionOf,
+}: {
+  items: readonly ComponentLike[];
+  title: string;
+  value?: (c: ComponentLike) => string;
+}) =>
   items.length === 0 ? null : (
-    <section className="flex flex-col gap-1">
+    <section aria-label={title} className="flex flex-col gap-1">
       <h3 className="m-0 text-small font-bold">{title}</h3>
       <dl className="m-0">
         {items.map((c, index) => (
           // One service can answer more than once (a connector per worker).
-          <Row key={`${c.name}-${index}`} label={c.name} value={versionOf(c)} />
+          <Row key={`${c.name}-${index}`} label={c.name} value={value(c)} />
         ))}
       </dl>
     </section>
@@ -108,8 +132,13 @@ const Body = ({ url }: { url: string }) => {
       </dl>
       {g ? (
         <>
-          <Section items={g.services} title="Services" />
-          <Section items={g.thirdParty} title="Third party" />
+          <Section items={g.services.filter((c) => !isFeature(c))} title="Services" />
+          <Section
+            items={g.services.filter((c) => isFeature(c))}
+            title="Controllable features"
+            value={featureOf}
+          />
+          <Section items={g.thirdParty.filter((c) => inUse(c))} title="Third party" />
         </>
       ) : (
         <p className="m-0 text-[0.875rem] text-muted">

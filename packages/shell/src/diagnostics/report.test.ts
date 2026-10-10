@@ -27,6 +27,30 @@ const data: DiagnosticsData = {
 
 const at = new Date("2026-10-05T13:14:15Z");
 
+/** A report whose gateway names MCP with mcpStatus and three unused third-party parts. */
+const withFeatures = (mcpStatus: string) =>
+  buildReport({
+    data: {
+      ...data,
+      gateway: {
+        ...data.gateway!,
+        services: [
+          component("vault", "v0.1.0"),
+          component("mcp", mcpStatus === "OK" ? "v0.1.0" : null, mcpStatus),
+        ],
+        thirdParty: [
+          component("postgres", "17.11"),
+          component("hydra", null, "NOT_CONFIGURED"),
+          component("polis", null, "NOT_CONFIGURED"),
+          component("rabbitmq", null, "NOT_CONFIGURED"),
+        ],
+      },
+    },
+    now: at,
+    timeZone: "UTC",
+    url: "https://pam.example.org/",
+    userAgent: "UA",
+  });
 describe("buildReport", () => {
   it("names the product once and, on the appliance, the box", () => {
     const onBox: DiagnosticsData = {
@@ -173,6 +197,19 @@ describe("buildReport", () => {
     expect(text).toContain(
       "  vault: unavailable, v0.1.0 (abc1234); postgres ok 17.11, valkey down (timeout), audit degraded (refused, optional)",
     );
+  });
+
+  it("leaves out unused third-party components and shows MCP as a feature that is on or off", () => {
+    const off = withFeatures("NOT_CONFIGURED");
+    expect(off.json.thirdParty.map((c) => c.name)).toEqual(["postgres"]);
+    expect(off.json.services.map((c) => c.name)).toEqual(["vault"]);
+    expect(off.json.features).toEqual([{ build: null, name: "mcp", on: false }]);
+    expect(off.text).not.toMatch(/hydra|polis|rabbitmq|not configured/);
+    expect(off.text).toContain("Controllable features:\n  mcp: off\n");
+    const on = withFeatures("OK");
+    expect(on.json.features).toEqual([{ build: "v0.1.0 (abc1234)", name: "mcp", on: true }]);
+    expect(on.text).toContain("  mcp: on, v0.1.0 (abc1234)");
+    expect(withFeatures("UNAVAILABLE").text).toContain("  mcp: on, unavailable");
   });
 
   it("still reports the page and the app when the gateway can't be read", () => {

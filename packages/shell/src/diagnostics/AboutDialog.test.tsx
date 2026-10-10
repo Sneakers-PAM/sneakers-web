@@ -77,6 +77,33 @@ describe("AboutDialog", () => {
     expect(dialog).not.toHaveTextContent(full);
   });
 
+  it("lists only the third-party components in use, and MCP under the features with on or off", async () => {
+    renderAbout({
+      ...onBox,
+      gateway: {
+        ...onBox.gateway!,
+        services: [
+          component("identity", "0.1.0", "1d1d1d1"),
+          { ...component("mcp", "", ""), status: "NOT_CONFIGURED" as never, version: null },
+        ],
+        thirdParty: [
+          component("kubernetes", "v1.36.4+k0s", ""),
+          { ...component("hydra", "", ""), status: "NOT_CONFIGURED" as never, version: null },
+          { ...component("rabbitmq", "", ""), status: "NOT_CONFIGURED" as never, version: null },
+        ],
+      },
+    });
+    const dialog = await screen.findByRole("dialog", { name: "About and diagnostics" });
+    const features = await within(dialog).findByRole("region", { name: "Controllable features" });
+    expect(within(features).getByText("mcp")).toBeInTheDocument();
+    expect(within(features).getByText("off")).toBeInTheDocument();
+    const services = within(dialog).getByRole("region", { name: "Services" });
+    expect(within(services).queryByText("mcp")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("hydra")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("rabbitmq")).not.toBeInTheDocument();
+    expect(dialog).not.toHaveTextContent("not configured");
+  });
+
   it("says when it isn't an appliance and the product version isn't known", async () => {
     renderAbout({
       ...onBox,
