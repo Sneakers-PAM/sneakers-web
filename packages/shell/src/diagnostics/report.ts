@@ -132,6 +132,10 @@ const localTime = (now: Date, timeZone: string): string => {
   }
 };
 
+/** A git commit as a person reads it: the first 7 characters of a hash, anything else as it is. */
+export const shortCommit = (commit: string): string =>
+  /^[0-9a-f]{8,64}$/i.test(commit) ? commit.slice(0, 7) : commit;
+
 const dependency = (d: RawDependency): DependencyEntry => {
   const out: DependencyEntry = { name: scrub(d.name), required: d.required, state: scrub(d.state) };
   if (d.error) out.error = scrub(d.error);
@@ -142,7 +146,7 @@ const dependency = (d: RawDependency): DependencyEntry => {
 const entry = (c: null | RawComponent | undefined): ComponentEntry | null => {
   if (!c) return null;
   const out: ComponentEntry = {
-    commit: c.commit ? scrub(c.commit) : null,
+    commit: c.commit ? shortCommit(scrub(c.commit)) : null,
     name: scrub(c.name),
     status: scrub(c.status),
     version: c.version ? scrub(c.version) : null,
@@ -198,7 +202,7 @@ export const buildReport = (input: ReportInput): { json: DiagnosticsReport; text
   const g = input.data?.gateway ?? null;
   const json: DiagnosticsReport = {
     app: {
-      commit: scrub(input.data?.app.commit ?? "unknown"),
+      commit: shortCommit(scrub(input.data?.app.commit ?? "unknown")),
       name: scrub(input.data?.app.name ?? "unknown"),
       version: scrub(input.data?.app.version ?? "unknown"),
     },

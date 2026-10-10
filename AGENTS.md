@@ -660,8 +660,9 @@ graphql.ts`, re-exported from `@sneakers-web/mock-gateway`), which resets to a p
   top ("Product: Sneakers <version>", from the gateway's `productVersion`), this app's build, on
   the appliance the box (Base OS, Base Web and FQDN, from `box`; "not appliance" off it), each
   service under its short name with its own version and commit (one `connector` row per worker),
-  the third-party versions, and the copy button. The copied report carries the same (`product`
-  and `box` in the JSON).
+  the third-party versions, and the copy button. Every commit shows as its short form, the first 7
+  characters (`shortCommit`), in the dialog and in the copied report, its JSON included. The
+  copied report carries the same (`product` and `box` in the JSON).
 - The mock gateway answers `diagnostics` with `mock-` versions.
 - An app with no `resources/diagnostics` gives its own copier through `DiagnosticsCopierProvider`;
   every `CopyDiagnostics` below it, the crash, offline and not-found screens included, calls it

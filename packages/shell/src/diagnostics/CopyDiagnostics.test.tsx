@@ -51,7 +51,7 @@ describe("CopyDiagnostics", () => {
     expect(fetch).toHaveBeenCalledWith("/resources/diagnostics", expect.anything());
     expect(text).toContain("CHECKOUT_LEASE_HELD");
     expect(text).toContain("trace t-9");
-    expect(text).toContain("App: staff 0.4.0 (f00dfeed)");
+    expect(text).toContain("App: staff 0.4.0 (f00dfee)");
     expect(text).toContain("User: morgan (user-1)");
     expect(text).toContain("vault: v0.1.0");
     expect(text).not.toContain("SID-SECRET");
