@@ -112,9 +112,6 @@
   --breakpoint-tablet: 600px;
   --breakpoint-desktop: 1024px;
   --breakpoint-wide: 1440px;
-  /* A row of cards (Updates: Base OS, Base Web, Product) needs more room than the desktop
-     breakpoint gives it before they sit side by side; below this they stack to one column. */
-  --breakpoint-cards: 1100px;
 }
 
 @layer base {
