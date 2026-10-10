@@ -683,6 +683,47 @@ export interface GetMcpResponse {
   state: string;
 }
 
+// ---- email ----
+
+/** How the connection to the product's mail relay is protected. */
+export type EmailTls =
+  "EMAIL_TLS_IMPLICIT" | "EMAIL_TLS_NONE" | "EMAIL_TLS_STARTTLS" | "EMAIL_TLS_UNSPECIFIED";
+
+/** The product's mail relay, without its password, which the box never sends back. */
+export interface EmailSettings {
+  caPem: string;
+  from: string;
+  /** Empty for no relay: the product sends no mail. */
+  host: string;
+  port: number;
+  tls: EmailTls;
+  username: string;
+  verify: boolean;
+}
+
+export interface GetEmailResponse {
+  /** False while TLS or certificate verification is off. */
+  encrypted: boolean;
+  label: string;
+  passwordSet: boolean;
+  settings: EmailSettings;
+  /** "not installed", "not in this product", "not set" or "set". */
+  state: string;
+}
+
+export interface SetEmailRequest {
+  elevationOverride?: ElevationOverride;
+  /** Absent keeps the saved password; empty clears it. */
+  password?: string;
+  settings: EmailSettings;
+}
+
+export interface SendTestEmailRequest {
+  password?: string;
+  settings?: EmailSettings;
+  to: string;
+}
+
 // ---- import ----
 
 /** One file of the open import: bundle, mapping, sheet or types. */

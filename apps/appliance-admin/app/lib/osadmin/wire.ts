@@ -5,6 +5,8 @@
 // guard a list or a string. `Wire<T>` is the answer as sent, with every field optional at every
 // depth; returning `T` from it makes the compiler name any required field left without a default.
 import type {
+  EmailSettings,
+  GetEmailResponse,
   GetImportResponse,
   ImportRun,
   AccessPolicy,
@@ -562,6 +564,26 @@ export const getExposedValue = (w: Wire<GetExposedValueResponse>): GetExposedVal
 export const getMcp = (w: Wire<GetMcpResponse>): GetMcpResponse => ({
   machineApiEnabled: w.machineApiEnabled ?? false,
   mcpEnabled: w.mcpEnabled ?? false,
+  state: w.state ?? "",
+});
+
+// ---- email ----
+
+const emailSettings = (w: Wire<EmailSettings> | undefined): EmailSettings => ({
+  caPem: w?.caPem ?? "",
+  from: w?.from ?? "",
+  host: w?.host ?? "",
+  port: w?.port ?? 0,
+  tls: w?.tls ?? "EMAIL_TLS_UNSPECIFIED",
+  username: w?.username ?? "",
+  verify: w?.verify ?? false,
+});
+
+export const getEmail = (w: Wire<GetEmailResponse>): GetEmailResponse => ({
+  encrypted: w.encrypted ?? false,
+  label: w.label ?? "",
+  passwordSet: w.passwordSet ?? false,
+  settings: emailSettings(w.settings),
   state: w.state ?? "",
 });
 
