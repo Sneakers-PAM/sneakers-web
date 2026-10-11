@@ -329,6 +329,13 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   `app/components/ResetCountdown.tsx` shows the 10-minute countdown with the one big Cancel any
   admin may press, on Power and on Status. Both pages re-read every 5 seconds while a reset is in
   progress.
+- **Removing the product (`app/components/ProductResetNote.tsx`).** The product reset is the
+  closed shell's `sneakers reset` over SSH only (an owner, with a new authenticator code;
+  sneakers-appliance docs/upgrades.md "Removing the product"), so :8443 has no button for it and
+  only says what it does and the command to run: on the Updates page's Product card while a
+  product is installed, and on Power beside the factory reset (the way to an empty product on a
+  single-admin box). After a reset the Product card shows "Not installed yet" with the kept
+  bundle staged, and Apply installs it again.
 - **MCP (`app/routes/mcp.tsx`, under the product's nav section).** `GetMcp.state` is one of
   osadmin's words, each shown as a badge and one sentence: `on` and `off` show the MCP and
   machine API switches (`SetMcp`, step-up; the box restarts the product's MCP stacks), and

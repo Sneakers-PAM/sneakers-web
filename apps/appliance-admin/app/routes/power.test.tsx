@@ -92,6 +92,11 @@ describe("Power", () => {
       ).toBeInTheDocument();
       expect(within(section).getByText(/delete and re-create, or re-flash/)).toBeInTheDocument();
       expect(
+        within(within(section).getByRole("note", { name: "Removing the product" })).getByText(
+          "sneakers reset",
+        ),
+      ).toBeInTheDocument();
+      expect(
         within(section).queryByRole("button", { name: "Request factory reset" }),
       ).not.toBeInTheDocument();
     });
@@ -127,6 +132,15 @@ describe("Power", () => {
       applyMockScenario("reset-pending");
       await expect(power.approveFactoryReset("R-MOCK01")).rejects.toThrow(OsadminError);
       await expect(power.approveFactoryReset("R-MOCK01")).rejects.toThrow(/RESET_APPROVED/);
+    });
+
+    it("points to the product reset, which keeps the box", async () => {
+      await openPage();
+      const note = within(
+        within(resetSection()).getByRole("note", { name: "Removing the product" }),
+      );
+      expect(note.getByText("sneakers reset")).toBeInTheDocument();
+      expect(note.getByText(/over SSH/)).toBeInTheDocument();
     });
 
     it("tells an admin they can't request one, only approve or cancel", async () => {
