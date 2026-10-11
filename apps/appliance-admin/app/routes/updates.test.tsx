@@ -642,6 +642,25 @@ describe("Updates", () => {
       expect(product.getByText("running")).toBeInTheDocument();
     });
 
+    it("says how to remove the installed product over SSH, with no button for it", async () => {
+      applyMockScenario("product-staged");
+      await openPage();
+      const product = within(screen.getByRole("region", { name: "Product" }));
+      const note = within(product.getByRole("note", { name: "Removing the product" }));
+      expect(note.getByText("sneakers reset")).toBeInTheDocument();
+      expect(note.getByText(/new authenticator code/)).toBeInTheDocument();
+      expect(note.getByText(/keeps the box's admins, keys, certificates/)).toBeInTheDocument();
+      expect(note.getByText(/Apply here installs it again/)).toBeInTheDocument();
+      expect(product.queryByRole("button", { name: /remove|reset/i })).not.toBeInTheDocument();
+    });
+
+    it("doesn't offer the removal with no product installed", async () => {
+      applyMockScenario("no-product");
+      await openPage();
+      const product = within(screen.getByRole("region", { name: "Product" }));
+      expect(product.queryByRole("note", { name: "Removing the product" })).not.toBeInTheDocument();
+    });
+
     it("lists only the product versions that fit this base, newest first", async () => {
       await openPage();
       const versions = within(await screen.findByRole("radiogroup", { name: "Product versions" }));

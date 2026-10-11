@@ -34,6 +34,7 @@ import type {
   SessionKind,
 } from "@/lib/osadmin/types";
 
+import { ProductResetNote } from "@/components/ProductResetNote";
 import { ResetCountdown } from "@/components/ResetCountdown";
 import { runAction } from "@/lib/osadmin/action";
 import { power, status } from "@/lib/osadmin/client";
@@ -260,6 +261,7 @@ const FactoryResetSection = ({
           With a single admin there&apos;s no factory reset in place: delete and re-create, or
           re-flash, the appliance instead.
         </p>
+        <ProductResetNote />
       </>
     );
   }
@@ -283,6 +285,7 @@ const RequestReset = ({
           Only an owner can request a factory reset. Any admin on the quorum roster can approve one,
           and any admin can cancel it.
         </p>
+        <ProductResetNote />
       </>
     );
   }
@@ -293,6 +296,7 @@ const RequestReset = ({
         The quorum of admins on the roster must approve it, then it waits 10 minutes, during which
         any admin can cancel it.
       </p>
+      <ProductResetNote />
       <Field label={`Type ${hostname} to confirm`}>
         <Input onChange={(event) => setTyped(event.target.value)} value={typed} />
       </Field>

@@ -44,6 +44,7 @@ import type {
 
 import { BoxRestarting } from "@/components/BoxRestarting";
 import { NotAvailable } from "@/components/NotAvailable";
+import { ProductResetNote } from "@/components/ProductResetNote";
 import { FetchProgressLine, fetchRunning } from "@/components/updates/FetchProgressLine";
 import { FileDetails } from "@/components/updates/FileDetails";
 import { MirrorStatusCard } from "@/components/updates/MirrorStatusCard";
@@ -1141,6 +1142,7 @@ export default function Updates() {
                 {`Needs Base OS ${product.requiresBaseOs} (running ${data.runningVersion}: ${product.fits ? "fits" : "doesn't fit"})`}
               </p>
             )}
+            {product.installedVersion && <ProductResetNote onUpdates />}
           </UnitCard>
         )}
       </div>
