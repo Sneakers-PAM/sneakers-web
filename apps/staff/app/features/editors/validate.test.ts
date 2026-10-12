@@ -172,4 +172,20 @@ describe("checking a secret against its type", () => {
       }).fields.passphrase?.message,
     ).toBe("This key is encrypted. Enter its passphrase.");
   });
+
+  it("refuses a select value that isn't one of its options, naming the allowed ones", () => {
+    const base = { host: "h", password: "Aa1!aaaaaaaaaaaa" };
+    expect(
+      formProblems(draft({ ...base, engine: "postgres" }), database, [strong], { editing: true })
+        .fields.engine,
+    ).toEqual({
+      message: "Not one of the allowed values: PostgreSQL, MySQL. Pick one.",
+      summary: "Engine isn't one of the allowed values",
+    });
+    for (const engine of ["PostgreSQL", ""])
+      expect(
+        formProblems(draft({ ...base, engine }), database, [strong], { editing: true }).fields
+          .engine,
+      ).toBeUndefined();
+  });
 });
