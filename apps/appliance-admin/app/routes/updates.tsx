@@ -250,6 +250,8 @@ const preferredKey = (offers: UnitOffer[]): string => {
 /** A confirm for an Apply or Revert of a unit. */
 interface Confirm {
   action: "apply" | "revert";
+  /** A product apply of the installed version itself: a reinstall, which keeps the data. */
+  reinstall?: boolean;
   target: UpdateTarget;
   /** The version the update goes to: the staged one, or the one a revert goes back to. */
   version: string;
@@ -1055,13 +1057,16 @@ export default function Updates() {
                       onClick={() =>
                         setConfirm({
                           action: "apply",
+                          reinstall: product.stagedVersion === product.installedVersion,
                           target: PRODUCT,
                           version: product.stagedVersion ?? "",
                         })
                       }
                       size="lg"
                     >
-                      Apply update
+                      {product.stagedVersion === product.installedVersion
+                        ? "Apply the reinstall"
+                        : "Apply update"}
                     </Button>
                   )}
                   {product.stagedVersion && (
@@ -1135,6 +1140,26 @@ export default function Updates() {
                 `Product versions that fit base ${shortName(data.runningVersion)}`,
               )
             )}
+            {isOwner &&
+              check?.productReinstall &&
+              product.installedVersion === check.productReinstall.version &&
+              product.stagedVersion !== product.installedVersion && (
+                <div className="flex flex-col gap-2">
+                  <p className="text-muted">
+                    The installed version, again from a fresh copy of its bundle: the product keeps
+                    its data, for a broken install or a damaged slot.
+                  </p>
+                  <div>
+                    <Button
+                      disabled={locked}
+                      onClick={() => fetchFile(check.productReinstall?.fileName ?? "")}
+                      variant="secondary"
+                    >
+                      {`Reinstall ${shortName(check.productReinstall.version)}`}
+                    </Button>
+                  </div>
+                </div>
+              )}
             {fetchLine(PRODUCT)}
             {panel("product")}
             {product.requiresBaseOs && (
@@ -1425,23 +1450,30 @@ const UnitConfirm = ({
     refuse: (text: string) => void,
   ) => Promise<void>;
 }) => {
-  const { action, target, version } = confirm;
+  const { action, reinstall, target, version } = confirm;
   const words: { confirmLabel: string; description: string; title: string; word: string } =
     target === PRODUCT
-      ? action === "apply"
+      ? action === "apply" && reinstall
         ? {
-            confirmLabel: "Install and restart the product",
-            description: `Sneakers-PAM's services restart on ${version}, with no reboot; k0s keeps running. Sneakers-PAM is unavailable until they're back; the previous version stays in the other slot.`,
-            title: "Install the product update",
+            confirmLabel: "Reinstall and restart the product",
+            description: `Sneakers-PAM ${version} is installed again from the fresh copy and keeps its data. Its services restart with no reboot and come up phase by phase; the copy it replaces stays in the other slot for a revert.`,
+            title: `Reinstall the product ${version}`,
             word: version,
           }
-        : {
-            confirmLabel: "Revert the product",
-            description:
-              "The product services restart on the previous slot's version. The box doesn't reboot.",
-            title: `Revert the product to ${version}`,
-            word: version,
-          }
+        : action === "apply"
+          ? {
+              confirmLabel: "Install and restart the product",
+              description: `Sneakers-PAM's services restart on ${version}, with no reboot; k0s keeps running. Sneakers-PAM is unavailable until they're back; the previous version stays in the other slot.`,
+              title: "Install the product update",
+              word: version,
+            }
+          : {
+              confirmLabel: "Revert the product",
+              description:
+                "The product services restart on the previous slot's version. The box doesn't reboot.",
+              title: `Revert the product to ${version}`,
+              word: version,
+            }
       : target === WEB
         ? action === "apply"
           ? {

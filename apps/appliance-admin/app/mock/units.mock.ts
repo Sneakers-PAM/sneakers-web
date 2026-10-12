@@ -108,7 +108,7 @@ export const unstageWeb = (): string => {
 export const webInstalled = (): boolean => !!web.current;
 export const webStaged = (): string => web.staged;
 
-const offer = (target: UpdateTarget, fields: Partial<UnitOffer>): UnitOffer => ({
+export const offer = (target: UpdateTarget, fields: Partial<UnitOffer>): UnitOffer => ({
   bases: [],
   commit: "1a2b3c4",
   fileName: "",
