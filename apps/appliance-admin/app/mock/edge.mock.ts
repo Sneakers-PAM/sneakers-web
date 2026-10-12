@@ -13,6 +13,7 @@ import type {
   Session,
   UpdatePackage,
   UpdateTarget,
+  UpgradeEvent,
   UpgradePolicy,
   UpgradeProgress,
   UpgradeStep,
@@ -575,7 +576,7 @@ const STEP_UP_METHODS = new Set([
 ]);
 
 const historyEntry = (
-  action: "apply" | "discard" | "fetch" | "revert" | "stage",
+  action: UpgradeEvent["action"],
   version: string,
   code = "",
   detail = "",
@@ -1775,7 +1776,13 @@ const route = async (service: string, method: string, body: Record<string, unkno
           "product installs",
           body.elevationOverride as ElevationOverride | undefined,
         );
-        historyEntry("apply", product.stagedVersion, "", detail, "UPDATE_TARGET_PRODUCT");
+        historyEntry(
+          product.stagedVersion === product.installedVersion ? "reinstall" : "apply",
+          product.stagedVersion,
+          "",
+          detail,
+          "UPDATE_TARGET_PRODUCT",
+        );
         restartProduct("apply", product.stagedVersion);
         product = {
           installedVersion: product.stagedVersion,
@@ -1824,9 +1831,27 @@ const route = async (service: string, method: string, body: Record<string, unkno
             : v.bases.includes(runningVersion)) &&
           (!product.installedVersion || newer(v.version, product.installedVersion)),
       );
-      return sourceOf() === "builtin"
-        ? units.checkUpdates(runningVersion, products, "direct", BUILTIN_URLS[0] ?? "")
-        : units.checkUpdates(runningVersion, products, "mirror", upgradePolicy.mirrorUrl);
+      const checked =
+        sourceOf() === "builtin"
+          ? units.checkUpdates(runningVersion, products, "direct", BUILTIN_URLS[0] ?? "")
+          : units.checkUpdates(runningVersion, products, "mirror", upgradePolicy.mirrorUrl);
+      // As on the box: the installed version itself is offered apart, to reinstall.
+      const same = world.PRODUCT_VERSIONS.find(
+        (v) =>
+          product.installedVersion !== "" &&
+          v.version === product.installedVersion &&
+          (v.minBase
+            ? inRange(runningVersion, v.minBase, v.maxBase)
+            : v.bases.includes(runningVersion)),
+      );
+      if (same)
+        checked.productReinstall = units.offer("UPDATE_TARGET_PRODUCT", {
+          fileName: same.fileName,
+          note: "The installed version: a reinstall keeps the data and runs the same apply as an update.",
+          size: same.size,
+          version: same.version,
+        });
+      return checked;
     }
     case "UpgradeService/DiscardUpdate": {
       const uploadId = (body.uploadId as string | undefined) ?? "";

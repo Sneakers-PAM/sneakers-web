@@ -983,6 +983,8 @@ export interface CheckUpdatesResponse {
   checkedAt?: string;
   indexFormat: number;
   product: UnitOffer[];
+  /** The installed product version itself, when the source has it: a reinstall keeps the data. */
+  productReinstall?: UnitOffer;
   /** mirror, builtin or direct, and its address. */
   source: string;
   url: string;
@@ -1121,7 +1123,8 @@ export interface UpgradeProgress {
 }
 
 export interface UpgradeEvent {
-  action: "apply" | "discard" | "fetch" | "revert" | "stage";
+  /** reinstall is an apply of the installed product version; reset removed the product. */
+  action: "apply" | "discard" | "fetch" | "reinstall" | "reset" | "revert" | "stage";
   actor: string;
   code: string;
   detail: string;

@@ -752,6 +752,7 @@ export const checkUpdates = (w: Wire<CheckUpdatesResponse>): CheckUpdatesRespons
   baseWebWaits: w.baseWebWaits ?? "",
   indexFormat: w.indexFormat ?? 0,
   product: list(w.product, unitOffer),
+  productReinstall: w.productReinstall ? unitOffer(w.productReinstall) : undefined,
   source: w.source ?? "",
   url: w.url ?? "",
 });

@@ -336,6 +336,11 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   product is installed, and on Power beside the factory reset (the way to an empty product on a
   single-admin box). After a reset the Product card shows "Not installed yet" with the kept
   bundle staged, and Apply installs it again.
+- **Reinstalling the product (`app/routes/updates.tsx`).** When `CheckUpdates.productReinstall`
+  names the installed version, an owner gets "Reinstall <version>" on the Product card: the usual
+  fetch, verify and stage, then "Apply the reinstall", whose dialog says the product keeps its
+  data. The box audits it as `product.reinstall` and the history lists it as `reinstall`; the
+  closed shell's `sneakers reinstall` is the same over SSH.
 - **MCP (`app/routes/mcp.tsx`, under the product's nav section).** `GetMcp.state` is one of
   osadmin's words, each shown as a badge and one sentence: `on` and `off` show the MCP and
   machine API switches (`SetMcp`, step-up; the box restarts the product's MCP stacks), and

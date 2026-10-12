@@ -654,6 +654,41 @@ describe("Updates", () => {
       expect(product.queryByRole("button", { name: /remove|reset/i })).not.toBeInTheDocument();
     });
 
+    it("reinstalls the installed version: fetch, verify and stage it, then Reinstall", async () => {
+      const user = userEvent.setup();
+      await openPage();
+      const product = within(screen.getByRole("region", { name: "Product" }));
+      await user.click(await product.findByRole("button", { name: "Reinstall 0.1.0" }));
+      expect(await screen.findByText(/Fetched\. It hasn't been checked yet/)).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Verify and stage" }));
+      expect(
+        await product.findByText("0.1.0", { selector: "[data-version=staged]" }),
+      ).toBeInTheDocument();
+      expect(product.queryByRole("button", { name: "Reinstall 0.1.0" })).not.toBeInTheDocument();
+      await user.click(product.getByRole("button", { name: "Apply the reinstall" }));
+      const dialog = within(await screen.findByRole("dialog"));
+      expect(dialog.getByText(/keeps its data/)).toBeInTheDocument();
+      await user.type(dialog.getByLabelText("Type 0.1.0 to confirm"), "0.1.0");
+      await user.type(dialog.getByLabelText("Authenticator code"), "123456");
+      await user.click(dialog.getByRole("button", { name: /restart the product/ }));
+      await vi.waitFor(async () => {
+        const after = await upgrade.get();
+        expect(after.product).toMatchObject({
+          installedVersion: "0.1.0",
+          previousVersion: "0.1.0",
+        });
+        expect(after.history?.[0]).toMatchObject({ action: "reinstall", version: "0.1.0" });
+      });
+    });
+
+    it("doesn't offer a reinstall to an admin", async () => {
+      signInAs("bob");
+      await openPage();
+      const product = within(screen.getByRole("region", { name: "Product" }));
+      await screen.findByRole("radiogroup", { name: "Product versions" });
+      expect(product.queryByRole("button", { name: /Reinstall/ })).not.toBeInTheDocument();
+    });
+
     it("doesn't offer the removal with no product installed", async () => {
       applyMockScenario("no-product");
       await openPage();
