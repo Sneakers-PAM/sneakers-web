@@ -1,6 +1,6 @@
 import type { SessionEvents } from "@/features/targets/terminal/session";
 
-import { openSocket, sessionUrl } from "@/features/targets/terminal/socket";
+import { OPEN_TIMEOUT_MS, openSocket, sessionUrl } from "@/features/targets/terminal/socket";
 
 /** A stand-in for the browser's WebSocket that records what the page sends. */
 class FakeSocket {
@@ -111,6 +111,73 @@ describe("the live SSH socket", () => {
     FakeSocket.last!.open();
     FakeSocket.last!.shut(1000);
     expect(done.seen.closed).toEqual([{ kind: "ended" }]);
+  });
+
+  it("carries the broker's reason when a session fails to start", async () => {
+    const { handlers, seen } = events();
+    await openSocket(ticket, info, handlers);
+    FakeSocket.last!.shut(1011, "can't reach 192.0.2.10:22: connection timed out");
+    expect(seen.closed).toEqual([
+      { detail: "can't reach 192.0.2.10:22: connection timed out", kind: "failed", started: false },
+    ]);
+  });
+
+  it("gives up on a socket that never opens", async () => {
+    vi.useFakeTimers();
+    try {
+      const { handlers, seen } = events();
+      await openSocket(ticket, info, handlers);
+      vi.advanceTimersByTime(OPEN_TIMEOUT_MS - 1);
+      expect(seen.closed).toEqual([]);
+      vi.advanceTimersByTime(1);
+      expect(FakeSocket.last!.closed).toBe(true);
+      expect(seen.closed).toEqual([
+        {
+          detail: `the SSH broker didn't answer in ${OPEN_TIMEOUT_MS / 1000} seconds`,
+          kind: "failed",
+          started: false,
+        },
+      ]);
+      FakeSocket.last!.shut(1006);
+      expect(seen.closed).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("stops the open timer once the session opens", async () => {
+    vi.useFakeTimers();
+    try {
+      const { handlers, seen } = events();
+      await openSocket(ticket, info, handlers);
+      FakeSocket.last!.open();
+      vi.advanceTimersByTime(OPEN_TIMEOUT_MS * 2);
+      expect(FakeSocket.last!.closed).toBe(false);
+      expect(seen.closed).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("reports a session address the browser refuses instead of throwing", async () => {
+    vi.stubGlobal(
+      "WebSocket",
+      class {
+        constructor() {
+          throw new DOMException("insecure", "SecurityError");
+        }
+      },
+    );
+    const { handlers, seen } = events();
+    await openSocket(ticket, info, handlers);
+    await Promise.resolve();
+    expect(seen.closed).toEqual([
+      {
+        detail: "the browser refused the session address (SecurityError)",
+        kind: "failed",
+        started: false,
+      },
+    ]);
   });
 
   it("stays quiet when the page closes it", async () => {

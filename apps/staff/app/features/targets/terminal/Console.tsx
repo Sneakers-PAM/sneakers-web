@@ -195,6 +195,16 @@ export const Console = ({
         }
         sessionRef.current = opened;
         sizeUp();
+      })
+      .catch(() => {
+        // A connect that throws never reaches onClose; without this the page stays on Connecting.
+        if (!live()) return;
+        attemptRef.current = null;
+        setStatus("error");
+        setProblem({
+          message: closeMessage({ kind: "failed", started: false }),
+          title: "Connection error",
+        });
       });
   }, [deps, fetcher.data, session]);
 
