@@ -109,6 +109,76 @@ describe("U-12 terminal", () => {
     vi.unstubAllGlobals();
   });
 
+  it("says which step of a live open failed, from the broker's close", async () => {
+    class Socket {
+      static readonly OPEN = 1;
+      readyState = 0;
+      private close_?: (event: { code: number; reason: string }) => void;
+      constructor() {
+        queueMicrotask(() =>
+          this.close_?.({ code: 1011, reason: "can't reach 192.0.2.10:22: connection timed out" }),
+        );
+      }
+      addEventListener(type: string, listener: (event: { code: number; reason: string }) => void) {
+        if (type === "close") this.close_ = listener;
+      }
+      close() {}
+      send() {}
+    }
+    vi.stubGlobal("WebSocket", Socket);
+    renderRoute(
+      `/secret/${KEY}/terminal`,
+      page({ connect: openSocket, createScreen: fakeScreens().create }),
+    );
+    expect(await screen.findByText("Connection error")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "The SSH session couldn't start: can't reach 192.0.2.10:22: connection timed out. The key was not shown to anyone.",
+      ),
+    ).toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
+
+  it("shows an error, not a spinner, when the session can't be set up at all", async () => {
+    renderRoute(
+      `/secret/${KEY}/terminal`,
+      page({
+        connect: () => Promise.reject(new Error("no transport")),
+        createScreen: fakeScreens().create,
+      }),
+    );
+    expect(await screen.findByText("Connection error")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "The SSH session couldn't start: the ticket ran out, or the host didn't answer. The key was not shown to anyone.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("says which service didn't answer when the ticket request times out", async () => {
+    server.use(
+      gateway.mutation(TargetsOpenSshSessionDocument, () =>
+        HttpResponse.json({
+          errors: [
+            {
+              extensions: { code: "DEADLINE_EXCEEDED" },
+              message:
+                "rpc error: code = DeadlineExceeded desc = the SSH broker didn't answer within 15s while opening the session",
+            },
+          ],
+        } as never),
+      ),
+    );
+    renderRoute(
+      `/secret/${KEY}/terminal`,
+      page({ connect: connectSession, createScreen: fakeScreens().create }),
+    );
+    expect(await screen.findByText("Connection error")).toBeInTheDocument();
+    expect(
+      screen.getByText(/the SSH broker didn't answer within 15s while opening the session/),
+    ).toBeInTheDocument();
+  });
+
   it("explains a refused session, and keeps the key unseen", async () => {
     server.use(
       gateway.mutation(TargetsOpenSshSessionDocument, () =>

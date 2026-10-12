@@ -1,9 +1,12 @@
 import type { SessionTicket } from "@/features/targets/terminal.server";
 
-/** Why a session ended: the shell closed, the broker refused the host's key, or it failed. */
+/**
+ * Why a session ended: the shell closed, the broker refused the host's key, or it failed.
+ * `detail` is the broker's sentence for a session that couldn't start (the step and the reason).
+ */
 export type CloseReason =
+  | { detail?: string; kind: "failed"; started: boolean }
   | { kind: "ended" }
-  | { kind: "failed"; started: boolean }
   | { kind: "host-key-mismatch" }
   | { kind: "host-key-not-pinned" };
 

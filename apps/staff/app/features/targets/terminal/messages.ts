@@ -4,9 +4,9 @@ import type { CloseReason } from "@/features/targets/terminal/session";
 export const closeMessage = (reason: Exclude<CloseReason, { kind: "ended" }>): string => {
   switch (reason.kind) {
     case "failed": {
-      return reason.started
-        ? "The SSH session was interrupted. The key was not shown to anyone."
-        : "The SSH session couldn't start: the ticket ran out, or the host didn't answer. The key was not shown to anyone.";
+      if (reason.started)
+        return "The SSH session was interrupted. The key was not shown to anyone.";
+      return `The SSH session couldn't start: ${reason.detail ?? "the ticket ran out, or the host didn't answer"}. The key was not shown to anyone.`;
     }
     case "host-key-mismatch": {
       return "The host offered an SSH key that isn't pinned for this target, so the broker didn't connect. Ask an admin to check the host before trying again.";
