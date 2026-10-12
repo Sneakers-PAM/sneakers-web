@@ -37,6 +37,19 @@ export const isCertificateType = (t: SecretType): boolean => t.id === "type-ssl-
 
 const problem = (message: string, summary: string): Problem => ({ message, summary });
 
+/**
+ * Why a stored choice isn't valid: a select value that isn't one of the field's options (saved
+ * before the vault checked them). Null for anything else; the vault refuses it on the next save.
+ */
+export const selectValueNotAllowed = (
+  f: { kind: string; options?: null | readonly string[] },
+  value: string | undefined,
+): null | string => {
+  const options = f.options ?? [];
+  if (f.kind !== "select" || options.length === 0 || !value || options.includes(value)) return null;
+  return `Not one of the allowed values: ${options.join(", ")}.`;
+};
+
 const required = (f: FieldDefinition) =>
   f.kind === "select"
     ? problem(`Pick the ${f.label.toLowerCase()}.`, `${f.label} is required`)
@@ -78,6 +91,9 @@ const fieldProblem = (
     if (f.required && f.kind !== "boolean" && !(editing && isSensitive(f))) return required(f);
     return keyPair ? keyProblem(f, value, values) : null;
   }
+  const notAllowed = selectValueNotAllowed(f, value);
+  if (notAllowed)
+    return problem(`${notAllowed} Pick one.`, `${f.label} isn't one of the allowed values`);
   if (f.maxLength && value.length > f.maxLength)
     return problem(`Use at most ${f.maxLength} characters.`, `${f.label} is too long`);
   if (f.pattern && !matches(f.pattern, value))

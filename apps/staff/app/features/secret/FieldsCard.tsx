@@ -3,6 +3,7 @@ import { Copy, RefreshCw } from "lucide-react";
 
 import type { SecretType } from "@/features/secret/secret.server";
 
+import { selectValueNotAllowed } from "@/features/editors/validate";
 import { Panel, Row } from "@/features/secret/Panel";
 import { SensitiveValue } from "@/features/secret/SensitiveValue";
 
@@ -46,6 +47,14 @@ const Plain = ({ field, value }: { field: FieldDefinition; value: string | undef
       </div>
     );
   if (field.kind === "boolean") return <span>{value === "true" ? "Yes" : "No"}</span>;
+  const notAllowed = selectValueNotAllowed(field, value);
+  if (notAllowed)
+    return (
+      <div className="flex flex-col gap-1">
+        <span className="font-mono text-value">{value}</span>
+        <span className="text-small text-danger">{notAllowed}</span>
+      </div>
+    );
   return (
     <div className="flex items-center gap-3">
       {/* Ellipsized so a long single-line value never overflows its box; the title holds the

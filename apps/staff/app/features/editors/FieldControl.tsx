@@ -6,7 +6,12 @@ import { formatField } from "@/features/editors/format";
 import { PickOne } from "@/features/editors/PickOne";
 import { generatePassword, type Policy, policyChecks, policyFor } from "@/features/editors/policy";
 import { PolicyChips } from "@/features/editors/PolicyChips";
-import { type FieldDefinition, isSensitive, type Problem } from "@/features/editors/validate";
+import {
+  type FieldDefinition,
+  isSensitive,
+  type Problem,
+  selectValueNotAllowed,
+} from "@/features/editors/validate";
 
 /** Fields set in the mono face, as the frames show (accounts, ports, values to copy). */
 const MONO_KEYS = new Set(["host", "hostname", "port", "server", "username"]);
@@ -180,8 +185,14 @@ export const FieldControl = ({
   }
 
   if (field.kind === "select") {
+    // A stored choice outside the options is flagged at once, not only after a save attempt.
+    const notAllowed = selectValueNotAllowed(field, value);
     return (
-      <Field error={error} label={field.label} required={required}>
+      <Field
+        error={error ?? (notAllowed ? `${notAllowed} Pick one.` : undefined)}
+        label={field.label}
+        required={required}
+      >
         <PickOne
           onChange={onChange}
           options={(field.options ?? []).map((o) => ({ label: o, value: o }))}

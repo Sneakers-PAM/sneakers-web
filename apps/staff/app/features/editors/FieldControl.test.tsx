@@ -55,4 +55,18 @@ describe("a template field", () => {
     expect(screen.getByText(/^Highly sensitive:/)).toBeInTheDocument();
     expect(screen.queryByText(/^Super-sensitive:/)).toBeNull();
   });
+
+  it("flags a stored choice that isn't one of the options", () => {
+    const engine = { ...field("engine", "select", "Engine"), options: ["PostgreSQL", "MySQL"] };
+    const { rerender } = render(
+      <FieldControl editing field={engine} onChange={() => {}} policies={[]} value="postgres" />,
+    );
+    expect(
+      screen.getByText("Not one of the allowed values: PostgreSQL, MySQL. Pick one."),
+    ).toBeInTheDocument();
+    rerender(
+      <FieldControl editing field={engine} onChange={() => {}} policies={[]} value="MySQL" />,
+    );
+    expect(screen.queryByText(/Not one of the allowed values/)).toBeNull();
+  });
 });
