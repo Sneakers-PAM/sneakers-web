@@ -829,6 +829,11 @@ export interface ImportRun {
   output: string;
   ownerEmail: string;
   ownerPasswordWaiting: boolean;
+  /**
+   * Why a failed step ended, when it didn't write its exit code and the box read it from the
+   * step's Job ("the review step ran out of memory (limit 4Gi)"); empty otherwise.
+   */
+  reason: string;
   rehearsal: boolean;
   report: string;
   startedAt: string;

@@ -1,5 +1,11 @@
 import {
   Alert,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
   Badge,
   Button,
   Card,
@@ -79,6 +85,7 @@ export default function Import() {
   const [parent, setParent] = useState("");
   const [personal, setPersonal] = useState("");
   const [shown, setShown] = useState<{ job: string; password: string }>();
+  const [confirmClose, setConfirmClose] = useState(false);
   const reload = () =>
     void importer
       .get()
@@ -118,6 +125,14 @@ export default function Import() {
   if (!data) return null;
 
   const has = (kind: string) => data.files.find((f) => f.kind === kind);
+  const runningRun = data.runs.find((r) => r.state === "running");
+  const close = () =>
+    void runAction(() => importer.close(), {
+      onSuccess: () => {
+        setShown(undefined);
+        reload();
+      },
+    });
   const run = (step: string) =>
     void runAction(
       () =>
@@ -343,20 +358,24 @@ export default function Import() {
                   Download the escrow
                 </Button>
                 <Button
-                  disabled={running}
-                  onClick={() =>
-                    void runAction(() => importer.close(), {
-                      onSuccess: () => {
-                        setShown(undefined);
-                        reload();
-                      },
-                    })
-                  }
+                  onClick={() => (runningRun ? setConfirmClose(true) : close())}
                   variant="danger"
                 >
                   Close the import
                 </Button>
               </div>
+              <AlertDialog onOpenChange={setConfirmClose} open={confirmClose}>
+                <AlertDialogContent>
+                  <AlertDialogTitle>Close the import while a step runs?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {`This stops the running ${runningRun?.step ?? ""} step (${runningRun?.job ?? ""}) and removes the export, the import key and the outputs from the box.`}
+                  </AlertDialogDescription>
+                  <div className="flex justify-end gap-2">
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={close}>Stop the step and close</AlertDialogAction>
+                  </div>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </Card>
         </>
@@ -388,6 +407,11 @@ const RunCard = ({ onShowPassword, run }: { onShowPassword: () => void; run: Imp
         title={STEP_LABELS[run.step] ?? run.step}
       />
       <div className="flex flex-col gap-3 p-5.5">
+        {run.reason && (
+          <p className="m-0 text-small" data-testid="import-run-reason">
+            {run.reason}
+          </p>
+        )}
         <pre className="m-0 max-h-96 overflow-auto text-small">
           {run.output || "No output yet."}
         </pre>
