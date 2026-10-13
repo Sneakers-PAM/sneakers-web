@@ -613,6 +613,32 @@ there's no usable Referer or it's itself a resource route.
   key reveal prompts. A check-out of a type with a super-sensitive field asks for one while "MFA
   for sensitive checkout" is on (the default).
 
+## Web terminal (staff)
+
+The terminal (`apps/staff/app/features/targets/terminal/`, route `secret/:id/terminal`) asks the
+gateway for a ticket (`openSshSession`) in the route's action, then opens the SSH broker's
+WebSocket from the browser.
+
+- **Same origin.** `sessionUrl` (`socket.ts`) takes only the path of the gateway's `wsUrl` and
+  opens it on the page's own origin: `wss://<window.location.host><path>?ticket=...` (`ws://` on a
+  plain-http page). The host is whatever the box was opened by, a name, an IPv4 address or a
+  bracketed IPv6 address such as `[2001:db8::1]`, with its port. The broker accepts a WebSocket
+  whose `Origin` matches its `Host`, and the CSP's `connect-src 'self'` allows it. The live dev
+  server proxies `/ssh` (WebSocket included) to `SSHBROKER_URL`, default `http://localhost:9097`,
+  so the same holds locally.
+- **A bounded open.** The broker answers the upgrade only once the shell is up and bounds that at
+  `BROKER_OPEN_LIMIT_MS` (45 s); `OPEN_TIMEOUT_MS` (50 s) is just past it, so the broker's own
+  reason always comes first. A socket that closes before it opens with no reason from the broker
+  (it never reached the box's terminal service) and one still not open at the bound both end with
+  "couldn't reach the box's terminal service at <host>" and Reconnect, never a spinner. A 1011 close
+  carries the broker's sentence for the step that failed, even after the upgrade it refuses on.
+- **Unpinned targets.** The broker refuses a target with no pinned host key before it issues a
+  ticket (`FAILED_PRECONDITION`, reason `HOST_KEY_NOT_PINNED`). The terminal shows that straight
+  from the action's answer, with no socket: a site admin or root gets the "Pin the host key"
+  button, anyone else a line saying an admin pins it on the target's page in the admin app
+  (`/admin/targets/<id>`, Scan and pin…). The broker's 1008 close for a missing pin at dial time is
+  shown the same way. The mock gateway refuses an unpinned target the same way.
+
 ## Manage controls on a secret
 
 - A secret's settings (Automation, Approvals) are gated on `access.manage` — the vault's RACI

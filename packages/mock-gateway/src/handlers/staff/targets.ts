@@ -149,6 +149,14 @@ const sessionProblem = (userId: string, s: MockSecret): never | null => {
   const c = world().connections.find((x) => x.id === t.connectionId);
   if (!c) return refusal("NOT_FOUND", "connection not found");
   if (c.protocol !== "ssh") return refusal("FAILED_PRECONDITION", "connection is not ssh");
+  // As the broker does: no ticket for a target with no pinned host key.
+  if (t.sshHostKeys.length === 0)
+    return refusal(
+      "FAILED_PRECONDITION",
+      "host key not pinned for this target: an admin pins it on the target first; no connection was made",
+      "HOST_KEY_NOT_PINNED",
+      { target_id: t.id },
+    );
   return null;
 };
 

@@ -102,8 +102,9 @@ describe("U-12 terminal", () => {
     );
     expect(await screen.findByText("Connecting…")).toBeInTheDocument();
     await vi.waitFor(() => expect(urls).toHaveLength(1));
+    // On the page's own origin, whatever host the gateway's URL names.
     expect(urls[0]).toMatch(
-      /^mock-ssh:\/\/mock-gateway\.example\.invalid\/ssh\/session\?ticket=mock-ticket-/,
+      new RegExp(String.raw`^ws://${globalThis.location.host}/ssh/session\?ticket=mock-ticket-`),
     );
     await output("Opening session to build1.example.org with the stored key…");
     vi.unstubAllGlobals();
@@ -136,6 +137,35 @@ describe("U-12 terminal", () => {
         "The SSH session couldn't start: can't reach 192.0.2.10:22: connection timed out. The key was not shown to anyone.",
       ),
     ).toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
+
+  it("names the address it tried when the box's terminal service can't be reached", async () => {
+    class Socket {
+      static readonly OPEN = 1;
+      readyState = 0;
+      private close_?: (event: { code: number; reason: string }) => void;
+      constructor() {
+        queueMicrotask(() => this.close_?.({ code: 1006, reason: "" }));
+      }
+      addEventListener(type: string, listener: (event: { code: number; reason: string }) => void) {
+        if (type === "close") this.close_ = listener;
+      }
+      close() {}
+      send() {}
+    }
+    vi.stubGlobal("WebSocket", Socket);
+    renderRoute(
+      `/secret/${KEY}/terminal`,
+      page({ connect: openSocket, createScreen: fakeScreens().create }),
+    );
+    expect(await screen.findByText("Connection error")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        `The SSH session couldn't start: couldn't reach the box's terminal service at ${globalThis.location.host}. The key was not shown to anyone.`,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Reconnect" }).length).toBeGreaterThan(0);
     vi.unstubAllGlobals();
   });
 
@@ -215,6 +245,53 @@ describe("U-12 terminal", () => {
     expect(box.className).toContain("mx-auto");
     expect(box.className).toContain("inset-x-5");
     expect(screen.getByRole("button", { name: "Pin the host key" })).toBeInTheDocument();
+  });
+
+  it("shows an unpinned host straight from the ticket answer, with no socket opened", async () => {
+    server.use(
+      gateway.mutation(TargetsOpenSshSessionDocument, () =>
+        HttpResponse.json({
+          errors: [
+            {
+              extensions: {
+                code: "FAILED_PRECONDITION",
+                domain: "sneakers.sshbroker",
+                metadata: { target_id: "mock-target-build1" },
+                reason: "HOST_KEY_NOT_PINNED",
+              },
+              message:
+                "rpc error: code = FailedPrecondition desc = host key not pinned for this target: an admin pins it on the target first; no connection was made",
+            },
+          ],
+        } as never),
+      ),
+    );
+    const connect = vi.fn(connectSession);
+    renderRoute(`/secret/${KEY}/terminal`, page({ connect, createScreen: fakeScreens().create }));
+    expect(await screen.findByText(/This host has no pinned SSH host key/)).toBeInTheDocument();
+    expect(screen.getByText("Connection error")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pin the host key" })).toBeInTheDocument();
+    expect(connect).not.toHaveBeenCalled();
+  });
+
+  it("tells someone who can't pin where an admin pins the host key", async () => {
+    vi.stubEnv("SNEAKERS_MOCK", "true");
+    const target = mockState.world.targets.find((t) => t.id === "mock-target-build1")!;
+    target.sshHostKeys = [];
+    target.ownerUserId = undefined;
+    renderRoute(
+      `/secret/${KEY}/terminal`,
+      page({ connect: connectSession, createScreen: fakeScreens().create }),
+      { user: "mock-user-bob" },
+    );
+    const where =
+      "An admin pins it on the target's page in the admin app: /admin/targets/mock-target-build1, Scan and pin….";
+    expect(
+      await screen.findByText(
+        (_, element) => element?.tagName === "SPAN" && element.textContent === where,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Pin the host key" })).not.toBeInTheDocument();
   });
 
   it("hides the pin action from someone who isn't a site admin or root", async () => {
