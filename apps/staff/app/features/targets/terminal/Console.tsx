@@ -31,6 +31,8 @@ const MIN_FONT = 10;
 const MAX_FONT = 24;
 // Two Escapes this close together leave the terminal (one Escape still goes to the shell).
 const DOUBLE_ESCAPE_MS = 600;
+// The broker refuses a target with no pinned host key before it issues a ticket.
+const HOST_KEY_NOT_PINNED = "HOST_KEY_NOT_PINNED";
 
 const GREY = "\u001B[90m";
 const RESET = "\u001B[0m";
@@ -254,8 +256,14 @@ export const Console = ({
   const refused =
     fetcher.state === "idle" && fetcher.data && !fetcher.data.ok ? fetcher.data.refusal : null;
   const shownStatus: Status = refused ? "error" : status;
-  const problem = refused
-    ? { message: refusalMessage(refused), title: "Connection error" }
+  const problem: null | Problem = refused
+    ? refused.reason === HOST_KEY_NOT_PINNED
+      ? {
+          message: closeMessage({ kind: "host-key-not-pinned" }),
+          reason: "host-key-not-pinned",
+          title: "Connection error",
+        }
+      : { message: refusalMessage(refused), title: "Connection error" }
     : sessionProblem;
   const s = STATUS[shownStatus];
   return (
@@ -336,6 +344,12 @@ export const Console = ({
               {problem.title}
             </b>
             <span className="text-[0.9375rem] leading-[1.45]">{problem.message}</span>
+            {problem.reason === "host-key-not-pinned" && !session.canPinHostKey && (
+              <span className="text-[0.875rem] leading-[1.45] text-[#9AA3B2]">
+                An admin pins it on the target&apos;s page in the admin app:{" "}
+                <code className="font-mono">/admin/targets/{session.targetId}</code>, Scan and pin….
+              </span>
+            )}
             <span className="flex flex-wrap gap-2">
               <Button
                 className="bg-[#8FA9FF] text-[#0E1117] hover:bg-[#B3C4FF]"

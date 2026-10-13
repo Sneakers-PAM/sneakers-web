@@ -1,6 +1,11 @@
 import type { SessionEvents } from "@/features/targets/terminal/session";
 
-import { OPEN_TIMEOUT_MS, openSocket, sessionUrl } from "@/features/targets/terminal/socket";
+import {
+  BROKER_OPEN_LIMIT_MS,
+  OPEN_TIMEOUT_MS,
+  openSocket,
+  sessionUrl,
+} from "@/features/targets/terminal/socket";
 
 /** A stand-in for the browser's WebSocket that records what the page sends. */
 class FakeSocket {
@@ -43,6 +48,8 @@ const ticket = {
   wsUrl: "wss://pam.example.org/proto/ssh/session",
 };
 const info = { hostname: "build1.example.org", pinned: true, username: "deploy" };
+const at = (protocol: string, host: string) => sessionUrl(ticket, { host, protocol });
+const unreachable = `couldn't reach the box's terminal service at ${globalThis.location.host}`;
 
 const events = () => {
   const seen = { closed: [] as unknown[], opened: 0, output: [] as unknown[] };
@@ -62,8 +69,33 @@ afterEach(() => {
 });
 
 describe("the live SSH socket", () => {
-  it("connects to the broker's URL as given, with the ticket as a query parameter", () => {
-    expect(sessionUrl(ticket)).toBe("wss://pam.example.org/proto/ssh/session?ticket=t%2F1%2B2");
+  it("connects on the page's own origin, with the broker's path and the ticket", () => {
+    expect(at("https:", "pam.example.org")).toBe(
+      "wss://pam.example.org/proto/ssh/session?ticket=t%2F1%2B2",
+    );
+    // Opened by another name or an address than the broker's configured one: that one is used.
+    expect(at("https:", "box.example.org")).toBe(
+      "wss://box.example.org/proto/ssh/session?ticket=t%2F1%2B2",
+    );
+    expect(at("https:", "192.0.2.10")).toBe("wss://192.0.2.10/proto/ssh/session?ticket=t%2F1%2B2");
+    expect(at("https:", "192.0.2.10:8443")).toBe(
+      "wss://192.0.2.10:8443/proto/ssh/session?ticket=t%2F1%2B2",
+    );
+    expect(at("https:", "[2001:db8::1]")).toBe(
+      "wss://[2001:db8::1]/proto/ssh/session?ticket=t%2F1%2B2",
+    );
+    expect(at("https:", "[2001:db8::1]:8443")).toBe(
+      "wss://[2001:db8::1]:8443/proto/ssh/session?ticket=t%2F1%2B2",
+    );
+    expect(at("http:", "localhost:5176")).toBe(
+      "ws://localhost:5176/proto/ssh/session?ticket=t%2F1%2B2",
+    );
+  });
+
+  it("takes the page's origin from the browser's location by default", () => {
+    expect(sessionUrl({ ...ticket, wsUrl: "wss://elsewhere.example.org/ssh/session" })).toBe(
+      `ws://${globalThis.location.host}/ssh/session?ticket=t%2F1%2B2`,
+    );
   });
 
   it("sends keystrokes as binary frames and a resize as a JSON text frame", async () => {
@@ -98,7 +130,7 @@ describe("the live SSH socket", () => {
     const never = events();
     await openSocket(ticket, info, never.handlers);
     FakeSocket.last!.shut(1006);
-    expect(never.seen.closed).toEqual([{ kind: "failed", started: false }]);
+    expect(never.seen.closed).toEqual([{ detail: unreachable, kind: "failed", started: false }]);
 
     const cut = events();
     await openSocket(ticket, info, cut.handlers);
@@ -122,6 +154,26 @@ describe("the live SSH socket", () => {
     ]);
   });
 
+  it("names the broker's reason even after the upgrade it refuses on", async () => {
+    // The broker upgrades and then closes with the sentence, so the browser sees open first.
+    const { handlers, seen } = events();
+    await openSocket(ticket, info, handlers);
+    FakeSocket.last!.open();
+    FakeSocket.last!.shut(1011, "<host>:22 didn't finish the SSH handshake in 15s");
+    expect(seen.closed).toEqual([
+      {
+        detail: "<host>:22 didn't finish the SSH handshake in 15s",
+        kind: "failed",
+        started: false,
+      },
+    ]);
+  });
+
+  it("waits longer than the broker's own open limit, so the broker's reason comes first", () => {
+    expect(OPEN_TIMEOUT_MS).toBeGreaterThan(BROKER_OPEN_LIMIT_MS);
+    expect(OPEN_TIMEOUT_MS).toBeLessThanOrEqual(BROKER_OPEN_LIMIT_MS + 10_000);
+  });
+
   it("gives up on a socket that never opens", async () => {
     vi.useFakeTimers();
     try {
@@ -133,7 +185,7 @@ describe("the live SSH socket", () => {
       expect(FakeSocket.last!.closed).toBe(true);
       expect(seen.closed).toEqual([
         {
-          detail: `the SSH broker didn't answer in ${OPEN_TIMEOUT_MS / 1000} seconds`,
+          detail: `${unreachable} in ${OPEN_TIMEOUT_MS / 1000} seconds`,
           kind: "failed",
           started: false,
         },

@@ -132,6 +132,19 @@ export interface AppOptions {
 const BROWSER_GATEWAY_ROUTES = ["/auth/sso"];
 
 /**
+ * The live dev server's proxy: the gateway routes the browser goes to itself, and the SSH
+ * broker's WebSocket, which the terminal opens on the page's own origin as it does on a box.
+ */
+export const developmentProxy = (
+  env: NodeJS.ProcessEnv,
+): Record<string, { target: string; ws?: boolean }> => ({
+  ...Object.fromEntries(
+    BROWSER_GATEWAY_ROUTES.map((p) => [p, { target: env.GATEWAY_URL ?? "http://localhost:9100" }]),
+  ),
+  "/ssh": { target: env.SSHBROKER_URL ?? "http://localhost:9097", ws: true },
+});
+
+/**
  * The Vite config every app uses: React Router in framework mode (server rendering), the
  * Laces Tailwind theme, the shared aliases and the edge for this build. Under Vitest it
  * swaps the React Router plugin for plain React, which is all component tests need.
@@ -153,14 +166,7 @@ export const appConfig = ({ base, directory, mode, port }: AppOptions): UserConf
     resolve: { alias: { "@": path.join(directory, "app"), ...sharedAliases(edge.module) } },
     server: {
       port,
-      proxy: edge.mock
-        ? undefined
-        : Object.fromEntries(
-            BROWSER_GATEWAY_ROUTES.map((p) => [
-              p,
-              { target: process.env.GATEWAY_URL ?? "http://localhost:9100" },
-            ]),
-          ),
+      proxy: edge.mock ? undefined : developmentProxy(process.env),
       strictPort: true,
     },
     ssr: { noExternal: [/^@sneakers-web\//] },
