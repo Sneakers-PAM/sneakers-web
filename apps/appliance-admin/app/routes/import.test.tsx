@@ -119,6 +119,48 @@ describe("Import", () => {
     expect(screen.getByRole("button", { name: "Review" })).toBeEnabled();
   });
 
+  it("closes the import while a step runs, after a confirm that it stops the step", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(importer, "get").mockResolvedValue({
+      available: true,
+      files: [{ kind: "bundle", size: 3, uploadedAt: "2026-10-13T10:00:00Z" }],
+      imported: false,
+      importedAt: "",
+      importedBundle: "",
+      importedMode: "",
+      label: "Import from an earlier Sneakers",
+      open: true,
+      reason: "",
+      recipient: "age1mockimportrecipientexampleexampleexampleexampleexampleexample",
+      runs: [
+        {
+          exitCode: 0,
+          finishedAt: "",
+          job: "sneakers-migrate-review-1",
+          output: "",
+          ownerEmail: "",
+          ownerPasswordWaiting: false,
+          reason: "",
+          rehearsal: false,
+          report: "",
+          startedAt: "2026-10-13T10:00:00Z",
+          state: "running",
+          step: "review",
+          template: "",
+          wipe: false,
+        },
+      ],
+      setupDone: false,
+    });
+    const close = vi.spyOn(importer, "close").mockResolvedValue({});
+    renderPage(Import);
+    await user.click(await screen.findByRole("button", { name: "Close the import" }));
+    expect(await screen.findByText(/stops the running review step/)).toBeInTheDocument();
+    expect(close).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Stop the step and close" }));
+    await vi.waitFor(() => expect(close).toHaveBeenCalledTimes(1));
+  });
+
   it("has nothing to show with no product installed", async () => {
     applyMockScenario("no-product");
     const get = vi.spyOn(importer, "get");
