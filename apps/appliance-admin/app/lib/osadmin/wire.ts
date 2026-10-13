@@ -655,6 +655,7 @@ const importRun = (w: Wire<ImportRun>): ImportRun => ({
   output: w.output ?? "",
   ownerEmail: w.ownerEmail ?? "",
   ownerPasswordWaiting: w.ownerPasswordWaiting ?? false,
+  reason: w.reason ?? "",
   rehearsal: w.rehearsal ?? false,
   report: w.report ?? "",
   startedAt: w.startedAt ?? "",

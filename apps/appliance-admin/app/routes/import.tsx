@@ -388,6 +388,11 @@ const RunCard = ({ onShowPassword, run }: { onShowPassword: () => void; run: Imp
         title={STEP_LABELS[run.step] ?? run.step}
       />
       <div className="flex flex-col gap-3 p-5.5">
+        {run.reason && (
+          <p className="m-0 text-small" data-testid="import-run-reason">
+            {run.reason}
+          </p>
+        )}
         <pre className="m-0 max-h-96 overflow-auto text-small">
           {run.output || "No output yet."}
         </pre>
