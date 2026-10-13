@@ -40,7 +40,7 @@ const Plain = ({ field, value }: { field: FieldDefinition; value: string | undef
   if (field.kind === "multiline")
     return (
       <div className="flex items-start gap-3">
-        <p className="m-0 min-w-0 flex-1 rounded-md bg-sunken px-4 py-3 whitespace-pre-wrap">
+        <p className="m-0 min-w-0 flex-1 rounded-md bg-sunken px-4 py-3 whitespace-pre-wrap wrap-anywhere">
           {value}
         </p>
         {copyable && <CopyFieldButton label={field.label} value={value} />}
