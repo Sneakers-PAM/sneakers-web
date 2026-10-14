@@ -166,7 +166,7 @@ const MintDialog = ({
             <div className="flex items-center gap-3 rounded-lg bg-sunken px-4 py-3">
               <code
                 aria-label="New API token"
-                className="min-w-0 flex-1 font-mono text-[0.9375rem] break-all"
+                className="min-w-0 flex-1 font-mono text-[0.9375rem] wrap-anywhere"
               >
                 {minted}
               </code>

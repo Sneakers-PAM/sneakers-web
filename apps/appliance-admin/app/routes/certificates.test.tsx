@@ -117,9 +117,10 @@ describe("Certificates", () => {
     await user.click(within(dialog).getByRole("button", { name: "Apply to :8443" }));
     const applied = await within(dialog).findByText(/Applied\. :8443 now serves/);
     expect(applied).toBeInTheDocument();
-    // The fingerprint wraps inside the alert instead of running off it (issue #240).
+    // The fingerprint wraps inside the alert instead of running off it (issue #240), now via
+    // the shared LongValue component rather than its own break-all.
     expect(within(dialog).getByText(/^SHA256:|^[\dA-F]{2}(:[\dA-F]{2})+$/).className).toContain(
-      "break-all",
+      "wrap-anywhere",
     );
     await user.click(within(dialog).getByRole("button", { name: "Done" }));
     const endpoints = screen.getByRole("region", { name: "Endpoints" });

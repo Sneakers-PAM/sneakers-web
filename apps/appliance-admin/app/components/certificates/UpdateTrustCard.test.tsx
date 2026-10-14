@@ -29,7 +29,9 @@ describe("The update trust on Certificates", () => {
     await user.paste(SERVER_PIN);
     await user.click(within(card).getByRole("button", { name: "Save update trust" }));
     const cas = await within(card).findByRole("list", { name: "Trusted CAs" });
-    expect(within(cas).getByText("Example Internal Root CA")).toBeInTheDocument();
+    // The pasted CA's subject and issuer are the same string (self-signed), so both the
+    // subject line and the "Issued by" line show it.
+    expect(within(cas).getAllByText("Example Internal Root CA").length).toBeGreaterThan(0);
     expect(within(cas).getByText(SERVER_PIN.toUpperCase())).toBeInTheDocument();
     await user.click(within(card).getByRole("button", { name: "Remove update trust" }));
     expect(await within(card).findByText("System roots only")).toBeInTheDocument();
@@ -60,7 +62,9 @@ describe("The update trust on Certificates", () => {
     applyMockScenario("mirror-custom-ca");
     signInAs("bob");
     const card = await trustCard();
-    expect(within(card).getByText("Example Internal Root CA")).toBeInTheDocument();
+    // The mock CA's subject and issuer are the same string (self-signed), so both the subject
+    // line and the "Issued by" line show it.
+    expect(within(card).getAllByText("Example Internal Root CA").length).toBeGreaterThan(0);
     expect(
       within(card).queryByRole("button", { name: "Save update trust" }),
     ).not.toBeInTheDocument();

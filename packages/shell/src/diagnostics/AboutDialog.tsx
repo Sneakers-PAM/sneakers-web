@@ -4,6 +4,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  LongValue,
   Spinner,
 } from "@sneakers-web/ui";
 import { useEffect, useState } from "react";
@@ -46,7 +47,9 @@ const versionOf = (c: ComponentLike): string => {
 const Row = ({ label, value }: { label: string; value: string }) => (
   <div className="flex gap-3 py-1 text-[0.875rem]">
     <dt className="w-32 flex-none text-muted">{label}</dt>
-    <dd className="m-0 min-w-0 font-mono text-[0.8125rem] break-all">{value}</dd>
+    <dd className="m-0">
+      <LongValue className="text-[0.8125rem]" value={value} />
+    </dd>
   </div>
 );
 

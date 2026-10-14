@@ -445,7 +445,7 @@ const IssuedSshKey = ({
               ...files.map((file) => (
                 <TableRow key={file.fileName}>
                   <TableCell className="px-3 py-1.5">
-                    <span className="block font-mono break-all">{file.fileName}</span>
+                    <span className="block font-mono wrap-anywhere">{file.fileName}</span>
                     <span className="block text-muted">{file.purpose}</span>
                   </TableCell>
                   <TableCell className="px-3 py-1.5 text-right">

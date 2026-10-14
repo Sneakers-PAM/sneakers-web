@@ -60,10 +60,10 @@ describe("Access", () => {
 
   it("wraps the root and host key fingerprints instead of letting them run off the card", async () => {
     renderPage(Access);
-    const root = await screen.findByText(new RegExp(world.ROOT_KEY.fingerprint));
-    expect(root.className).toContain("break-all");
-    const host = screen.getByText(new RegExp(world.HOST_KEYS[0]!.fingerprint));
-    expect(host.className).toContain("break-all");
+    const root = await screen.findByText(world.ROOT_KEY.fingerprint);
+    expect(root.className).toContain("wrap-anywhere");
+    const host = screen.getByText(world.HOST_KEYS[0]!.fingerprint);
+    expect(host.className).toContain("wrap-anywhere");
   });
 
   it("lets an owner remove an admin's key", async () => {
@@ -503,7 +503,13 @@ describe("Access", () => {
   it("shows the box's user CA and known_hosts line next to the key fingerprints", async () => {
     renderPage(Access);
     const card = within(await screen.findByRole("region", { name: "Key fingerprints" }));
-    expect(card.getByText(/SSH host CA ssh-ed25519 SHA256:hC4k/)).toBeInTheDocument();
+    expect(
+      card.getByText(
+        (_, element) =>
+          element?.tagName === "P" &&
+          Boolean(element.textContent?.startsWith("SSH host CA ssh-ed25519 SHA256:hC4k")),
+      ),
+    ).toBeInTheDocument();
     expect(card.getByText(world.KNOWN_HOSTS)).toBeInTheDocument();
     expect(card.getByText(world.USER_CA_PUBLIC_KEY)).toBeInTheDocument();
   });
@@ -556,7 +562,13 @@ describe("Access", () => {
 
   it("shows the root key's fingerprint next to the host keys", async () => {
     renderPage(Access);
-    expect(await screen.findByText(/Root key ssh-ed25519 SHA256:/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        (_, element) =>
+          element?.tagName === "P" &&
+          Boolean(element.textContent?.startsWith("Root key ssh-ed25519 SHA256:")),
+      ),
+    ).toBeInTheDocument();
   });
 
   it("lists the root shells, and an owner can end an open one", async () => {

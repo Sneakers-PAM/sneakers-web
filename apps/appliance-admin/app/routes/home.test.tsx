@@ -68,8 +68,12 @@ describe("Home", () => {
 
   it("wraps the TLS fingerprint instead of letting it run off the card", async () => {
     renderPage(Home);
-    const fingerprint = await screen.findByText(/^Fingerprint: /);
-    expect(fingerprint.className).toContain("break-all");
+    const line = await screen.findByText(
+      (_, element) =>
+        element?.tagName === "P" && Boolean(element.textContent?.startsWith("Fingerprint: ")),
+    );
+    const fingerprint = within(line).getByText((_, element) => element?.tagName === "SPAN");
+    expect(fingerprint.className).toContain("wrap-anywhere");
   });
 
   it("shows the running and staged versions as their own build name, each with its channel", async () => {

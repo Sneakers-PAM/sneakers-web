@@ -858,3 +858,8 @@ Follow the logging rules in `CLAUDE.md`. In short:
 - A check-out isn't a control on reveal: the gateway reveals to anyone with read access, checked
   out or not, so the mock does too. The secret page asks for a check-out first as a workflow aid
   (others see it's in use, and check-in rotates where the type rotates).
+- Long values (fingerprints, tokens, hashes, URLs, paths, keys) never get their own `break-all` or
+  a bare, unwrapped cell: `packages/ui/src/styles/laces.css` sets `overflow-wrap: anywhere` on
+  `body` (inherited everywhere) and `min-width: 0` on a `dl.grid`'s `dd`, and the `LongValue`
+  component (`@sneakers-web/ui`) renders the value itself, monospace, with an optional Copy button
+  that always sends the exact value. Use `LongValue` instead of a new ad-hoc wrap class.

@@ -87,7 +87,7 @@ describe("Updates", () => {
     expect(values[3]).toBe("stable");
     expect(values[4]).toMatch(/^[0-9a-f]{64}Copy$/);
     expect(values[5]).toBe("Staged into slot B");
-    expect(within(result).getByRole("button", { name: "Copy" })).toBeInTheDocument();
+    expect(within(result).getByRole("button", { name: "Copy SHA-256" })).toBeInTheDocument();
     expect(within(result).getByRole("button", { name: "Copy the file name" })).toBeInTheDocument();
     expect(
       await screen.findByText("0.2.0", { selector: "[data-version=staged]" }),

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { Alert, Card, CardHeader, Pill, shortDate } from "@sneakers-web/ui";
+import { Alert, Card, CardHeader, LongValue, Pill, shortDate } from "@sneakers-web/ui";
 import { Link } from "react-router";
 
 import type { MirrorStatus } from "@/lib/osadmin/types";
@@ -46,7 +46,11 @@ export const MirrorStatusCard = ({
         />
         <div className="flex flex-col gap-4 px-5.5 pb-5 text-small">
           {children}
-          {status.url && <p className="break-all">URL: {status.url}</p>}
+          {status.url && (
+            <p>
+              URL: <LongValue value={status.url} />
+            </p>
+          )}
           <p>
             {https
               ? `${status.note}.`
@@ -55,9 +59,13 @@ export const MirrorStatusCard = ({
           {https && status.serverSha256 && (
             <dl className="grid grid-cols-[10rem_1fr] gap-x-4 gap-y-2">
               <dt className="font-bold">Server certificate</dt>
-              <dd>{status.serverSubject}</dd>
+              <dd>
+                <LongValue value={status.serverSubject} />
+              </dd>
               <dt className="font-bold">Issuer</dt>
-              <dd>{status.serverIssuer}</dd>
+              <dd>
+                <LongValue value={status.serverIssuer} />
+              </dd>
               <dt className="font-bold">Expires</dt>
               <dd>
                 {status.serverNotAfter
@@ -65,7 +73,9 @@ export const MirrorStatusCard = ({
                   : ""}
               </dd>
               <dt className="font-bold">SHA-256</dt>
-              <dd className="break-all font-mono">{status.serverSha256}</dd>
+              <dd>
+                <LongValue value={status.serverSha256} />
+              </dd>
               <dt className="font-bold">Pin</dt>
               <dd>{pinState(status)}</dd>
             </dl>
