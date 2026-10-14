@@ -40,8 +40,13 @@ const log = createLogger("sharing");
 
 type Folder = SharingFoldersQuery["folders"][number];
 
-const notFound = () =>
-  data({ code: "NOT_FOUND", detail: "", metadata: {} } satisfies Refusal, { status: 404 });
+/** Never "deleted" — the gateway doesn't say whether it's gone or just not visible. */
+const notFound = (id?: string, gatewayCode = "NOT_FOUND") => {
+  log.info("sharing not found", { gatewayCode, id });
+  return data({ code: "NOT_FOUND", detail: "", metadata: id ? { id } : {} } satisfies Refusal, {
+    status: 404,
+  });
+};
 
 /** The folder and every folder above it, nearest first. */
 const lineage = (folders: Folder[], id: string): Folder[] => {
@@ -79,11 +84,12 @@ const chainOwners = (folders: Folder[], id: string) =>
   unique(lineage(folders, id).flatMap((f) => f.owners ?? []));
 
 /** A refusal for a folder or secret the user can't know about becomes the page's 404. */
-const orNotFound = async <T>(work: Promise<T>): Promise<T> => {
+const orNotFound = async <T>(work: Promise<T>, id: string): Promise<T> => {
   try {
     return await work;
   } catch (error) {
-    if (refusalOf(error)?.code === "NOT_FOUND") throw notFound();
+    const refusal = refusalOf(error);
+    if (refusal?.code === "NOT_FOUND") throw notFound(id, refusal.code);
     throw error;
   }
 };
@@ -95,10 +101,10 @@ const loadFolder = async (
 ): Promise<SharingData> => {
   const [{ folders }, { myFolderAccess: access }] = await Promise.all([
     gw.gql(SharingFoldersDocument),
-    orNotFound(gw.gql(SharingFolderAccessDocument, { folderId })),
+    orNotFound(gw.gql(SharingFolderAccessDocument, { folderId }), folderId),
   ]);
   const folder = folders.find((f) => f.id === folderId);
-  if (!folder) throw notFound();
+  if (!folder) throw notFound(folderId);
   const backTo = `/browse/${folderId}`;
   const owners = chainOwners(folders, folderId);
   if (!access.read && !access.manageRuleset) {
@@ -165,9 +171,10 @@ const loadSecret = async (
     gw.gql(SharingSecretDocument, { secretId }),
     gw.gql(SharingFoldersDocument),
   ]);
-  if (!secret) throw notFound();
+  if (!secret) throw notFound(secretId);
   const { mySecretAccess: access } = await orNotFound(
     gw.gql(SharingSecretAccessDocument, { secretId }),
+    secretId,
   );
   const backTo = `/secret/${secretId}`;
   const owners = chainOwners(folders, secret.folderId);

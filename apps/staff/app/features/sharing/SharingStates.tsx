@@ -1,4 +1,4 @@
-import { RouteError } from "@sneakers-web/shell";
+import { RouteError, routeErrorRefusal } from "@sneakers-web/shell";
 import { Alert, Button, EmptyState, Skeleton } from "@sneakers-web/ui";
 import {
   isRouteErrorResponse,
@@ -21,7 +21,8 @@ export const SharingError = () => {
   const error = useRouteError();
   const revalidator = useRevalidator();
   const secret = useLocation().pathname.startsWith("/secret/");
-  if (isRouteErrorResponse(error) && error.status === 404) {
+  const refusal = routeErrorRefusal(error);
+  if (refusal) {
     return (
       <EmptyState
         action={
@@ -29,7 +30,18 @@ export const SharingError = () => {
             <Link to="/browse">All folders</Link>
           </Button>
         }
-        body="It may have been deleted or moved somewhere you can't see, or the link is wrong."
+        body={
+          <>
+            This {secret ? "secret" : "folder"} doesn&apos;t exist, or you don&apos;t have access to
+            it.
+            {refusal.metadata.id && (
+              <>
+                <br />
+                <span className="font-mono text-small text-muted">{refusal.metadata.id}</span>
+              </>
+            )}
+          </>
+        }
         title={secret ? "Secret not found" : "Folder not found"}
       />
     );

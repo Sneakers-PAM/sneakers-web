@@ -59,15 +59,29 @@ export const SecretLoadFailed = ({ failure }: { failure: LoadFailure }) => {
   );
 };
 
-/** A secret that doesn't exist, or one the person can't see (the gateway doesn't say which). */
-export const SecretNotFound = () => (
+/**
+ * A secret that doesn't exist, or one the person can't see (the gateway doesn't say which, and
+ * never "deleted" — most of the time it's a visibility gap, not a deletion). The id stays on
+ * screen so whoever hits this can hand it to an admin; the gateway's own code went to the log.
+ */
+export const SecretNotFound = ({ id }: { id?: string }) => (
   <EmptyState
     action={
       <Button asChild variant="secondary">
         <Link to="/browse">Browse folders</Link>
       </Button>
     }
-    body="It may have been deleted, or it's in a folder you can't see."
+    body={
+      <>
+        This secret doesn&apos;t exist, or you don&apos;t have access to it.
+        {id && (
+          <>
+            <br />
+            <span className="font-mono text-small text-muted">{id}</span>
+          </>
+        )}
+      </>
+    }
     title="Secret not found"
   />
 );

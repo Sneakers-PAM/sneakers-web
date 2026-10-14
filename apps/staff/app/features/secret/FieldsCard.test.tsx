@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router";
 
 import type { SecretType } from "@/features/secret/secret.server";
 
@@ -40,6 +41,7 @@ const card = (engine: string) => (
     fields={{ engine, server: "db.example.org" }}
     plainHidden={false}
     rotatesOnCheckIn={false}
+    secretId="secret-1"
     type={databaseType}
   />
 );
@@ -82,6 +84,7 @@ describe("FieldsCard", () => {
         fields={{ public_key: key }}
         plainHidden={false}
         rotatesOnCheckIn={false}
+        secretId="secret-1"
         type={sshType}
       />,
     );
@@ -93,5 +96,39 @@ describe("FieldsCard", () => {
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
     await userEvent.click(screen.getByRole("button", { name: "Copy Public key" }));
     expect(writeText).toHaveBeenCalledWith(key);
+  });
+
+  it("marks a required field the secret has no value for, with an Edit link to it, never a blank", () => {
+    const passwordType = {
+      ...databaseType,
+      fields: [
+        { key: "username", kind: "text", label: "Username", options: null, rotates: null },
+        {
+          key: "password",
+          kind: "password",
+          label: "Password",
+          options: null,
+          rotates: null,
+          sensitive: true,
+        },
+      ],
+    } as SecretType;
+    render(
+      <MemoryRouter>
+        <FieldsCard
+          fields={{ username: "root" }}
+          missing={["password"]}
+          plainHidden={false}
+          rotatesOnCheckIn={false}
+          secretId="secret-1"
+          type={passwordType}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("Missing required field")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Edit/ })).toHaveAttribute(
+      "href",
+      "/secret/secret-1/edit?focus=password",
+    );
   });
 });

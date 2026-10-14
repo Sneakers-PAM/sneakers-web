@@ -473,6 +473,29 @@ describe("a secret the gateway doesn't say can be read", () => {
       `/requests?new=${id}`,
     );
   });
+
+  it("opens a secret created without a required field, marking it, not as gone", async () => {
+    open("mock-secret-incomplete-ssh");
+    expect(
+      await screen.findByRole("heading", { level: 1, name: /Lab switch/ }),
+    ).toBeInTheDocument();
+    const password = row("Password");
+    expect(within(password).getByText("Missing required field")).toBeInTheDocument();
+    expect(within(password).getByRole("link", { name: /Edit/ })).toHaveAttribute(
+      "href",
+      "/secret/mock-secret-incomplete-ssh/edit?focus=password",
+    );
+  });
+
+  it("never says a not-found or not-visible secret was deleted, and keeps its id on screen", async () => {
+    open("mock-secret-alice-wifi", "mock-user-bob");
+    expect(await screen.findByText("Secret not found")).toBeInTheDocument();
+    expect(
+      screen.getByText("This secret doesn't exist, or you don't have access to it."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("mock-secret-alice-wifi")).toBeInTheDocument();
+    expect(screen.queryByText(/deleted/)).toBeNull();
+  });
 });
 
 describe("checking a secret out", () => {

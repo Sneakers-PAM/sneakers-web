@@ -65,6 +65,32 @@ describe("the edit secret page", () => {
     expect(await screen.findByText("Secret not found")).toBeInTheDocument();
   });
 
+  it("opens a secret created without a required field, same as its view page", async () => {
+    open("mock-secret-incomplete-ssh");
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Edit Lab switch (incomplete)" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /Username/ })).toHaveValue("root");
+  });
+
+  it("focuses the field a secret page's Missing mark links to", async () => {
+    renderRoute(
+      "/secret/mock-secret-incomplete-ssh/edit?focus=password",
+      [
+        {
+          action: editor.action,
+          Component: editor.default,
+          ErrorBoundary: editor.ErrorBoundary,
+          loader: editor.loader,
+          path: "/secret/:id/edit",
+        },
+      ],
+      {},
+    );
+    await screen.findByRole("heading", { level: 1, name: /Edit Lab switch/ });
+    expect(screen.getByLabelText(/^Password/)).toHaveFocus();
+  });
+
   it("points certificates at Replace certificate instead of fields", async () => {
     open("mock-secret-portal-cert", "mock-user-carol");
     expect(

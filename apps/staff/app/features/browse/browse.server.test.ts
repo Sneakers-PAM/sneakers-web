@@ -93,8 +93,9 @@ describe("loading the browse page", () => {
     expect(JSON.stringify(data)).not.toContain("Payroll");
   });
 
-  it("answers 404 for another user's personal folder", async () => {
+  it("answers 404 for another user's personal folder, the id on screen", async () => {
     await expect(load(ALICE, "mock-folder-bob")).rejects.toMatchObject({
+      data: { code: "NOT_FOUND", metadata: { id: "mock-folder-bob" } },
       init: { status: 404 },
     });
   });

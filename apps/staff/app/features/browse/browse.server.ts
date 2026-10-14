@@ -49,7 +49,7 @@ export const loadBrowse = async (
     const folder = findFolder(folders, folderId);
     if (!folder) {
       log.info("browse folder not found", { folderId });
-      throw data({ code: "NOT_FOUND", detail: "", metadata: {} } satisfies Refusal, {
+      throw data({ code: "NOT_FOUND", detail: "", metadata: { id: folderId } } satisfies Refusal, {
         status: 404,
       });
     }

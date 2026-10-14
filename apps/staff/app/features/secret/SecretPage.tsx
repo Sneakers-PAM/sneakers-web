@@ -392,8 +392,10 @@ export const SecretPage = ({ page }: { page: Page }) => {
                 <FieldsCard
                   fields={fields}
                   locked={lockedReason}
+                  missing={page.missingRequired}
                   plainHidden={!read}
                   rotatesOnCheckIn={!!type.checkout}
+                  secretId={secret.id}
                   type={{ ...type, fields: type.fields.filter((f) => !CERT_META_KEYS.has(f.key)) }}
                 />
               )

@@ -29,13 +29,14 @@ const act = (user: string, kind: "folder" | "secret", id: string, fields: Record
     id,
   );
 
-const status = async (p: Promise<unknown>) => {
-  const thrown = await p.then(
+const thrown = async (p: Promise<unknown>) =>
+  p.then(
     () => null,
     (error: unknown) => error,
   );
-  return (thrown as { init?: { status?: number } } | null)?.init?.status;
-};
+
+const status = async (p: Promise<unknown>) =>
+  ((await thrown(p)) as { init?: { status?: number } } | null)?.init?.status;
 
 describe("loading a folder's sharing", () => {
   it("gives an owner the editable ruleset, named, with what it inherits", async () => {
@@ -92,6 +93,13 @@ describe("loading a folder's sharing", () => {
     expect(await status(load(ALICE, "folder", "mock-folder-nope"))).toBe(404);
     expect(await status(load(ALICE, "folder", "mock-folder-bob"))).toBe(404);
   });
+
+  it("puts the folder's own id on the 404, never 'deleted'", async () => {
+    expect(await thrown(load(ALICE, "folder", "mock-folder-bob"))).toMatchObject({
+      data: { code: "NOT_FOUND", metadata: { id: "mock-folder-bob" } },
+      init: { status: 404 },
+    });
+  });
 });
 
 describe("loading a secret's sharing", () => {
@@ -119,6 +127,9 @@ describe("loading a secret's sharing", () => {
     const d = await load(BOB, "secret", DB_ADMIN);
     expect(d.mode).toBe("view");
     expect(await status(load(ALICE, "secret", "mock-secret-bob-laptop"))).toBe(404);
+    expect(await thrown(load(ALICE, "secret", "mock-secret-bob-laptop"))).toMatchObject({
+      data: { code: "NOT_FOUND", metadata: { id: "mock-secret-bob-laptop" } },
+    });
   });
 });
 

@@ -1,4 +1,5 @@
 import { GraphQLRequestError } from "@sneakers-web/api-client";
+import { isRouteErrorResponse } from "react-router";
 
 import { noteProblem } from "#shell/diagnostics/problems";
 
@@ -19,6 +20,17 @@ export interface Refusal {
   /** The gateway request's trace id, for Copy diagnostics. */
   traceId?: string;
 }
+
+/**
+ * The Refusal a loader threw as its 404 boundary's body (via `data(refusal, { status: 404 })`),
+ * for an ErrorBoundary built from `useRouteError()`. Null for any other kind of route error.
+ */
+export const routeErrorRefusal = (error: unknown): null | Refusal => {
+  if (!isRouteErrorResponse(error) || error.status !== 404) return null;
+  const body = error.data as Partial<Refusal> | undefined;
+  if (!body || typeof body !== "object") return null;
+  return { detail: "", metadata: {}, ...body };
+};
 
 /** The refusal behind an error from `gw.gql`, or null when the error is something else. */
 export const refusalOf = (error: unknown): null | Refusal => {

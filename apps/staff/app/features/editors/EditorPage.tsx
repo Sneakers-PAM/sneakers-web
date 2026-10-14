@@ -1,8 +1,8 @@
 import { refusalMessage } from "@sneakers-web/shell";
 import { Alert, Button, cn, Field, Input, PageHeader, plural } from "@sneakers-web/ui";
 import { Plus } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
-import { Link, useFetcher } from "react-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useFetcher, useSearchParams } from "react-router";
 
 import type { EditorActionResult, EditorData, Target } from "@/features/editors/editors.server";
 
@@ -63,6 +63,8 @@ const usesTarget = (t: SecretType) => !!t.heartbeat || !!t.rotation || isKeyPair
 /** U-05: the new and edit secret form, built from the chosen type's field definitions. */
 export const EditorPage = ({ page }: { page: EditorData }) => {
   const editing = page.mode === "edit";
+  const [searchParameters] = useSearchParams();
+  const focusField = searchParameters.get("focus");
   const saver = useFetcher<EditorActionResult>({ key: "editor-save" });
   const [name, setName] = useState(page.draft.name);
   const [folderId, setFolderId] = useState(page.draft.folderId);
@@ -156,6 +158,15 @@ export const EditorPage = ({ page }: { page: EditorData }) => {
 
   const hidden = type && keyPair ? keyPairKeys(type) : new Set<string>();
   const shownFields = type?.fields.filter((f) => !hidden.has(f.key)) ?? [];
+
+  // A "Missing" mark on the secret's page links straight here with ?focus=<key>, so the field
+  // that needs filling in is where the person lands rather than one they have to hunt for.
+  useEffect(() => {
+    if (!focusField) return;
+    const element = document.querySelector(`#field-${focusField}`);
+    element?.scrollIntoView({ block: "center" });
+    element?.querySelector<HTMLElement>("input, textarea, select")?.focus();
+  }, [focusField]);
   const cancelTo = editing
     ? `/secret/${page.secretId}`
     : folderId
@@ -309,7 +320,11 @@ export const EditorPage = ({ page }: { page: EditorData }) => {
         >
           <div className="grid gap-x-4 gap-y-5 tablet:grid-cols-2">
             {shownFields.map((f) => (
-              <div className={cn(isWide(f) && "tablet:col-span-2")} key={f.key}>
+              <div
+                className={cn(isWide(f) && "tablet:col-span-2")}
+                id={`field-${f.key}`}
+                key={f.key}
+              >
                 <FieldControl
                   editing={editing}
                   field={f}
