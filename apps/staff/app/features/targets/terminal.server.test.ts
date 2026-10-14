@@ -45,6 +45,22 @@ describe("the terminal loader", () => {
     });
   });
 
+  it("names the session for a Password Account (SSH) secret the same as an SSH key (#319)", async () => {
+    const PASSWORD = "mock-secret-switch-ssh";
+    const d = await loadTerminal(get(PASSWORD), PASSWORD);
+    expect(d).toEqual({
+      secret: { id: PASSWORD, name: "Lab switch console account" },
+      session: {
+        canPinHostKey: true,
+        hostname: "switch1.example.org",
+        kind: "ready",
+        pinned: true,
+        targetId: "mock-target-switch1",
+        username: "netadmin",
+      },
+    });
+  });
+
   it("only lets a site admin or root pin the host key", async () => {
     mockState.world.targets.find((t) => t.id === "mock-target-build1")!.ownerUserId = undefined;
     const session = await sessionOf(KEY, "mock-user-bob");
@@ -83,6 +99,15 @@ describe("the terminal loader", () => {
 describe("the terminal action", () => {
   it("opens a session and hands the page its ticket", async () => {
     const r = await terminalAction(open(KEY), KEY);
+    expect(r).toMatchObject({
+      ok: true,
+      ticket: { expiresInSeconds: 30, ticket: expect.stringMatching(/^mock-ticket-/) },
+    });
+  });
+
+  it("opens a session for a Password Account (SSH) secret too (#319)", async () => {
+    const PASSWORD = "mock-secret-switch-ssh";
+    const r = await terminalAction(open(PASSWORD), PASSWORD);
     expect(r).toMatchObject({
       ok: true,
       ticket: { expiresInSeconds: 30, ticket: expect.stringMatching(/^mock-ticket-/) },

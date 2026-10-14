@@ -333,7 +333,7 @@ describe("U-12 terminal", () => {
     );
     expect(
       await screen.findByRole("heading", {
-        name: "This secret isn't an SSH key bound to a target",
+        name: "This secret can't open a terminal",
       }),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Attach a target" })).toHaveAttribute(

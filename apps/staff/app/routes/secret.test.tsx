@@ -337,6 +337,32 @@ describe("the secret detail page", () => {
   });
 });
 
+describe("the Open terminal action (#319)", () => {
+  it("offers it for an SSH Key secret with a target", async () => {
+    const user = userEvent.setup();
+    open("mock-secret-build-ssh");
+    await screen.findByRole("heading", { level: 1, name: /Build host deploy key/ });
+    await user.click(screen.getByRole("button", { name: "Actions" }));
+    expect(await screen.findByRole("menuitem", { name: "Open terminal" })).toBeInTheDocument();
+  });
+
+  it("offers it for a Password Account (SSH) secret with a target too", async () => {
+    const user = userEvent.setup();
+    open("mock-secret-switch-ssh");
+    await screen.findByRole("heading", { level: 1, name: /Lab switch console account/ });
+    await user.click(screen.getByRole("button", { name: "Actions" }));
+    expect(await screen.findByRole("menuitem", { name: "Open terminal" })).toBeInTheDocument();
+  });
+
+  it("leaves it off a secret type the terminal can't open (a plain password)", async () => {
+    const user = userEvent.setup();
+    open("mock-secret-edge-router");
+    await screen.findByRole("heading", { level: 1, name: /Edge router admin/ });
+    await user.click(screen.getByRole("button", { name: "Actions" }));
+    expect(screen.queryByRole("menuitem", { name: "Open terminal" })).toBeNull();
+  });
+});
+
 describe("a database secret's connection examples", () => {
   it("shows a psql command and a connection string, with a copy button each, never the password", async () => {
     const user = userEvent.setup();

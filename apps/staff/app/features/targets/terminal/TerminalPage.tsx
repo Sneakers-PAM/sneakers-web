@@ -35,7 +35,7 @@ export const TerminalPage = () => {
             </>
           }
           body={`A terminal session uses ${secret.name}, so it needs read access to it. Ask for access first.`}
-          title="You can't use this key yet"
+          title="You can't use this secret yet"
         />
       );
     }
@@ -50,8 +50,8 @@ export const TerminalPage = () => {
               <BackToSecret id={secret.id} />
             </>
           }
-          body={`Terminal sessions need an SSH Key secret with a target reached over SSH. Attach a target to ${secret.name}, then try again.`}
-          title="This secret isn't an SSH key bound to a target"
+          body={`Terminal sessions need an SSH Key or a Password Account (SSH) secret with a target reached over SSH. Attach a target to ${secret.name}, then try again.`}
+          title="This secret can't open a terminal"
         />
       );
     }
@@ -63,7 +63,7 @@ export const TerminalPage = () => {
         <NoSession
           actions={<BackToSecret id={secret.id} />}
           body={`${secret.name} is retired, so it can't open sessions any more.`}
-          title="This key is retired"
+          title="This secret is retired"
         />
       );
     }

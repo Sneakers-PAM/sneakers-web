@@ -11,6 +11,9 @@ import { guard, isAdmin, requireUser } from "@sneakers-web/shell/server";
 const log = createLogger("terminal");
 
 const SSH_KEY_TYPE = "type-ssh-key";
+const SSH_PASSWORD_TYPE = "type-unix-ssh";
+/** Secret types the web terminal can open a session for (#319). */
+const SSH_TERMINAL_TYPES = new Set([SSH_KEY_TYPE, SSH_PASSWORD_TYPE]);
 
 export type OpenResult = { ok: false; refusal: Refusal } | { ok: true; ticket: SessionTicket };
 
@@ -38,7 +41,11 @@ export type TerminalSession =
   | { kind: "not-ssh" }
   | { kind: "retired" };
 
-/** U-12: the secret, its SSH target and the username. The key itself never leaves the vault. */
+/**
+ * U-12: the secret, its SSH target and the username. The credential itself (the key for a
+ * type-ssh-key secret, the password for a type-unix-ssh one) never leaves the vault; #319 added
+ * the password kind.
+ */
 export const loadTerminal = async (request: Request, id: string): Promise<TerminalData> => {
   const { gw, user } = await requireUser(request);
   log.debug("terminal load", { secretId: id });
@@ -52,7 +59,7 @@ export const loadTerminal = async (request: Request, id: string): Promise<Termin
     const secret = { id: s.id, name: s.name };
     const target = d.targets.find((t) => t.id === s.targetId);
     const connection = d.connections.find((c) => c.id === target?.connectionId);
-    if (s.typeId !== SSH_KEY_TYPE || !target || connection?.protocol !== "ssh") {
+    if (!SSH_TERMINAL_TYPES.has(s.typeId) || !target || connection?.protocol !== "ssh") {
       log.debug("terminal: not an SSH session", { secretId: id });
       return { secret, session: { kind: "not-ssh" } };
     }

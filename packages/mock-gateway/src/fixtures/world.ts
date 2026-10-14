@@ -338,6 +338,17 @@ const SECRET_TYPES: MockSecretType[] = [
   },
   {
     fields: [
+      { key: "host", kind: "text", label: "Host", required: true },
+      { key: "username", kind: "text", label: "Username", required: true },
+      { key: "password", kind: "password", label: "Password", required: true, sensitive: true },
+      notes,
+    ],
+    id: "type-unix-ssh",
+    name: "Password Account (SSH)",
+    origin: "system",
+  },
+  {
+    fields: [
       {
         key: "engine",
         kind: "select",
@@ -615,6 +626,17 @@ const TARGETS: MockTarget[] = [
     name: "Primary database",
     sshHostKeys: [],
   },
+  {
+    connectionId: "mock-conn-ssh",
+    description: "Lab switch console",
+    hostname: "switch1.example.org",
+    id: "mock-target-switch1",
+    kind: "network",
+    name: "Lab switch",
+    offeredHostKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockSwitch1HostKeyNotReal switch1",
+    ownerUserId: ALICE,
+    sshHostKeys: ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockSwitch1HostKeyNotReal switch1"],
+  },
 ];
 
 /** A version history: `count` versions, the newest active, each by `by`. */
@@ -763,6 +785,24 @@ const secrets = (now: number): MockSecret[] =>
         viewCount: 18,
       },
       2,
+    ),
+    secret(
+      now,
+      {
+        fields: {
+          host: "switch1.example.org",
+          password: "mock-Switch-Console-91",
+          username: "netadmin",
+        },
+        folderId: "mock-folder-platform",
+        id: "mock-secret-switch-ssh",
+        lastAccessedAt: iso(now - 3 * HOUR),
+        name: "Lab switch console account",
+        targetId: "mock-target-switch1",
+        typeId: "type-unix-ssh",
+        viewCount: 4,
+      },
+      1,
     ),
     secret(now, {
       fields: { notes: "Console only.", password: "mock-Vamp-Collar-63", username: "admin" },
