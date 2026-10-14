@@ -3,6 +3,7 @@ import {
   Badge,
   Card,
   CardHeader,
+  LongValue,
   PageHeader,
   Pill,
   shortDate,
@@ -178,7 +179,9 @@ export default function Home() {
           <Card>
             <CardHeader title="TLS" />
             <div className="flex flex-col gap-1 p-5.5 text-small">
-              <p className="break-all">Fingerprint: {data.tlsFingerprint}</p>
+              <p>
+                Fingerprint: <LongValue value={data.tlsFingerprint} />
+              </p>
               <p>{data.tlsSelfSigned ? "Self-signed" : "Not self-signed"}</p>
             </div>
           </Card>

@@ -13,6 +13,7 @@ import {
   DialogTitle,
   Field,
   Input,
+  LongValue,
   PageHeader,
   Segmented,
   shortDate,
@@ -1692,19 +1693,7 @@ const VerifiedPanel = ({
     ["Architecture", updatePackage.arch],
     ["Signature", "Verified against this appliance's release key"],
     ["Channel", updatePackage.channel],
-    [
-      "SHA-256",
-      <span className="flex flex-wrap items-center gap-2" key="sha">
-        <code className="font-mono break-all">{updatePackage.sha256}</code>
-        <Button
-          onClick={() => void navigator.clipboard.writeText(updatePackage.sha256)}
-          size="sm"
-          variant="secondary"
-        >
-          Copy
-        </Button>
-      </span>,
-    ],
+    ["SHA-256", <LongValue copyLabel="SHA-256" key="sha" value={updatePackage.sha256} />],
     [
       "Staged",
       product

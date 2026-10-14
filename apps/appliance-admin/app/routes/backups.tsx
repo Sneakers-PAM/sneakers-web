@@ -4,6 +4,7 @@ import {
   CardHeader,
   Field,
   Input,
+  LongValue,
   PageHeader,
   Table,
   TableBody,
@@ -82,10 +83,10 @@ export default function Backups() {
           subtitle={`${String(recoveryKeys?.length ?? 0)} set`}
           title="Recovery keys"
         />
-        <div className="flex flex-col gap-1 p-5.5 font-mono text-[0.8125rem]">
+        <div className="flex flex-col gap-1 p-5.5 text-[0.8125rem]">
           {(recoveryKeys ?? []).map((key) => (
-            <p className="break-all" key={key.fingerprint}>
-              {key.fingerprint} ({key.label})
+            <p key={key.fingerprint}>
+              <LongValue value={key.fingerprint} /> ({key.label})
             </p>
           ))}
         </div>

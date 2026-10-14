@@ -258,6 +258,20 @@
     cursor: not-allowed;
   }
 
+  /* An unbroken value (a fingerprint, token, hash, URL, path or key) wraps inside its own box
+     instead of forcing a dialog, card, table or key-value row wide. Inherited, so it reaches
+     every value a page renders without a per-page class; an element that truncates on purpose
+     (`truncate`, `whitespace-nowrap`) is unaffected, since those stop wrapping outright. */
+  body {
+    overflow-wrap: anywhere;
+  }
+  /* A `<dl class="grid ...">` key-value row's value column is sized `1fr`, which defaults to a
+     minimum width of its content: a long `<dd>` value pushes the column, and so its dialog or
+     card, wide before overflow-wrap gets a chance to act. */
+  .grid > dd {
+    min-width: 0;
+  }
+
   :where(
     a,
     button,

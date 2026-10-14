@@ -1,4 +1,4 @@
-import { Button, cn, shortDate } from "@sneakers-web/ui";
+import { Button, cn, LongValue, shortDate } from "@sneakers-web/ui";
 import { Check, Clock } from "lucide-react";
 import { type ReactNode } from "react";
 
@@ -81,7 +81,7 @@ export const CertificateCard = ({
         <span className="font-mono">{fields.serialNumber || "—"}</span>
       </Row>
       <Row label="SHA-256">
-        <span className="font-mono text-small break-all">{fields.fingerprintSha256 || "—"}</span>
+        <LongValue className="text-small" value={fields.fingerprintSha256 || "—"} />
       </Row>
       <Row label="CA">{fields.isCA === "true" ? "Yes" : "No"}</Row>
       <Row label="Private key">

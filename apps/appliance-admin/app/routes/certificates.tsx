@@ -13,6 +13,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  LongValue,
   PageHeader,
   Pill,
   Segmented,
@@ -336,7 +337,9 @@ export default function Certificates() {
             <dt className="font-bold">Last error</dt>
             <dd>None</dd>
             <dt className="font-bold">:8443</dt>
-            <dd>{admin?.stateDetail ?? ""}</dd>
+            <dd>
+              <LongValue value={admin?.stateDetail ?? ""} />
+            </dd>
           </dl>
         </Card>
       </section>
@@ -589,11 +592,17 @@ const CertificateDetails = ({ cert }: { cert: StoredCertificate }) => (
     <dt className="font-bold">Source</dt>
     <dd>{SOURCE[cert.source]}</dd>
     <dt className="font-bold">Subject</dt>
-    <dd className="font-mono">{cert.subject}</dd>
+    <dd>
+      <LongValue value={cert.subject} />
+    </dd>
     <dt className="font-bold">Issuer</dt>
-    <dd className="font-mono">{cert.issuer}</dd>
+    <dd>
+      <LongValue value={cert.issuer} />
+    </dd>
     <dt className="font-bold">SANs</dt>
-    <dd className="font-mono">{cert.names.join(", ")}</dd>
+    <dd>
+      <LongValue value={cert.names.join(", ")} />
+    </dd>
     <dt className="font-bold">Not before</dt>
     <dd>{shortDate(cert.notBefore)}</dd>
     <dt className="font-bold">Not after</dt>
@@ -601,7 +610,9 @@ const CertificateDetails = ({ cert }: { cert: StoredCertificate }) => (
     <dt className="font-bold">Key</dt>
     <dd>{cert.keyType}, sealed on the box</dd>
     <dt className="font-bold">SHA-256</dt>
-    <dd className="font-mono break-all">{cert.fingerprint}</dd>
+    <dd>
+      <LongValue value={cert.fingerprint} />
+    </dd>
     <dt className="font-bold">Chain</dt>
     <dd>{cert.chain.join(" > ")}</dd>
   </dl>

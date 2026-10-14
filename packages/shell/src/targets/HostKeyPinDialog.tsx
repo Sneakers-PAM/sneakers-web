@@ -7,6 +7,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  LongValue,
 } from "@sneakers-web/ui";
 import { useEffect, useRef } from "react";
 import { useFetcher } from "react-router";
@@ -93,7 +94,9 @@ export const HostKeyPinDialog = ({
             <dt className="font-bold text-muted">Key type</dt>
             <dd className="font-mono">{scan.keyType}</dd>
             <dt className="font-bold text-muted">Fingerprint</dt>
-            <dd className="font-mono">{scan.fingerprint}</dd>
+            <dd>
+              <LongValue value={scan.fingerprint} />
+            </dd>
           </dl>
         )}
         {scan?.pinned && <Alert tone="ok">This key is already pinned.</Alert>}

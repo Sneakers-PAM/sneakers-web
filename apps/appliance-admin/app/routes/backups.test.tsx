@@ -54,8 +54,10 @@ describe("Backups", () => {
     signInAs("alice");
     renderPage(Backups);
     const fingerprint = await screen.findByText(
-      /SHA256:rK1X8qf9w2v6z4m7h5s1rQwQEuY7zL5mZ8w5z6c1h9/,
+      (_, element) =>
+        element?.tagName === "SPAN" &&
+        element.textContent === "SHA256:rK1X8qf9w2v6z4m7h5s1rQwQEuY7zL5mZ8w5z6c1h9",
     );
-    expect(fingerprint.className).toContain("break-all");
+    expect(fingerprint.className).toContain("wrap-anywhere");
   });
 });

@@ -18,6 +18,7 @@ import {
   Field,
   Input,
   Label,
+  LongValue,
   PageHeader,
   Select,
   SelectContent,
@@ -393,8 +394,8 @@ export default function Access() {
               {revokedKeys.map((key) => (
                 <TableRow key={key.fingerprint}>
                   <TableCell>{key.admin}</TableCell>
-                  <TableCell className="font-mono text-[0.8125rem] break-all">
-                    {key.fingerprint}
+                  <TableCell>
+                    <LongValue value={key.fingerprint} />
                   </TableCell>
                   <TableCell>{key.type}</TableCell>
                   <TableCell>{key.revoked ? shortDate(key.revoked) : ""}</TableCell>
@@ -427,20 +428,20 @@ export default function Access() {
       <section aria-label="Key fingerprints">
         <Card>
           <CardHeader title="Key fingerprints" />
-          <div className="flex flex-col gap-1 p-5.5 font-mono text-[0.8125rem]">
+          <div className="flex flex-col gap-1 p-5.5 text-[0.8125rem]">
             {data.rootKey && (
-              <p className="break-all">
-                Root key {data.rootKey.type} {data.rootKey.fingerprint}
+              <p>
+                Root key {data.rootKey.type} <LongValue value={data.rootKey.fingerprint} />
               </p>
             )}
             {data.hostCa && (
-              <p className="break-all">
-                SSH host CA {data.hostCa.type} {data.hostCa.fingerprint}
+              <p>
+                SSH host CA {data.hostCa.type} <LongValue value={data.hostCa.fingerprint} />
               </p>
             )}
             {data.hostKeys.map((key) => (
-              <p className="break-all" key={key.fingerprint}>
-                SSH host key {key.type} {key.fingerprint}
+              <p key={key.fingerprint}>
+                SSH host key {key.type} <LongValue value={key.fingerprint} />
               </p>
             ))}
           </div>
@@ -753,8 +754,8 @@ const UnrevokeDialog = ({
           isn&apos;t added back to anyone by this.
         </DialogDescription>
       </DialogHeader>
-      <p className="font-mono text-[0.8125rem] break-all">
-        {revokedKey.type} {revokedKey.fingerprint}
+      <p>
+        {revokedKey.type} <LongValue value={revokedKey.fingerprint} />
       </p>
       {refusal && <Alert tone="danger">{refusal}</Alert>}
       <DialogFooter>

@@ -4,6 +4,7 @@ import {
   CardHeader,
   Field,
   Input,
+  LongValue,
   Pill,
   shortDate,
   Textarea,
@@ -62,22 +63,15 @@ export const UpdateTrustCard = ({
             <ul aria-label="Trusted CAs" className="flex flex-col gap-2">
               {trust.cas.map((ca) => (
                 <li className="rounded-md border border-border p-3" key={ca.sha256}>
-                  <p className="font-bold">{ca.subject}</p>
+                  <LongValue as="p" className="font-bold" value={ca.subject} />
                   <p className="text-muted">
-                    Issued by {ca.issuer}
+                    Issued by <LongValue value={ca.issuer} />
                     {ca.notAfter ? `, expires ${shortDate(ca.notAfter)}` : ""}
                   </p>
-                  <p className="break-all font-mono">{ca.sha256}</p>
+                  <LongValue as="p" value={ca.sha256} />
                 </li>
               ))}
-              <li>
-                Pin:{" "}
-                {trust.pinSha256 ? (
-                  <span className="break-all font-mono">{trust.pinSha256}</span>
-                ) : (
-                  "none"
-                )}
-              </li>
+              <li>Pin: {trust.pinSha256 ? <LongValue value={trust.pinSha256} /> : "none"}</li>
             </ul>
           ) : (
             <p>

@@ -26,7 +26,7 @@ import { useSession } from "@/lib/useSession";
 const Row = ({ label, title, value }: { label: string; title?: string; value: string }) => (
   <div className="flex gap-3 py-1 text-[0.875rem]">
     <dt className="w-32 flex-none text-muted">{label}</dt>
-    <dd className="m-0 min-w-0 font-mono text-[0.8125rem] break-all" title={title}>
+    <dd className="m-0 min-w-0 font-mono text-[0.8125rem] wrap-anywhere" title={title}>
       {value}
     </dd>
   </div>

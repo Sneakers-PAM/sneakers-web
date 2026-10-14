@@ -44,7 +44,10 @@ describe("service accounts", () => {
     await user.click(await screen.findByRole("menuitem", { name: "Finance" }));
     await user.click(screen.getByRole("button", { name: "Mint token" }));
     expect(await screen.findByRole("heading", { name: "Token minted" })).toBeInTheDocument();
-    expect(screen.getByLabelText("New API token").textContent).toMatch(/^mock-sa-token-/);
+    const token = screen.getByLabelText("New API token");
+    expect(token.textContent).toMatch(/^mock-sa-token-/);
+    // Wraps inside the dialog instead of running off it, however long the minted token is.
+    expect(token).toHaveClass("wrap-anywhere");
     await user.click(screen.getByRole("button", { name: "Done, I've stored it" }));
     expect(screen.queryByLabelText("New API token")).not.toBeInTheDocument();
     expect(await screen.findByRole("row", { name: /^Finance/ })).toBeInTheDocument();
