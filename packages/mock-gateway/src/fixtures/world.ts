@@ -775,6 +775,15 @@ const secrets = (now: number): MockSecret[] =>
       verifiedAt: iso(now - 9 * DAY),
       viewCount: 9,
     }),
+    // Created with its required password field left empty (#321's repro): opens for its owner
+    // with the "Missing" mark, never as "no longer exists".
+    secret(now, {
+      fields: { username: "root" },
+      folderId: "mock-folder-network",
+      id: "mock-secret-incomplete-ssh",
+      name: "Lab switch (incomplete)",
+      typeId: "type-password",
+    }),
     secret(now, {
       expiresAt: iso(now + 5 * DAY),
       fields: {

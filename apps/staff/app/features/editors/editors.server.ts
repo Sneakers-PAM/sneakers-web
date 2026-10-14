@@ -182,8 +182,13 @@ const moveChoices = (folders: NavFolder[], fromId: string, admin: boolean) => {
   };
 };
 
-const missing = () =>
-  data({ code: "NOT_FOUND", detail: "", metadata: {} } satisfies Refusal, { status: 404 });
+/** Never "deleted" — the gateway doesn't say whether it's gone or just not visible. */
+const missing = (id: string, gatewayCode = "NOT_FOUND") => {
+  log.info("edit secret: not found", { gatewayCode, secretId: id });
+  return data({ code: "NOT_FOUND", detail: "", metadata: { id } } satisfies Refusal, {
+    status: 404,
+  });
+};
 
 /** U-05 edit: the secret's form, with its non-sensitive values. */
 export const loadEditSecret = async (request: Request, id: string): Promise<EditorLoad> => {
@@ -191,18 +196,16 @@ export const loadEditSecret = async (request: Request, id: string): Promise<Edit
   const started = Date.now();
   log.debug("edit secret: loading", { secretId: id, userId: user.id });
   return guard(request, async () => {
-    let found: EditorsSecretQuery | null;
+    let found: EditorsSecretQuery;
     try {
       found = await gw.gql(EditorsSecretDocument, { id });
     } catch (error) {
-      if (refusalOf(error)?.code === "NOT_FOUND") found = null;
-      else return failed(error, { secretId: id, userId: user.id });
+      const refusal = refusalOf(error);
+      if (refusal?.code === "NOT_FOUND") throw missing(id, refusal.code);
+      return failed(error, { secretId: id, userId: user.id });
     }
-    const secret = found?.secret;
-    if (!found || !secret) {
-      log.info("edit secret: not found", { secretId: id, userId: user.id });
-      throw missing();
-    }
+    if (!found.secret) throw missing(id);
+    const secret = found.secret;
     try {
       const [p, fields, nav] = await Promise.all([
         pickers(gw),

@@ -2217,6 +2217,7 @@ export type SecretDetailQuery = {
       label: string;
       kind: FieldKind;
       options: Array<string> | null;
+      required: boolean | null;
       sensitive: boolean | null;
       superSensitive: boolean | null;
       rotates: boolean | null;
@@ -5440,6 +5441,7 @@ export const SecretDetailDocument = new TypedDocumentString(`
       label
       kind
       options
+      required
       sensitive
       superSensitive
       rotates

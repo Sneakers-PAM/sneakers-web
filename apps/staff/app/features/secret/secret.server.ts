@@ -58,6 +58,8 @@ export interface SecretPage {
   isAdmin: boolean;
   /** The secret's active lease, whoever holds it, for types that check out. */
   lease: { expiresAt: string; id: string; userId: string } | null;
+  /** Required field keys the type defines that this secret has no value for yet. */
+  missingRequired: string[];
   /** When the server answered, so "expires in" and "next rotation" read the same on both sides. */
   now: number;
   ok: true;
@@ -76,6 +78,31 @@ export type SecretVersion = SecretVersionsQuery["secretVersions"][number];
 
 export type SecretView = SecretDetailFieldsFragment;
 
+/** Matches FieldsCard's isSecretField: a value this path never fetches in plain text. */
+const isSecretField = (
+  f: Pick<SecretType["fields"][number], "kind" | "sensitive" | "superSensitive">,
+) => f.kind === "password" || !!f.sensitive || !!f.superSensitive;
+
+/**
+ * The type's required fields the secret has no value for: a plain field with no (or an empty)
+ * value, or a sensitive one absent from the active version's field keys (never its value — only
+ * GetSecretFields/ListSecretVersions metadata is read here). Empty when access.read is false,
+ * since there's no way to tell without it.
+ */
+export const missingRequiredFields = (
+  type: null | SecretType,
+  fields: Record<string, string>,
+  history: null | SecretVersion[],
+): string[] => {
+  if (!type) return [];
+  const active = history?.find((v) => v.active);
+  const sealedKeys = new Set(active?.fieldKeys);
+  return type.fields
+    .filter((f) => f.required)
+    .filter((f) => (isSecretField(f) ? !!history && !sealedKeys.has(f.key) : !fields[f.key]))
+    .map((f) => f.key);
+};
+
 const pathTo = (folders: SecretDetailQuery["folders"], folderId: string) => {
   const out: { id: string; name: string }[] = [];
   let f = folders.find((x) => x.id === folderId);
@@ -87,32 +114,42 @@ const pathTo = (folders: SecretDetailQuery["folders"], folderId: string) => {
   return out;
 };
 
-const missing = () =>
-  data({ code: "NOT_FOUND", detail: "", metadata: {} } satisfies Refusal, { status: 404 });
+/**
+ * The 404 a missing or invisible secret gets: a neutral boundary (never "deleted" — the
+ * gateway doesn't say which of the two it is, and most of the time it's the latter), with the
+ * id on screen and the gateway's own code in the server log for whoever has to triage it.
+ */
+const missing = (id: string, gatewayCode = "NOT_FOUND") => {
+  log.info("secret detail: not found", { gatewayCode, secretId: id });
+  return data({ code: "NOT_FOUND", detail: "", metadata: { id } } satisfies Refusal, {
+    status: 404,
+  });
+};
 
 const page = async (
   gw: GatewayClient,
   user: SessionUser,
-  id: string,
-): Promise<null | SecretPage> => {
-  const detail = await gw.gql(SecretDetailDocument, { id });
-  const secret = detail.secret;
-  if (!secret) return null;
-  const { mySecretAccess: access } = await gw.gql(SecretAccessDocument, { secretId: id });
+  detail: SecretDetailQuery,
+  secret: SecretView,
+): Promise<SecretPage> => {
+  const { mySecretAccess: access } = await gw.gql(SecretAccessDocument, { secretId: secret.id });
   const admin = isAdmin(user);
   const type = detail.secretTypes.find((t) => t.id === secret.typeId) ?? null;
   const [fields, history, lease] = await Promise.all([
-    access.read ? gw.gql(SecretFieldsDocument, { id }) : null,
-    access.read ? gw.gql(SecretVersionsDocument, { secretId: id }) : null,
-    type?.checkout ? activeLeaseFor(gw, id) : null,
+    access.read ? gw.gql(SecretFieldsDocument, { id: secret.id }) : null,
+    access.read ? gw.gql(SecretVersionsDocument, { secretId: secret.id }) : null,
+    type?.checkout ? activeLeaseFor(gw, secret.id) : null,
   ]);
+  const fieldValues = Object.fromEntries((fields?.secretFields ?? []).map((f) => [f.key, f.value]));
+  const history_ = history?.secretVersions ?? null;
   return {
     access,
-    fields: Object.fromEntries((fields?.secretFields ?? []).map((f) => [f.key, f.value])),
+    fields: fieldValues,
     folderPath: pathTo(detail.folders, secret.folderId),
-    history: history?.secretVersions ?? null,
+    history: history_,
     isAdmin: admin,
     lease: lease ? { expiresAt: lease.expiresAt, id: lease.id, userId: lease.userId } : null,
+    missingRequired: missingRequiredFields(type, fieldValues, history_),
     now: Date.now(),
     ok: true,
     recovery: user.roles.includes(RECOVERY_ROLE),
@@ -156,17 +193,23 @@ export const loadSecret = async (request: Request, id: string): Promise<SecretLo
   const started = Date.now();
   log.debug("secret detail: loading", { secretId: id, userId: user.id });
   return guard(request, async () => {
-    let result: null | SecretPage;
+    // Only the secret's own lookup decides "not found" — a refusal from one of the page's
+    // other calls (access, fields, history, a lease) never gets silently read as "this secret
+    // is gone"; it surfaces as its own failure instead, retryable where that's right.
+    let detail: SecretDetailQuery;
     try {
-      result = await page(gw, user, id);
+      detail = await gw.gql(SecretDetailDocument, { id });
     } catch (error) {
       const refusal = refusalOf(error);
-      if (refusal?.code === "NOT_FOUND") result = null;
-      else return failed(error, id, user.id);
+      if (refusal?.code === "NOT_FOUND") throw missing(id, refusal.code);
+      return failed(error, id, user.id);
     }
-    if (!result) {
-      log.info("secret detail: not found", { secretId: id, userId: user.id });
-      throw missing();
+    if (!detail.secret) throw missing(id);
+    let result: SecretPage;
+    try {
+      result = await page(gw, user, detail, detail.secret);
+    } catch (error) {
+      return failed(error, id, user.id);
     }
     log.debug("secret detail: loaded", {
       ms: Date.now() - started,

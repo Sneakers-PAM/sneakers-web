@@ -69,9 +69,20 @@ describe("loading a secret", () => {
     expect(d.history).toBeNull();
   });
 
-  it("answers 404 for a secret the person can't see", async () => {
+  it("answers 404 for a secret the person can't see, the id on screen, never 'deleted'", async () => {
     const error = await thrown(load("mock-secret-alice-wifi", "mock-user-bob"));
-    expect(error).toMatchObject({ init: { status: 404 } });
+    expect(error).toMatchObject({
+      data: { code: "NOT_FOUND", metadata: { id: "mock-secret-alice-wifi" } },
+      init: { status: 404 },
+    });
+  });
+
+  it("opens a secret created without a required field, marking it missing, not gone", async () => {
+    const d = await load("mock-secret-incomplete-ssh");
+    if (!d.ok) throw new Error("expected the page");
+    expect(d.secret.name).toBe("Lab switch (incomplete)");
+    expect(d.fields.username).toBe("root");
+    expect(d.missingRequired).toEqual(["password"]);
   });
 
   it("turns a failing gateway into a failure the page can retry", async () => {

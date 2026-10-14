@@ -236,6 +236,7 @@ export const secretHandlers: RequestHandler[] = [
             kind: f.kind,
             label: f.label,
             options: f.options ?? null,
+            required: f.required ?? null,
             rotates: f.rotates ?? null,
             sensitive: f.sensitive ?? null,
             superSensitive: f.superSensitive ?? null,

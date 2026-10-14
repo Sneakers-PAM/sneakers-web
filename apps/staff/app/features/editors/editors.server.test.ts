@@ -117,10 +117,17 @@ describe("loading the edit form", () => {
     });
   });
 
-  it("answers 404 for a secret the user can't see", async () => {
+  it("answers 404 for a secret the user can't see, the id on screen", async () => {
     expect(await thrown(loadEdit("mock-secret-alice-wifi", "mock-user-bob"))).toMatchObject({
+      data: { code: "NOT_FOUND", metadata: { id: "mock-secret-alice-wifi" } },
       init: { status: 404 },
     });
+  });
+
+  it("opens a secret created without a required field, same as the view page", async () => {
+    const d = await loadEdit("mock-secret-incomplete-ssh");
+    if (!d.ok) throw new Error("expected the form");
+    expect(d.draft.values.username).toBe("root");
   });
 });
 

@@ -44,7 +44,13 @@ export { HeaderSearch } from "#shell/layout/HeaderSearch";
 export { MfaBanner } from "#shell/layout/MfaBanner";
 export { NavGroup, NavItem, type NavItemProps, NavList } from "#shell/layout/Nav";
 export { NotificationBell, type NotificationItem } from "#shell/layout/Notifications";
-export { needsStepUp, type Refusal, refusalMessage, refusalOf } from "#shell/refusal";
+export {
+  needsStepUp,
+  type Refusal,
+  refusalMessage,
+  refusalOf,
+  routeErrorRefusal,
+} from "#shell/refusal";
 export { AppRoot, Document, ProblemActions } from "#shell/root/Document";
 export { RouteError } from "#shell/root/RouteError";
 export { useQuietRefresh } from "#shell/root/useQuietRefresh";

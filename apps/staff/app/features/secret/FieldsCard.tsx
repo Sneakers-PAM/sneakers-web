@@ -1,5 +1,6 @@
 import { Button, HighlySensitiveBadge, toast } from "@sneakers-web/ui";
-import { Copy, RefreshCw } from "lucide-react";
+import { Copy, Pencil, RefreshCw } from "lucide-react";
+import { Link } from "react-router";
 
 import type { SecretType } from "@/features/secret/secret.server";
 
@@ -67,20 +68,38 @@ const Plain = ({ field, value }: { field: FieldDefinition; value: string | undef
   );
 };
 
+/** A required field this secret has no value for yet: the mark, and straight to fixing it. */
+const Missing = ({ fieldKey, secretId }: { fieldKey: string; secretId: string }) => (
+  <div className="flex items-center gap-3">
+    <span className="text-small text-danger">Missing required field</span>
+    <Button asChild size="sm" variant="secondary">
+      <Link to={`/secret/${secretId}/edit?focus=${fieldKey}`}>
+        <Pencil aria-hidden />
+        Edit
+      </Link>
+    </Button>
+  </div>
+);
+
 /** The type's fields: plain values inline, secret ones masked behind a reveal. */
 export const FieldsCard = ({
   fields,
   locked,
+  missing = [],
   plainHidden,
   rotatesOnCheckIn,
+  secretId,
   type,
 }: {
   fields: Record<string, string>;
   /** Why secret values can't be revealed now, or undefined when they can. */
   locked?: string;
+  /** Required field keys this secret has no value for; each gets the "Missing" mark and Edit. */
+  missing?: string[];
   /** The person can't read the secret, so even plain values aren't shown. */
   plainHidden: boolean;
   rotatesOnCheckIn: boolean;
+  secretId: string;
   type: SecretType;
 }) => (
   <Panel subtitle="Revealing or copying a value is recorded in the audit log." title="Fields">
@@ -93,7 +112,9 @@ export const FieldsCard = ({
           label={f.label}
           note={f.superSensitive ? <HighlySensitiveBadge /> : undefined}
         >
-          {isSecretField(f) ? (
+          {missing.includes(f.key) ? (
+            <Missing fieldKey={f.key} secretId={secretId} />
+          ) : isSecretField(f) ? (
             <SensitiveValue
               field={f}
               hint={

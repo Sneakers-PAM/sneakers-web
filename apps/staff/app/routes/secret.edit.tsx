@@ -1,13 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 
-import { RouteError } from "@sneakers-web/shell";
-import {
-  isRouteErrorResponse,
-  useLoaderData,
-  useLocation,
-  useNavigation,
-  useRouteError,
-} from "react-router";
+import { RouteError, routeErrorRefusal } from "@sneakers-web/shell";
+import { useLoaderData, useLocation, useNavigation, useRouteError } from "react-router";
 
 import { EditorPage } from "@/features/editors/EditorPage";
 import { editorAction, loadEditSecret } from "@/features/editors/editors.server";
@@ -37,8 +31,8 @@ const EditSecret = () => {
 };
 
 export const ErrorBoundary = () => {
-  const error = useRouteError();
-  if (isRouteErrorResponse(error) && error.status === 404) return <SecretNotFound />;
+  const refusal = routeErrorRefusal(useRouteError());
+  if (refusal) return <SecretNotFound id={refusal.metadata.id} />;
   return <RouteError />;
 };
 

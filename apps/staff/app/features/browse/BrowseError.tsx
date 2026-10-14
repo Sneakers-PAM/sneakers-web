@@ -1,4 +1,4 @@
-import { RouteError } from "@sneakers-web/shell";
+import { RouteError, routeErrorRefusal } from "@sneakers-web/shell";
 import { Button, EmptyState } from "@sneakers-web/ui";
 import { isRouteErrorResponse, Link, useRevalidator, useRouteError } from "react-router";
 
@@ -9,7 +9,8 @@ import { isRouteErrorResponse, Link, useRevalidator, useRouteError } from "react
 export const BrowseError = () => {
   const error = useRouteError();
   const revalidator = useRevalidator();
-  if (isRouteErrorResponse(error) && error.status === 404) {
+  const refusal = routeErrorRefusal(error);
+  if (refusal) {
     return (
       <EmptyState
         action={
@@ -17,7 +18,17 @@ export const BrowseError = () => {
             <Link to="/browse">All folders</Link>
           </Button>
         }
-        body="It may have been deleted or moved somewhere you can't see, or the link is wrong."
+        body={
+          <>
+            This folder doesn&apos;t exist, or you don&apos;t have access to it.
+            {refusal.metadata.id && (
+              <>
+                <br />
+                <span className="font-mono text-small text-muted">{refusal.metadata.id}</span>
+              </>
+            )}
+          </>
+        }
         title="Folder not found"
       />
     );
