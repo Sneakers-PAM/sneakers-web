@@ -33,6 +33,9 @@ import { mockState, newToken } from "#mock/state";
  */
 
 const SSH_KEY_TYPE = "type-ssh-key";
+const SSH_PASSWORD_TYPE = "type-unix-ssh";
+/** Secret types the web terminal can open a session for (#319). */
+const SSH_TERMINAL_TYPES = new Set([SSH_KEY_TYPE, SSH_PASSWORD_TYPE]);
 // The gateway asks the broker for a 30-second ticket.
 const TICKET_TTL_S = 30;
 
@@ -142,7 +145,8 @@ const sessionProblem = (userId: string, s: MockSecret): never | null => {
   if (!canRead(userId, s))
     return refusal("PERMISSION_DENIED", "not permitted to read this secret", "NO_ACCESS");
   if (s.retired) return refusal("FAILED_PRECONDITION", "secret is retired", "RETIRED");
-  if (s.typeId !== SSH_KEY_TYPE) return refusal("FAILED_PRECONDITION", "secret is not an SSH key");
+  if (!SSH_TERMINAL_TYPES.has(s.typeId))
+    return refusal("FAILED_PRECONDITION", "secret is not an SSH key or a Password Account (SSH)");
   if (!s.targetId) return refusal("FAILED_PRECONDITION", "secret has no target host");
   const t = world().targets.find((x) => x.id === s.targetId && visible(userId, x));
   if (!t) return refusal("NOT_FOUND", "target not found");

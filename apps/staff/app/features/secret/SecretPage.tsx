@@ -46,6 +46,9 @@ type DialogName = "break-glass" | "delete" | "export" | "replace" | "rotate" | n
 const CERT_TYPE = "type-ssl-cert";
 const DB_TYPE = "type-database-account";
 const SSH_TYPE = "type-ssh-key";
+const SSH_PASSWORD_TYPE = "type-unix-ssh";
+/** Secret types the web terminal can open a session for (#319). */
+const SSH_TERMINAL_TYPES = new Set([SSH_PASSWORD_TYPE, SSH_TYPE]);
 
 /** Shown on a manage control a site admin can see but not use: the vault's own reason. */
 const OWNERS_ONLY_HINT = "owners or authors only";
@@ -207,11 +210,14 @@ export const SecretPage = ({ page }: { page: Page }) => {
                   <DropdownMenuItem asChild>
                     <Link to={`/secret/${secret.id}/sharing`}>Manage access</Link>
                   </DropdownMenuItem>
-                  {secret.typeId === SSH_TYPE && secret.targetId && read && !secret.retired && (
-                    <DropdownMenuItem asChild>
-                      <Link to={`/secret/${secret.id}/terminal`}>Open terminal</Link>
-                    </DropdownMenuItem>
-                  )}
+                  {SSH_TERMINAL_TYPES.has(secret.typeId) &&
+                    secret.targetId &&
+                    read &&
+                    !secret.retired && (
+                      <DropdownMenuItem asChild>
+                        <Link to={`/secret/${secret.id}/terminal`}>Open terminal</Link>
+                      </DropdownMenuItem>
+                    )}
                   {showManage && !secret.retired && isCert && (
                     <DropdownMenuItem disabled={!manage} onSelect={() => setDialog("replace")}>
                       Replace certificate…

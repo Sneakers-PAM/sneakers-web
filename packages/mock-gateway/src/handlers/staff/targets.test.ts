@@ -192,6 +192,16 @@ describe("the SSH terminal in the mock", () => {
     expect(d.openSshSession.expiresInSeconds).toBe(30);
   });
 
+  it("opens a single-use session ticket for a readable Password Account (SSH) secret on an SSH target", async () => {
+    const alice = await as(ALICE);
+    const d = await alice.gql(TargetsOpenSshSessionDocument, {
+      secretId: "mock-secret-switch-ssh",
+    });
+    expect(d.openSshSession.ticket).toMatch(/^mock-/);
+    expect(d.openSshSession.sessionId).toMatch(/^mock-/);
+    expect(d.openSshSession.expiresInSeconds).toBe(30);
+  });
+
   it("refuses without read access, with NO_ACCESS", async () => {
     // Dave isn't in the Platform engineers group and holds no lease, so nothing lets him read it.
     const gw9 = await as("mock-user-dave");
