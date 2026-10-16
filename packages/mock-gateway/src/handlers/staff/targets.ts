@@ -1,6 +1,7 @@
 import type { RequestHandler } from "msw";
 
 import {
+  TargetsAttachedSecretsDocument,
   TargetsDeleteDocument,
   TargetsListDocument,
   TargetsOpenSshSessionDocument,
@@ -22,7 +23,7 @@ import type {
 import { isSiteAdmin, refusal } from "#mock/admin/refuse";
 import { api, asUser } from "#mock/handlers/graphql";
 import { fingerprintOf, offeredKeyLine, parseKeyLine } from "#mock/handlers/hostKeyScan";
-import { canRead, canSee, secretById } from "#mock/handlers/staff/access";
+import { canRead, canSee, secretById, targetIdsOf } from "#mock/handlers/staff/access";
 import { mockState, newToken } from "#mock/state";
 
 /*
@@ -69,7 +70,7 @@ const targetView = (t: MockTarget) => ({
   name: t.name,
   ownerUserId: t.ownerUserId ?? null,
   realm: t.realm ?? null,
-  secretCount: world().secrets.filter((s) => s.targetId === t.id && !s.retired).length,
+  secretCount: world().secrets.filter((s) => !s.retired && targetIdsOf(s).includes(t.id)).length,
   sshHostKeys: t.sshHostKeys,
 });
 
@@ -141,14 +142,33 @@ const nonSensitive = (s: MockSecret) => {
 };
 
 /** Why the gateway won't open a session for `s`, or null when it will. */
-const sessionProblem = (userId: string, s: MockSecret): never | null => {
+/**
+ * Why the gateway won't open a session for `s` on `wantedTargetId`, or null when it will.
+ * Everything is one chain of direct returns (never an intermediate value standing in for a
+ * refusal), the same convention `refusal`'s `never` return type relies on everywhere else here.
+ *
+ * Choosing which attached target to use (#168) mirrors the gateway's own chooseTarget: required
+ * when there's more than one, defaults to the only one otherwise, refused if named but not
+ * attached.
+ */
+const sessionProblem = (userId: string, s: MockSecret, wantedTargetId: string): never | null => {
   if (!canRead(userId, s))
     return refusal("PERMISSION_DENIED", "not permitted to read this secret", "NO_ACCESS");
   if (s.retired) return refusal("FAILED_PRECONDITION", "secret is retired", "RETIRED");
   if (!SSH_TERMINAL_TYPES.has(s.typeId))
     return refusal("FAILED_PRECONDITION", "secret is not an SSH key or a Password Account (SSH)");
-  if (!s.targetId) return refusal("FAILED_PRECONDITION", "secret has no target host");
-  const t = world().targets.find((x) => x.id === s.targetId && visible(userId, x));
+  const ids = targetIdsOf(s);
+  if (ids.length === 0) return refusal("FAILED_PRECONDITION", "secret has no target host");
+  let targetId = wantedTargetId;
+  if (!targetId) {
+    if (ids.length > 1) {
+      return refusal("INVALID_ARGUMENT", "secret has more than one target: targetId is required");
+    }
+    targetId = ids[0] as string;
+  } else if (!ids.includes(targetId)) {
+    return refusal("FAILED_PRECONDITION", "target is not attached to this secret");
+  }
+  const t = world().targets.find((x) => x.id === targetId && visible(userId, x));
   if (!t) return refusal("NOT_FOUND", "target not found");
   const c = world().connections.find((x) => x.id === t.connectionId);
   if (!c) return refusal("NOT_FOUND", "connection not found");
@@ -217,12 +237,28 @@ export const targetsHandlers: RequestHandler[] = [
       const t = world().targets.find((x) => x.id === variables.id);
       if (t && !canEdit(userId, t))
         return refusal("PERMISSION_DENIED", "not permitted to delete this target");
-      // The vault answers false, not a refusal, while any secret (retired ones too) points at it.
-      if (world().secrets.some((s) => s.targetId === variables.id))
+      // The vault answers false, not a refusal, while any secret (retired ones too) points at
+      // it — any of its attached targets (#168), not just the primary one.
+      if (world().secrets.some((s) => targetIdsOf(s).includes(variables.id)))
         return ok({ deleteTarget: false });
       world().targets = world().targets.filter((x) => x.id !== variables.id);
       return ok({ deleteTarget: true });
     }),
+  ),
+
+  // #168: the target's own page, "every secret attached to this target" — same visibility as
+  // secretsInFolder: locked but listed when the caller can see the secret but not read it,
+  // omitted when they can't see it at all.
+  api.query(TargetsAttachedSecretsDocument, ({ request, variables }) =>
+    asUser(request, (userId) =>
+      ok({
+        secretsByTarget: world()
+          .secrets.filter(
+            (s) => !s.retired && targetIdsOf(s).includes(variables.targetId) && canSee(userId, s),
+          )
+          .map((s) => ({ canRead: canRead(userId, s), id: s.id, name: s.name })),
+      }),
+    ),
   ),
 
   api.query(TargetsTerminalDocument, ({ request, variables }) =>
@@ -242,6 +278,7 @@ export const targetsHandlers: RequestHandler[] = [
                 name: s.name,
                 retired: s.retired,
                 targetId: s.targetId ?? null,
+                targetIds: targetIdsOf(s),
                 typeId: s.typeId,
               }
             : null,
@@ -272,7 +309,7 @@ export const targetsHandlers: RequestHandler[] = [
     asUser(request, (userId) => {
       const s = secretById(variables.secretId);
       if (!s || !canSee(userId, s)) return refusal("NOT_FOUND", "secret not found");
-      const problem = sessionProblem(userId, s);
+      const problem = sessionProblem(userId, s, variables.targetId ?? "");
       if (problem) return problem;
       return ok({
         openSshSession: {

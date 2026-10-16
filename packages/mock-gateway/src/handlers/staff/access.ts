@@ -14,6 +14,12 @@ const world = () => mockState.world;
 export const secretById = (id: string): MockSecret | undefined =>
   world().secrets.find((s) => s.id === id);
 
+/** A secret's full attached-target list (#168): the stored list when set, or a one-item list
+ * built from the legacy targetId — the same normalize-on-read the vault itself does, so a
+ * secret saved (or mutated in a test) before targetIds existed is never seen as having none. */
+export const targetIdsOf = (s: MockSecret): string[] =>
+  s.targetIds && s.targetIds.length > 0 ? s.targetIds : s.targetId ? [s.targetId] : [];
+
 /** The next manual position in a folder, for a secret that's new, moved in, or restored:
  * last, the way the vault places one. */
 export const lastPositionIn = (folderId: string): number =>

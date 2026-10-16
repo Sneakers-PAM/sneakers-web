@@ -1,5 +1,6 @@
 import {
   createLogger,
+  TargetsAttachedSecretsDocument,
   TargetsDeleteDocument,
   TargetsListDocument,
   type TargetsListQuery,
@@ -85,6 +86,9 @@ export const targetsAction = async (request: Request): Promise<TargetsResult> =>
 };
 
 export interface TargetEditorData {
+  /** #168: every secret attached to this target, locked (unreadable) ones included; empty for
+   * a new target. */
+  attachedSecrets: { canRead: boolean; id: string; name: string }[];
   connections: ConnectionChoice[];
   draft: TargetDraft;
   /** Shared targets a plain user can't change here, named in the editor's note. */
@@ -127,6 +131,7 @@ export const loadTargetEditor = async (
       : d.targets.filter((t) => !t.ownerUserId).map((t) => t.name);
     if (!id)
       return {
+        attachedSecrets: [],
         connections,
         draft: {
           ...EMPTY_DRAFT,
@@ -146,7 +151,14 @@ export const loadTargetEditor = async (
       log.info("target editor: not the owner", { targetId: id });
       throw Response.json({ kind: "forbidden" }, { status: 403 });
     }
+    // #168: the target's own page, "every secret attached to this target".
+    const { secretsByTarget } = await gw.gql(TargetsAttachedSecretsDocument, { targetId: id });
     return {
+      attachedSecrets: secretsByTarget.map((s) => ({
+        canRead: !!s.canRead,
+        id: s.id,
+        name: s.name,
+      })),
       connections,
       draft: {
         connections: t.connections.map((c) => ({

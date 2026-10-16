@@ -26,7 +26,9 @@ export interface TerminalData {
 
 /**
  * What the terminal can do for this secret: open a session to `hostname` as `username`, or
- * why not. `pinned` false means the broker will refuse the host (no pinned host key).
+ * why not. `pinned` false means the broker will refuse the host (no pinned host key). `choose`
+ * is #168: a secret attached to more than one usable target needs one picked before it's
+ * "ready".
  */
 export type TerminalSession =
   | {
@@ -37,6 +39,7 @@ export type TerminalSession =
       targetId: string;
       username: string;
     }
+  | { kind: "choose"; targets: { hostname: string; id: string; name: string }[] }
   | { kind: "locked" }
   | { kind: "not-ssh" }
   | { kind: "retired" };
@@ -44,11 +47,13 @@ export type TerminalSession =
 /**
  * U-12: the secret, its SSH target and the username. The credential itself (the key for a
  * type-ssh-key secret, the password for a type-unix-ssh one) never leaves the vault; #319 added
- * the password kind.
+ * the password kind. #168: a secret attached to several targets needs one picked (the `target`
+ * search param) before it's ready; one usable target needs no picking.
  */
 export const loadTerminal = async (request: Request, id: string): Promise<TerminalData> => {
   const { gw, user } = await requireUser(request);
-  log.debug("terminal load", { secretId: id });
+  const wantedTargetId = new URL(request.url).searchParams.get("target")?.trim() || "";
+  log.debug("terminal load", { secretId: id, targetId: wantedTargetId || undefined });
   return guard(request, async () => {
     const d = await gw.gql(TargetsTerminalDocument, { id });
     const s = d.secret;
@@ -57,17 +62,46 @@ export const loadTerminal = async (request: Request, id: string): Promise<Termin
       throw Response.json({ kind: "not-found" }, { status: 404 });
     }
     const secret = { id: s.id, name: s.name };
-    const target = d.targets.find((t) => t.id === s.targetId);
-    const connection = d.connections.find((c) => c.id === target?.connectionId);
-    if (!SSH_TERMINAL_TYPES.has(s.typeId) || !target || connection?.protocol !== "ssh") {
-      log.debug("terminal: not an SSH session", { secretId: id });
+    if (!SSH_TERMINAL_TYPES.has(s.typeId)) {
+      log.debug("terminal: not an SSH secret type", { secretId: id });
+      return { secret, session: { kind: "not-ssh" } };
+    }
+    // A legacy secret (targetIds empty) is read as a one-item list from the primary targetId,
+    // the same normalize-on-read the vault itself does.
+    const targetIds =
+      s.targetIds && s.targetIds.length > 0
+        ? s.targetIds
+        : [s.targetId].filter((x): x is string => !!x);
+    const usable = targetIds
+      .map((tid) => d.targets.find((t) => t.id === tid))
+      .filter((t): t is NonNullable<typeof t> => {
+        if (!t) return false;
+        return d.connections.find((c) => c.id === t.connectionId)?.protocol === "ssh";
+      });
+    if (usable.length === 0) {
+      log.debug("terminal: no usable SSH target", { secretId: id });
       return { secret, session: { kind: "not-ssh" } };
     }
     if (s.retired) return { secret, session: { kind: "retired" } };
     if (s.canRead !== true) return { secret, session: { kind: "locked" } };
+    const target = usable.length === 1 ? usable[0] : usable.find((t) => t.id === wantedTargetId);
+    if (!target) {
+      log.debug("terminal: choosing a target", { candidates: usable.length, secretId: id });
+      return {
+        secret,
+        session: {
+          kind: "choose",
+          targets: usable.map((t) => ({ hostname: t.hostname, id: t.id, name: t.name })),
+        },
+      };
+    }
     const f = await gw.gql(TargetsTerminalFieldsDocument, { id });
     const username = f.secretFields.find((x) => x.key === "username")?.value ?? "";
-    log.debug("terminal ready", { pinned: target.sshHostKeys.length > 0, secretId: id });
+    log.debug("terminal ready", {
+      pinned: target.sshHostKeys.length > 0,
+      secretId: id,
+      targetId: target.id,
+    });
     return {
       secret,
       session: {
@@ -94,11 +128,15 @@ export const terminalAction = async (request: Request, id: string): Promise<Open
     log.warn("unknown intent", { intent });
     throw new Response("Unknown intent", { status: 400 });
   }
-  log.debug("ssh session open", { secretId: id });
+  const targetId = String(form.get("targetId") ?? "").trim() || undefined;
+  log.debug("ssh session open", { secretId: id, targetId });
   return guard(request, async () => {
     const started = Date.now();
     try {
-      const { openSshSession } = await gw.gql(TargetsOpenSshSessionDocument, { secretId: id });
+      const { openSshSession } = await gw.gql(TargetsOpenSshSessionDocument, {
+        secretId: id,
+        targetId,
+      });
       log.info("ssh session ticket issued", {
         durationMs: Date.now() - started,
         secretId: id,

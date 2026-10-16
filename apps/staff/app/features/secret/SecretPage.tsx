@@ -39,6 +39,7 @@ import { HistoryCard } from "@/features/secret/HistoryCard";
 import { Panel } from "@/features/secret/Panel";
 import { RevealRunProvider } from "@/features/secret/revealRun";
 import { AgentAccessCard, AutomationCard } from "@/features/secret/SettingsCards";
+import { TargetsCard } from "@/features/secret/TargetsCard";
 import { useSecretFetcher } from "@/features/secret/useSecretFetcher";
 
 type DialogName = "break-glass" | "delete" | "export" | "replace" | "rotate" | null;
@@ -431,6 +432,7 @@ export const SecretPage = ({ page }: { page: Page }) => {
             <Panel title="Details">
               <DetailsRows page={page} />
             </Panel>
+            <TargetsCard page={page} />
             {(type?.rotation || type?.heartbeat) && <AutomationCard page={page} />}
             <AgentAccessCard page={page} />
           </div>

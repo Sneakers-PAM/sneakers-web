@@ -130,6 +130,10 @@ export interface MockSecret {
   rotationIntervalDays?: number;
   rotationOptOut: boolean;
   targetId?: string;
+  /** The secret's full attached-target list (#168); targetId stays the first/primary entry.
+   * Undefined or empty is read back as a one-item list built from targetId, the same
+   * normalize-on-read the vault itself does — see targetIdsOf. */
+  targetIds?: string[];
   typeId: string;
   verifiedAt?: string;
   versions: MockVersion[];
@@ -628,6 +632,16 @@ const TARGETS: MockTarget[] = [
   },
   {
     connectionId: "mock-conn-ssh",
+    description: "Second build host (#168: shares the Claude SSH key with build1)",
+    hostname: "build2.example.org",
+    id: "mock-target-build2",
+    kind: "linux",
+    name: "Build host 2",
+    offeredHostKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockBuild2HostKeyNotReal build2",
+    sshHostKeys: ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockBuild2HostKeyNotReal build2"],
+  },
+  {
+    connectionId: "mock-conn-ssh",
     description: "Lab switch console",
     hostname: "switch1.example.org",
     id: "mock-target-switch1",
@@ -786,6 +800,22 @@ const secrets = (now: number): MockSecret[] =>
       },
       2,
     ),
+    secret(now, {
+      fields: {
+        keyFormat: "OpenSSH",
+        privateKey: "mock private key for the shared deploy key, not a real key",
+        publicKey: "ssh-ed25519 mock-public-key-claude alice@example.org",
+        username: "claude",
+      },
+      folderId: "mock-folder-platform",
+      id: "mock-secret-claude-ssh-key",
+      name: "Claude SSH key",
+      targetId: "mock-target-build1",
+      // #168: one secret, attached to two targets — every secret attached to this target shows
+      // up for each, and opening a terminal on it needs a chosen target.
+      targetIds: ["mock-target-build1", "mock-target-build2"],
+      typeId: "type-ssh-key",
+    }),
     secret(
       now,
       {

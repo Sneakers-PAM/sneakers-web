@@ -70,7 +70,7 @@ export type PwStartClass = "any" | "digit" | "letter" | "symbol";
 
 export type RaciAction = "A" | "C" | "I" | "R";
 
-export type RaciGrant = "allow" | "deny";
+export type RaciGrant = "allow" | "deny" | "own";
 
 export type RaciRuleGrantInput = {
   action: RaciAction;
@@ -2145,6 +2145,7 @@ export type SecretDetailFieldsFragment = {
   folderId: string;
   typeId: string;
   targetId: string | null;
+  targetIds: Array<string>;
   expiresAt: string | null;
   lastHeartbeatResult: HeartbeatResult | null;
   verifiedAt: string | null;
@@ -2189,6 +2190,7 @@ export type SecretDetailQuery = {
     folderId: string;
     typeId: string;
     targetId: string | null;
+    targetIds: Array<string>;
     expiresAt: string | null;
     lastHeartbeatResult: HeartbeatResult | null;
     verifiedAt: string | null;
@@ -2316,6 +2318,7 @@ export type SecretRestoreVersionMutation = {
     folderId: string;
     typeId: string;
     targetId: string | null;
+    targetIds: Array<string>;
     expiresAt: string | null;
     lastHeartbeatResult: HeartbeatResult | null;
     verifiedAt: string | null;
@@ -2364,6 +2367,7 @@ export type SecretSetAutomationMutation = {
     folderId: string;
     typeId: string;
     targetId: string | null;
+    targetIds: Array<string>;
     expiresAt: string | null;
     lastHeartbeatResult: HeartbeatResult | null;
     verifiedAt: string | null;
@@ -2397,6 +2401,7 @@ export type SecretSetTokenApprovalMutation = {
     folderId: string;
     typeId: string;
     targetId: string | null;
+    targetIds: Array<string>;
     expiresAt: string | null;
     lastHeartbeatResult: HeartbeatResult | null;
     verifiedAt: string | null;
@@ -2428,6 +2433,7 @@ export type SecretRetireMutation = {
     folderId: string;
     typeId: string;
     targetId: string | null;
+    targetIds: Array<string>;
     expiresAt: string | null;
     lastHeartbeatResult: HeartbeatResult | null;
     verifiedAt: string | null;
@@ -2459,6 +2465,7 @@ export type SecretRestoreMutation = {
     folderId: string;
     typeId: string;
     targetId: string | null;
+    targetIds: Array<string>;
     expiresAt: string | null;
     lastHeartbeatResult: HeartbeatResult | null;
     verifiedAt: string | null;
@@ -2483,6 +2490,72 @@ export type SecretDeleteMutationVariables = Exact<{
 }>;
 
 export type SecretDeleteMutation = { deleteSecret: boolean };
+
+export type SecretAttachTargetMutationVariables = Exact<{
+  secretId: string;
+  targetId: string;
+}>;
+
+export type SecretAttachTargetMutation = {
+  attachSecretTarget: {
+    id: string;
+    name: string;
+    canRead: boolean | null;
+    folderId: string;
+    typeId: string;
+    targetId: string | null;
+    targetIds: Array<string>;
+    expiresAt: string | null;
+    lastHeartbeatResult: HeartbeatResult | null;
+    verifiedAt: string | null;
+    viewCount: number | null;
+    lastAccessedAt: string | null;
+    retired: boolean;
+    retiredAt: string;
+    lastRotationResult: RotationState | null;
+    rotatedAt: string | null;
+    rotationIntervalDays: number | null;
+    nextRotationAt: string | null;
+    rotationOptOut: boolean | null;
+    heartbeatOptOut: boolean | null;
+    heartbeatBlockedReason: string | null;
+    requireTokenApproval: boolean | null;
+    alwaysRequireApproval: boolean | null;
+  };
+};
+
+export type SecretDetachTargetMutationVariables = Exact<{
+  secretId: string;
+  targetId: string;
+}>;
+
+export type SecretDetachTargetMutation = {
+  detachSecretTarget: {
+    id: string;
+    name: string;
+    canRead: boolean | null;
+    folderId: string;
+    typeId: string;
+    targetId: string | null;
+    targetIds: Array<string>;
+    expiresAt: string | null;
+    lastHeartbeatResult: HeartbeatResult | null;
+    verifiedAt: string | null;
+    viewCount: number | null;
+    lastAccessedAt: string | null;
+    retired: boolean;
+    retiredAt: string;
+    lastRotationResult: RotationState | null;
+    rotatedAt: string | null;
+    rotationIntervalDays: number | null;
+    nextRotationAt: string | null;
+    rotationOptOut: boolean | null;
+    heartbeatOptOut: boolean | null;
+    heartbeatBlockedReason: string | null;
+    requireTokenApproval: boolean | null;
+    alwaysRequireApproval: boolean | null;
+  };
+};
 
 export type SecretExportCertificateMutationVariables = Exact<{
   secretId: string;
@@ -2511,6 +2584,7 @@ export type SecretReplaceCertificateMutation = {
       folderId: string;
       typeId: string;
       targetId: string | null;
+      targetIds: Array<string>;
       expiresAt: string | null;
       lastHeartbeatResult: HeartbeatResult | null;
       verifiedAt: string | null;
@@ -2848,6 +2922,14 @@ export type TargetsDeleteMutationVariables = Exact<{
 
 export type TargetsDeleteMutation = { deleteTarget: boolean };
 
+export type TargetsAttachedSecretsQueryVariables = Exact<{
+  targetId: string;
+}>;
+
+export type TargetsAttachedSecretsQuery = {
+  secretsByTarget: Array<{ id: string; name: string; canRead: boolean | null }>;
+};
+
 export type TargetsTerminalQueryVariables = Exact<{
   id: string;
 }>;
@@ -2858,6 +2940,7 @@ export type TargetsTerminalQuery = {
     name: string;
     typeId: string;
     targetId: string | null;
+    targetIds: Array<string>;
     retired: boolean;
     canRead: boolean | null;
   } | null;
@@ -2879,6 +2962,7 @@ export type TargetsTerminalFieldsQuery = { secretFields: Array<{ key: string; va
 
 export type TargetsOpenSshSessionMutationVariables = Exact<{
   secretId: string;
+  targetId?: string | null | undefined;
 }>;
 
 export type TargetsOpenSshSessionMutation = {
@@ -3328,6 +3412,7 @@ export const SecretDetailFieldsFragmentDoc = new TypedDocumentString(
   folderId
   typeId
   targetId
+  targetIds
   expiresAt
   lastHeartbeatResult
   verifiedAt
@@ -5476,6 +5561,7 @@ export const SecretDetailDocument = new TypedDocumentString(`
   folderId
   typeId
   targetId
+  targetIds
   expiresAt
   lastHeartbeatResult
   verifiedAt
@@ -5578,6 +5664,7 @@ export const SecretRestoreVersionDocument = new TypedDocumentString(`
   folderId
   typeId
   targetId
+  targetIds
   expiresAt
   lastHeartbeatResult
   verifiedAt
@@ -5636,6 +5723,7 @@ export const SecretSetAutomationDocument = new TypedDocumentString(`
   folderId
   typeId
   targetId
+  targetIds
   expiresAt
   lastHeartbeatResult
   verifiedAt
@@ -5673,6 +5761,7 @@ export const SecretSetTokenApprovalDocument = new TypedDocumentString(`
   folderId
   typeId
   targetId
+  targetIds
   expiresAt
   lastHeartbeatResult
   verifiedAt
@@ -5706,6 +5795,7 @@ export const SecretRetireDocument = new TypedDocumentString(`
   folderId
   typeId
   targetId
+  targetIds
   expiresAt
   lastHeartbeatResult
   verifiedAt
@@ -5736,6 +5826,7 @@ export const SecretRestoreDocument = new TypedDocumentString(`
   folderId
   typeId
   targetId
+  targetIds
   expiresAt
   lastHeartbeatResult
   verifiedAt
@@ -5758,6 +5849,74 @@ export const SecretDeleteDocument = new TypedDocumentString(`
   deleteSecret(id: $id)
 }
     `) as unknown as TypedDocumentString<SecretDeleteMutation, SecretDeleteMutationVariables>;
+export const SecretAttachTargetDocument = new TypedDocumentString(`
+    mutation SecretAttachTarget($secretId: ID!, $targetId: ID!) {
+  attachSecretTarget(secretId: $secretId, targetId: $targetId) {
+    ...SecretDetailFields
+  }
+}
+    fragment SecretDetailFields on Secret {
+  id
+  name
+  canRead
+  folderId
+  typeId
+  targetId
+  targetIds
+  expiresAt
+  lastHeartbeatResult
+  verifiedAt
+  viewCount
+  lastAccessedAt
+  retired
+  retiredAt
+  lastRotationResult
+  rotatedAt
+  rotationIntervalDays
+  nextRotationAt
+  rotationOptOut
+  heartbeatOptOut
+  heartbeatBlockedReason
+  requireTokenApproval
+  alwaysRequireApproval
+}`) as unknown as TypedDocumentString<
+  SecretAttachTargetMutation,
+  SecretAttachTargetMutationVariables
+>;
+export const SecretDetachTargetDocument = new TypedDocumentString(`
+    mutation SecretDetachTarget($secretId: ID!, $targetId: ID!) {
+  detachSecretTarget(secretId: $secretId, targetId: $targetId) {
+    ...SecretDetailFields
+  }
+}
+    fragment SecretDetailFields on Secret {
+  id
+  name
+  canRead
+  folderId
+  typeId
+  targetId
+  targetIds
+  expiresAt
+  lastHeartbeatResult
+  verifiedAt
+  viewCount
+  lastAccessedAt
+  retired
+  retiredAt
+  lastRotationResult
+  rotatedAt
+  rotationIntervalDays
+  nextRotationAt
+  rotationOptOut
+  heartbeatOptOut
+  heartbeatBlockedReason
+  requireTokenApproval
+  alwaysRequireApproval
+}`) as unknown as TypedDocumentString<
+  SecretDetachTargetMutation,
+  SecretDetachTargetMutationVariables
+>;
 export const SecretExportCertificateDocument = new TypedDocumentString(`
     mutation SecretExportCertificate($secretId: String!, $format: String!, $newPassphrase: String) {
   exportCertificate(
@@ -5798,6 +5957,7 @@ export const SecretReplaceCertificateDocument = new TypedDocumentString(`
   folderId
   typeId
   targetId
+  targetIds
   expiresAt
   lastHeartbeatResult
   verifiedAt
@@ -6099,6 +6259,18 @@ export const TargetsDeleteDocument = new TypedDocumentString(`
   deleteTarget(id: $id)
 }
     `) as unknown as TypedDocumentString<TargetsDeleteMutation, TargetsDeleteMutationVariables>;
+export const TargetsAttachedSecretsDocument = new TypedDocumentString(`
+    query TargetsAttachedSecrets($targetId: ID!) {
+  secretsByTarget(targetId: $targetId) {
+    id
+    name
+    canRead
+  }
+}
+    `) as unknown as TypedDocumentString<
+  TargetsAttachedSecretsQuery,
+  TargetsAttachedSecretsQueryVariables
+>;
 export const TargetsTerminalDocument = new TypedDocumentString(`
     query TargetsTerminal($id: ID!) {
   secret(id: $id) {
@@ -6106,6 +6278,7 @@ export const TargetsTerminalDocument = new TypedDocumentString(`
     name
     typeId
     targetId
+    targetIds
     retired
     canRead
   }
@@ -6135,8 +6308,8 @@ export const TargetsTerminalFieldsDocument = new TypedDocumentString(`
   TargetsTerminalFieldsQueryVariables
 >;
 export const TargetsOpenSshSessionDocument = new TypedDocumentString(`
-    mutation TargetsOpenSshSession($secretId: ID!) {
-  openSshSession(secretId: $secretId) {
+    mutation TargetsOpenSshSession($secretId: ID!, $targetId: ID) {
+  openSshSession(secretId: $secretId, targetId: $targetId) {
     wsUrl
     ticket
     sessionId

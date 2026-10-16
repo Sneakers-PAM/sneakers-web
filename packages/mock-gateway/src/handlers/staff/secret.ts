@@ -2,8 +2,10 @@ import type { RequestHandler } from "msw";
 
 import {
   SecretAccessDocument,
+  SecretAttachTargetDocument,
   SecretBreakGlassDocument,
   SecretDeleteDocument,
+  SecretDetachTargetDocument,
   SecretDetailDocument,
   SecretExportCertificateDocument,
   SecretFieldsDocument,
@@ -42,6 +44,7 @@ import {
   canSee,
   chain,
   secretById,
+  targetIdsOf,
 } from "#mock/handlers/staff/access";
 import { confirmMode, needsApproval, runConfirmed } from "#mock/handlers/staff/approval";
 import {
@@ -137,6 +140,7 @@ const view = (s: MockSecret, userId: string) => ({
   rotationIntervalDays: s.rotationIntervalDays ?? null,
   rotationOptOut: s.rotationOptOut,
   targetId: s.targetId ?? null,
+  targetIds: targetIdsOf(s),
   typeId: s.typeId,
   verifiedAt: s.verifiedAt ?? null,
   viewCount: s.viewCount,
@@ -509,6 +513,30 @@ export const secretHandlers: RequestHandler[] = [
       s.requireTokenApproval = variables.required;
       s.alwaysRequireApproval = variables.required && !!variables.always;
       return ok({ setSecretTokenApproval: view(s, userId) });
+    }),
+  ),
+
+  // #168: attach/detach one target without touching the others — idempotent, like the vault.
+  api.mutation(SecretAttachTargetDocument, ({ request, variables }) =>
+    withSecret(request, variables.secretId, (s, userId) => {
+      if (!canApprove(userId, s)) return notAllowed("edit");
+      if (!world().targets.some((t) => t.id === variables.targetId))
+        return refusal("NOT_FOUND", "target not found");
+      const ids = targetIdsOf(s);
+      if (!ids.includes(variables.targetId)) {
+        s.targetIds = [...ids, variables.targetId];
+        s.targetId = s.targetIds[0];
+      }
+      return ok({ attachSecretTarget: view(s, userId) });
+    }),
+  ),
+
+  api.mutation(SecretDetachTargetDocument, ({ request, variables }) =>
+    withSecret(request, variables.secretId, (s, userId) => {
+      if (!canApprove(userId, s)) return notAllowed("edit");
+      s.targetIds = targetIdsOf(s).filter((id) => id !== variables.targetId);
+      s.targetId = s.targetIds[0];
+      return ok({ detachSecretTarget: view(s, userId) });
     }),
   ),
 

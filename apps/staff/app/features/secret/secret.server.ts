@@ -6,8 +6,10 @@ import {
   MeDocument,
   SecretAccessDocument,
   type SecretAccessQuery,
+  SecretAttachTargetDocument,
   SecretBreakGlassDocument,
   SecretDeleteDocument,
+  SecretDetachTargetDocument,
   SecretDetailDocument,
   type SecretDetailFieldsFragment,
   type SecretDetailQuery,
@@ -67,6 +69,13 @@ export interface SecretPage {
   recovery: boolean;
   secret: SecretView;
   target: { hostname: string; id: string; name: string } | null;
+  /** Every target the vault knows about, for the attach picker (#168); excludes nothing — the
+   * picker itself leaves out what's already attached. */
+  targetChoices: { hostname: string; id: string; name: string }[];
+  /** The secret's full attached-target list (#168), in attach order. Empty for a legacy secret
+   * read as having none; `target` above stays the first/primary for callers that haven't moved
+   * to the list. */
+  targets: { hostname: string; id: string; name: string }[];
   type: null | SecretType;
   /** The signed-in user's id, to tell their own lease from someone else's. */
   viewerId: string;
@@ -142,6 +151,13 @@ const page = async (
   ]);
   const fieldValues = Object.fromEntries((fields?.secretFields ?? []).map((f) => [f.key, f.value]));
   const history_ = history?.secretVersions ?? null;
+  // #168: a secret saved before targetIds existed is read back as a one-item list built from
+  // the legacy targetId, the same normalize-on-read the vault itself does.
+  const targetIds =
+    secret.targetIds && secret.targetIds.length > 0
+      ? secret.targetIds
+      : [secret.targetId].filter((x): x is string => !!x);
+  const targetOf = (id: string) => detail.targets.find((t) => t.id === id);
   return {
     access,
     fields: fieldValues,
@@ -155,6 +171,11 @@ const page = async (
     recovery: user.roles.includes(RECOVERY_ROLE),
     secret,
     target: detail.targets.find((t) => t.id === secret.targetId) ?? null,
+    targetChoices: detail.targets.map((t) => ({ hostname: t.hostname, id: t.id, name: t.name })),
+    targets: targetIds
+      .map((id) => targetOf(id))
+      .filter((t): t is NonNullable<typeof t> => !!t)
+      .map((t) => ({ hostname: t.hostname, id: t.id, name: t.name })),
     type,
     viewerId: user.id,
   };
@@ -280,6 +301,12 @@ const run = async (
   f: FormData,
 ): Promise<Done | Response> => {
   switch (intent) {
+    case "attach-target": {
+      const targetId = text(f, "targetId");
+      if (!targetId) throw invalid("desc = choose a target to attach");
+      await gw.gql(SecretAttachTargetDocument, { secretId: id, targetId });
+      return { done: "Target attached." };
+    }
     case "automation": {
       const r = await gw.gql(SecretSetAutomationDocument, {
         disableHeartbeat: text(f, "disableHeartbeat") === "true",
@@ -308,6 +335,12 @@ const run = async (
       const { secret } = await gw.gql(SecretDetailDocument, { id });
       await gw.gql(SecretDeleteDocument, { id });
       return redirect(secret ? `/browse/${secret.folderId}` : "/browse");
+    }
+    case "detach-target": {
+      const targetId = text(f, "targetId");
+      if (!targetId) throw invalid("desc = choose a target to detach");
+      await gw.gql(SecretDetachTargetDocument, { secretId: id, targetId });
+      return { done: "Target detached." };
     }
     case "export": {
       const passphrase = text(f, "passphrase");

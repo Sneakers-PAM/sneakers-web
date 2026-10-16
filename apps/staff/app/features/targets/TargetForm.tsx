@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@sneakers-web/ui";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Form, Link, useNavigation } from "react-router";
 
 import type { TargetEditorData } from "@/features/targets/targets.server";
@@ -129,8 +129,9 @@ export const TargetForm = ({
   data: TargetEditorData;
   result?: { draft: TargetDraft; refusal: Refusal };
 }) => {
-  const { connections, sharedNames, target } = data;
+  const { attachedSecrets, connections, sharedNames, target } = data;
   const busy = useNavigation().state === "submitting";
+  const attachedHeadingId = useId();
   const [d, setD] = useState<TargetDraft>(result?.draft ?? data.draft);
   const [tried, setTried] = useState(false);
   const set = (patch: Partial<TargetDraft>) => setD((current) => ({ ...current, ...patch }));
@@ -290,6 +291,38 @@ export const TargetForm = ({
         <Alert title="Shared targets are read-only here" tone="info">
           Ask an admin to change {listed(sharedNames)}.
         </Alert>
+      )}
+      {/* #168: every secret attached to this target. */}
+      {target && (
+        <Card aria-labelledby={attachedHeadingId}>
+          <div className="flex items-baseline gap-3 px-5.5 py-4.5">
+            <h2
+              className="m-0 font-display text-[1.25rem] leading-none font-bold"
+              id={attachedHeadingId}
+            >
+              Secrets using this target
+            </h2>
+          </div>
+          <div className="flex flex-col gap-2 p-5.5">
+            {attachedSecrets.length === 0 ? (
+              <span className="text-small text-muted">No secrets attached.</span>
+            ) : (
+              <ul className="m-0 flex list-none flex-col gap-2 p-0">
+                {attachedSecrets.map((s) => (
+                  <li key={s.id}>
+                    {s.canRead ? (
+                      <Link className="font-bold text-primary" to={`/secret/${s.id}`}>
+                        {s.name}
+                      </Link>
+                    ) : (
+                      <span className="text-muted">{s.name}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </Card>
       )}
     </Form>
   );

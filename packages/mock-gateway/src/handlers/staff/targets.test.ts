@@ -71,6 +71,7 @@ describe("staff targets in the mock", () => {
       "mock-target-dc1",
       "mock-target-edge-router",
       "mock-target-db1",
+      "mock-target-build2",
       "mock-target-bob-nas",
     ]);
     expect(d.targets.find((t) => t.id === "mock-target-db1")?.secretCount).toBe(2);
