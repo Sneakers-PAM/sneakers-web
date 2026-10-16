@@ -2260,6 +2260,7 @@ export type SecretVersionsQuery = {
     active: boolean;
     fieldKeys: Array<string>;
     changedFieldKeys: Array<string>;
+    changeLabel: string | null;
   }>;
 };
 
@@ -5511,6 +5512,7 @@ export const SecretVersionsDocument = new TypedDocumentString(`
     active
     fieldKeys
     changedFieldKeys
+    changeLabel
   }
 }
     `) as unknown as TypedDocumentString<SecretVersionsQuery, SecretVersionsQueryVariables>;

@@ -253,6 +253,7 @@ export type SecretPlacement = {
 
 export type SecretSummary = {
   folderId: Scalars["ID"]["output"];
+  heartbeatBlockedReason?: Maybe<Scalars["String"]["output"]>;
   heartbeatEnabled: Scalars["Boolean"]["output"];
   heartbeatOptOut: Scalars["Boolean"]["output"];
   id: Scalars["ID"]["output"];
@@ -313,6 +314,7 @@ export type TypeChangeTarget = "ATTACHED" | "NONE" | "NOT_SUPPORTED";
 
 export type TypeChangedSecret = {
   automation: TypeChangeAutomation;
+  changeLabel?: Maybe<Scalars["String"]["output"]>;
   fieldKeys: Array<Scalars["String"]["output"]>;
   movedToNotesKeys: Array<Scalars["String"]["output"]>;
   secret: SecretSummary;

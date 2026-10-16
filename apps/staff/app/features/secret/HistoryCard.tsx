@@ -77,9 +77,10 @@ const Version = ({
         <span className="text-small text-muted">
           {created
             ? "Created"
-            : keys.length > 0
-              ? `Changed: ${keys.map((k) => label(k).toLowerCase()).join(", ")}`
-              : "No values changed"}
+            : v.changeLabel ||
+              (keys.length > 0
+                ? `Changed: ${keys.map((k) => label(k).toLowerCase()).join(", ")}`
+                : "No values changed")}
         </span>
         {open && (
           <div className="flex flex-col gap-2 rounded-lg bg-sunken p-3">
