@@ -2158,6 +2158,7 @@ export type SecretDetailFieldsFragment = {
   nextRotationAt: string | null;
   rotationOptOut: boolean | null;
   heartbeatOptOut: boolean | null;
+  heartbeatBlockedReason: string | null;
   requireTokenApproval: boolean | null;
   alwaysRequireApproval: boolean | null;
 };
@@ -2201,6 +2202,7 @@ export type SecretDetailQuery = {
     nextRotationAt: string | null;
     rotationOptOut: boolean | null;
     heartbeatOptOut: boolean | null;
+    heartbeatBlockedReason: string | null;
     requireTokenApproval: boolean | null;
     alwaysRequireApproval: boolean | null;
   } | null;
@@ -2260,6 +2262,7 @@ export type SecretVersionsQuery = {
     active: boolean;
     fieldKeys: Array<string>;
     changedFieldKeys: Array<string>;
+    changeLabel: string | null;
   }>;
 };
 
@@ -2326,6 +2329,7 @@ export type SecretRestoreVersionMutation = {
     nextRotationAt: string | null;
     rotationOptOut: boolean | null;
     heartbeatOptOut: boolean | null;
+    heartbeatBlockedReason: string | null;
     requireTokenApproval: boolean | null;
     alwaysRequireApproval: boolean | null;
   };
@@ -2373,6 +2377,7 @@ export type SecretSetAutomationMutation = {
     nextRotationAt: string | null;
     rotationOptOut: boolean | null;
     heartbeatOptOut: boolean | null;
+    heartbeatBlockedReason: string | null;
     requireTokenApproval: boolean | null;
     alwaysRequireApproval: boolean | null;
   };
@@ -2405,6 +2410,7 @@ export type SecretSetTokenApprovalMutation = {
     nextRotationAt: string | null;
     rotationOptOut: boolean | null;
     heartbeatOptOut: boolean | null;
+    heartbeatBlockedReason: string | null;
     requireTokenApproval: boolean | null;
     alwaysRequireApproval: boolean | null;
   };
@@ -2435,6 +2441,7 @@ export type SecretRetireMutation = {
     nextRotationAt: string | null;
     rotationOptOut: boolean | null;
     heartbeatOptOut: boolean | null;
+    heartbeatBlockedReason: string | null;
     requireTokenApproval: boolean | null;
     alwaysRequireApproval: boolean | null;
   };
@@ -2465,6 +2472,7 @@ export type SecretRestoreMutation = {
     nextRotationAt: string | null;
     rotationOptOut: boolean | null;
     heartbeatOptOut: boolean | null;
+    heartbeatBlockedReason: string | null;
     requireTokenApproval: boolean | null;
     alwaysRequireApproval: boolean | null;
   };
@@ -2516,6 +2524,7 @@ export type SecretReplaceCertificateMutation = {
       nextRotationAt: string | null;
       rotationOptOut: boolean | null;
       heartbeatOptOut: boolean | null;
+      heartbeatBlockedReason: string | null;
       requireTokenApproval: boolean | null;
       alwaysRequireApproval: boolean | null;
     } | null;
@@ -3332,6 +3341,7 @@ export const SecretDetailFieldsFragmentDoc = new TypedDocumentString(
   nextRotationAt
   rotationOptOut
   heartbeatOptOut
+  heartbeatBlockedReason
   requireTokenApproval
   alwaysRequireApproval
 }
@@ -5479,6 +5489,7 @@ export const SecretDetailDocument = new TypedDocumentString(`
   nextRotationAt
   rotationOptOut
   heartbeatOptOut
+  heartbeatBlockedReason
   requireTokenApproval
   alwaysRequireApproval
 }`) as unknown as TypedDocumentString<SecretDetailQuery, SecretDetailQueryVariables>;
@@ -5511,6 +5522,7 @@ export const SecretVersionsDocument = new TypedDocumentString(`
     active
     fieldKeys
     changedFieldKeys
+    changeLabel
   }
 }
     `) as unknown as TypedDocumentString<SecretVersionsQuery, SecretVersionsQueryVariables>;
@@ -5579,6 +5591,7 @@ export const SecretRestoreVersionDocument = new TypedDocumentString(`
   nextRotationAt
   rotationOptOut
   heartbeatOptOut
+  heartbeatBlockedReason
   requireTokenApproval
   alwaysRequireApproval
 }`) as unknown as TypedDocumentString<
@@ -5636,6 +5649,7 @@ export const SecretSetAutomationDocument = new TypedDocumentString(`
   nextRotationAt
   rotationOptOut
   heartbeatOptOut
+  heartbeatBlockedReason
   requireTokenApproval
   alwaysRequireApproval
 }`) as unknown as TypedDocumentString<
@@ -5672,6 +5686,7 @@ export const SecretSetTokenApprovalDocument = new TypedDocumentString(`
   nextRotationAt
   rotationOptOut
   heartbeatOptOut
+  heartbeatBlockedReason
   requireTokenApproval
   alwaysRequireApproval
 }`) as unknown as TypedDocumentString<
@@ -5704,6 +5719,7 @@ export const SecretRetireDocument = new TypedDocumentString(`
   nextRotationAt
   rotationOptOut
   heartbeatOptOut
+  heartbeatBlockedReason
   requireTokenApproval
   alwaysRequireApproval
 }`) as unknown as TypedDocumentString<SecretRetireMutation, SecretRetireMutationVariables>;
@@ -5733,6 +5749,7 @@ export const SecretRestoreDocument = new TypedDocumentString(`
   nextRotationAt
   rotationOptOut
   heartbeatOptOut
+  heartbeatBlockedReason
   requireTokenApproval
   alwaysRequireApproval
 }`) as unknown as TypedDocumentString<SecretRestoreMutation, SecretRestoreMutationVariables>;
@@ -5794,6 +5811,7 @@ export const SecretReplaceCertificateDocument = new TypedDocumentString(`
   nextRotationAt
   rotationOptOut
   heartbeatOptOut
+  heartbeatBlockedReason
   requireTokenApproval
   alwaysRequireApproval
 }
