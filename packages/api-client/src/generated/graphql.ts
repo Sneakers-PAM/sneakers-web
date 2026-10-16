@@ -2146,6 +2146,7 @@ export type SecretDetailFieldsFragment = {
   typeId: string;
   targetId: string | null;
   targetIds: Array<string>;
+  creatorPrincipalId: string | null;
   expiresAt: string | null;
   lastHeartbeatResult: HeartbeatResult | null;
   verifiedAt: string | null;
@@ -2191,6 +2192,7 @@ export type SecretDetailQuery = {
     typeId: string;
     targetId: string | null;
     targetIds: Array<string>;
+    creatorPrincipalId: string | null;
     expiresAt: string | null;
     lastHeartbeatResult: HeartbeatResult | null;
     verifiedAt: string | null;
@@ -2319,6 +2321,7 @@ export type SecretRestoreVersionMutation = {
     typeId: string;
     targetId: string | null;
     targetIds: Array<string>;
+    creatorPrincipalId: string | null;
     expiresAt: string | null;
     lastHeartbeatResult: HeartbeatResult | null;
     verifiedAt: string | null;
@@ -2368,6 +2371,7 @@ export type SecretSetAutomationMutation = {
     typeId: string;
     targetId: string | null;
     targetIds: Array<string>;
+    creatorPrincipalId: string | null;
     expiresAt: string | null;
     lastHeartbeatResult: HeartbeatResult | null;
     verifiedAt: string | null;
@@ -2402,6 +2406,7 @@ export type SecretSetTokenApprovalMutation = {
     typeId: string;
     targetId: string | null;
     targetIds: Array<string>;
+    creatorPrincipalId: string | null;
     expiresAt: string | null;
     lastHeartbeatResult: HeartbeatResult | null;
     verifiedAt: string | null;
@@ -2434,6 +2439,7 @@ export type SecretRetireMutation = {
     typeId: string;
     targetId: string | null;
     targetIds: Array<string>;
+    creatorPrincipalId: string | null;
     expiresAt: string | null;
     lastHeartbeatResult: HeartbeatResult | null;
     verifiedAt: string | null;
@@ -2466,6 +2472,7 @@ export type SecretRestoreMutation = {
     typeId: string;
     targetId: string | null;
     targetIds: Array<string>;
+    creatorPrincipalId: string | null;
     expiresAt: string | null;
     lastHeartbeatResult: HeartbeatResult | null;
     verifiedAt: string | null;
@@ -2505,6 +2512,7 @@ export type SecretAttachTargetMutation = {
     typeId: string;
     targetId: string | null;
     targetIds: Array<string>;
+    creatorPrincipalId: string | null;
     expiresAt: string | null;
     lastHeartbeatResult: HeartbeatResult | null;
     verifiedAt: string | null;
@@ -2538,6 +2546,7 @@ export type SecretDetachTargetMutation = {
     typeId: string;
     targetId: string | null;
     targetIds: Array<string>;
+    creatorPrincipalId: string | null;
     expiresAt: string | null;
     lastHeartbeatResult: HeartbeatResult | null;
     verifiedAt: string | null;
@@ -2585,6 +2594,7 @@ export type SecretReplaceCertificateMutation = {
       typeId: string;
       targetId: string | null;
       targetIds: Array<string>;
+      creatorPrincipalId: string | null;
       expiresAt: string | null;
       lastHeartbeatResult: HeartbeatResult | null;
       verifiedAt: string | null;
@@ -3413,6 +3423,7 @@ export const SecretDetailFieldsFragmentDoc = new TypedDocumentString(
   typeId
   targetId
   targetIds
+  creatorPrincipalId
   expiresAt
   lastHeartbeatResult
   verifiedAt
@@ -5562,6 +5573,7 @@ export const SecretDetailDocument = new TypedDocumentString(`
   typeId
   targetId
   targetIds
+  creatorPrincipalId
   expiresAt
   lastHeartbeatResult
   verifiedAt
@@ -5665,6 +5677,7 @@ export const SecretRestoreVersionDocument = new TypedDocumentString(`
   typeId
   targetId
   targetIds
+  creatorPrincipalId
   expiresAt
   lastHeartbeatResult
   verifiedAt
@@ -5724,6 +5737,7 @@ export const SecretSetAutomationDocument = new TypedDocumentString(`
   typeId
   targetId
   targetIds
+  creatorPrincipalId
   expiresAt
   lastHeartbeatResult
   verifiedAt
@@ -5762,6 +5776,7 @@ export const SecretSetTokenApprovalDocument = new TypedDocumentString(`
   typeId
   targetId
   targetIds
+  creatorPrincipalId
   expiresAt
   lastHeartbeatResult
   verifiedAt
@@ -5796,6 +5811,7 @@ export const SecretRetireDocument = new TypedDocumentString(`
   typeId
   targetId
   targetIds
+  creatorPrincipalId
   expiresAt
   lastHeartbeatResult
   verifiedAt
@@ -5827,6 +5843,7 @@ export const SecretRestoreDocument = new TypedDocumentString(`
   typeId
   targetId
   targetIds
+  creatorPrincipalId
   expiresAt
   lastHeartbeatResult
   verifiedAt
@@ -5863,6 +5880,7 @@ export const SecretAttachTargetDocument = new TypedDocumentString(`
   typeId
   targetId
   targetIds
+  creatorPrincipalId
   expiresAt
   lastHeartbeatResult
   verifiedAt
@@ -5897,6 +5915,7 @@ export const SecretDetachTargetDocument = new TypedDocumentString(`
   typeId
   targetId
   targetIds
+  creatorPrincipalId
   expiresAt
   lastHeartbeatResult
   verifiedAt
@@ -5958,6 +5977,7 @@ export const SecretReplaceCertificateDocument = new TypedDocumentString(`
   typeId
   targetId
   targetIds
+  creatorPrincipalId
   expiresAt
   lastHeartbeatResult
   verifiedAt

@@ -14,7 +14,7 @@ import {
   TableHeaderCell,
   TableRow,
 } from "@sneakers-web/ui";
-import { ArrowDown, ArrowUp, Check, Globe, Lock, Users, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Globe, Lock, User, Users, X } from "lucide-react";
 import { useId, useState } from "react";
 
 import type {
@@ -75,22 +75,39 @@ const cellLook = (value: RaciGrantValue | undefined, inherited: boolean) => {
       mark: <X aria-hidden className="size-4.5" strokeWidth={3} />,
     };
   }
+  // #170: "contribute, own reveal" — create/update anywhere R allows, but reveal only what this
+  // subject created. Valid only on the C cell; given its own look so it's never mistaken for a
+  // blanket allow.
+  if (value === "own") {
+    return {
+      className: inherited
+        ? "rounded-full border-2 border-dashed border-primary text-primary"
+        : "rounded-full border-2 border-primary bg-primary-soft text-primary",
+      mark: <User aria-hidden className="size-4.5" strokeWidth={3} />,
+    };
+  }
   return {
     className: "rounded-[10px] border-[1.5px] border-dashed border-control text-muted",
     mark: <span aria-hidden>·</span>,
   };
 };
 
+const LEGEND_LABEL: Record<string, string> = {
+  allow: "Allow",
+  deny: "Deny",
+  own: "Own reveal only (C)",
+};
+
 const Legend = () => (
   <div className="flex flex-wrap gap-4 text-small text-muted">
-    {(["allow", "deny", undefined] as const).map((v) => {
+    {(["allow", "own", "deny", undefined] as const).map((v) => {
       const look = cellLook(v, false);
       return (
         <span className="flex items-center gap-1.5" key={v ?? "blank"}>
           <span className={cn("flex size-5.5 items-center justify-center", look.className)}>
             {look.mark}
           </span>
-          {v === "allow" ? "Allow" : v === "deny" ? "Deny" : "Blank"}
+          {v ? LEGEND_LABEL[v] : "Blank"}
         </span>
       );
     })}
@@ -317,6 +334,13 @@ export const RulesetEditor = ({
                               title="Denied by a rule in Advanced view"
                             >
                               Denied in Advanced
+                            </span>
+                          ) : r.grants[k] === "own" ? (
+                            <span
+                              className="inline-block rounded-[6px] border-[1.5px] border-primary px-1.5 py-1 text-small leading-[1.2] font-bold text-primary"
+                              title="Own reveal only, set in Advanced view"
+                            >
+                              Own reveal
                             </span>
                           ) : (
                             <Checkbox

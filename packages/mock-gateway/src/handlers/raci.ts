@@ -66,10 +66,14 @@ export type Outcome<T> = { ok: false; refusal: never } | { ok: true; value: T };
 
 export type RaciAction = "A" | "C" | "I" | "R";
 
-/** A RaciRule as the gateway answers it. */
+/** A RaciRule as the gateway answers it. "own" (#170) is valid only on the C cell: create and
+ * update anywhere R allows, but reveal only what this subject created — a machine principal's
+ * grant. The mock preserves it through storage and round-trips it unchanged; it doesn't
+ * emulate the vault's creator-matching check (the staff app never acts as a non-human
+ * principal, so that path is never exercised here). */
 export interface RaciRuleView {
   folderId: string;
-  grants: { action: RaciAction; value: "allow" | "deny" }[];
+  grants: { action: RaciAction; value: "allow" | "deny" | "own" }[];
   id: string;
   order: number;
   subjectId: null | string;
@@ -98,6 +102,9 @@ export interface RuleInput {
 
 /** One folder (or secret) in a chain: its name for reasons, its owners and its ordered rules. */
 export interface Ruleset {
+  /** Set only on a secret's own chain entry (never a folder's), for "own" (#170) to check C
+   * against: reveal only when the resolving user created this secret. */
+  creatorPrincipalId?: string;
   name: string;
   owners: string[];
   rules: Rule[];
@@ -159,7 +166,12 @@ export const folderChain = (folderId: string, draft?: Rule[]): Ruleset[] =>
 
 /** A secret's chain: its own rules (or `draft`) first, with no owners, then its folder's chain. */
 export const secretChain = (secret: MockSecret, draft?: Rule[]): Ruleset[] => [
-  { name: secret.name, owners: [], rules: draft ?? secretRules(secret.id) },
+  {
+    creatorPrincipalId: secret.creatorPrincipalId,
+    name: secret.name,
+    owners: [],
+    rules: draft ?? secretRules(secret.id),
+  },
   ...folderChain(secret.folderId),
 ];
 
@@ -202,7 +214,12 @@ const decide = (u: Subject, rulesets: Ruleset[], act: RaciAction): Decision => {
     for (const [ri, r] of c.rules.entries()) {
       if (!matches(u, r)) continue;
       const g = r.grants[act];
-      if (g) return { allowed: g === "allow", reason: ruleReason(ci, ri, c.name, g, r) };
+      if (!g) continue;
+      // #170: "own" grants C only to whoever created this secret — checked against the
+      // chain's own creatorPrincipalId, set only on a secret's own entry (never a folder's,
+      // which has no single creator).
+      const allowed = g === "own" ? c.creatorPrincipalId === u.userId : g === "allow";
+      return { allowed, reason: ruleReason(ci, ri, c.name, g, r) };
     }
   }
   return { allowed: false, reason: "no rule → default deny" };
@@ -253,8 +270,8 @@ export const decisionView = (r: Resolution): DecisionView => ({
 export const ruleFromInput = (r: RuleInput): Rule => {
   const grants: Rule["grants"] = {};
   for (const g of r.grants) {
-    if (ACTIONS.includes(g.action as RaciAction) && (g.value === "allow" || g.value === "deny")) {
-      grants[g.action as RaciAction] = g.value;
+    if (ACTIONS.includes(g.action as RaciAction) && ["allow", "deny", "own"].includes(g.value)) {
+      grants[g.action as RaciAction] = g.value as Rule["grants"][RaciAction];
     }
   }
   const kind = r.subjectKind as Rule["subjectKind"];

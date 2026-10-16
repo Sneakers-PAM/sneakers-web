@@ -28,6 +28,7 @@ import {
   SecretSetTokenApprovalDocument,
   SecretVersionsDocument,
   type SecretVersionsQuery,
+  SharingUserLabelsDocument,
 } from "@sneakers-web/api-client";
 import { type Refusal, refusalMessage, refusalOf } from "@sneakers-web/shell";
 import { guard, isAdmin, requireUser, type SessionUser } from "@sneakers-web/shell/server";
@@ -52,6 +53,10 @@ export type SecretAccess = SecretAccessQuery["mySecretAccess"];
 export type SecretLoad = { failure: LoadFailure; ok: false } | SecretPage;
 export interface SecretPage {
   access: SecretAccess;
+  /** The creator principal (#170), as its resolved label for a known human user, or the raw
+   * id otherwise (a service account, or a human whose label didn't resolve). Null when the
+   * secret predates the field. */
+  creatorLabel: null | string;
   /** Non-sensitive field values only. Sensitive ones come back from a reveal action. */
   fields: Record<string, string>;
   folderPath: { id: string; name: string }[];
@@ -144,10 +149,13 @@ const page = async (
   const { mySecretAccess: access } = await gw.gql(SecretAccessDocument, { secretId: secret.id });
   const admin = isAdmin(user);
   const type = detail.secretTypes.find((t) => t.id === secret.typeId) ?? null;
-  const [fields, history, lease] = await Promise.all([
+  const [fields, history, lease, creatorLabels] = await Promise.all([
     access.read ? gw.gql(SecretFieldsDocument, { id: secret.id }) : null,
     access.read ? gw.gql(SecretVersionsDocument, { secretId: secret.id }) : null,
     type?.checkout ? activeLeaseFor(gw, secret.id) : null,
+    secret.creatorPrincipalId
+      ? gw.gql(SharingUserLabelsDocument, { ids: [secret.creatorPrincipalId] })
+      : null,
   ]);
   const fieldValues = Object.fromEntries((fields?.secretFields ?? []).map((f) => [f.key, f.value]));
   const history_ = history?.secretVersions ?? null;
@@ -160,6 +168,10 @@ const page = async (
   const targetOf = (id: string) => detail.targets.find((t) => t.id === id);
   return {
     access,
+    creatorLabel: secret.creatorPrincipalId
+      ? (creatorLabels?.resolveUserLabels.find((l) => l.id === secret.creatorPrincipalId)?.name ??
+        secret.creatorPrincipalId)
+      : null,
     fields: fieldValues,
     folderPath: pathTo(detail.folders, secret.folderId),
     history: history_,

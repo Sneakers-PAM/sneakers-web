@@ -8,7 +8,7 @@ import type {
 import { RACI_ACTIONS } from "#shell/sharing/types";
 
 const ACTIONS = new Set<string>(RACI_ACTIONS.map((a) => a.key));
-const GRANTS = new Set<string>(["allow", "deny"]);
+const GRANTS = new Set<string>(["allow", "deny", "own"]);
 
 export interface RaciRuleInputShape {
   grants: { action: RaciActionKey; value: RaciGrantValue }[];

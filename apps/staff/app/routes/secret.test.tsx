@@ -387,6 +387,21 @@ describe("the Targets card (#168)", () => {
   });
 });
 
+describe("the owner principal (#170)", () => {
+  it("shows who created the secret", async () => {
+    open("mock-secret-claude-ssh-key");
+    const card_ = await screen.findByRole("region", { name: "Details" });
+    expect(within(card_).getByText("Owner")).toBeInTheDocument();
+    expect(within(card_).getByText("Alice")).toBeInTheDocument();
+  });
+
+  it("shows nothing for a secret created before the field existed", async () => {
+    open("mock-secret-db-admin");
+    const card_ = await screen.findByRole("region", { name: "Details" });
+    expect(within(card_).queryByText("Owner")).not.toBeInTheDocument();
+  });
+});
+
 describe("the Open terminal action (#319)", () => {
   it("offers it for an SSH Key secret with a target", async () => {
     const user = userEvent.setup();

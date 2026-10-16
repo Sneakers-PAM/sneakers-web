@@ -82,7 +82,9 @@ export interface MockLease {
  * in `subjectName`), and an everyone rule has an empty name. A missing action falls through.
  */
 export interface MockRaciRule {
-  grants: Partial<Record<"A" | "C" | "I" | "R", "allow" | "deny">>;
+  /** "own" (#170) is valid only on C: create/update anywhere R allows, reveal only what the
+   * subject created. */
+  grants: Partial<Record<"A" | "C" | "I" | "R", "allow" | "deny" | "own">>;
   id: string;
   subjectId?: string;
   subjectKind: "everyone" | "group" | "user";
@@ -110,6 +112,9 @@ export interface MockRequest {
 export interface MockSecret {
   /** Always-approve: everyone, owners included, needs another owner's or an approver's decision. */
   alwaysRequireApproval?: boolean;
+  /** The creator principal (#170): a human user id or a non-human principal id, set once at
+   * creation. Undefined for a secret created before this field existed. */
+  creatorPrincipalId?: string;
   expiresAt?: string;
   /** Every field value, sensitive ones included. Screens get sensitive values only by reveal. */
   fields: Record<string, string>;
@@ -801,6 +806,7 @@ const secrets = (now: number): MockSecret[] =>
       2,
     ),
     secret(now, {
+      creatorPrincipalId: ALICE,
       fields: {
         keyFormat: "OpenSSH",
         privateKey: "mock private key for the shared deploy key, not a real key",

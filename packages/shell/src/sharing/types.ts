@@ -26,8 +26,13 @@ export interface RaciDecisionView {
   revealReason: string;
 }
 
-/** A cell: an explicit grant, or absent for "inherit". */
-export type RaciGrantValue = "allow" | "deny";
+/**
+ * A cell: an explicit grant, or absent for "inherit". "own" is valid only on the C (reveal)
+ * cell: create and update anywhere R allows, but reveal only a secret this subject created
+ * (#170's "contribute, own reveal") — a machine principal's grant, so only ever set for a
+ * group or service-account subject in practice, never "everyone".
+ */
+export type RaciGrantValue = "allow" | "deny" | "own";
 
 export interface RulesetDraft {
   /** Folders only. Undefined for a secret. */

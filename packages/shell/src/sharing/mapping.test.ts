@@ -38,6 +38,16 @@ describe("fromRaciRule", () => {
     });
   });
 
+  it("reads own on the C cell (#170), never dropping it like an unknown value", () => {
+    const rule = fromRaciRule({
+      grants: [{ action: "C", value: "own" }],
+      subjectId: "mock-sa-laps",
+      subjectKind: "group",
+      subjectName: "LAPS service accounts",
+    });
+    expect(rule.grants).toEqual({ C: "own" });
+  });
+
   it("reads everyone without an id, and drops cells it doesn't know", () => {
     const rule = fromRaciRule({
       grants: [
@@ -80,6 +90,20 @@ describe("toRaciRuleInput", () => {
       }),
     ).toEqual({
       grants: [{ action: "I", value: "allow" }],
+      subjectId: "mock-group-db",
+      subjectKind: "group",
+      subjectName: "DB team",
+    });
+  });
+
+  it("writes own on the C cell (#170)", () => {
+    expect(
+      toRaciRuleInput({
+        grants: { C: "own" },
+        subject: { id: "mock-group-db", kind: "group", name: "DB team" },
+      }),
+    ).toEqual({
+      grants: [{ action: "C", value: "own" }],
       subjectId: "mock-group-db",
       subjectKind: "group",
       subjectName: "DB team",

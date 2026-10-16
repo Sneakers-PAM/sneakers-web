@@ -124,6 +124,7 @@ const certMeta = (s: MockSecret): Record<string, string> => {
 const view = (s: MockSecret, userId: string) => ({
   alwaysRequireApproval: !!s.alwaysRequireApproval,
   canRead: canRead(userId, s),
+  creatorPrincipalId: s.creatorPrincipalId ?? null,
   expiresAt: s.expiresAt ?? null,
   folderId: s.folderId,
   heartbeatOptOut: s.heartbeatOptOut,
