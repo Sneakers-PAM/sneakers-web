@@ -10,6 +10,7 @@ import {
 
 import type { TerminalData } from "@/features/targets/terminal.server";
 
+import { ChooseTarget } from "@/features/targets/terminal/ChooseTarget";
 import { Console } from "@/features/targets/terminal/Console";
 import { NoSession } from "@/features/targets/terminal/NoSession";
 
@@ -23,6 +24,9 @@ const BackToSecret = ({ id }: { id: string }) => (
 export const TerminalPage = () => {
   const { secret, session } = useLoaderData<TerminalData>();
   switch (session.kind) {
+    case "choose": {
+      return <ChooseTarget secret={secret} targets={session.targets} />;
+    }
     case "locked": {
       return (
         <NoSession

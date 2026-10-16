@@ -26,6 +26,17 @@ describe("draft edits", () => {
     expect(cycleGrant(cycleGrant(blank, 0, "R"), 0, "R")[0]?.grants).toEqual({ C: "allow" });
   });
 
+  it("cycles the C (reveal) cell through own too: blank, allow, own, deny, blank (#170)", () => {
+    const clean: RulesetRule = { grants: {}, subject: database.subject };
+    const allowed = cycleGrant([clean], 0, "C");
+    expect(allowed[0]?.grants.C).toBe("allow");
+    const own = cycleGrant(allowed, 0, "C");
+    expect(own[0]?.grants.C).toBe("own");
+    const denied = cycleGrant(own, 0, "C");
+    expect(denied[0]?.grants.C).toBe("deny");
+    expect(cycleGrant(denied, 0, "C")[0]?.grants).toEqual({});
+  });
+
   it("sets or clears one cell, leaving the original untouched", () => {
     const rules = [database];
     expect(setGrant(rules, 0, "I", "allow")[0]?.grants).toEqual({ C: "allow", I: "allow" });

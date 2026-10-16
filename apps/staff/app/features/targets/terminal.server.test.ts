@@ -96,6 +96,67 @@ describe("the terminal loader", () => {
   });
 });
 
+const getChoosing = (id: string, targetId?: string, user = "mock-user-alice") =>
+  appRequest(`/secret/${id}/terminal${targetId ? `?target=${targetId}` : ""}`, {
+    cookie: sessionCookie(user),
+  });
+
+const openWith = (id: string, targetId: string, user = "mock-user-alice") =>
+  appRequest(`/secret/${id}/terminal`, {
+    body: form({ intent: "open", targetId }),
+    cookie: sessionCookie(user),
+    method: "POST",
+  });
+
+// #168: one SSH Key secret, attached to two targets, needs one picked before it's ready.
+describe("the terminal loader, several targets (#168)", () => {
+  const MULTI = "mock-secret-claude-ssh-key";
+
+  it("asks which target when more than one is attached and none is chosen", async () => {
+    const d = await loadTerminal(getChoosing(MULTI), MULTI);
+    expect(d.session).toEqual({
+      kind: "choose",
+      targets: [
+        { hostname: "build1.example.org", id: "mock-target-build1", name: "Build host" },
+        { hostname: "build2.example.org", id: "mock-target-build2", name: "Build host 2" },
+      ],
+    });
+  });
+
+  it("is ready once a valid attached target is chosen", async () => {
+    const d = await loadTerminal(getChoosing(MULTI, "mock-target-build2"), MULTI);
+    expect(d.session).toMatchObject({
+      hostname: "build2.example.org",
+      kind: "ready",
+      targetId: "mock-target-build2",
+    });
+  });
+
+  it("asks again for a target that isn't attached to the secret", async () => {
+    const d = await loadTerminal(getChoosing(MULTI, "mock-target-db1"), MULTI);
+    expect(d.session.kind).toBe("choose");
+  });
+
+  it("needs no choice at all with a single attached target", async () => {
+    const d = await loadTerminal(get(KEY), KEY);
+    expect(d.session).toMatchObject({ kind: "ready", targetId: "mock-target-build1" });
+  });
+});
+
+describe("the terminal action, several targets (#168)", () => {
+  const MULTI = "mock-secret-claude-ssh-key";
+
+  it("opens a session on the chosen target", async () => {
+    const r = await terminalAction(openWith(MULTI, "mock-target-build2"), MULTI);
+    expect(r).toMatchObject({ ok: true });
+  });
+
+  it("is refused when the chosen target isn't attached to the secret", async () => {
+    const r = await terminalAction(openWith(MULTI, "mock-target-db1"), MULTI);
+    expect(r).toMatchObject({ ok: false, refusal: { code: "FAILED_PRECONDITION" } });
+  });
+});
+
 describe("the terminal action", () => {
   it("opens a session and hands the page its ticket", async () => {
     const r = await terminalAction(open(KEY), KEY);

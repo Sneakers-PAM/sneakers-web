@@ -1,7 +1,7 @@
 import { TargetsListDocument } from "@sneakers-web/api-client";
 import { MOCK_GATEWAY_URL, mockState } from "@sneakers-web/mock-gateway";
 import { server, withMockGateway } from "@sneakers-web/mock-gateway/testing";
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
 import { graphql } from "msw/graphql";
@@ -37,7 +37,9 @@ describe("U-11 target editor", () => {
     renderRoute("/targets/new", pages(), { user: BOB });
     expect(await screen.findByRole("heading", { name: "New target" })).toBeInTheDocument();
     expect(
-      screen.getByText("Ask an admin to change Corp directory, Edge router or Primary database."),
+      screen.getByText(
+        "Ask an admin to change Corp directory, Edge router, Primary database or Build host 2.",
+      ),
     ).toBeInTheDocument();
     await user.type(screen.getByLabelText(/^Name/), "Home NAS");
     await user.type(screen.getByLabelText(/^Host/), "nas.example.org");
@@ -125,7 +127,7 @@ describe("U-11 target editor", () => {
     const user = userEvent.setup();
     renderRoute("/targets/mock-target-build1", pages());
     expect(await screen.findByRole("heading", { name: "Build host" })).toBeInTheDocument();
-    expect(screen.getByText("Personal target · used by 1 secret")).toBeInTheDocument();
+    expect(screen.getByText("Personal target · used by 2 secrets")).toBeInTheDocument();
     const name = screen.getByLabelText(/^Name/);
     await user.clear(name);
     await user.type(name, "Build host 1");
@@ -133,6 +135,21 @@ describe("U-11 target editor", () => {
     expect(await screen.findByRole("heading", { name: "Targets list" })).toBeInTheDocument();
     expect(mockState.world.targets.find((t) => t.id === "mock-target-build1")?.name).toBe(
       "Build host 1",
+    );
+  });
+
+  // #168: the target's own page, "every secret attached to this target".
+  it("lists the secrets attached to this target", async () => {
+    renderRoute("/targets/mock-target-build1", pages());
+    expect(await screen.findByRole("heading", { name: "Build host" })).toBeInTheDocument();
+    const card = screen.getByRole("region", { name: "Secrets using this target" });
+    expect(within(card).getByRole("link", { name: "Build host deploy key" })).toHaveAttribute(
+      "href",
+      "/secret/mock-secret-build-ssh",
+    );
+    expect(within(card).getByRole("link", { name: "Claude SSH key" })).toHaveAttribute(
+      "href",
+      "/secret/mock-secret-claude-ssh-key",
     );
   });
 

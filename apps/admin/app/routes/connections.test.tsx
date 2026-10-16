@@ -14,11 +14,11 @@ describe("connections", () => {
     const user = userEvent.setup();
     renderAdmin(ROUTES, "/connections");
     const ssh = await screen.findByRole("form", { name: "Connection SSH" });
-    expect(within(ssh).queryByText("Used by 3 targets")).not.toBeInTheDocument();
-    const usage = within(ssh).getByRole("button", { name: "Used by 3 targets" });
+    expect(within(ssh).queryByText("Used by 4 targets")).not.toBeInTheDocument();
+    const usage = within(ssh).getByRole("button", { name: "Used by 4 targets" });
     expect(within(ssh).getByLabelText("Port")).toHaveValue(22);
     await user.hover(usage);
-    expect(await screen.findByRole("tooltip")).toHaveTextContent("Used by 3 targets");
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Used by 4 targets");
   });
 
   it("blocks deleting a connection in use and names the targets", async () => {
@@ -26,7 +26,7 @@ describe("connections", () => {
     renderAdmin(ROUTES, "/connections");
     await user.click(await screen.findByRole("button", { name: "Delete SSH" }));
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "SSH is used by Build host, Edge router and Lab switch. Move them to another connection first.",
+      "SSH is used by Build host, Edge router, Build host 2 and Lab switch. Move them to another connection first.",
     );
   });
 

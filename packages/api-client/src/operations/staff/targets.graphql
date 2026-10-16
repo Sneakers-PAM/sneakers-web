@@ -47,12 +47,22 @@ mutation TargetsDelete($id: ID!) {
   deleteTarget(id: $id)
 }
 
+# #168: the target's own page, "every secret attached to this target".
+query TargetsAttachedSecrets($targetId: ID!) {
+  secretsByTarget(targetId: $targetId) {
+    id
+    name
+    canRead
+  }
+}
+
 query TargetsTerminal($id: ID!) {
   secret(id: $id) {
     id
     name
     typeId
     targetId
+    targetIds
     retired
     canRead
   }
@@ -77,8 +87,8 @@ query TargetsTerminalFields($id: ID!) {
   }
 }
 
-mutation TargetsOpenSshSession($secretId: ID!) {
-  openSshSession(secretId: $secretId) {
+mutation TargetsOpenSshSession($secretId: ID!, $targetId: ID) {
+  openSshSession(secretId: $secretId, targetId: $targetId) {
     wsUrl
     ticket
     sessionId

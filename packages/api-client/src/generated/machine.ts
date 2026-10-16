@@ -61,9 +61,11 @@ export type MachineTargetInput = {
 };
 
 export type Mutation = {
+  attachSecretTargetForPrincipal: SecretSummary;
   changeSecretTypeForPrincipal: TypeChangedSecret;
   createFolderForPrincipal: PrincipalFolder;
   createSecretForPrincipal: SecretSummary;
+  detachSecretTargetForPrincipal: SecretSummary;
   generateSecretForPrincipal: GeneratedSecret;
   moveSecretForPrincipal: SecretSummary;
   prepareSecretUse: SecretUse;
@@ -71,11 +73,18 @@ export type Mutation = {
   renameFolderForPrincipal: PrincipalFolder;
   renameSecretForPrincipal: SecretSummary;
   requestSecretCheck: Scalars["Int"]["output"];
+  restoreSecretVersionForPrincipal: SecretSummary;
   revealSecretFieldForPrincipal: Scalars["String"]["output"];
+  rotateSecretForPrincipal: RotatedSecret;
   saveTargetForPrincipal: MachineTarget;
   setSecretAutomationForPrincipal: SecretSummary;
   setSecretTargetForPrincipal: SecretSummary;
   updateSecretFieldsForPrincipal: UpdatedSecretFields;
+};
+
+export type MutationAttachSecretTargetForPrincipalArgs = {
+  secretId: Scalars["ID"]["input"];
+  targetId: Scalars["ID"]["input"];
 };
 
 export type MutationChangeSecretTypeForPrincipalArgs = {
@@ -99,6 +108,11 @@ export type MutationCreateSecretForPrincipalArgs = {
   name: Scalars["String"]["input"];
   targetId?: InputMaybe<Scalars["ID"]["input"]>;
   typeId: Scalars["ID"]["input"];
+};
+
+export type MutationDetachSecretTargetForPrincipalArgs = {
+  secretId: Scalars["ID"]["input"];
+  targetId: Scalars["ID"]["input"];
 };
 
 export type MutationGenerateSecretForPrincipalArgs = {
@@ -147,9 +161,19 @@ export type MutationRequestSecretCheckArgs = {
   secretId: Scalars["ID"]["input"];
 };
 
+export type MutationRestoreSecretVersionForPrincipalArgs = {
+  secretId: Scalars["ID"]["input"];
+  versionNo: Scalars["Int"]["input"];
+};
+
 export type MutationRevealSecretFieldForPrincipalArgs = {
   fieldKey: Scalars["String"]["input"];
   id: Scalars["ID"]["input"];
+};
+
+export type MutationRotateSecretForPrincipalArgs = {
+  policyId?: InputMaybe<Scalars["ID"]["input"]>;
+  secretId: Scalars["ID"]["input"];
 };
 
 export type MutationSaveTargetForPrincipalArgs = {
@@ -232,6 +256,11 @@ export type RedeemedSecretUse = {
   value: Scalars["String"]["output"];
 };
 
+export type RotatedSecret = {
+  newValue: Scalars["String"]["output"];
+  secret: SecretSummary;
+};
+
 export type SecretCheckStatus = {
   checkedAtUnix: Scalars["Int"]["output"];
   detail: Scalars["String"]["output"];
@@ -267,6 +296,7 @@ export type SecretSummary = {
   rotationEnabled: Scalars["Boolean"]["output"];
   rotationOptOut: Scalars["Boolean"]["output"];
   targetId?: Maybe<Scalars["ID"]["output"]>;
+  targetIds: Array<Scalars["ID"]["output"]>;
   typeId: Scalars["ID"]["output"];
   valueChangedAt?: Maybe<Scalars["String"]["output"]>;
   valueVersion: Scalars["Int"]["output"];

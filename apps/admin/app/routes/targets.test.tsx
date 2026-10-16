@@ -18,7 +18,7 @@ const ROUTES = [
 describe("targets", () => {
   it("lists targets with their connection, pins and use", async () => {
     renderAdmin(ROUTES, "/targets");
-    const build = await screen.findByRole("row", { name: /Build host/ });
+    const build = await screen.findByRole("row", { name: /Build host(?! 2)/ });
     expect(within(build).getByText("Personal")).toBeInTheDocument();
     expect(within(build).getByText("1 pin")).toBeInTheDocument();
     expect(within(build).getByText("SSH (ssh:22)")).toBeInTheDocument();
@@ -66,7 +66,7 @@ describe("targets", () => {
     await user.clear(screen.getByLabelText(/^Description/));
     await user.type(screen.getByLabelText(/^Description/), "CI build host");
     await user.click(screen.getByRole("button", { name: "Save target" }));
-    const row = await screen.findByRole("row", { name: /Build host/ });
+    const row = await screen.findByRole("row", { name: /Build host(?! 2)/ });
     expect(within(row).getByText("1 pin")).toBeInTheDocument();
   });
 });

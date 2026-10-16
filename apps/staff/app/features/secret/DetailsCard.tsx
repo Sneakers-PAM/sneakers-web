@@ -33,9 +33,10 @@ const Line = ({ children, label }: { children: ReactNode; label: string }) => (
   </div>
 );
 
-/** Type, target, heartbeat, rotation and expiry. */
+/** Type, owner, heartbeat, rotation and expiry. Targets have their own card (#168: a secret can
+ * have more than one, added and removed there). */
 export const DetailsRows = ({ page }: { page: SecretPage }) => {
-  const { secret, target, type } = page;
+  const { creatorLabel, secret, target, type } = page;
   const expires = secret.expiresAt ? Date.parse(secret.expiresAt) : Number.NaN;
   const days = Math.floor((expires - page.now) / DAY);
   return (
@@ -43,16 +44,13 @@ export const DetailsRows = ({ page }: { page: SecretPage }) => {
       <Line label="Type">
         <b>{type?.name ?? secret.typeId}</b>
       </Line>
-      <Line label="Target">
-        {target ? (
-          <>
-            <b>{target.name}</b>
-            <span className="font-mono text-small text-muted">{target.hostname}</span>
-          </>
-        ) : (
-          <span className="text-muted">None</span>
-        )}
-      </Line>
+      {/* #170: who created it — the folder's "contribute, own reveal" grants reveal to this
+       * principal and no one else. */}
+      {creatorLabel && (
+        <Line label="Owner">
+          <b>{creatorLabel}</b>
+        </Line>
+      )}
       {type?.heartbeat && (
         <Line label="Heartbeat">
           <HeartbeatPill status={heartbeatStatus(secret.lastHeartbeatResult, !!target)} />

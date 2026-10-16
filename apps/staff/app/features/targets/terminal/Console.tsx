@@ -102,8 +102,8 @@ export const Console = ({
     const screen = screenRef.current;
     screen?.reset();
     screen?.write(`${GREY}Opening session to ${session.hostname} with the stored key…${RESET}\r\n`);
-    void submit({ intent: "open" }, { method: "post" });
-  }, [session.hostname, submit]);
+    void submit({ intent: "open", targetId: session.targetId }, { method: "post" });
+  }, [session.hostname, session.targetId, submit]);
 
   const openRef = useRef(open);
   useEffect(() => {

@@ -1,6 +1,6 @@
 import { MOCK_GATEWAY_URL, mockState, USERS } from "@sneakers-web/mock-gateway";
 import { server, withMockGateway } from "@sneakers-web/mock-gateway/testing";
-import { screen, within } from "@testing-library/react";
+import { screen, waitForElementToBeRemoved, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
 import { graphql } from "msw/graphql";
@@ -46,7 +46,7 @@ describe("the secret detail page", () => {
     const password = row("Password");
     expect(within(password).getByRole("button", { name: "Reveal Password" })).toBeInTheDocument();
     expect(password).not.toHaveTextContent("mock-Tongue-Eyelet-91");
-    expect(within(card("Details")).getByText("Primary database")).toBeInTheDocument();
+    expect(within(card("Targets")).getByText("Primary database")).toBeInTheDocument();
     expect(within(card("History")).getByText("Version 3")).toBeInTheDocument();
     expect(within(card("History")).getByText("Active")).toBeInTheDocument();
   });
@@ -337,6 +337,71 @@ describe("the secret detail page", () => {
   });
 });
 
+describe("the Targets card (#168)", () => {
+  const MULTI = "mock-secret-claude-ssh-key";
+
+  it("lists the attached targets, each linking to its own page", async () => {
+    open(MULTI);
+    const card_ = await screen.findByRole("region", { name: "Targets" });
+    expect(
+      within(card_).getByRole("link", { name: "Build host, build1.example.org" }),
+    ).toHaveAttribute("href", "/targets/mock-target-build1");
+    expect(
+      within(card_).getByRole("link", { name: "Build host 2, build2.example.org" }),
+    ).toHaveAttribute("href", "/targets/mock-target-build2");
+  });
+
+  it("attaches another target without disturbing the ones already there", async () => {
+    const user = userEvent.setup();
+    open("mock-secret-switch-ssh");
+    const card_ = await screen.findByRole("region", { name: "Targets" });
+    await user.click(within(card_).getByRole("combobox"));
+    await user.click(await screen.findByRole("option", { name: "Build host" }));
+    await user.click(within(card_).getByRole("button", { name: "Attach" }));
+    expect(
+      await within(card_).findByRole("link", { name: "Build host, build1.example.org" }),
+    ).toBeInTheDocument();
+    expect(
+      within(card_).getByRole("link", { name: "Lab switch, switch1.example.org" }),
+    ).toBeInTheDocument();
+  });
+
+  it("detaches one target, leaving the others", async () => {
+    const user = userEvent.setup();
+    open(MULTI);
+    const card_ = await screen.findByRole("region", { name: "Targets" });
+    await user.click(within(card_).getByRole("button", { name: "Detach Build host 2" }));
+    await waitForElementToBeRemoved(() =>
+      within(card_).queryByRole("link", { name: "Build host 2, build2.example.org" }),
+    );
+    expect(
+      within(card_).getByRole("link", { name: "Build host, build1.example.org" }),
+    ).toBeInTheDocument();
+  });
+
+  it("offers no attach or detach controls without manage", async () => {
+    open(MULTI, "mock-user-bob");
+    const card_ = await screen.findByRole("region", { name: "Targets" });
+    expect(within(card_).queryByRole("button", { name: /Detach/ })).not.toBeInTheDocument();
+    expect(within(card_).queryByRole("combobox")).not.toBeInTheDocument();
+  });
+});
+
+describe("the owner principal (#170)", () => {
+  it("shows who created the secret", async () => {
+    open("mock-secret-claude-ssh-key");
+    const card_ = await screen.findByRole("region", { name: "Details" });
+    expect(within(card_).getByText("Owner")).toBeInTheDocument();
+    expect(within(card_).getByText("Alice")).toBeInTheDocument();
+  });
+
+  it("shows nothing for a secret created before the field existed", async () => {
+    open("mock-secret-db-admin");
+    const card_ = await screen.findByRole("region", { name: "Details" });
+    expect(within(card_).queryByText("Owner")).not.toBeInTheDocument();
+  });
+});
+
 describe("the Open terminal action (#319)", () => {
   it("offers it for an SSH Key secret with a target", async () => {
     const user = userEvent.setup();
@@ -442,6 +507,7 @@ describe("a secret the gateway doesn't say can be read", () => {
               })),
             secret: {
               canRead: null,
+              creatorPrincipalId: null,
               expiresAt: null,
               folderId: s.folderId,
               heartbeatOptOut: false,
@@ -458,6 +524,7 @@ describe("a secret the gateway doesn't say can be read", () => {
               rotationIntervalDays: null,
               rotationOptOut: false,
               targetId: null,
+              targetIds: [],
               typeId: s.typeId,
               verifiedAt: null,
               viewCount: 0,

@@ -51,6 +51,7 @@ describe("the targets loader", () => {
       ["Corp directory", "shared", "LDAPS", 2, false],
       ["Edge router", "shared", "SSH", 1, false],
       ["Primary database", "shared", "PostgreSQL", 2, false],
+      ["Build host 2", "shared", "SSH", 1, false],
       ["Bob's NAS", "personal", "SSH", 0, true],
     ]);
   });
@@ -106,14 +107,28 @@ describe("the target editor", () => {
       "SSH · ssh · 22",
       "PostgreSQL · postgres · 5432",
     ]);
-    expect(d.sharedNames).toEqual(["Corp directory", "Edge router", "Primary database"]);
+    expect(d.sharedNames).toEqual([
+      "Corp directory",
+      "Edge router",
+      "Primary database",
+      "Build host 2",
+    ]);
   });
 
   it("loads the user's own target", async () => {
     const d = await loadTargetEditor(get("/targets/mock-target-build1"), "mock-target-build1");
-    expect(d.target).toEqual({ id: "mock-target-build1", scope: "personal", secretCount: 1 });
+    expect(d.target).toEqual({ id: "mock-target-build1", scope: "personal", secretCount: 2 });
     expect(d.draft).toMatchObject({ hostname: "build1.example.org", kind: "linux" });
     expect(d.sharedNames).toEqual([]);
+  });
+
+  // #168: the target's own page, "every secret attached to this target".
+  it("lists the secrets attached to this target", async () => {
+    const d = await loadTargetEditor(get("/targets/mock-target-build1"), "mock-target-build1");
+    expect(d.attachedSecrets.map((s) => s.name).toSorted()).toEqual([
+      "Build host deploy key",
+      "Claude SSH key",
+    ]);
   });
 
   it("answers 404 for a target the user can't see, 403 for one they can't change", async () => {

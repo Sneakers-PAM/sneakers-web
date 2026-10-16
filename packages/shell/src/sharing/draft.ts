@@ -29,9 +29,22 @@ const NEXT: Record<string, RaciGrantValue | undefined> = {
   none: "allow",
 };
 
-/** One click on an Advanced cell: blank, then allow, then deny, then blank again. */
-export const cycleGrant = (rules: RulesetRule[], index: number, action: RaciActionKey) =>
-  setGrant(rules, index, action, NEXT[rules[index]?.grants[action] ?? "none"]);
+/** The C (reveal) cell's cycle also visits "own" (#170): blank, allow, own, deny, blank again.
+ * Every other cell only ever cycles through blank, allow, deny (own is meaningless there — it's
+ * a reveal-scoping rule). */
+const NEXT_REVEAL: Record<string, RaciGrantValue | undefined> = {
+  allow: "own",
+  deny: undefined,
+  none: "allow",
+  own: "deny",
+};
+
+/** One click on an Advanced cell: blank, then allow, (on C only) own, then deny, then blank
+ * again. */
+export const cycleGrant = (rules: RulesetRule[], index: number, action: RaciActionKey) => {
+  const table = action === "C" ? NEXT_REVEAL : NEXT;
+  return setGrant(rules, index, action, table[rules[index]?.grants[action] ?? "none"]);
+};
 
 export const moveRule = (rules: RulesetRule[], index: number, by: -1 | 1): RulesetRule[] => {
   const to = index + by;

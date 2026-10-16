@@ -6,8 +6,10 @@ import {
   MeDocument,
   SecretAccessDocument,
   type SecretAccessQuery,
+  SecretAttachTargetDocument,
   SecretBreakGlassDocument,
   SecretDeleteDocument,
+  SecretDetachTargetDocument,
   SecretDetailDocument,
   type SecretDetailFieldsFragment,
   type SecretDetailQuery,
@@ -26,6 +28,7 @@ import {
   SecretSetTokenApprovalDocument,
   SecretVersionsDocument,
   type SecretVersionsQuery,
+  SharingUserLabelsDocument,
 } from "@sneakers-web/api-client";
 import { type Refusal, refusalMessage, refusalOf } from "@sneakers-web/shell";
 import { guard, isAdmin, requireUser, type SessionUser } from "@sneakers-web/shell/server";
@@ -50,6 +53,10 @@ export type SecretAccess = SecretAccessQuery["mySecretAccess"];
 export type SecretLoad = { failure: LoadFailure; ok: false } | SecretPage;
 export interface SecretPage {
   access: SecretAccess;
+  /** The creator principal (#170), as its resolved label for a known human user, or the raw
+   * id otherwise (a service account, or a human whose label didn't resolve). Null when the
+   * secret predates the field. */
+  creatorLabel: null | string;
   /** Non-sensitive field values only. Sensitive ones come back from a reveal action. */
   fields: Record<string, string>;
   folderPath: { id: string; name: string }[];
@@ -67,6 +74,13 @@ export interface SecretPage {
   recovery: boolean;
   secret: SecretView;
   target: { hostname: string; id: string; name: string } | null;
+  /** Every target the vault knows about, for the attach picker (#168); excludes nothing — the
+   * picker itself leaves out what's already attached. */
+  targetChoices: { hostname: string; id: string; name: string }[];
+  /** The secret's full attached-target list (#168), in attach order. Empty for a legacy secret
+   * read as having none; `target` above stays the first/primary for callers that haven't moved
+   * to the list. */
+  targets: { hostname: string; id: string; name: string }[];
   type: null | SecretType;
   /** The signed-in user's id, to tell their own lease from someone else's. */
   viewerId: string;
@@ -135,15 +149,29 @@ const page = async (
   const { mySecretAccess: access } = await gw.gql(SecretAccessDocument, { secretId: secret.id });
   const admin = isAdmin(user);
   const type = detail.secretTypes.find((t) => t.id === secret.typeId) ?? null;
-  const [fields, history, lease] = await Promise.all([
+  const [fields, history, lease, creatorLabels] = await Promise.all([
     access.read ? gw.gql(SecretFieldsDocument, { id: secret.id }) : null,
     access.read ? gw.gql(SecretVersionsDocument, { secretId: secret.id }) : null,
     type?.checkout ? activeLeaseFor(gw, secret.id) : null,
+    secret.creatorPrincipalId
+      ? gw.gql(SharingUserLabelsDocument, { ids: [secret.creatorPrincipalId] })
+      : null,
   ]);
   const fieldValues = Object.fromEntries((fields?.secretFields ?? []).map((f) => [f.key, f.value]));
   const history_ = history?.secretVersions ?? null;
+  // #168: a secret saved before targetIds existed is read back as a one-item list built from
+  // the legacy targetId, the same normalize-on-read the vault itself does.
+  const targetIds =
+    secret.targetIds && secret.targetIds.length > 0
+      ? secret.targetIds
+      : [secret.targetId].filter((x): x is string => !!x);
+  const targetOf = (id: string) => detail.targets.find((t) => t.id === id);
   return {
     access,
+    creatorLabel: secret.creatorPrincipalId
+      ? (creatorLabels?.resolveUserLabels.find((l) => l.id === secret.creatorPrincipalId)?.name ??
+        secret.creatorPrincipalId)
+      : null,
     fields: fieldValues,
     folderPath: pathTo(detail.folders, secret.folderId),
     history: history_,
@@ -155,6 +183,11 @@ const page = async (
     recovery: user.roles.includes(RECOVERY_ROLE),
     secret,
     target: detail.targets.find((t) => t.id === secret.targetId) ?? null,
+    targetChoices: detail.targets.map((t) => ({ hostname: t.hostname, id: t.id, name: t.name })),
+    targets: targetIds
+      .map((id) => targetOf(id))
+      .filter((t): t is NonNullable<typeof t> => !!t)
+      .map((t) => ({ hostname: t.hostname, id: t.id, name: t.name })),
     type,
     viewerId: user.id,
   };
@@ -280,6 +313,12 @@ const run = async (
   f: FormData,
 ): Promise<Done | Response> => {
   switch (intent) {
+    case "attach-target": {
+      const targetId = text(f, "targetId");
+      if (!targetId) throw invalid("desc = choose a target to attach");
+      await gw.gql(SecretAttachTargetDocument, { secretId: id, targetId });
+      return { done: "Target attached." };
+    }
     case "automation": {
       const r = await gw.gql(SecretSetAutomationDocument, {
         disableHeartbeat: text(f, "disableHeartbeat") === "true",
@@ -308,6 +347,12 @@ const run = async (
       const { secret } = await gw.gql(SecretDetailDocument, { id });
       await gw.gql(SecretDeleteDocument, { id });
       return redirect(secret ? `/browse/${secret.folderId}` : "/browse");
+    }
+    case "detach-target": {
+      const targetId = text(f, "targetId");
+      if (!targetId) throw invalid("desc = choose a target to detach");
+      await gw.gql(SecretDetachTargetDocument, { secretId: id, targetId });
+      return { done: "Target detached." };
     }
     case "export": {
       const passphrase = text(f, "passphrase");
