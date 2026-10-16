@@ -42,6 +42,31 @@ const Setting = ({
   );
 };
 
+/**
+ * heartbeatBlockedReason as the vault/gateway report it ("no target", "no connection", "no
+ * pinned host key") in words the secret page can show next to the switch.
+ */
+const HEARTBEAT_BLOCKED_TEXT: Record<string, string> = {
+  "no connection": "Needs the target's connection set up.",
+  "no pinned host key": "Needs the target's SSH host key pinned.",
+  "no target": "Needs a target to check against.",
+};
+
+/**
+ * The heartbeat switch's body text: what it's doing while on, what's missing while off and
+ * blocked, or that it's ready to switch on. blockedReason is null once heartbeat is running,
+ * opted out on purpose with nothing missing, or the type has no heartbeat.
+ */
+const heartbeatBody = (
+  heartbeatOff: boolean,
+  blockedReason: null | string,
+  target: { name: string } | null,
+) => {
+  if (!heartbeatOff) return `Checks the login on ${target?.name} hourly`;
+  if (!blockedReason) return "Heartbeat available: switch it on.";
+  return HEARTBEAT_BLOCKED_TEXT[blockedReason] ?? blockedReason;
+};
+
 /** Per-secret rotation and heartbeat switches (audited overrides of the type's defaults). */
 export const AutomationCard = ({ page }: { page: SecretPage }) => {
   const { access, secret, target, type } = page;
@@ -53,6 +78,7 @@ export const AutomationCard = ({ page }: { page: SecretPage }) => {
     : !!secret.heartbeatOptOut;
   const canManage = access.manage;
   const locked = secret.retired || !canManage;
+  const heartbeatBlocked = heartbeatOff && !!secret.heartbeatBlockedReason;
   const save = (disableRotation: boolean, disableHeartbeat: boolean) =>
     void fetcher.submit(
       {
@@ -78,13 +104,9 @@ export const AutomationCard = ({ page }: { page: SecretPage }) => {
         />
         {type?.heartbeat && (
           <Setting
-            body={
-              target
-                ? `Checks the login on ${target.name} hourly`
-                : "Needs a target to check against."
-            }
+            body={heartbeatBody(heartbeatOff, secret.heartbeatBlockedReason ?? null, target)}
             checked={!heartbeatOff}
-            disabled={locked}
+            disabled={locked || heartbeatBlocked}
             onChange={(on) => save(rotationOff, !on)}
             title="Heartbeat validation"
           />
