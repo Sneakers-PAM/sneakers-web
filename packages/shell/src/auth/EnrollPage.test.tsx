@@ -1,6 +1,14 @@
-import { appRequest, cookieFrom, form, withMockGateway } from "@sneakers-web/mock-gateway/testing";
+import { MOCK_GATEWAY_URL } from "@sneakers-web/mock-gateway";
+import {
+  appRequest,
+  cookieFrom,
+  form,
+  server,
+  withMockGateway,
+} from "@sneakers-web/mock-gateway/testing";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
 import { createRoutesStub } from "react-router";
 
 import { EnrollPage } from "#shell/auth/EnrollPage";
@@ -59,5 +67,52 @@ describe("EnrollPage", () => {
     expect(input).toHaveAttribute("aria-invalid", "true");
     await user.type(input, "{Backspace}");
     expect(screen.queryByText(/That code didn.t match/)).not.toBeInTheDocument();
+  });
+
+  it("says authenticator apps aren't set up when the server has no TOTP key", async () => {
+    const cookie = await bobCookie();
+    server.use(
+      http.post(`${MOCK_GATEWAY_URL}/auth/mfa/enroll`, () =>
+        HttpResponse.json({ error: "mfa_unavailable" }, { status: 503 }),
+      ),
+    );
+    const Stub = createRoutesStub([
+      {
+        Component: EnrollPage,
+        HydrateFallback: () => null,
+        loader: withCookie(cookie, (a) =>
+          enrollLoader({ context: {}, params: {}, ...a } as never),
+        ) as never,
+        path: "/enroll",
+      },
+    ]);
+    render(<Stub initialEntries={["/enroll"]} />);
+    expect(
+      await screen.findByText(
+        "Authenticator apps aren't set up on this server. Use a passkey instead, or ask your administrator to turn them on.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/We couldn.t start the setup/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the general message when the setup fails for another reason", async () => {
+    const cookie = await bobCookie();
+    server.use(
+      http.post(`${MOCK_GATEWAY_URL}/auth/mfa/enroll`, () =>
+        HttpResponse.json({ error: "identity_unreachable" }, { status: 502 }),
+      ),
+    );
+    const Stub = createRoutesStub([
+      {
+        Component: EnrollPage,
+        HydrateFallback: () => null,
+        loader: withCookie(cookie, (a) =>
+          enrollLoader({ context: {}, params: {}, ...a } as never),
+        ) as never,
+        path: "/enroll",
+      },
+    ]);
+    render(<Stub initialEntries={["/enroll"]} />);
+    expect(await screen.findByText(/We couldn.t start the setup/)).toBeInTheDocument();
   });
 });
