@@ -12,6 +12,7 @@ import { useFetcher, useLoaderData } from "react-router";
 import { Panel, SettingRow, useResultToast } from "@/components/Admin";
 import { PageError } from "@/components/PageError";
 import { adminAct, adminLoad, text } from "@/lib/admin.server";
+import { mfaWindow } from "@/lib/mfaWindow";
 
 export const loader = ({ request }: LoaderFunctionArgs) =>
   adminLoad(request, async (gw) => {
@@ -121,12 +122,16 @@ const Settings = () => {
             body={
               <>
                 How recent a second factor must be for every check above, and for version history
-                and restore. It&apos;s the vault&apos;s{" "}
-                <code className="font-mono">MFA_MAX_AGE</code>: from 1 minute to 1 hour, 5 minutes
-                by default, set where the vault runs.
+                and restore. It&apos;s <code className="font-mono">MFA_MAX_AGE</code>, from 0 (every
+                time) to 4 hours, 30 minutes by default, set where the vault, the workflow and the
+                gateway run.
               </>
             }
-            control={<span className="font-mono text-small text-muted">MFA_MAX_AGE</span>}
+            control={
+              <span className="font-mono text-small text-muted">
+                {mfaWindow(security.mfaMaxAgeSeconds)}
+              </span>
+            }
             title="MFA window"
           />
           <limits.Form className="flex flex-col gap-4 border-t border-border pt-4" method="post">

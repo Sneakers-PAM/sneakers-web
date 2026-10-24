@@ -20,6 +20,8 @@ export interface MockPolicy extends Omit<PasswordPolicyInput, "id"> {
 export interface MockSecuritySettings {
   allowApiForSensitive: boolean;
   defaultPasswordPolicyId: string;
+  /** The gateway's MFA_MAX_AGE in seconds: read-only, set where the services run. */
+  mfaMaxAgeSeconds: number;
   requestHistoryRetentionDays: number;
   requireMfaForReveal: boolean;
   requireMfaForSensitiveCheckout: boolean;
@@ -73,6 +75,7 @@ const policies = (): MockPolicy[] => [
 const security = (): MockSecuritySettings => ({
   allowApiForSensitive: false,
   defaultPasswordPolicyId: "mock-policy-strong",
+  mfaMaxAgeSeconds: 1800,
   requestHistoryRetentionDays: 90,
   requireMfaForReveal: false,
   requireMfaForSensitiveCheckout: true,
