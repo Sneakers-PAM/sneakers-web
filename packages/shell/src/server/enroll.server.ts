@@ -1,4 +1,4 @@
-import { auth, createLogger, type TotpEnrollment } from "@sneakers-web/api-client";
+import { ApiError, auth, createLogger, type TotpEnrollment } from "@sneakers-web/api-client";
 import { type ActionFunctionArgs, data, type LoaderFunctionArgs, redirect } from "react-router";
 
 import { gatewayFor, relayCookies } from "#shell/server/gateway.server";
@@ -12,6 +12,8 @@ export interface EnrollLoaderData {
   enforced: boolean;
   enrollment: null | TotpEnrollment;
   next: string;
+  /** The server has no TOTP key, so authenticator apps can't be set up at all. */
+  totpUnavailable: boolean;
 }
 
 export type EnrollState =
@@ -27,12 +29,16 @@ export const enrollLoader = async ({ request }: LoaderFunctionArgs): Promise<Enr
   });
   if (!s.authenticated) throw redirect(appPath("sign-in"));
   let enrollment: null | TotpEnrollment = null;
+  let totpUnavailable = false;
   try {
     enrollment = await auth.beginTotpEnrollment(gw);
-  } catch {
-    log.warn("could not start authenticator enrolment");
+  } catch (error) {
+    totpUnavailable = error instanceof ApiError && error.code === "mfa_unavailable";
+    if (totpUnavailable)
+      log.warn("authenticator enrolment unavailable: the server has no TOTP key");
+    else log.warn("could not start authenticator enrolment");
   }
-  return { enforced: s.enrollmentRequired, enrollment, next };
+  return { enforced: s.enrollmentRequired, enrollment, next, totpUnavailable };
 };
 
 export const enrollAction = async ({ request }: ActionFunctionArgs) => {

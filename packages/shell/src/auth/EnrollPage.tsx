@@ -31,7 +31,7 @@ type Method = "authenticator" | "passkey" | "token";
  * signing out); otherwise it can be skipped.
  */
 export const EnrollPage = () => {
-  const { enforced, enrollment, next } = useLoaderData<EnrollLoaderData>();
+  const { enforced, enrollment, next, totpUnavailable } = useLoaderData<EnrollLoaderData>();
   const nextHref = useHref(next);
   const acted = useActionData<EnrollState>();
   const state = acted ?? { view: "form" as const };
@@ -71,7 +71,9 @@ export const EnrollPage = () => {
         ? "The setup didn't finish. Try again in a moment."
         : enrollment
           ? null
-          : "We couldn't start the setup. Refresh the page and try again.";
+          : totpUnavailable
+            ? "Authenticator apps aren't set up on this server. Use a passkey instead, or ask your administrator to turn them on."
+            : "We couldn't start the setup. Refresh the page and try again.";
   const wrong = state.view === "form" && !!state.wrong && typed.for !== acted;
 
   return (
