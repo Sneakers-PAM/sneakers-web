@@ -20,7 +20,11 @@ describe("admin settings", () => {
     const api = screen.getByRole("switch", { name: "Allow API access to sensitive secrets" });
     expect(api).not.toBeChecked();
     expect(screen.getByRole("switch", { name: "Require MFA before a reveal" })).not.toBeChecked();
-    expect(screen.getByText(/1 minute\s+to 1 hour, 5 minutes by default/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/from 0 \(every time\)\s+to 4 hours, 30 minutes by default/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("30 minutes")).toBeInTheDocument();
+    expect(screen.queryByText("MFA_MAX_AGE", { selector: "span" })).not.toBeInTheDocument();
     await user.click(api);
     await vi.waitFor(() =>
       expect(

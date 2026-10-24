@@ -470,6 +470,7 @@ export type SecuritySettingsFieldsFragment = {
   requestHistoryRetentionDays: number | null;
   sessionTtlSeconds: number | null;
   requireMfaForReveal: boolean;
+  mfaMaxAgeSeconds: number;
 };
 
 export type AdminSecretTypesQueryVariables = Exact<{ [key: string]: never }>;
@@ -659,6 +660,7 @@ export type AdminPoliciesQuery = {
     requestHistoryRetentionDays: number | null;
     sessionTtlSeconds: number | null;
     requireMfaForReveal: boolean;
+    mfaMaxAgeSeconds: number;
   };
 };
 
@@ -704,6 +706,7 @@ export type AdminUpdateSecuritySettingsMutation = {
     requestHistoryRetentionDays: number | null;
     sessionTtlSeconds: number | null;
     requireMfaForReveal: boolean;
+    mfaMaxAgeSeconds: number;
   };
 };
 
@@ -3135,6 +3138,7 @@ export const SecuritySettingsFieldsFragmentDoc = new TypedDocumentString(
   requestHistoryRetentionDays
   sessionTtlSeconds
   requireMfaForReveal
+  mfaMaxAgeSeconds
 }
     `,
   { fragmentName: "SecuritySettingsFields" },
@@ -4041,6 +4045,7 @@ fragment SecuritySettingsFields on SecuritySettings {
   requestHistoryRetentionDays
   sessionTtlSeconds
   requireMfaForReveal
+  mfaMaxAgeSeconds
 }`) as unknown as TypedDocumentString<AdminPoliciesQuery, AdminPoliciesQueryVariables>;
 export const AdminSavePasswordPolicyDocument = new TypedDocumentString(`
     mutation AdminSavePasswordPolicy($input: PasswordPolicyInput!) {
@@ -4089,6 +4094,7 @@ export const AdminUpdateSecuritySettingsDocument = new TypedDocumentString(`
   requestHistoryRetentionDays
   sessionTtlSeconds
   requireMfaForReveal
+  mfaMaxAgeSeconds
 }`) as unknown as TypedDocumentString<
   AdminUpdateSecuritySettingsMutation,
   AdminUpdateSecuritySettingsMutationVariables
