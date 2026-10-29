@@ -8,9 +8,9 @@ test("a user adds a personal target, then opens an SSH key's mock terminal", asy
   await page.getByRole("link", { name: "New target" }).click();
   await expect(page.getByRole("heading", { name: "New target" })).toBeVisible();
   await page.getByLabel(/^Name/).fill("Lab switch");
-  await page.getByLabel(/^Hostname/).fill("192.0.2.40");
+  await page.getByLabel(/^Host/).fill("192.0.2.40");
   await page.getByRole("button", { name: "Create target" }).click();
-  await expect(page.getByRole("row", { name: /Lab switch/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Lab switch 192\.0\.2\.40/ })).toBeVisible();
 
   await page.goto("/secret/mock-secret-build-ssh/terminal");
   await expect(page.getByText("Build host deploy key")).toBeVisible();

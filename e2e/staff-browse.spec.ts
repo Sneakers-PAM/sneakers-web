@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { signInAsAlice } from "./signIn";
+import { signInAs, signInAsAlice } from "./signIn";
 
 test("browse a folder, make a subfolder, move it and delete it", async ({ page }) => {
   await signInAsAlice(page, "/browse/mock-folder-databases");
@@ -11,13 +11,12 @@ test("browse a folder, make a subfolder, move it and delete it", async ({ page }
   );
 
   const folders = page.getByRole("navigation", { name: "Folders" });
-  await folders.getByRole("button", { name: "Up from Platform" }).click();
   await folders.getByRole("link", { name: /Platform/ }).click();
   await expect(page.getByRole("heading", { name: "Platform" })).toBeVisible();
 
   await page.getByRole("button", { name: "Folder actions" }).click();
   await page.getByRole("menuitem", { name: "New folder…" }).click();
-  await page.getByLabel("Name").fill("Staging");
+  await page.getByRole("dialog").getByLabel("Name").fill("Staging");
   await page.getByRole("button", { name: "Create" }).click();
   const staging = folders.getByRole("link", { name: /Staging/ });
   await expect(staging).toBeVisible();
@@ -40,7 +39,7 @@ test("browse a folder, make a subfolder, move it and delete it", async ({ page }
 });
 
 test("a folder without access says who owns it", async ({ page }) => {
-  await signInAsAlice(page, "/browse/mock-folder-finance");
+  await signInAs(page, "mock-user-grace", "/browse/mock-folder-finance");
   await expect(page.getByText("You can't open this folder")).toBeVisible();
   await expect(page.getByText(/Bob owns it/)).toBeVisible();
 });

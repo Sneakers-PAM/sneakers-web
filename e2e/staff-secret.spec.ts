@@ -19,7 +19,7 @@ test("a secret's value is revealed, spelled out and hidden, and break glass show
   await password.getByRole("button", { name: "Hide" }).click();
   await expect(password).not.toContainText("mock-Tongue-Eyelet-91");
 
-  await page.getByRole("button", { name: "Actions" }).click();
+  await page.getByRole("button", { exact: true, name: "Actions" }).click();
   await page.getByRole("menuitem", { name: /Break glass/ }).click();
   const dialog = page.getByRole("dialog", { name: "Break glass on DB admin?" });
   await dialog.getByLabel(/Reason/).fill("The primary is down and the on-call needs in.");
@@ -33,7 +33,7 @@ test("a secret's value is revealed, spelled out and hidden, and break glass show
 
 test("a secret is retired and restored", async ({ page }) => {
   await signInAsAlice(page, "/secret/mock-secret-db-reporting");
-  await page.getByRole("button", { name: "Actions" }).click();
+  await page.getByRole("button", { exact: true, name: "Actions" }).click();
   await page.getByRole("menuitem", { name: "Retire" }).click();
   await expect(page.getByText(/^Retired on /)).toBeVisible();
   await page.reload();

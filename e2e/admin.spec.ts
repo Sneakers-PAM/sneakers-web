@@ -51,7 +51,7 @@ test("a site admin grants the recovery role and files a new hire into a group", 
 });
 
 test("a site admin turns on MFA before a reveal and builds a custom type", async ({ page }) => {
-  await signInAsAlice(page, "/admin/policies");
+  await signInAsAlice(page, "/admin/settings");
   const reveal = page.getByRole("switch", { name: "Require MFA before a reveal" });
   await expect(reveal).not.toBeChecked();
   await reveal.click();
