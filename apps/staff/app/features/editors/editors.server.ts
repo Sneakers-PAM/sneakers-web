@@ -35,6 +35,7 @@ import {
   type Draft,
   formProblems,
   isCertificateType,
+  isGitHubAppType,
   isSensitive,
   problemCount,
   type Problems,
@@ -278,6 +279,10 @@ const plannedMove = async (gw: GatewayClient, id: string, to: string, admin: boo
   };
 };
 
+// A form post can carry CRLF line ends; a GitHub App's .pem is stored with the LF ones GitHub uses.
+const stored = (type: SecretType, key: string, value: string) =>
+  isGitHubAppType(type) && key === "privateKey" ? value.replaceAll("\r\n", "\n") : value;
+
 const save = async (
   gw: GatewayClient,
   f: FormData,
@@ -311,7 +316,10 @@ const save = async (
     : type.fields
         // On edit a blank sensitive value isn't sent, so the vault keeps the stored one.
         .filter((field) => !(editing && isSensitive(field) && !(d.values[field.key] ?? "").trim()))
-        .map((field) => ({ key: field.key, value: d.values[field.key] ?? "" }));
+        .map((field) => ({
+          key: field.key,
+          value: stored(type, field.key, d.values[field.key] ?? ""),
+        }));
   if (id) {
     await gw.gql(EditorsUpdateSecretDocument, {
       id,

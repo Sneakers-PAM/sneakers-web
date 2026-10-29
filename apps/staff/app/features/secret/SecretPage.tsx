@@ -35,17 +35,20 @@ import { DeleteDialog, RotateDialog } from "@/features/secret/ConfirmDialogs";
 import { DatabaseConnectionCard } from "@/features/secret/DatabaseConnectionCard";
 import { DetailsRows } from "@/features/secret/DetailsCard";
 import { FieldsCard } from "@/features/secret/FieldsCard";
+import { GITHUB_APP_SHOWN, GitHubAppCard } from "@/features/secret/GitHubAppCard";
 import { HistoryCard } from "@/features/secret/HistoryCard";
 import { Panel } from "@/features/secret/Panel";
+import { ReplaceAppKeyDialog } from "@/features/secret/ReplaceAppKeyDialog";
 import { RevealRunProvider } from "@/features/secret/revealRun";
 import { AgentAccessCard, AutomationCard } from "@/features/secret/SettingsCards";
 import { TargetsCard } from "@/features/secret/TargetsCard";
 import { useSecretFetcher } from "@/features/secret/useSecretFetcher";
 
-type DialogName = "break-glass" | "delete" | "export" | "replace" | "rotate" | null;
+type DialogName = "break-glass" | "delete" | "export" | "replace-key" | "replace" | "rotate" | null;
 
 const CERT_TYPE = "type-ssl-cert";
 const DB_TYPE = "type-database-account";
+const GITHUB_APP_TYPE = "type-github-app";
 const SSH_TYPE = "type-ssh-key";
 const SSH_PASSWORD_TYPE = "type-unix-ssh";
 /** Secret types the web terminal can open a session for (#319). */
@@ -129,6 +132,7 @@ export const SecretPage = ({ page }: { page: Page }) => {
   const showManage = manage || isAdmin;
   const isCert = secret.typeId === CERT_TYPE;
   const isDatabase = secret.typeId === DB_TYPE;
+  const isGitHubApp = secret.typeId === GITHUB_APP_TYPE;
   const production = config.appEnv === "prod";
   const lease = page.lease;
   const heldByMe = !!lease && lease.userId === page.viewerId;
@@ -222,6 +226,16 @@ export const SecretPage = ({ page }: { page: Page }) => {
                   {showManage && !secret.retired && isCert && (
                     <DropdownMenuItem disabled={!manage} onSelect={() => setDialog("replace")}>
                       Replace certificate…
+                      {!manage && (
+                        <span className="ml-auto text-[0.75rem] text-muted">
+                          {OWNERS_ONLY_HINT}
+                        </span>
+                      )}
+                    </DropdownMenuItem>
+                  )}
+                  {showManage && !secret.retired && isGitHubApp && (
+                    <DropdownMenuItem disabled={!manage} onSelect={() => setDialog("replace-key")}>
+                      Replace private key…
                       {!manage && (
                         <span className="ml-auto text-[0.75rem] text-muted">
                           {OWNERS_ONLY_HINT}
@@ -394,6 +408,30 @@ export const SecretPage = ({ page }: { page: Page }) => {
                 onExport={read && !secret.retired ? () => setDialog("export") : undefined}
                 onReplace={manage && !secret.retired ? () => setDialog("replace") : undefined}
               />
+            ) : isGitHubApp && type ? (
+              <>
+                <GitHubAppCard
+                  fields={fields}
+                  locked={lockedReason}
+                  onReplaceKey={
+                    manage && !secret.retired ? () => setDialog("replace-key") : undefined
+                  }
+                  plainHidden={!read}
+                  type={type}
+                />
+                <FieldsCard
+                  fields={fields}
+                  locked={lockedReason}
+                  missing={page.missingRequired.filter((k) => !GITHUB_APP_SHOWN.has(k))}
+                  plainHidden={!read}
+                  rotatesOnCheckIn={false}
+                  secretId={secret.id}
+                  type={{
+                    ...type,
+                    fields: type.fields.filter((f) => !GITHUB_APP_SHOWN.has(f.key)),
+                  }}
+                />
+              </>
             ) : (
               type && (
                 <FieldsCard
@@ -464,6 +502,12 @@ export const SecretPage = ({ page }: { page: Page }) => {
           open={dialog === "delete"}
           typeToConfirm={production}
         />
+        {isGitHubApp && (
+          <ReplaceAppKeyDialog
+            onOpenChange={(o) => setDialog(o ? "replace-key" : null)}
+            open={dialog === "replace-key"}
+          />
+        )}
         {isCert && (
           <>
             <ExportDialog

@@ -1,6 +1,7 @@
 import {
   ApiError,
   createLogger,
+  EditorsUpdateSecretDocument,
   type GatewayClient,
   GraphQLRequestError,
   MeDocument,
@@ -35,6 +36,7 @@ import { guard, isAdmin, requireUser, type SessionUser } from "@sneakers-web/she
 import { clockTime } from "@sneakers-web/ui";
 import { data, redirect } from "react-router";
 
+import { appKeyProblem } from "@/features/editors/githubAppKey";
 import { activeLeaseFor, checkIn, checkOut } from "@/features/requests/leases.server";
 
 const log = createLogger("staff.secret");
@@ -301,6 +303,8 @@ export type SecretActionResult =
 
 const text = (f: FormData, key: string) => String(f.get(key) ?? "").trim();
 
+const GITHUB_APP_TYPE = "type-github-app";
+
 const invalid = (message: string) =>
   new GraphQLRequestError([{ extensions: { code: "INVALID_ARGUMENT" }, message }]);
 
@@ -375,6 +379,27 @@ const run = async (
       if (!r.replaceCertificate.secret)
         throw invalid("desc = that file holds more than one certificate; pick one and try again");
       return { done: "Certificate replaced. A new version was added." };
+    }
+    case "replace-app-key": {
+      // A form post can carry CRLF line ends; the .pem is stored with the LF ones GitHub uses.
+      const privateKey = text(f, "privateKey").replaceAll("\r\n", "\n");
+      if (!privateKey) throw invalid("desc = add the App's new private key");
+      const bad = appKeyProblem(privateKey);
+      if (bad) throw invalid(`desc = ${bad}`);
+      const { secret } = await gw.gql(SecretDetailDocument, { id });
+      if (secret?.typeId !== GITHUB_APP_TYPE)
+        throw invalid("desc = this secret isn't a GitHub App");
+      // The vault takes the target and expiry as given, so both go back unchanged.
+      await gw.gql(EditorsUpdateSecretDocument, {
+        id,
+        input: {
+          expiresAt: secret.expiresAt ?? "",
+          fields: [{ key: "privateKey", value: privateKey }],
+          targetId: secret.targetId ?? "",
+        },
+      });
+      log.info("github app key replaced", { secretId: id });
+      return { done: "Private key replaced. The old one is kept in the history." };
     }
     case "restore": {
       const r = await gw.gql(SecretRestoreDocument, { id });

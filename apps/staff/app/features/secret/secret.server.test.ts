@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { MOCK_GATEWAY_URL } from "@sneakers-web/mock-gateway";
+import { MOCK_GATEWAY_URL, mockState } from "@sneakers-web/mock-gateway";
 import {
   appRequest,
   form,
@@ -11,7 +11,14 @@ import {
 import { HttpResponse } from "msw";
 import { graphql } from "msw/graphql";
 
-import { loadSecret, secretAction, type SecretLoad } from "@/features/secret/secret.server";
+import { armored } from "@/features/editors/sshKey";
+import {
+  loadSecret,
+  secretAction,
+  type SecretActionResult,
+  type SecretLoad,
+} from "@/features/secret/secret.server";
+import { appKeyPem } from "@/test/appKeys";
 
 withMockGateway();
 
@@ -159,5 +166,37 @@ describe("acting on a secret", () => {
   it("returns a refusal for an action the person may not take", async () => {
     const r = await act(DB, { intent: "retire" }, "mock-user-bob");
     expect(r).toMatchObject({ ok: false, refusal: { code: "PERMISSION_DENIED" } });
+  });
+});
+
+describe("replacing a GitHub App's private key", () => {
+  const BOT = "mock-secret-release-bot";
+
+  it("checks the new key on the server too, and stores nothing it refuses", async () => {
+    const before = mockState.world.secrets.find((s) => s.id === BOT)!.versions.length;
+    const r = (await act(BOT, {
+      intent: "replace-app-key",
+      privateKey: armored("OPENSSH PRIVATE KEY", "TW9jaw=="),
+    })) as SecretActionResult;
+    expect(r).toMatchObject({ ok: false });
+    expect(mockState.world.secrets.find((s) => s.id === BOT)!.versions).toHaveLength(before);
+  });
+
+  it("keeps the secret's target and expiry when it replaces the key", async () => {
+    const bot = mockState.world.secrets.find((s) => s.id === BOT)!;
+    bot.expiresAt = "2027-01-01T00:00:00.000Z";
+    const r = (await act(BOT, {
+      intent: "replace-app-key",
+      privateKey: appKeyPem(),
+    })) as SecretActionResult;
+    expect(r).toMatchObject({ ok: true });
+    expect(bot.expiresAt).toBe("2027-01-01T00:00:00.000Z");
+    expect(bot.fields.privateKey).toBe(appKeyPem().trim());
+  });
+
+  it("is only for GitHub App secrets", async () => {
+    expect(await act(DB, { intent: "replace-app-key", privateKey: appKeyPem() })).toMatchObject({
+      ok: false,
+    });
   });
 });

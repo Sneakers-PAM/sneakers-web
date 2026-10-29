@@ -29,7 +29,7 @@ describe("the dashboard loader", () => {
   it("gives Alice her tiles, her quick cards and her most-opened secrets", async () => {
     const d = await loadDashboard(as("mock-user-alice"));
     if (!d.ok) throw new Error("expected data");
-    expect(d.stats).toEqual({ drift: 2, expired: 1, expiringSoon: 2, total: 14 });
+    expect(d.stats).toEqual({ drift: 2, expired: 1, expiringSoon: 2, total: 15 });
     expect(d.agents).toEqual([
       expect.objectContaining({
         clientLabel: "Build agent on build1",
@@ -136,7 +136,7 @@ describe("the secrets-by-status loader", () => {
     const d = await loadSecretsByStatus(as("mock-user-alice", "/secrets?status=nope"));
     if (!d.ok) throw new Error("expected data");
     expect(d.status).toBe("all");
-    expect(d.rows).toHaveLength(14);
+    expect(d.rows).toHaveLength(15);
     expect(d.rows.map((r) => r.name)).toEqual(
       d.rows.map((r) => r.name).toSorted((a, b) => a.localeCompare(b)),
     );
