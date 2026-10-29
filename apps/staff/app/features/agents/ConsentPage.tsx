@@ -18,7 +18,8 @@ const PROBLEMS: Record<Problem, [string, string]> = {
   unavailable: ["We couldn't check that just now.", "Try again in a moment."],
 };
 
-const End = ({
+/** A finished step on a consent-style card: the icon, the outcome and what to do next. */
+export const End = ({
   body,
   children,
   icon,

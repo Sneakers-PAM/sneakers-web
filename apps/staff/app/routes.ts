@@ -15,6 +15,7 @@ export default [
   route("resources/step-up", "routes/resources.step-up.tsx"),
   route("healthz", "routes/healthz.tsx"),
   route("oauth/consent", "routes/oauth.consent.tsx"),
+  route("cli/signed-in", "routes/cli.signed-in.tsx"),
   route("approvals/run/:runId", "routes/approvals.run.tsx"),
   route("secret/:id/terminal", "routes/terminal.tsx"),
   layout("routes/frame.tsx", [
