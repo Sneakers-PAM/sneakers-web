@@ -177,6 +177,7 @@ export default function Email() {
           </Field>
           <Field label="Port">
             <Input
+              {...noAutofill()}
               inputMode="numeric"
               onChange={(event) => setPort(event.target.value)}
               value={port}
@@ -211,6 +212,7 @@ export default function Email() {
           </Label>
           <Field hint="Optional: the CA that signed the relay's certificate, PEM." label="Relay CA">
             <Textarea
+              {...noAutofill()}
               onChange={(event) => update({ caPem: event.target.value })}
               placeholder="-----BEGIN CERTIFICATE-----"
               rows={4}

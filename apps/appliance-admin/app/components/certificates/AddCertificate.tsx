@@ -27,6 +27,7 @@ import { Advanced } from "@/components/Advanced";
 import { SetHostnameLink } from "@/components/certificates/Hostname";
 import { ValidationList } from "@/components/certificates/ValidationList";
 import { saveText } from "@/lib/download";
+import { noAutofill } from "@/lib/noAutofill";
 import { tls } from "@/lib/osadmin/client";
 import { isStepUpRequired, OsadminError, reasonOf, validationChecksOf } from "@/lib/osadmin/errors";
 import { requestStepUp } from "@/lib/osadmin/stepUpController";
@@ -249,7 +250,7 @@ export const AddCertificate = ({
             </Field>
             <Field hint="Write-only: used for this import, never kept." label="Password">
               <Input
-                autoComplete="off"
+                {...noAutofill("new-password")}
                 onChange={(event) => setPassword(event.target.value)}
                 type="password"
                 value={password}
@@ -275,7 +276,12 @@ export const AddCertificate = ({
               hint="The box's host name and management addresses are always included."
               label="Name for the certificate (one, optional)"
             >
-              <Input mono onChange={(event) => setName(event.target.value)} value={name} />
+              <Input
+                {...noAutofill()}
+                mono
+                onChange={(event) => setName(event.target.value)}
+                value={name}
+              />
             </Field>
             <fieldset className="flex flex-col gap-1.5">
               <legend className="mb-1 font-bold">Key type</legend>
@@ -298,6 +304,7 @@ export const AddCertificate = ({
             <Advanced label="Advanced: subject">
               <Field label="Common name">
                 <Input
+                  {...noAutofill()}
                   mono
                   onChange={(event) => setSubject({ ...subject, commonName: event.target.value })}
                   value={subject.commonName}
@@ -305,12 +312,14 @@ export const AddCertificate = ({
               </Field>
               <Field label="Organisation">
                 <Input
+                  {...noAutofill()}
                   onChange={(event) => setSubject({ ...subject, organization: event.target.value })}
                   value={subject.organization}
                 />
               </Field>
               <Field hint="Two letters." label="Country">
                 <Input
+                  {...noAutofill()}
                   maxLength={2}
                   onChange={(event) =>
                     setSubject({ ...subject, country: event.target.value.toUpperCase() })
@@ -470,7 +479,13 @@ const PemField = ({
 }) => (
   <div className="flex flex-col gap-1.5">
     <Field label={label}>
-      <Textarea mono onChange={(event) => onChange(event.target.value)} rows={4} value={value} />
+      <Textarea
+        {...noAutofill()}
+        mono
+        onChange={(event) => onChange(event.target.value)}
+        rows={4}
+        value={value}
+      />
     </Field>
     <input
       accept=".pem,.crt,.cer,.key"

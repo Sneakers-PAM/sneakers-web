@@ -29,6 +29,27 @@ describe("Email", () => {
     expect(screen.queryByText(UNENCRYPTED)).not.toBeInTheDocument();
   });
 
+  it("keeps the browser and password managers out of every field (#320)", async () => {
+    renderPage(Email);
+    await screen.findByLabelText("Relay host");
+    const fields = [
+      ["Relay host", "off"],
+      ["Port", "off"],
+      ["From address", "off"],
+      ["Relay CA", "off"],
+      ["Username", "off"],
+      ["Password", "new-password"],
+      ["Send a test to", "off"],
+    ] as const;
+    for (const [label, autocomplete] of fields) {
+      const field = screen.getByLabelText(label);
+      expect(field, label).toHaveAttribute("autocomplete", autocomplete);
+      expect(field, label).toHaveAttribute("data-1p-ignore");
+      expect(field, label).toHaveAttribute("data-lpignore", "true");
+      expect(field, label).toHaveAttribute("data-bwignore");
+    }
+  });
+
   it("warns whenever TLS is off or verification is off", async () => {
     const user = userEvent.setup();
     renderPage(Email);

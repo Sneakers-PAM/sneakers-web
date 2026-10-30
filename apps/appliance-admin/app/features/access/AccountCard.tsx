@@ -30,6 +30,7 @@ import { PasswordInput } from "@/components/PasswordInput";
 import { TotpEnrolmentPanel } from "@/components/TotpEnrolmentPanel";
 import { CopyLine } from "@/features/access/CopyLine";
 import { saveText } from "@/lib/download";
+import { noAutofill } from "@/lib/noAutofill";
 import { runAction } from "@/lib/osadmin/action";
 import { access } from "@/lib/osadmin/client";
 import { isStepUpRequired } from "@/lib/osadmin/errors";
@@ -298,7 +299,11 @@ const IssueSshKeyDialog = ({ admin, onDone }: { admin: string; onDone: () => voi
           </DialogHeader>
           {refusal && <Alert tone="danger">{refusal}</Alert>}
           <Field hint="Say where it lives, such as a laptop." label="Label">
-            <Input onChange={(event) => setLabel(event.target.value)} value={label} />
+            <Input
+              {...noAutofill()}
+              onChange={(event) => setLabel(event.target.value)}
+              value={label}
+            />
           </Field>
           <Field label="Authenticator code">
             <CodeInput label="Authenticator code" onChange={setCode} size="md" value={code} />
