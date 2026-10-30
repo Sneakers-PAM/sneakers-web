@@ -5,7 +5,7 @@ import {
   withCookie,
   withMockGateway,
 } from "@sneakers-web/mock-gateway/testing";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { createRoutesStub } from "react-router";
@@ -63,8 +63,11 @@ describe("G-10 agent consent", () => {
     await user.type(screen.getByLabelText("6-digit code"), "123456");
     await user.click(screen.getByRole("button", { name: "Allow" }));
     expect(await screen.findByText("You can go back to the app")).toBeInTheDocument();
-    expect(assign).toHaveBeenCalledWith(
-      expect.stringMatching(/^http:\/\/127\.0\.0\.1:53682\/callback\?/),
+    // The page redirects from an effect, which can run just after the screen above renders.
+    await waitFor(() =>
+      expect(assign).toHaveBeenCalledWith(
+        expect.stringMatching(/^http:\/\/127\.0\.0\.1:53682\/callback\?/),
+      ),
     );
     expect(mockState.world.tokens.at(-1)).toMatchObject({ label: "laptop agent" });
   });
@@ -76,8 +79,11 @@ describe("G-10 agent consent", () => {
     expect(screen.queryByLabelText("6-digit code")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Allow" }));
     expect(await screen.findByText("You can go back to the app")).toBeInTheDocument();
-    expect(assign).toHaveBeenCalledWith(
-      expect.stringMatching(/^http:\/\/127\.0\.0\.1:53682\/callback\?/),
+    // The page redirects from an effect, which can run just after the screen above renders.
+    await waitFor(() =>
+      expect(assign).toHaveBeenCalledWith(
+        expect.stringMatching(/^http:\/\/127\.0\.0\.1:53682\/callback\?/),
+      ),
     );
   });
 
@@ -105,7 +111,9 @@ describe("G-10 agent consent", () => {
     show("/oauth/consent?req=mock-consent-1");
     await user.click(await screen.findByRole("button", { name: "Deny" }));
     expect(await screen.findByText("Request denied")).toBeInTheDocument();
-    expect(assign).toHaveBeenCalledWith(expect.stringContaining("error=access_denied"));
+    await waitFor(() =>
+      expect(assign).toHaveBeenCalledWith(expect.stringContaining("error=access_denied")),
+    );
   });
 
   it("says when the page was opened without a request, or the request expired", async () => {

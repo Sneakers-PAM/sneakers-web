@@ -52,13 +52,10 @@ test("an agent signs in, gets a use grant, and a use waits for approval", async 
     .first()
     .click();
   await expect(page.getByRole("heading", { name: "Approvals" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Agent approvals" })).toContainText("1");
-  await page.getByRole("button", { name: "Approve use of DB admin" }).click();
-  const dialog = page.getByRole("dialog", { name: "Approve use of DB admin?" });
-  await dialog.getByLabel("6-digit code").fill("000000");
-  await dialog.getByRole("button", { name: "Approve use" }).click();
-  await expect(dialog.getByText(/Nothing was approved/)).toBeVisible();
-  // The dashboard's flow still needs this use waiting, so this one stops before approving it.
-  await dialog.getByRole("button", { name: "Cancel" }).click();
-  await expect(page.getByRole("row", { name: /DB admin/ })).toBeVisible();
+  // Nobody approves their own request: Alice's agent's use of DB admin waits for an owner or
+  // approver, and the dashboard's flow still needs it waiting.
+  await expect(page.getByText("Nothing waiting")).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Your requests" }).getByRole("row", { name: /DB admin/ }),
+  ).toContainText("Waiting for an owner or approver");
 });

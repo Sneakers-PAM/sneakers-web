@@ -71,19 +71,23 @@ const applianceMock = {
   url: `http://127.0.0.1:${APPLIANCE_MOCK_PORT}/favicon.svg`,
 };
 
+// The full desktop layout (the sidebar rail, the header search and inline header buttons) starts
+// at 1440px; narrower, those fold into the drawer and the "More actions" menu.
+const DESKTOP = { ...devices["Desktop Chrome"], viewport: { height: 900, width: 1440 } };
+
 export default defineConfig({
   forbidOnly: !!process.env.CI,
   projects: [
     {
       name: "staff",
       testMatch: /staff(-[a-z-]+)?\.spec\.ts$/,
-      use: { ...devices["Desktop Chrome"], baseURL: `http://127.0.0.1:${STAFF_PORT}` },
+      use: { ...DESKTOP, baseURL: `http://127.0.0.1:${STAFF_PORT}` },
     },
     { name: "proxy", testMatch: "proxy.spec.ts" },
     {
       name: "admin",
       testMatch: "admin.spec.ts",
-      use: { ...devices["Desktop Chrome"], baseURL: `http://127.0.0.1:${ADMIN_PORT}` },
+      use: { ...DESKTOP, baseURL: `http://127.0.0.1:${ADMIN_PORT}` },
     },
     {
       name: "setup",

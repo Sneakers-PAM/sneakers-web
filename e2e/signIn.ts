@@ -8,7 +8,18 @@ export const signInAsAlice = async (page: Page, start: string): Promise<void> =>
   await page.getByLabel("Password").fill("any password");
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.getByLabel("6-digit code").fill("481027");
-  await expect(page.getByText("Welcome back, Alice")).toBeVisible();
+  // The welcome screen only shows for a moment before it opens the page, so wait for the page.
+  await page.waitForURL((url) => !url.pathname.endsWith("/sign-in"));
+};
+
+/** Sign a mock user in through the mock's quick login, for a check of what someone else sees. */
+export const signInAs = async (page: Page, userId: string, start: string): Promise<void> => {
+  const response = await page.request.post("/sign-in", {
+    form: { intent: "mock-quick-login", next: start, userId },
+    maxRedirects: 0,
+  });
+  expect(response.status()).toBe(302);
+  await page.goto(start);
 };
 
 /** Switch to dark, then check the choice survives a reload (it lives in a cookie). */
