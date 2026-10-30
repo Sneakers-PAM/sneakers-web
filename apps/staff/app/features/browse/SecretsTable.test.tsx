@@ -39,11 +39,18 @@ const renderTable = ({
 }: { applyOrder?: boolean; canManage?: boolean; secrets?: BrowseSecret[] } = {}) => {
   const submitted: FormData[] = [];
   let current = secrets;
+  // The action answers only once the test lets it. Its answer toasts, and the toast's own
+  // announcement replaces the move note, so a test reads the note before it lets the action answer.
+  let answer!: () => void;
+  const answered = new Promise<void>((resolve) => {
+    answer = resolve;
+  });
   const Stub = createRoutesStub([
     {
       action: async ({ request }: { request: Request }) => {
         const form = await request.formData();
         submitted.push(form);
+        await answered;
         if (applyOrder) {
           const ids = String(form.get("orderedIds")).split(",");
           current = ids.map((id, index) => ({
@@ -75,7 +82,7 @@ const renderTable = ({
       <LiveRegion />
     </>,
   );
-  return { submitted };
+  return { answer, submitted };
 };
 
 const typeCellsInOrder = () =>
@@ -228,12 +235,15 @@ describe("drag and drop reordering", () => {
 
   it("keeps the focus in the row when an arrow button reaches the end", async () => {
     const user = userEvent.setup();
-    renderTable({ applyOrder: true, canManage: true });
+    const { answer } = renderTable({ applyOrder: true, canManage: true });
     await user.click(screen.getByRole("button", { name: "Move Alpha up" }));
     await screen.findByText("Alpha moved to position 1 of 3.");
+    answer();
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Move Alpha up" })).toBeDisabled(),
     );
-    expect(screen.getByRole("button", { name: /^Reorder Alpha/ })).toHaveFocus();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /^Reorder Alpha/ })).toHaveFocus(),
+    );
   });
 });
