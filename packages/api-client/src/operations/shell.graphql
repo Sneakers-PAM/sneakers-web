@@ -48,6 +48,15 @@ query ApplianceStatus {
   }
 }
 
+# The box's host name, for the admin console's link to the box's own :8443 pages.
+query ApplianceAdminHost {
+  diagnostics {
+    box {
+      fqdn
+    }
+  }
+}
+
 query Diagnostics {
   diagnostics {
     generatedAt

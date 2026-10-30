@@ -1,4 +1,5 @@
 import {
+  ApplianceAdminHostDocument,
   ApplianceStatusDocument,
   type ComponentStatus,
   type ComponentVersionFieldsFragment,
@@ -18,12 +19,15 @@ import { authed } from "#mock/handlers/auth";
 import { MOCK_GATEWAY_URL, mockState, onMockReset } from "#mock/state";
 
 export interface MockAppliance {
+  /** The box the product runs on, as diagnostics reports it; null on a plain Kubernetes install. */
+  box: { baseOS: string; baseWeb: string; fqdn: string } | null;
   maintenance: boolean;
   maintenanceReason: null | string;
   mcp: null | string;
 }
 
 const applianceDefault = (): MockAppliance => ({
+  box: null,
   maintenance: false,
   maintenanceReason: null,
   mcp: null,
@@ -90,7 +94,17 @@ const mockComponent = (
 
 export const shellHandlers = [
   api.query(ApplianceStatusDocument, ({ request }) =>
-    asUser(request, () => HttpResponse.json({ data: { appliance: mockAppliance.current } })),
+    asUser(request, () => {
+      const { maintenance, maintenanceReason, mcp } = mockAppliance.current;
+      return HttpResponse.json({ data: { appliance: { maintenance, maintenanceReason, mcp } } });
+    }),
+  ),
+
+  api.query(ApplianceAdminHostDocument, ({ request }) =>
+    asUser(request, () => {
+      const box = mockAppliance.current.box;
+      return HttpResponse.json({ data: { diagnostics: { box: box && { fqdn: box.fqdn } } } });
+    }),
   ),
 
   api.query(DiagnosticsDocument, ({ request }) =>
@@ -101,7 +115,7 @@ export const shellHandlers = [
           diagnostics: {
             actor: { id: userId, roles: u?.roles ?? [], username: u?.username ?? userId },
             appliance: "mock-appliance-1.0.0",
-            box: null,
+            box: mockAppliance.current.box,
             gateway: mockComponent("gateway"),
             generatedAt: new Date().toISOString(),
             productVersion: "0.0.0-mock",

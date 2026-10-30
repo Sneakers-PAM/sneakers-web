@@ -1113,6 +1113,10 @@ export type ApplianceStatusQuery = {
   appliance: { maintenance: boolean; maintenanceReason: string | null; mcp: string | null };
 };
 
+export type ApplianceAdminHostQueryVariables = Exact<{ [key: string]: never }>;
+
+export type ApplianceAdminHostQuery = { diagnostics: { box: { fqdn: string } | null } };
+
 export type DiagnosticsQueryVariables = Exact<{ [key: string]: never }>;
 
 export type DiagnosticsQuery = {
@@ -4530,6 +4534,15 @@ export const ApplianceStatusDocument = new TypedDocumentString(`
   }
 }
     `) as unknown as TypedDocumentString<ApplianceStatusQuery, ApplianceStatusQueryVariables>;
+export const ApplianceAdminHostDocument = new TypedDocumentString(`
+    query ApplianceAdminHost {
+  diagnostics {
+    box {
+      fqdn
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<ApplianceAdminHostQuery, ApplianceAdminHostQueryVariables>;
 export const DiagnosticsDocument = new TypedDocumentString(`
     query Diagnostics {
   diagnostics {
