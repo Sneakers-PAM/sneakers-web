@@ -4,6 +4,7 @@ import {
   type TargetsOpenSshSessionMutation,
   TargetsTerminalDocument,
   TargetsTerminalFieldsDocument,
+  type TargetsTerminalQuery,
 } from "@sneakers-web/api-client";
 import { type Refusal, refusalOf } from "@sneakers-web/shell";
 import { guard, isAdmin, requireUser } from "@sneakers-web/shell/server";
@@ -14,6 +15,51 @@ const SSH_KEY_TYPE = "type-ssh-key";
 const SSH_PASSWORD_TYPE = "type-unix-ssh";
 /** Secret types the web terminal can open a session for (#319). */
 const SSH_TERMINAL_TYPES = new Set([SSH_KEY_TYPE, SSH_PASSWORD_TYPE]);
+
+/** Whether the web terminal can open a session for a secret of this type. */
+export const opensTerminal = (typeId: string): boolean => SSH_TERMINAL_TYPES.has(typeId);
+
+/** Whether the secret's Open terminal can connect yet, and if not, why (#317). */
+export type TerminalAvailability =
+  { blocked: "no-target" | "not-ssh" | null } | { blocked: "not-pinned"; targetId: string };
+
+/**
+ * The secret's attached targets that connect over SSH, in attach order. A legacy secret
+ * (targetIds empty) is read as a one-item list from the primary targetId, the same
+ * normalize-on-read the vault itself does.
+ */
+const sshTargetsOf = (
+  secret: NonNullable<TargetsTerminalQuery["secret"]>,
+  d: Pick<TargetsTerminalQuery, "connections" | "targets">,
+) => {
+  const targetIds =
+    secret.targetIds && secret.targetIds.length > 0
+      ? secret.targetIds
+      : [secret.targetId].filter((x): x is string => !!x);
+  return {
+    targetIds,
+    usable: targetIds
+      .map((tid) => d.targets.find((t) => t.id === tid))
+      .filter((t): t is NonNullable<typeof t> => {
+        if (!t) return false;
+        return d.connections.find((c) => c.id === t.connectionId)?.protocol === "ssh";
+      }),
+  };
+};
+
+/**
+ * Whether Open terminal can connect for an SSH secret, for the secret page to show the action
+ * disabled with its reason instead of leaving it off. One usable target with a pinned host key
+ * is enough; the terminal page picks among several.
+ */
+export const terminalAvailability = (d: TargetsTerminalQuery): TerminalAvailability => {
+  if (!d.secret) return { blocked: "no-target" };
+  const { targetIds, usable } = sshTargetsOf(d.secret, d);
+  if (targetIds.length === 0) return { blocked: "no-target" };
+  if (usable.length === 0) return { blocked: "not-ssh" };
+  if (usable.some((t) => t.sshHostKeys.length > 0)) return { blocked: null };
+  return { blocked: "not-pinned", targetId: usable[0]!.id };
+};
 
 export type OpenResult = { ok: false; refusal: Refusal } | { ok: true; ticket: SessionTicket };
 
@@ -66,18 +112,7 @@ export const loadTerminal = async (request: Request, id: string): Promise<Termin
       log.debug("terminal: not an SSH secret type", { secretId: id });
       return { secret, session: { kind: "not-ssh" } };
     }
-    // A legacy secret (targetIds empty) is read as a one-item list from the primary targetId,
-    // the same normalize-on-read the vault itself does.
-    const targetIds =
-      s.targetIds && s.targetIds.length > 0
-        ? s.targetIds
-        : [s.targetId].filter((x): x is string => !!x);
-    const usable = targetIds
-      .map((tid) => d.targets.find((t) => t.id === tid))
-      .filter((t): t is NonNullable<typeof t> => {
-        if (!t) return false;
-        return d.connections.find((c) => c.id === t.connectionId)?.protocol === "ssh";
-      });
+    const { usable } = sshTargetsOf(s, d);
     if (usable.length === 0) {
       log.debug("terminal: no usable SSH target", { secretId: id });
       return { secret, session: { kind: "not-ssh" } };

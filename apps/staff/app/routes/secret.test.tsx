@@ -428,6 +428,72 @@ describe("the Open terminal action (#319)", () => {
   });
 });
 
+const SWITCH = "mock-secret-switch-ssh";
+const switchSecret = () => mockState.world.secrets.find((x) => x.id === SWITCH)!;
+const switchTarget = () => mockState.world.targets.find((t) => t.id === "mock-target-switch1")!;
+const terminalItem = async (user: ReturnType<typeof userEvent.setup>) => {
+  await screen.findByRole("heading", { level: 1, name: /Lab switch console account/ });
+  await user.click(screen.getByRole("button", { name: "Actions" }));
+  return screen.findByRole("menuitem", { name: /^Open terminal/ });
+};
+
+describe("the Open terminal action when the terminal can't connect yet (#317)", () => {
+  it("is enabled, with no reason, once the target pins a host key", async () => {
+    const user = userEvent.setup();
+    open(SWITCH);
+    const item = await terminalItem(user);
+    expect(item).not.toHaveAttribute("aria-disabled");
+    expect(item).toHaveAccessibleName("Open terminal");
+    expect(item).toHaveAttribute("href", `/secret/${SWITCH}/terminal`);
+  });
+
+  it("shows it disabled to a site admin with the way to pin the key in the admin app", async () => {
+    switchTarget().sshHostKeys = [];
+    const user = userEvent.setup();
+    open(SWITCH);
+    const item = await terminalItem(user);
+    expect(item).toHaveAttribute("aria-disabled", "true");
+    expect(item).toHaveTextContent("Pin the target's host key first: Targets → Scan and pin");
+    expect(
+      screen.getByRole("menuitem", { name: "Open the target in the admin app" }),
+    ).toHaveAttribute("href", "/admin/targets/mock-target-switch1");
+  });
+
+  it("shows it disabled to anyone else, saying an admin has to pin the key", async () => {
+    const target = switchTarget();
+    target.sshHostKeys = [];
+    delete target.ownerUserId;
+    mockState.world.folders
+      .find((f) => f.id === "mock-folder-platform")!
+      .owners.push("mock-user-bob");
+    const user = userEvent.setup();
+    open(SWITCH, "mock-user-bob");
+    const item = await terminalItem(user);
+    expect(item).toHaveAttribute("aria-disabled", "true");
+    expect(item).toHaveTextContent("An admin needs to pin the target's host key first.");
+    expect(screen.queryByRole("menuitem", { name: /admin app/ })).toBeNull();
+  });
+
+  it("shows it disabled, saying so, when no target is attached", async () => {
+    delete switchSecret().targetId;
+    switchSecret().targetIds = [];
+    const user = userEvent.setup();
+    open(SWITCH);
+    const item = await terminalItem(user);
+    expect(item).toHaveAttribute("aria-disabled", "true");
+    expect(item).toHaveTextContent("Attach a target first.");
+  });
+
+  it("shows it disabled, saying so, when the target doesn't connect over SSH", async () => {
+    switchTarget().connectionId = "mock-conn-postgres";
+    const user = userEvent.setup();
+    open(SWITCH);
+    const item = await terminalItem(user);
+    expect(item).toHaveAttribute("aria-disabled", "true");
+    expect(item).toHaveTextContent("Its target doesn't connect over SSH.");
+  });
+});
+
 describe("a database secret's connection examples", () => {
   it("shows a psql command and a connection string, with a copy button each, never the password", async () => {
     const user = userEvent.setup();

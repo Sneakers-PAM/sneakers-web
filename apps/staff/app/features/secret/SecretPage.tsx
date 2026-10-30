@@ -24,6 +24,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useRouteLoaderData } from "react-router";
 
 import type { SecretPage as Page } from "@/features/secret/secret.server";
+import type { TerminalAvailability } from "@/features/targets/terminal.server";
 import type { loader as frameLoader } from "@/routes/frame";
 
 import { BreakGlassCard, BreakGlassDialog } from "@/features/secret/BreakGlass";
@@ -46,13 +47,27 @@ import { useSecretFetcher } from "@/features/secret/useSecretFetcher";
 
 type DialogName = "break-glass" | "delete" | "export" | "replace-key" | "replace" | "rotate" | null;
 
+type TerminalBlocked = NonNullable<TerminalAvailability["blocked"]>;
+
 const CERT_TYPE = "type-ssl-cert";
 const DB_TYPE = "type-database-account";
 const GITHUB_APP_TYPE = "type-github-app";
-const SSH_TYPE = "type-ssh-key";
-const SSH_PASSWORD_TYPE = "type-unix-ssh";
-/** Secret types the web terminal can open a session for (#319). */
-const SSH_TERMINAL_TYPES = new Set([SSH_PASSWORD_TYPE, SSH_TYPE]);
+/** Why Open terminal can't connect yet, next to the disabled action (#317). */
+const terminalReason = (blocked: TerminalBlocked, siteAdmin: boolean): string => {
+  switch (blocked) {
+    case "no-target": {
+      return "Attach a target first.";
+    }
+    case "not-pinned": {
+      return siteAdmin
+        ? "Pin the target's host key first: Targets → Scan and pin"
+        : "An admin needs to pin the target's host key first.";
+    }
+    case "not-ssh": {
+      return "Its target doesn't connect over SSH.";
+    }
+  }
+};
 
 /** Shown on a manage control a site admin can see but not use: the vault's own reason. */
 const OWNERS_ONLY_HINT = "owners or authors only";
@@ -91,7 +106,7 @@ const Banner = ({
 
 /** U-04: one secret, its fields behind reveals, its details, automation and history. */
 export const SecretPage = ({ page }: { page: Page }) => {
-  const { access, fields, folderPath, history, isAdmin, secret, type } = page;
+  const { access, fields, folderPath, history, isAdmin, secret, terminal, type } = page;
   const viewer = useRouteLoaderData<typeof frameLoader>("routes/frame")?.user;
   const { config } = useRootData();
   const act = useSecretFetcher();
@@ -215,14 +230,29 @@ export const SecretPage = ({ page }: { page: Page }) => {
                   <DropdownMenuItem asChild>
                     <Link to={`/secret/${secret.id}/sharing`}>Manage access</Link>
                   </DropdownMenuItem>
-                  {SSH_TERMINAL_TYPES.has(secret.typeId) &&
-                    secret.targetId &&
-                    read &&
-                    !secret.retired && (
-                      <DropdownMenuItem asChild>
-                        <Link to={`/secret/${secret.id}/terminal`}>Open terminal</Link>
-                      </DropdownMenuItem>
-                    )}
+                  {terminal && read && !secret.retired && (
+                    <>
+                      {terminal.blocked ? (
+                        <DropdownMenuItem disabled>
+                          Open terminal
+                          <span className="ml-auto text-[0.75rem] text-muted">
+                            {terminalReason(terminal.blocked, isAdmin)}
+                          </span>
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem asChild>
+                          <Link to={`/secret/${secret.id}/terminal`}>Open terminal</Link>
+                        </DropdownMenuItem>
+                      )}
+                      {terminal.blocked === "not-pinned" && isAdmin && (
+                        <DropdownMenuItem asChild>
+                          <a href={`${config.adminUrl}targets/${terminal.targetId}`}>
+                            Open the target in the admin app
+                          </a>
+                        </DropdownMenuItem>
+                      )}
+                    </>
+                  )}
                   {showManage && !secret.retired && isCert && (
                     <DropdownMenuItem disabled={!manage} onSelect={() => setDialog("replace")}>
                       Replace certificate…
