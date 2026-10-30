@@ -30,7 +30,7 @@ describe("folders", () => {
     renderAdmin(ROUTES, "/folders/mock-folder-platform", CAROL);
     expect(await screen.findByRole("heading", { name: "Platform" })).toBeInTheDocument();
     const facts = screen.getAllByRole("definition").map((d) => d.textContent);
-    expect(facts).toEqual(["11", "3", "Alice, Carol"]);
+    expect(facts).toEqual(["12", "3", "Alice, Carol"]);
   });
 
   it("explains what inherit means for a folder", async () => {

@@ -13,6 +13,7 @@ import {
 } from "@/features/editors/CertificateCard";
 import { FieldControl, isWide } from "@/features/editors/FieldControl";
 import { FormCard } from "@/features/editors/FormCard";
+import { GITHUB_APP_KEYS, GitHubAppCard } from "@/features/editors/GitHubAppCard";
 import { KeyPairCard, keyPairKeys } from "@/features/editors/KeyPairCard";
 import { RequestMoveDialog, ShareMoveDialog } from "@/features/editors/MoveDialogs";
 import { NewTargetDialog } from "@/features/editors/NewTargetDialog";
@@ -22,6 +23,7 @@ import { TypePicker } from "@/features/editors/TypePicker";
 import {
   formProblems,
   isCertificateType,
+  isGitHubAppType,
   isKeyPairType,
   problemCount,
   type Problems,
@@ -81,6 +83,7 @@ export const EditorPage = ({ page }: { page: EditorData }) => {
   const type = page.types.find((t) => t.id === typeId);
   const certCreate = !editing && !!type && isCertificateType(type);
   const keyPair = !!type && isKeyPairType(type);
+  const githubApp = !!type && isGitHubAppType(type);
   const folder = page.folders.find((f) => f.id === folderId);
 
   const live = useMemo(
@@ -156,7 +159,8 @@ export const EditorPage = ({ page }: { page: EditorData }) => {
     send();
   };
 
-  const hidden = type && keyPair ? keyPairKeys(type) : new Set<string>();
+  const hidden =
+    type && keyPair ? keyPairKeys(type) : githubApp ? GITHUB_APP_KEYS : new Set<string>();
   const shownFields = type?.fields.filter((f) => !hidden.has(f.key)) ?? [];
 
   // A "Missing" mark on the secret's page links straight here with ?focus=<key>, so the field
@@ -307,6 +311,18 @@ export const EditorPage = ({ page }: { page: EditorData }) => {
         <KeyPairCard
           editing={editing}
           onChange={setField}
+          problems={problems.fields}
+          type={type}
+          values={values}
+        />
+      )}
+
+      {type && githubApp && (
+        <GitHubAppCard
+          editing={editing}
+          live={live.fields}
+          onChange={setField}
+          policies={page.policies}
           problems={problems.fields}
           type={type}
           values={values}

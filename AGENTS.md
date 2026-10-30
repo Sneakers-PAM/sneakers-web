@@ -647,11 +647,30 @@ WebSocket from the browser.
 - The controls still show for everyone who can see the page; a viewer without `access.manage`
   sees the current value with the control disabled, not hidden, so nobody is invited into a
   change the vault will only refuse. `SettingsCards.tsx` (`AutomationCard`, `AgentAccessCard`) and
-  the Actions menu's Replace certificate, Rotate now, Restore/Retire items (`SecretPage.tsx`)
+  the Actions menu's Replace certificate, Replace private key, Rotate now, Restore/Retire items (`SecretPage.tsx`)
   follow this: `showManage` (`access.manage || isAdmin`) decides whether the control renders,
   `access.manage` alone decides whether it's enabled, and a disabled one carries a short hint.
 - The one exception is a folder's ruleset and sharing: those pass `ownsFolder`/`manageRuleset`,
   which includes site admins by design, so they stay editable for admins on the sharing page.
+
+## GitHub App secrets (staff)
+
+- `type-github-app` gets its own editor and page instead of the generic Fields card, the way the
+  SSH Key and certificate types do. The editor's `GitHubAppCard` (`features/editors/`) takes the
+  App ID, client ID, installation ID and owner org with where each is found on GitHub, and shows
+  a field's problem as soon as it has a value (the digits-only patterns say "Use digits only.").
+  Its private key comes in through `AppKeyInput`: the `.pem` dropped or chosen, or pasted.
+- `githubAppKey.ts` checks the key without using it: an unencrypted RSA key, PKCS#1 (what GitHub
+  downloads) or PKCS#8, read from its DER for the size. It names what else a file is (an SSH key,
+  a certificate, a public key, an encrypted or non-RSA key). `formProblems` runs it, so the
+  editor's save and the secret page's `replace-app-key` action refuse the same files the form
+  does. Tests build key-shaped files with `app/test/appKeys.ts`; there is no real key anywhere.
+- The secret page's `GitHubAppCard` (`features/secret/`) shows the ids and owner as tiles and the
+  private key, client secret and webhook secret behind the normal reveal; the Fields card keeps
+  the description and notes. Replace private key (the card's button and the Actions menu, owners
+  and authors only) updates only `privateKey`, so the old key stays in the history, and sends the
+  secret's target and expiry back unchanged, since the vault takes both as given.
+- A form post can carry CRLF line ends, so both paths store the `.pem` with LF ones.
 
 ## Break-the-glass mode
 

@@ -17,7 +17,7 @@ export const isSecretField = (f: Pick<FieldDefinition, "kind" | "sensitive" | "s
 export const isCopyablePlainField = (f: Pick<FieldDefinition, "kind">) =>
   f.kind !== "boolean" && f.kind !== "select";
 
-const CopyFieldButton = ({ label, value }: { label: string; value: string }) => (
+export const CopyFieldButton = ({ label, value }: { label: string; value: string }) => (
   <Button
     aria-label={`Copy ${label}`}
     className="ml-auto shrink-0"

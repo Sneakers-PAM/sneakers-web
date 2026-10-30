@@ -1,7 +1,13 @@
 import type { Policy } from "@/features/editors/policy";
 
 import { armored } from "@/features/editors/sshKey";
-import { type FieldDefinition, formProblems, type SecretType } from "@/features/editors/validate";
+import {
+  type FieldDefinition,
+  formProblems,
+  isGitHubAppType,
+  type SecretType,
+} from "@/features/editors/validate";
+import { appKeyPem } from "@/test/appKeys";
 
 const field = (
   f: Partial<FieldDefinition> & Pick<FieldDefinition, "key" | "kind" | "label">,
@@ -187,5 +193,68 @@ describe("checking a secret against its type", () => {
         formProblems(draft({ ...base, engine }), database, [strong], { editing: true }).fields
           .engine,
       ).toBeUndefined();
+  });
+
+  describe("a GitHub App", () => {
+    const app = {
+      ...type([
+        field({
+          key: "appId",
+          kind: "text",
+          label: "App ID",
+          pattern: String.raw`^\d+$`,
+          required: true,
+        }),
+        field({
+          key: "installationId",
+          kind: "text",
+          label: "Installation ID",
+          pattern: String.raw`^\d+$`,
+        }),
+        field({
+          key: "privateKey",
+          kind: "multiline",
+          label: "Private Key (PEM)",
+          required: true,
+          sensitive: true,
+        }),
+        field({ key: "ownerOrg", kind: "text", label: "Owner Org", required: true }),
+      ]),
+      id: "type-github-app",
+    };
+    const good = { appId: "123456", ownerOrg: "example-org", privateKey: appKeyPem() };
+    const check = (values: Record<string, string>, editing = false) =>
+      formProblems(draft(values, { typeId: app.id }), app, [], { editing }).fields;
+
+    it("is the type the editor gives its own card", () => {
+      expect(isGitHubAppType(app)).toBe(true);
+      expect(isGitHubAppType(database)).toBe(false);
+    });
+
+    it("takes the .pem GitHub downloads, with digits for the ids", () => {
+      expect(check({ ...good, installationId: "98765432" })).toEqual({});
+    });
+
+    it("says the ids take digits only", () => {
+      const p = check({ ...good, appId: "my-app", installationId: "12 34" });
+      expect(p.appId?.message).toBe("Use digits only.");
+      expect(p.installationId?.message).toBe("Use digits only.");
+    });
+
+    it("refuses a file that isn't the App's private key, saying what it is", () => {
+      expect(
+        check({ ...good, privateKey: armored("OPENSSH PRIVATE KEY", "TW9jaw==") }).privateKey,
+      ).toEqual({
+        message: "That's an SSH key. Use the .pem file GitHub downloaded for the App.",
+        summary: "Private Key (PEM) isn't a GitHub App key",
+      });
+    });
+
+    it("keeps the stored key on edit when none is given", () => {
+      expect(check({ ...good, privateKey: "" }, true)).toEqual({});
+      expect(check({ ...good, privateKey: "" }).privateKey?.message).toBe(
+        "Enter the private key (pem).",
+      );
+    });
   });
 });

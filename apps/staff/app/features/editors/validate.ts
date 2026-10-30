@@ -1,5 +1,6 @@
 import type { EditorsTypeFieldsFragment } from "@sneakers-web/api-client";
 
+import { appKeyProblem } from "@/features/editors/githubAppKey";
 import { meetsPolicy, type Policy, policyFor } from "@/features/editors/policy";
 import { keyPairMatch, parsePrivateKey, parsePublicKey } from "@/features/editors/sshKey";
 
@@ -35,7 +36,12 @@ export const isKeyPairType = (t: SecretType): boolean =>
 /** Certificates come in from a file, which the vault parses, rather than typed fields. */
 export const isCertificateType = (t: SecretType): boolean => t.id === "type-ssl-cert";
 
+/** A GitHub App: its private key comes from the App's .pem, which the editor checks. */
+export const isGitHubAppType = (t: SecretType): boolean => t.id === "type-github-app";
+
 const problem = (message: string, summary: string): Problem => ({ message, summary });
+
+const DIGITS = String.raw`^\d+$`;
 
 /**
  * Why a stored choice isn't valid: a select value that isn't one of the field's options (saved
@@ -84,6 +90,7 @@ const fieldProblem = (
   policies: Policy[],
   editing: boolean,
   keyPair: boolean,
+  githubApp = false,
 ): null | Problem => {
   const value = (values[f.key] ?? "").trim();
   if (!value) {
@@ -97,7 +104,9 @@ const fieldProblem = (
   if (f.maxLength && value.length > f.maxLength)
     return problem(`Use at most ${f.maxLength} characters.`, `${f.label} is too long`);
   if (f.pattern && !matches(f.pattern, value))
-    return problem("That isn't in the expected format.", `${f.label} isn't in the expected format`);
+    return f.pattern === DIGITS
+      ? problem("Use digits only.", `${f.label} takes digits only`)
+      : problem("That isn't in the expected format.", `${f.label} isn't in the expected format`);
   if (f.kind === "password" && f.policyEnforcement === "strict") {
     const policy = policyFor(f, policies);
     if (policy && !meetsPolicy(value, policy))
@@ -105,6 +114,10 @@ const fieldProblem = (
         `Doesn't meet the ${policy.name} policy.`,
         `${f.label} doesn't meet the policy`,
       );
+  }
+  if (githubApp && f.key === "privateKey") {
+    const bad = appKeyProblem(value);
+    if (bad) return problem(bad, `${f.label} isn't a GitHub App key`);
   }
   return keyPair ? keyProblem(f, value, values) : null;
 };
@@ -129,7 +142,7 @@ export const formProblems = (
   if (isCertificateType(type)) return out;
   const keyPair = isKeyPairType(type);
   for (const f of type.fields) {
-    const p = fieldProblem(f, d.values, policies, editing, keyPair);
+    const p = fieldProblem(f, d.values, policies, editing, keyPair, isGitHubAppType(type));
     if (p) out.fields[f.key] = p;
   }
   return out;
