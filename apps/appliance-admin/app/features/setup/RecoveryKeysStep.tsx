@@ -42,8 +42,9 @@ export const RecoveryKeysStep = ({
     <div className="flex flex-col gap-4">
       <p className="m-0 text-body">
         A recovery key is an SSH key you keep offline. Any one of them opens your backups if this
-        box is lost. Add at least one: the box can make one for you, or you can give the public part
-        of your own. A second one, held by someone else, is safer (up to {data.maxRecoveryKeys}).
+        box is lost. It isn&apos;t a login key: SSH and PuTTY won&apos;t accept it. Add at least
+        one: the box can make one for you, or you can give the public part of your own. A second
+        one, held by someone else, is safer (up to {data.maxRecoveryKeys}).
       </p>
       {keys.length > 0 && (
         <ul aria-label="Recovery keys" className="m-0 flex list-none flex-col gap-2 p-0">
@@ -79,8 +80,9 @@ export const RecoveryKeysStep = ({
         <Alert title="Save the private key now" tone="warn">
           <div className="flex flex-col gap-3">
             <p className="m-0">
-              Your browser downloaded {generated.fileName}. The box keeps only the public part, so
-              it can&apos;t show it again. Keep it offline, somewhere other than this box.
+              Your browser downloaded {generated.fileName}. This is a recovery key, not a login key:
+              SSH and PuTTY won&apos;t accept it. The box keeps only the public part, so it
+              can&apos;t show it again. Keep it offline, somewhere other than this box.
             </p>
             <div className="flex flex-wrap gap-3">
               <Button

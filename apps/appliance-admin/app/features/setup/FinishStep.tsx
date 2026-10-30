@@ -1,5 +1,6 @@
 import { Alert, Button, Checkbox, CodeInput, Field, Input, Label } from "@sneakers-web/ui";
 import { useState } from "react";
+import { Link } from "react-router";
 
 import type { GetSetupResponse } from "@/lib/osadmin/types";
 
@@ -84,6 +85,14 @@ export const FinishStep = ({
       <p className="m-0 text-body">
         Last step: sign in once with your name, password and code. This shows that you can get back
         in, and closes setup.
+      </p>
+      <p className="m-0 text-small text-muted">
+        To sign in over SSH you need a login key, because a recovery key won&apos;t work. Once setup
+        is closed, get one on the{" "}
+        <Link className="text-primary underline" to="/access">
+          Access page
+        </Link>
+        , with a .ppk for PuTTY.
       </p>
       <dl className="m-0 flex flex-col gap-1.5 text-small">
         <div className="flex gap-4">

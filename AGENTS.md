@@ -140,12 +140,12 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   admin's name and password, checked as it's typed (`CheckPassword`), then the authenticator
   (`BeginCredentials` gives the secret for the QR code and the typed key,
   `CompleteCredentials` checks a code from it and signs the browser in), 3 the recovery keys
-  and the escrow (each key either made on the box, "Generate one here", `GenerateRecoveryKey`,
+  and the escrow (a recovery key isn't a login key, and the step says so; each key either made on the box, "Generate one here", `GenerateRecoveryKey`,
   whose private key the browser downloads once and the box never keeps, or "Provide your own", a
   pasted public key, `AddRecoveryKey`), 4 the network (read only, `AcknowledgeStep`), 5 the protection (read only),
   6 one sign-in with the password and a code, the single-admin warning, and `Finish`. The box
   restarts into normal operation after Finish, so the page shows the restart page and offers
-  Updates and Status (full page loads, signing in again) only once the box answers, and only
+  Updates, Status and Access (full page loads, signing in again) only once the box answers, and only
   after it was seen down (or 90 seconds passed; `BoxRestarting`'s `waitForDownMs`), since the
   box answers signed out for a few seconds before the reboot. A Finish whose answer is lost to
   the restart, or that the box refuses with `SETUP_DONE` (the console closed setup on the
