@@ -126,6 +126,18 @@ describe("SecretsTable sorting", () => {
   });
 });
 
+describe("the selection bar", () => {
+  it("offers no Change type action while the web can't change a secret's type", async () => {
+    const user = userEvent.setup();
+    renderTable({ canManage: true });
+    await user.click(screen.getByRole("checkbox", { name: "Select Alpha" }));
+    const bar = screen.getByRole("region", { name: "Selected secrets" });
+    expect(within(bar).getByRole("button", { name: "Move…" })).toBeInTheDocument();
+    expect(within(bar).queryByRole("button", { name: /Change type/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Change type/)).not.toBeInTheDocument();
+  });
+});
+
 describe("the manual order index", () => {
   it("shows each secret's position alongside it, name-sorted by default", () => {
     renderTable();

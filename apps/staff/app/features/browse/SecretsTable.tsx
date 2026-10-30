@@ -168,14 +168,6 @@ export const SecretsTable = ({
             size="sm"
             variant="secondary"
           >
-            Change type…
-          </Button>
-          <Button
-            className="border-bg/60 bg-transparent text-bg hover:bg-bg/10"
-            onClick={() => toast(COMING_SOON)}
-            size="sm"
-            variant="secondary"
-          >
             Export…
           </Button>
           {canManage && (
@@ -555,7 +547,7 @@ export const SecretsTable = ({
         Right-click a row or press Shift+F10 for its menu.
         {canManage &&
           " Drag a row by its handle to reorder it, or use the arrows (or the arrow keys on the handle)."}{" "}
-        Change type and Export open a &quot;coming soon&quot; note for now.
+        Export opens a &quot;coming soon&quot; note for now.
       </p>
       <StepUpDialog {...quickCopy.dialog} />
     </div>
