@@ -36,7 +36,7 @@ import {
   timeAgo,
   useBreakpoint,
 } from "@sneakers-web/ui";
-import { MoreVertical } from "lucide-react";
+import { AlertTriangle, MoreVertical } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 
 import type {
@@ -504,7 +504,22 @@ export default function Access() {
               </Alert>
             )}
             {data.admins.length < 2 && (
-              <Alert tone="info">A single-admin box can&apos;t factory reset.</Alert>
+              <Alert
+                icon={
+                  <AlertTriangle
+                    aria-hidden
+                    className="mt-0.5 size-4 shrink-0 text-danger"
+                    strokeWidth={2.5}
+                  />
+                }
+                role="status"
+                title="A single-admin box can't factory reset"
+                tone="danger"
+              >
+                A factory reset needs a quorum to approve it, and one admin isn&apos;t a quorum. Add
+                a second admin and put both on this roster to make one possible. Until then, the
+                only way to wipe this box is to delete and re-create, or re-flash, it.
+              </Alert>
             )}
             <fieldset className="flex flex-col gap-2">
               <legend className="mb-1 text-[0.875rem] font-bold text-ink">Roster</legend>

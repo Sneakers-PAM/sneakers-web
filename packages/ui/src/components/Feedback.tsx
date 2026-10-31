@@ -33,6 +33,8 @@ export interface AlertProps extends VariantProps<typeof alertVariants> {
   action?: ReactNode;
   children?: ReactNode;
   className?: string;
+  /** Replaces the tone's icon. */
+  icon?: ReactNode;
   /** "alert" for errors that just happened; "status" for calm notices. */
   role?: "alert" | "status";
   title?: ReactNode;
@@ -41,7 +43,7 @@ export interface AlertProps extends VariantProps<typeof alertVariants> {
 const textOf = (node: ReactNode): string | undefined =>
   typeof node === "string" || typeof node === "number" ? String(node) : undefined;
 
-export const Alert = ({ action, children, className, role, title, tone }: AlertProps) => {
+export const Alert = ({ action, children, className, icon, role, title, tone }: AlertProps) => {
   const t = tone ?? "info";
   const problem = useProblemAction();
   const offer = problem && (t === "danger" || t === "warn");
@@ -50,7 +52,7 @@ export const Alert = ({ action, children, className, role, title, tone }: AlertP
       className={cn(alertVariants({ tone: t }), className)}
       role={role ?? (t === "danger" ? "alert" : "status")}
     >
-      {toneIcon[t]}
+      {icon ?? toneIcon[t]}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         {title && <b className="text-body leading-[1.3]">{title}</b>}
         {children && <div>{children}</div>}

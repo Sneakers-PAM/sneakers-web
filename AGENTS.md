@@ -333,7 +333,8 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   known_hosts line, the user CA and the host CA's fingerprint (`ListAdmins.knownHosts`,
   `userCaPublicKey`, `hostCa`). Owners set the access settings (`SetAccessPolicy`: the lockout mode, the root-shell
   code and session minutes, 10 by default, and the SSH key validity) and the root-operator
-  roster (`SetQuorum`; the same roster approves a factory reset). The page also lists the
+  roster (`SetQuorum`; the same roster approves a factory reset, and a single-admin box gets a
+  red warning here that it can't factory reset). The page also lists the
   revoked login keys (`ListAdmins.revokedKeys`: whose key it was, the fingerprint, the type,
   when and who revoked it, `unknown` when the box didn't record it; owners un-revoke behind a
   confirmation dialog), the root key's and the host keys' fingerprints, and the root shells
