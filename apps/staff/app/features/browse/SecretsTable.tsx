@@ -247,7 +247,7 @@ export const SecretsTable = ({
             action={
               canManage && (
                 <Button asChild>
-                  <Link to={`/secret/new?folderId=${folderId}`}>New secret</Link>
+                  <Link to={`/secret/new?folder=${folderId}`}>New secret</Link>
                 </Button>
               )
             }
