@@ -47,7 +47,13 @@ export type FieldMappingInput = {
 export type FolderScope = "group" | "personal" | "role";
 
 export type HeartbeatResult =
-  "failed" | "hostKeyMismatch" | "hostKeyNotPinned" | "ok" | "unknown" | "unreachable";
+  | "failed"
+  | "hostKeyMismatch"
+  | "hostKeyNotPinned"
+  | "ok"
+  | "unknown"
+  | "unreachable"
+  | "untrustedCertificate";
 
 export type KeyValueInput = {
   key: string;
@@ -2234,6 +2240,7 @@ export type SecretDetailFieldsFragment = {
   creatorPrincipalId: string | null;
   expiresAt: string | null;
   lastHeartbeatResult: HeartbeatResult | null;
+  lastHeartbeatDetail: string | null;
   verifiedAt: string | null;
   viewCount: number | null;
   lastAccessedAt: string | null;
@@ -2280,6 +2287,7 @@ export type SecretDetailQuery = {
     creatorPrincipalId: string | null;
     expiresAt: string | null;
     lastHeartbeatResult: HeartbeatResult | null;
+    lastHeartbeatDetail: string | null;
     verifiedAt: string | null;
     viewCount: number | null;
     lastAccessedAt: string | null;
@@ -2409,6 +2417,7 @@ export type SecretRestoreVersionMutation = {
     creatorPrincipalId: string | null;
     expiresAt: string | null;
     lastHeartbeatResult: HeartbeatResult | null;
+    lastHeartbeatDetail: string | null;
     verifiedAt: string | null;
     viewCount: number | null;
     lastAccessedAt: string | null;
@@ -2459,6 +2468,7 @@ export type SecretSetAutomationMutation = {
     creatorPrincipalId: string | null;
     expiresAt: string | null;
     lastHeartbeatResult: HeartbeatResult | null;
+    lastHeartbeatDetail: string | null;
     verifiedAt: string | null;
     viewCount: number | null;
     lastAccessedAt: string | null;
@@ -2494,6 +2504,7 @@ export type SecretSetTokenApprovalMutation = {
     creatorPrincipalId: string | null;
     expiresAt: string | null;
     lastHeartbeatResult: HeartbeatResult | null;
+    lastHeartbeatDetail: string | null;
     verifiedAt: string | null;
     viewCount: number | null;
     lastAccessedAt: string | null;
@@ -2527,6 +2538,7 @@ export type SecretRetireMutation = {
     creatorPrincipalId: string | null;
     expiresAt: string | null;
     lastHeartbeatResult: HeartbeatResult | null;
+    lastHeartbeatDetail: string | null;
     verifiedAt: string | null;
     viewCount: number | null;
     lastAccessedAt: string | null;
@@ -2560,6 +2572,7 @@ export type SecretRestoreMutation = {
     creatorPrincipalId: string | null;
     expiresAt: string | null;
     lastHeartbeatResult: HeartbeatResult | null;
+    lastHeartbeatDetail: string | null;
     verifiedAt: string | null;
     viewCount: number | null;
     lastAccessedAt: string | null;
@@ -2600,6 +2613,7 @@ export type SecretAttachTargetMutation = {
     creatorPrincipalId: string | null;
     expiresAt: string | null;
     lastHeartbeatResult: HeartbeatResult | null;
+    lastHeartbeatDetail: string | null;
     verifiedAt: string | null;
     viewCount: number | null;
     lastAccessedAt: string | null;
@@ -2634,6 +2648,7 @@ export type SecretDetachTargetMutation = {
     creatorPrincipalId: string | null;
     expiresAt: string | null;
     lastHeartbeatResult: HeartbeatResult | null;
+    lastHeartbeatDetail: string | null;
     verifiedAt: string | null;
     viewCount: number | null;
     lastAccessedAt: string | null;
@@ -2682,6 +2697,7 @@ export type SecretReplaceCertificateMutation = {
       creatorPrincipalId: string | null;
       expiresAt: string | null;
       lastHeartbeatResult: HeartbeatResult | null;
+      lastHeartbeatDetail: string | null;
       verifiedAt: string | null;
       viewCount: number | null;
       lastAccessedAt: string | null;
@@ -3513,6 +3529,7 @@ export const SecretDetailFieldsFragmentDoc = new TypedDocumentString(
   creatorPrincipalId
   expiresAt
   lastHeartbeatResult
+  lastHeartbeatDetail
   verifiedAt
   viewCount
   lastAccessedAt
@@ -5750,6 +5767,7 @@ export const SecretDetailDocument = new TypedDocumentString(`
   creatorPrincipalId
   expiresAt
   lastHeartbeatResult
+  lastHeartbeatDetail
   verifiedAt
   viewCount
   lastAccessedAt
@@ -5854,6 +5872,7 @@ export const SecretRestoreVersionDocument = new TypedDocumentString(`
   creatorPrincipalId
   expiresAt
   lastHeartbeatResult
+  lastHeartbeatDetail
   verifiedAt
   viewCount
   lastAccessedAt
@@ -5914,6 +5933,7 @@ export const SecretSetAutomationDocument = new TypedDocumentString(`
   creatorPrincipalId
   expiresAt
   lastHeartbeatResult
+  lastHeartbeatDetail
   verifiedAt
   viewCount
   lastAccessedAt
@@ -5953,6 +5973,7 @@ export const SecretSetTokenApprovalDocument = new TypedDocumentString(`
   creatorPrincipalId
   expiresAt
   lastHeartbeatResult
+  lastHeartbeatDetail
   verifiedAt
   viewCount
   lastAccessedAt
@@ -5988,6 +6009,7 @@ export const SecretRetireDocument = new TypedDocumentString(`
   creatorPrincipalId
   expiresAt
   lastHeartbeatResult
+  lastHeartbeatDetail
   verifiedAt
   viewCount
   lastAccessedAt
@@ -6020,6 +6042,7 @@ export const SecretRestoreDocument = new TypedDocumentString(`
   creatorPrincipalId
   expiresAt
   lastHeartbeatResult
+  lastHeartbeatDetail
   verifiedAt
   viewCount
   lastAccessedAt
@@ -6057,6 +6080,7 @@ export const SecretAttachTargetDocument = new TypedDocumentString(`
   creatorPrincipalId
   expiresAt
   lastHeartbeatResult
+  lastHeartbeatDetail
   verifiedAt
   viewCount
   lastAccessedAt
@@ -6092,6 +6116,7 @@ export const SecretDetachTargetDocument = new TypedDocumentString(`
   creatorPrincipalId
   expiresAt
   lastHeartbeatResult
+  lastHeartbeatDetail
   verifiedAt
   viewCount
   lastAccessedAt
@@ -6154,6 +6179,7 @@ export const SecretReplaceCertificateDocument = new TypedDocumentString(`
   creatorPrincipalId
   expiresAt
   lastHeartbeatResult
+  lastHeartbeatDetail
   verifiedAt
   viewCount
   lastAccessedAt

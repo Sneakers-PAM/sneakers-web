@@ -15,6 +15,9 @@ export const heartbeatOf = (s: BrowseSecret): HeartbeatStatus => {
     case "unreachable": {
       return "unreachable";
     }
+    case "untrustedCertificate": {
+      return "untrusted";
+    }
     default: {
       return "unknown";
     }

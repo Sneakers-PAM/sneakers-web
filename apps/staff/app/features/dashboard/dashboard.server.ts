@@ -186,6 +186,7 @@ const heartbeatOf = (s: { lastHeartbeatResult: null | string; targetId: null | s
   if (s.lastHeartbeatResult === "ok") return "verified";
   if (s.lastHeartbeatResult === "failed") return "drift";
   if (s.lastHeartbeatResult === "unreachable") return "unreachable";
+  if (s.lastHeartbeatResult === "untrustedCertificate") return "untrusted";
   return s.targetId ? "unknown" : "none";
 };
 

@@ -17,6 +17,7 @@ const heartbeatStatus = (result: null | string, hasTarget: boolean): HeartbeatSt
   if (result === "ok") return "verified";
   if (result === "failed") return "drift";
   if (result === "unreachable") return "unreachable";
+  if (result === "untrustedCertificate") return "untrusted";
   return "unknown";
 };
 
@@ -54,6 +55,9 @@ export const DetailsRows = ({ page }: { page: SecretPage }) => {
       {type?.heartbeat && (
         <Line label="Heartbeat">
           <HeartbeatPill status={heartbeatStatus(secret.lastHeartbeatResult, !!target)} />
+          {secret.lastHeartbeatResult !== "ok" && secret.lastHeartbeatDetail && (
+            <span className="text-small text-muted">{secret.lastHeartbeatDetail}</span>
+          )}
           {secret.verifiedAt && (
             <span className="text-small text-muted">Last checked {timeAgo(secret.verifiedAt)}</span>
           )}
