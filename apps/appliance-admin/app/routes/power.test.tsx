@@ -69,7 +69,31 @@ describe("Power", () => {
     await openPage();
     await user.click(screen.getByRole("button", { name: "Reboot" }));
     await user.click(screen.getByRole("button", { name: "Confirm" }));
-    expect(await screen.findByText(/Rebooting/)).toBeInTheDocument();
+    expect(
+      await screen.findByText("Rebooting. The box can take more than 5 minutes to come back."),
+    ).toBeInTheDocument();
+  });
+
+  it("says before a reboot that the box can take more than 5 minutes to come back", async () => {
+    const user = userEvent.setup();
+    await openPage();
+    await user.click(screen.getByRole("button", { name: "Reboot" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByText("The box can take more than 5 minutes to come back."),
+    ).toBeInTheDocument();
+  });
+
+  it("says before a shutdown that the box can take more than 5 minutes to come back", async () => {
+    const user = userEvent.setup();
+    await openPage();
+    await user.click(screen.getByRole("button", { name: "Shut down" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByText(
+        "After a shutdown, the box can take more than 5 minutes to come back when it starts.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("needs the second explicit confirmation to force a shutdown", async () => {
