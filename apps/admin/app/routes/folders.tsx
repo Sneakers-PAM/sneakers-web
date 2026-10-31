@@ -72,7 +72,12 @@ const sharingOf = async (gw: Parameters<Parameters<typeof adminLoad>[1]>[0], fol
     } as RulesetDraft,
     subjectOptions: [
       ...d.groups.map((g) => ({ id: g.id, kind: "group" as const, name: g.name })),
-      ...d.users.map((u) => ({ id: u.id, kind: "user" as const, name: u.name })),
+      ...d.users.map((u) => ({
+        id: u.id,
+        kind: "user" as const,
+        name: u.name,
+        searchText: `${u.name} ${u.username} ${u.email}`,
+      })),
     ],
   };
 };

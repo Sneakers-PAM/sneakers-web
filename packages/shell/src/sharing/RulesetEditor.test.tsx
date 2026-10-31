@@ -204,6 +204,37 @@ describe("RulesetEditor, owners", () => {
     expect(last(onChange).owners).toEqual(["mock-user-bob"]);
   });
 
+  it("keeps a person the search found by something other than their name", async () => {
+    const searchSubjects = vi.fn(async () => [
+      { id: "user-ada", kind: "user" as const, name: "Ada Lovelace" },
+    ]);
+    const { onChange, user } = setup({ searchSubjects });
+    await user.click(screen.getByRole("button", { name: "Add owner" }));
+    await user.type(screen.getByPlaceholderText("Search people"), "alov99");
+    await user.click(await screen.findByRole("option", { name: /Ada Lovelace/ }));
+    expect(last(onChange).owners).toContain("user-ada");
+  });
+
+  it("matches an option against its search text, in any case", async () => {
+    const { user } = setup({
+      subjectOptions: [
+        {
+          id: "user-ada",
+          kind: "user",
+          name: "Ada Lovelace",
+          searchText: "Ada Lovelace alov99 ada@example.org",
+        },
+      ],
+    });
+    await user.click(screen.getByRole("button", { name: "Add owner" }));
+    const box = screen.getByPlaceholderText("Search people");
+    await user.type(box, "ALOV");
+    expect(await screen.findByRole("option", { name: /Ada Lovelace/ })).toBeInTheDocument();
+    await user.clear(box);
+    await user.type(box, "nobody");
+    expect(screen.queryByRole("option", { name: /Ada Lovelace/ })).toBeNull();
+  });
+
   it("has no owners for a secret, whose ownership lives on its folder", () => {
     setup({ inheritedOwners: [], scope: "secret", value: { rules: VALUE.rules } });
     expect(screen.queryByRole("region", { name: "Owners" })).toBeNull();
