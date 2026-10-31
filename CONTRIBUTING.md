@@ -14,8 +14,8 @@ issues from a template, a branch per issue, Conventional Commits, squash-merged 
 - The typed GraphQL client is generated from the gateway's schemas at the commit pinned in
   `schema-refs.env`; the generated files are committed, the schema copies aren't. Run
   `npm run schema:generate` after bumping the pin.
-- Mock mode (`npm run dev:mock`, `*:mock` builds) is build-time only, backed by the in-process
-  mock gateway; it never reaches a real gateway, and `npm run check:no-mock` fails a release build
+- Mock mode (`npm run dev:mock`, `*:mock` builds) is build-time only, backed by the standalone
+  mock server (Sneakers-PAM/sneakers-mock-server); it never reaches a real gateway, and `npm run check:no-mock` fails a release build
   that carries it.
 - Keep the Laces UI kit, the staff app, the admin console and the appliance admin consistent: a
   shared behaviour change lands in the kit, not copied into each app.

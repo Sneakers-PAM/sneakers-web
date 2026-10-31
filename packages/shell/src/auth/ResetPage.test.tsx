@@ -1,4 +1,4 @@
-import { withMockGateway } from "@sneakers-web/mock-gateway/testing";
+import { withMockGateway } from "@sneakers-pam/mock-server/in-process/testing";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createRoutesStub } from "react-router";

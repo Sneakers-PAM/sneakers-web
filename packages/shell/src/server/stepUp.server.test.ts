@@ -1,11 +1,11 @@
 // @vitest-environment node
-import { freshMfa } from "@sneakers-web/mock-gateway";
+import { freshMfa } from "@sneakers-pam/mock-server/in-process";
 import {
   appRequest,
   form,
   sessionCookie,
   withMockGateway,
-} from "@sneakers-web/mock-gateway/testing";
+} from "@sneakers-pam/mock-server/in-process/testing";
 
 import { requireUser } from "#shell/server/session.server";
 import { stepUpAction, type StepUpState } from "#shell/server/stepUp.server";

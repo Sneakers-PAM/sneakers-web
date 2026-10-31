@@ -4,13 +4,13 @@ import {
   mockBreakGlass,
   mockSettings,
   mockState,
-} from "@sneakers-web/mock-gateway";
+} from "@sneakers-pam/mock-server/in-process";
 import {
   server,
   sessionCookie,
   withCookie,
   withMockGateway,
-} from "@sneakers-web/mock-gateway/testing";
+} from "@sneakers-pam/mock-server/in-process/testing";
 import { ProblemActions } from "@sneakers-web/shell";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";

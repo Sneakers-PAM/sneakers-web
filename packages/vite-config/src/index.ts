@@ -10,6 +10,9 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "../../..");
 const source = (name: string) => path.join(root, "packages", name, "src");
+// The mock server's TypeScript sources, which the unit tests run in-process.
+const mockSource = (name: string) =>
+  path.join(root, "node_modules/@sneakers-pam/mock-server/packages", name, "src");
 
 /** The Vite mode that builds an app against the mock gateway. Any other mode is live. */
 export const MOCK_MODE = "mock";
@@ -46,7 +49,7 @@ export const chooseEdge = (
   return {
     mock,
     module: mock
-      ? path.join(source("mock-gateway"), "edge.server.ts")
+      ? path.join(source("api-client"), "edge/mock.server.ts")
       : path.join(source("api-client"), "edge/live.server.ts"),
   };
 };
@@ -80,9 +83,11 @@ export const developmentUiIssueCopyBuild = (
 
 /** Aliases shared by every app and package: the package-internal prefixes and the edge. */
 export const sharedAliases = (edgeModule: string): Record<string, string> => ({
+  "@sneakers-pam/gateway-client": path.join(mockSource("gateway-client"), "index.ts"),
   "@sneakers-web/edge.server": edgeModule,
   "#api": source("api-client"),
-  "#mock": source("mock-gateway"),
+  "#gw": mockSource("gateway-client"),
+  "#mock": mockSource("mock-gateway"),
   "#shell": source("shell"),
   "#ui": source("ui"),
 });
@@ -180,6 +185,7 @@ export const testConfig = (directory: string) => ({
   globals: true,
   include: ["{app,src}/**/*.test.{ts,tsx}"],
   root: directory,
+  server: { deps: { inline: [/@sneakers-pam\/mock-server/] } },
   setupFiles: [path.join(here, "setupTests.ts")],
 });
 
@@ -199,6 +205,6 @@ export const mockPackageConfig = (
 ): { test: ReturnType<typeof testConfig> } & UserConfig => ({
   define: buildDefines,
   plugins: [react()],
-  resolve: { alias: sharedAliases(chooseEdge(MOCK_MODE, {}).module) },
+  resolve: { alias: sharedAliases(path.join(mockSource("mock-gateway"), "edge.server.ts")) },
   test: testConfig(directory),
 });

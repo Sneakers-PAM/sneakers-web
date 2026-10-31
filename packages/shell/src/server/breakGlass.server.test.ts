@@ -1,11 +1,11 @@
-// @vitest-environment node
-import { BreakGlassOpenDocument } from "@sneakers-web/api-client";
 import {
   appRequest,
   form,
   sessionCookie,
   withMockGateway,
-} from "@sneakers-web/mock-gateway/testing";
+} from "@sneakers-pam/mock-server/in-process/testing";
+// @vitest-environment node
+import { BreakGlassOpenDocument } from "@sneakers-web/api-client";
 
 import { breakGlassExitAction } from "#shell/server/breakGlass.server";
 import { frameData } from "#shell/server/frame.server";

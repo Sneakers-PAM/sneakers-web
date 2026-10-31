@@ -1,4 +1,4 @@
-import { appRequest, form } from "@sneakers-web/mock-gateway/testing";
+import { appRequest, form } from "@sneakers-pam/mock-server/in-process/testing";
 
 // @vitest-environment node
 import { displayAction } from "#shell/server/resources.server";

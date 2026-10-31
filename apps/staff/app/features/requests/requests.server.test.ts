@@ -1,11 +1,11 @@
 // @vitest-environment node
-import { mockState } from "@sneakers-web/mock-gateway";
+import { mockState } from "@sneakers-pam/mock-server/in-process";
 import {
   appRequest,
   form,
   sessionCookie,
   withMockGateway,
-} from "@sneakers-web/mock-gateway/testing";
+} from "@sneakers-pam/mock-server/in-process/testing";
 
 import { loadCheckouts } from "@/features/requests/checkouts.server";
 import { checkIn, checkOut } from "@/features/requests/leases.server";

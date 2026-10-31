@@ -15,7 +15,8 @@ Connect API directly from the browser. See "Appliance admin" in [AGENTS.md](AGEN
 ```bash
 npm install --ignore-scripts
 npm run dev             # staff app against the gateway at GATEWAY_URL (default http://localhost:9100)
-npm run dev:mock        # staff app against the in-process mock gateway (invented data, banner on)
+npm run dev:mock        # staff app against the standalone mock server, started for you (invented data, banner on)
+npm run mock            # just the mock server, on http://127.0.0.1:5171 (controls at /_mock)
 npm run dev:admin       # admin console; dev:admin:mock for its mock build
 npm run dev:appliance-admin:mock   # appliance admin against its in-memory mock transport
 npm test                # vitest
@@ -31,6 +32,7 @@ One image per app and edge, built from the repo root:
 ```bash
 docker build --build-arg APP=staff -t sneakers-web-staff .
 docker build --build-arg APP=admin --build-arg EDGE=mock -t sneakers-web-admin-mock .
+# A mock image needs a mock server: run it with MOCK_GATEWAY_URL=http://<host>:5171
 docker build --build-arg APP=staff --build-arg VERSION=v0.1.0 --build-arg COMMIT="$(git rev-parse HEAD)" .
 ```
 

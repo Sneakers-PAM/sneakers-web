@@ -44,7 +44,6 @@ export default defineConfig(({ mode }): UserConfig => {
           ? path.join(here, "app/mock/edge.mock.ts")
           : path.join(here, "app/lib/edge.live.ts"),
         "#api": path.join(root, "packages/api-client/src"),
-        "#mock": path.join(root, "packages/mock-gateway/src"),
         "#shell": path.join(root, "packages/shell/src"),
         "#ui": path.join(root, "packages/ui/src"),
       },

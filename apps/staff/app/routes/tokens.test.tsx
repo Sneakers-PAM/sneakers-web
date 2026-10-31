@@ -1,10 +1,10 @@
+import { MOCK_GATEWAY_URL, mockState } from "@sneakers-pam/mock-server/in-process";
+import { server, withMockGateway } from "@sneakers-pam/mock-server/in-process/testing";
 import {
   AgentsDeleteTokenDocument,
   AgentsRevokeTokenDocument,
   AgentsTokensDocument,
 } from "@sneakers-web/api-client";
-import { MOCK_GATEWAY_URL, mockState } from "@sneakers-web/mock-gateway";
-import { server, withMockGateway } from "@sneakers-web/mock-gateway/testing";
 import { toast, Toaster } from "@sneakers-web/ui";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";

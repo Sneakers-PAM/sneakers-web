@@ -12,8 +12,13 @@ export interface Edge {
    * The live edge never has it.
    */
   quickLogin?: {
-    signIn(userId: string): { cookie: string; enroll: boolean } | null;
-    users(): QuickLoginUser[];
+    signIn(
+      userId: string,
+    ):
+      | { cookie: string; enroll: boolean }
+      | null
+      | Promise<{ cookie: string; enroll: boolean } | null>;
+    users(): Promise<QuickLoginUser[]> | QuickLoginUser[];
   };
   /** The gateway's session cookie this edge forwards. */
   sessionCookie: string;

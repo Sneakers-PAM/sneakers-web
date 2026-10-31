@@ -1,11 +1,11 @@
 // @vitest-environment node
-import { MOCK_GATEWAY_URL, mockState } from "@sneakers-web/mock-gateway";
+import { MOCK_GATEWAY_URL, mockState } from "@sneakers-pam/mock-server/in-process";
 import {
   appRequest,
   server,
   sessionCookie,
   withMockGateway,
-} from "@sneakers-web/mock-gateway/testing";
+} from "@sneakers-pam/mock-server/in-process/testing";
 import { HttpResponse } from "msw";
 import { graphql } from "msw/graphql";
 

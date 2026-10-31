@@ -1,5 +1,5 @@
-import { mockState } from "@sneakers-web/mock-gateway";
-import { withMockGateway } from "@sneakers-web/mock-gateway/testing";
+import { mockState } from "@sneakers-pam/mock-server/in-process";
+import { withMockGateway } from "@sneakers-pam/mock-server/in-process/testing";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useParams } from "react-router";

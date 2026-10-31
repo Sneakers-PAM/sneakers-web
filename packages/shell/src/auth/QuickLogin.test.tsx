@@ -1,4 +1,4 @@
-import { withMockGateway } from "@sneakers-web/mock-gateway/testing";
+import { withMockGateway } from "@sneakers-pam/mock-server/in-process/testing";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { mkdtempSync, writeFileSync } from "node:fs";

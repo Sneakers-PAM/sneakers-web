@@ -6,7 +6,11 @@
       "#ui/*": ["../../packages/ui/src/*"],
       "#api/*": ["../../packages/api-client/src/*"],
       "#shell/*": ["../../packages/shell/src/*"],
-      "#mock/*": ["../../packages/mock-gateway/src/*"],
+      "#gw/*": ["../../node_modules/@sneakers-pam/mock-server/packages/gateway-client/src/*"],
+      "#mock/*": ["../../node_modules/@sneakers-pam/mock-server/packages/mock-gateway/src/*"],
+      "@sneakers-pam/gateway-client": [
+        "../../node_modules/@sneakers-pam/mock-server/packages/gateway-client/src/index.ts"
+      ],
       "@sneakers-web/edge.server": ["../../packages/api-client/src/edge/live.server.ts"]
     },
     "types": ["node", "vite/client", "vitest/globals", "@testing-library/jest-dom/vitest"]

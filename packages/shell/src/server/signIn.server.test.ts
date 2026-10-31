@@ -1,6 +1,11 @@
 // @vitest-environment node
-import { MOCK_SESSION_COOKIE } from "@sneakers-web/mock-gateway";
-import { appRequest, cookieFrom, form, withMockGateway } from "@sneakers-web/mock-gateway/testing";
+import { MOCK_SESSION_COOKIE } from "@sneakers-pam/mock-server/in-process";
+import {
+  appRequest,
+  cookieFrom,
+  form,
+  withMockGateway,
+} from "@sneakers-pam/mock-server/in-process/testing";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";

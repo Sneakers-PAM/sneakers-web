@@ -1,5 +1,9 @@
 // @vitest-environment node
-import { appRequest, sessionCookie, withMockGateway } from "@sneakers-web/mock-gateway/testing";
+import {
+  appRequest,
+  sessionCookie,
+  withMockGateway,
+} from "@sneakers-pam/mock-server/in-process/testing";
 
 import type { DiagnosticsData } from "#shell/diagnostics/report";
 

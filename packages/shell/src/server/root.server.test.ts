@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { appRequest, withMockGateway } from "@sneakers-web/mock-gateway/testing";
+import { appRequest, withMockGateway } from "@sneakers-pam/mock-server/in-process/testing";
 
 import { rootLoader } from "#shell/server/root.server";
 
