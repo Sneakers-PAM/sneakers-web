@@ -56,6 +56,23 @@ describe("the tokens page", () => {
     const r = await tokensAction(post("/tokens", { id: "mock-token-3", intent: "revoke" }));
     expect(r).toMatchObject({ ok: false, refusal: { code: "NOT_FOUND" } });
   });
+
+  it("deletes a revoked token and says so", async () => {
+    await tokensAction(post("/tokens", { id: "mock-token-1", intent: "revoke" }));
+    const r = await tokensAction(post("/tokens", { id: "mock-token-1", intent: "delete" }));
+    expect(r).toMatchObject({ done: "Token deleted.", intent: "delete", ok: true });
+    expect(world().tokens.some((t) => t.id === "mock-token-1")).toBe(false);
+  });
+
+  it("says a token has to be revoked first when the gateway refuses the delete", async () => {
+    const r = await tokensAction(post("/tokens", { id: "mock-token-2", intent: "delete" }));
+    expect(r).toMatchObject({
+      message: "Only a revoked token can be deleted.",
+      ok: false,
+      refusal: { code: "FAILED_PRECONDITION" },
+    });
+    expect(world().tokens.some((t) => t.id === "mock-token-2")).toBe(true);
+  });
 });
 
 describe("the approvals page", () => {

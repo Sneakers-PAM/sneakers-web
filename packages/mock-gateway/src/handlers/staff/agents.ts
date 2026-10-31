@@ -2,6 +2,7 @@ import {
   AgentsBeginFactorPasskeyDocument,
   AgentsCreateGrantDocument,
   AgentsDecideUseDocument,
+  AgentsDeleteTokenDocument,
   AgentsGrantsDocument,
   AgentsPendingUsesDocument,
   AgentsRevokeGrantDocument,
@@ -170,6 +171,16 @@ export const agentsHandlers: RequestHandler[] = [
       if (!t) return refusal("NOT_FOUND", "token not found");
       if (!t.revokedAtUnix) t.revokedAtUnix = nowUnix();
       return ok({ revokeMyToken: tokenView(t) });
+    }),
+  ),
+
+  api.mutation(AgentsDeleteTokenDocument, ({ request, variables }) =>
+    asUser(request, (userId) => {
+      const t = myTokens(userId).find((x) => x.id === variables.id);
+      if (!t) return refusal("NOT_FOUND", "token not found");
+      if (!t.revokedAtUnix) return refusal("FAILED_PRECONDITION", "token is not revoked");
+      world().tokens.splice(world().tokens.indexOf(t), 1);
+      return ok({ deleteMyToken: true });
     }),
   ),
 

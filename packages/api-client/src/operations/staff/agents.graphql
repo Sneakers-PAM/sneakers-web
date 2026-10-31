@@ -51,6 +51,10 @@ mutation AgentsRevokeToken($id: ID!) {
   }
 }
 
+mutation AgentsDeleteToken($id: ID!) {
+  deleteMyToken(id: $id)
+}
+
 # The approvals page: other people's uses you may decide, and your own still waiting.
 query AgentsPendingUses {
   secretUsesToDecide {

@@ -783,6 +783,11 @@ nobody else can decide, the requester confirms the task once with their second f
   factor is still within `MFA_MAX_AGE`; while it is, the page shows no factor input and Allow sends
   none, so a cold `/login` costs one prompt (the sign-in). Otherwise, or when the gateway answers
   `step_up_required` on Allow, the page asks for a code, an email code or a passkey.
+- `/tokens` lists the user's own personal tokens. An active token has Revoke
+  (`revokeMyToken`), a revoked one has Delete (`deleteMyToken`), and an expired one has neither;
+  both confirm first. Identity refuses a delete of anything not revoked with `FAILED_PRECONDITION`
+  and answers `NOT_FOUND` for someone else's token, and the action matches on those codes. The
+  deletion stays in the audit trail.
 - A refused item comes back with its reason (`EXPIRED`, `ALREADY_DECIDED`, `NOT_FOUND`,
   `NOT_PERMITTED`, `UNAVAILABLE`, `SELF_APPROVAL`, `OTHER_APPROVER`, `NO_APPROVER`), shown as a
   fixed sentence (`RUN_REFUSAL` in `features/agents/messages.ts`); the rest of the batch is still

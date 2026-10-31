@@ -1266,6 +1266,12 @@ export type AgentsRevokeTokenMutation = {
   };
 };
 
+export type AgentsDeleteTokenMutationVariables = Exact<{
+  id: string;
+}>;
+
+export type AgentsDeleteTokenMutation = { deleteMyToken: boolean };
+
 export type AgentsPendingUsesQueryVariables = Exact<{ [key: string]: never }>;
 
 export type AgentsPendingUsesQuery = {
@@ -4636,6 +4642,14 @@ export const AgentsRevokeTokenDocument = new TypedDocumentString(`
 }`) as unknown as TypedDocumentString<
   AgentsRevokeTokenMutation,
   AgentsRevokeTokenMutationVariables
+>;
+export const AgentsDeleteTokenDocument = new TypedDocumentString(`
+    mutation AgentsDeleteToken($id: ID!) {
+  deleteMyToken(id: $id)
+}
+    `) as unknown as TypedDocumentString<
+  AgentsDeleteTokenMutation,
+  AgentsDeleteTokenMutationVariables
 >;
 export const AgentsPendingUsesDocument = new TypedDocumentString(`
     query AgentsPendingUses {
