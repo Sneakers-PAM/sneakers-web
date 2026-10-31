@@ -595,10 +595,22 @@ describe("Updates", () => {
   it("says when a product reset was cut off and the product is held", async () => {
     const real = await upgrade.get();
     const note =
-      "A product reset was cut off part-way, so Sneakers 0.1.0 can't start. An owner finishes it with sneakers reset over SSH.";
+      "A product reset was cut off part-way and didn't finish, so Sneakers 0.1.0 can't start. The box tries again at its next start, or an owner finishes it with sneakers reset over SSH.";
     vi.spyOn(upgrade, "get").mockResolvedValue({
       ...real,
       product: { ...real.product, resetNote: note },
+    });
+    await openPage();
+    expect(await screen.findByText(note)).toBeInTheDocument();
+  });
+
+  it("says when the box is finishing a cut-off product reset by itself", async () => {
+    const real = await upgrade.get();
+    const note =
+      "A product reset was cut off part-way, and the box is finishing it. Keep the box powered on.";
+    vi.spyOn(upgrade, "get").mockResolvedValue({
+      ...real,
+      product: { ...real.product, resetFinishing: true, resetNote: note },
     });
     await openPage();
     expect(await screen.findByText(note)).toBeInTheDocument();
