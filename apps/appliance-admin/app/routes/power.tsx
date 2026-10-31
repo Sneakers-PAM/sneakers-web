@@ -34,6 +34,7 @@ import type {
   SessionKind,
 } from "@/lib/osadmin/types";
 
+import { BoxRestarting } from "@/components/BoxRestarting";
 import { ProductResetNote } from "@/components/ProductResetNote";
 import { ResetCountdown } from "@/components/ResetCountdown";
 import { noAutofill } from "@/lib/noAutofill";
@@ -69,6 +70,7 @@ export default function Power() {
 
   const [hostname, setHostname] = useState("");
   const [cancelled, setCancelled] = useState(false);
+  const [goingDown, setGoingDown] = useState<null | Target>(null);
 
   const reload = () => void power.get().then(setData);
   // Not fatal: an older box without ListSessions still reboots, shuts down and factory resets.
@@ -84,10 +86,10 @@ export default function Power() {
   }, []);
   const resetInProgress = !!data?.factoryReset;
   useEffect(() => {
-    if (!resetInProgress) return;
+    if (!resetInProgress || goingDown) return;
     const timer = setInterval(reload, RESET_POLL_MS);
     return () => clearInterval(timer);
-  }, [resetInProgress]);
+  }, [goingDown, resetInProgress]);
 
   const closeDialog = () => {
     setTarget(null);
@@ -99,12 +101,23 @@ export default function Power() {
     if (!target) return;
     const call = target === "reboot" ? power.reboot : power.shutdown;
     void runAction(() => call(forced, forced && forcedConfirmed), {
-      onSuccess: closeDialog,
-      successMessage: `${target === "reboot" ? "Rebooting" : "Shutting down"}. ${comeBackNotice(target)}`,
+      onSuccess: () => {
+        closeDialog();
+        setGoingDown(target);
+      },
     });
   };
 
   if (!data) return null;
+
+  if (goingDown) {
+    return (
+      <div className="flex flex-col gap-5 p-5.5">
+        <PageHeader eyebrow="Appliance" title="Power" />
+        <BoxRestarting shutdown={goingDown === "shutdown"} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-5 p-5.5">
