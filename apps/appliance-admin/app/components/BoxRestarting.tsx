@@ -16,6 +16,10 @@ type Phase = "back" | "checking" | "down" | "failed" | "going" | "product-failed
 /** The box state GetPhase says when the product failed to start (a phase failed or timed out). */
 const PRODUCT_FAILED = "failed";
 
+const COME_BACK = "The box can take more than 5 minutes to come back.";
+const COME_BACK_AFTER_SHUTDOWN =
+  "After a shutdown, the box can take more than 5 minutes to come back when it starts.";
+
 /** While the box is down, the reboot is the step it's on: the steps before it are done. */
 const rebootingNow = (progress: UpgradeProgress): UpgradeProgress => {
   const at = progress.steps.findIndex((step) => step.id === "reboot");
@@ -37,7 +41,7 @@ const rebootingNow = (progress: UpgradeProgress): UpgradeProgress => {
 };
 
 /**
- * The page every reboot shows (Apply, Revert, setup's Finish): it waits for the box to go
+ * The page every reboot shows (Apply, Revert, setup's Finish, Power): it waits for the box to go
  * down, keeps asking until :8443 answers again, then calls onBack, by default a full load of
  * the sign-in page on a new TLS session. After an apply or a revert it lists the update's steps
  * from the public GetPhase: rebooting while the box is down, then checking health and marking
@@ -45,15 +49,17 @@ const rebootingNow = (progress: UpgradeProgress): UpgradeProgress => {
  * with a Sign in button. When GetPhase says the product failed to start, it stops there too,
  * with the phase and the reason the box gives and where an admin can look. It never leaves a
  * dead page: after RESTART_SLOW_MS it offers a reload, which is how the browser gets to check a
- * certificate that changed.
+ * certificate that changed. With shutdown, it says the box goes off and stays off, and the
+ * reload is offered without calling that late, for when someone starts the box again.
  */
 export const BoxRestarting = ({
   children,
   initialProgress,
   onBack = goToSignIn,
   pollMs = RESTART_POLL_MS,
+  shutdown = false,
   slowMs = RESTART_SLOW_MS,
-  title = "The box is restarting",
+  title = shutdown ? "The box is shutting down" : "The box is restarting",
   waitForDownMs = 0,
 }: {
   children?: ReactNode;
@@ -61,6 +67,8 @@ export const BoxRestarting = ({
   initialProgress?: UpgradeProgress;
   onBack?: () => void;
   pollMs?: number;
+  /** The box is powering off, not restarting: nothing brings it back until someone starts it. */
+  shutdown?: boolean;
   slowMs?: number;
   title?: string;
   /**
@@ -146,7 +154,9 @@ export const BoxRestarting = ({
           ? "The update didn't finish"
           : phase === "checking"
             ? "The box is checking the release"
-            : title;
+            : phase === "down" && shutdown
+              ? "The box is off"
+              : title;
   return (
     <section aria-label="Restarting" className="flex flex-col gap-4">
       <Card>
@@ -158,9 +168,14 @@ export const BoxRestarting = ({
           {children}
           {shown && <UpgradeSteps progress={shown} />}
           <p className="m-0">
-            {phase === "going" && "Waiting for the box to go down for the restart."}
+            {phase === "going" &&
+              (shutdown
+                ? `Waiting for the box to shut down. ${COME_BACK_AFTER_SHUTDOWN}`
+                : `Waiting for the box to go down for the restart. ${COME_BACK}`)}
             {phase === "down" &&
-              "The box is down while it restarts. This page reconnects by itself when :8443 answers again. The box can take more than 5 minutes to come back."}
+              (shutdown
+                ? `It stays off until someone starts it. This page reconnects by itself when :8443 answers again. ${COME_BACK_AFTER_SHUTDOWN}`
+                : `The box is down while it restarts. This page reconnects by itself when :8443 answers again. ${COME_BACK}`)}
             {phase === "checking" &&
               "It answers again. It checks its health and marks the release good; then sign in again."}
             {phase === "back" &&
@@ -187,8 +202,8 @@ export const BoxRestarting = ({
               Reload
             </Button>
           }
-          title="This is taking longer than usual"
-          tone="warn"
+          title={shutdown ? "Started the box again?" : "This is taking longer than usual"}
+          tone={shutdown ? "info" : "warn"}
         >
           If the box made a new certificate while it restarted, this page can&apos;t reach it until
           the browser accepts it. Reload, check the fingerprint on the console, and sign in.
