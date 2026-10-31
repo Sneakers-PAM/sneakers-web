@@ -123,7 +123,8 @@ export interface MockSecret {
   heartbeatOptOut: boolean;
   id: string;
   lastAccessedAt?: string;
-  lastHeartbeatResult?: "failed" | "ok" | "unknown" | "unreachable";
+  lastHeartbeatDetail?: string;
+  lastHeartbeatResult?: "failed" | "ok" | "unknown" | "unreachable" | "untrustedCertificate";
   lastRotationResult?: "degraded" | "failed" | "ok" | "rotating" | "unknown";
   name: string;
   nextRotationAt?: string;
