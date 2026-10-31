@@ -1,3 +1,4 @@
+import { MARK_BODY } from "@sneakers-web/ui";
 import { render, screen } from "@testing-library/react";
 import { createRoutesStub, data } from "react-router";
 
@@ -21,6 +22,11 @@ const renderFailing = (thrown: unknown) => {
   ]);
   render(<Stub initialEntries={["/"]} />);
 };
+
+/** The mark is decorative, so it has no role or name to query. */
+const markDrawn = () =>
+  // eslint-disable-next-line testing-library/no-node-access -- see above.
+  [...document.querySelectorAll("svg path")].some((path) => path.getAttribute("d") === MARK_BODY);
 
 describe("RouteError on the appliance", () => {
   beforeEach(() => {
@@ -151,5 +157,15 @@ describe("RouteError off the appliance", () => {
     expect(await screen.findByText("Something broke")).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
+  });
+
+  it.each([
+    ["a crash", new Error("boom"), "Something broke"],
+    ["a 503", data("down", { status: 503 }), "Can't reach the server"],
+    ["a 404", data("gone", { status: 404 }), "Nothing here"],
+  ])("draws the mark on %s", async (_name, thrown, title) => {
+    renderFailing(thrown);
+    expect(await screen.findByText(title)).toBeInTheDocument();
+    expect(markDrawn()).toBe(true);
   });
 });
