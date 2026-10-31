@@ -1,3 +1,4 @@
+import { mockSettings } from "@sneakers-web/mock-gateway";
 import { withMockGateway } from "@sneakers-web/mock-gateway/testing";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -31,6 +32,21 @@ describe("admin settings", () => {
         screen.getByRole("switch", { name: "Allow API access to sensitive secrets" }),
       ).toBeChecked(),
     );
+  });
+
+  it("turns the top-level folder restriction on and off, starting off", async () => {
+    const user = userEvent.setup();
+    renderAdmin(ROUTES, "/settings");
+    const name = "Restrict top-level folders to admins";
+    const restrict = await screen.findByRole("switch", { name });
+    expect(restrict).not.toBeChecked();
+    expect(screen.getByText(/create a top-level folder/)).toBeInTheDocument();
+    await user.click(restrict);
+    await vi.waitFor(() => expect(screen.getByRole("switch", { name })).toBeChecked());
+    expect(mockSettings.security.restrictTopLevelFolders).toBe(true);
+    await user.click(screen.getByRole("switch", { name }));
+    await vi.waitFor(() => expect(screen.getByRole("switch", { name })).not.toBeChecked());
+    expect(mockSettings.security.restrictTopLevelFolders).toBe(false);
   });
 
   it("refuses a session timeout outside 15 to 60 minutes", async () => {

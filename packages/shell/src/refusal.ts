@@ -74,6 +74,8 @@ const BY_REASON: Record<string, string> = {
   ROTATION_IN_PROGRESS: "The secret is being rotated. Try again when the rotation finishes.",
   SELF_APPROVAL: "You can't decide your own request. Another approver has to.",
   STEP_UP_REQUIRED: "Confirm it's you with a fresh second factor, then try again.",
+  TOP_LEVEL_FOLDERS_RESTRICTED:
+    "Only site admins can create top-level folders, because Restrict top-level folders to admins is on. Pick a folder you manage instead.",
 };
 
 const BY_CODE: Record<string, string> = {

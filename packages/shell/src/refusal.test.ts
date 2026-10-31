@@ -22,6 +22,17 @@ describe("refusals", () => {
     });
   });
 
+  it("names the setting behind a restricted top-level folder", () => {
+    const r = refusalOf(
+      refused(
+        "TOP_LEVEL_FOLDERS_RESTRICTED",
+        "PERMISSION_DENIED",
+        "rpc error: code = PermissionDenied desc = top-level folders are restricted",
+      ),
+    );
+    expect(r && refusalMessage(r)).toContain("Restrict top-level folders to admins");
+  });
+
   it("carries the domain, trace id and operation for Copy diagnostics", () => {
     const error = new GraphQLRequestError(
       [

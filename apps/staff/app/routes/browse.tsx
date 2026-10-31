@@ -14,9 +14,17 @@ import {
 } from "@sneakers-web/ui";
 import { ChevronLeft, CircleCheck, Ellipsis, Plus } from "lucide-react";
 import { Fragment, useState } from "react";
-import { Link, useLoaderData, useNavigate, useNavigation, useSearchParams } from "react-router";
+import {
+  Link,
+  useLoaderData,
+  useNavigate,
+  useNavigation,
+  useRouteLoaderData,
+  useSearchParams,
+} from "react-router";
 
 import type { OpenFolder } from "@/features/browse/types";
+import type { loader as frameLoader } from "@/routes/frame";
 
 import { browseAction, loadBrowse } from "@/features/browse/browse.server";
 import { BrowseSkeleton } from "@/features/browse/BrowseSkeleton";
@@ -148,6 +156,8 @@ const FolderPane = ({
 /** U-03 Browse: the open folder's secrets. The folder tree itself lives in the frame sidebar. */
 const Browse = () => {
   const { current, folders, includeRetired, isAdmin } = useLoaderData<typeof loader>();
+  const canCreateTopLevel =
+    useRouteLoaderData<typeof frameLoader>("routes/frame")?.canCreateTopLevel ?? false;
   const navigate = useNavigate();
   const navigation = useNavigation();
   const order = useBrowseAction();
@@ -244,8 +254,8 @@ const Browse = () => {
       )}
       {shown?.kind === "create" && (
         <NewFolderDialog
+          canCreateTopLevel={canCreateTopLevel}
           folders={folders}
-          isAdmin={isAdmin}
           onClose={close}
           parent={shown.parent}
         />

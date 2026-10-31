@@ -50,6 +50,18 @@ test("a site admin grants the recovery role and files a new hire into a group", 
   await expect(page.getByText("Group · 2 members")).toBeVisible();
 });
 
+test("a site admin restricts top-level folders and lifts it again", async ({ page }) => {
+  await signInAsAlice(page, "/admin/settings");
+  const name = "Restrict top-level folders to admins";
+  await expect(page.getByRole("switch", { name })).not.toBeChecked();
+  await page.getByRole("switch", { name }).click();
+  await expect(page.getByRole("switch", { name })).toBeChecked();
+  await page.reload();
+  await expect(page.getByRole("switch", { name })).toBeChecked();
+  await page.getByRole("switch", { name }).click();
+  await expect(page.getByRole("switch", { name })).not.toBeChecked();
+});
+
 test("a site admin turns on MFA before a reveal and builds a custom type", async ({ page }) => {
   await signInAsAlice(page, "/admin/settings");
   const reveal = page.getByRole("switch", { name: "Require MFA before a reveal" });

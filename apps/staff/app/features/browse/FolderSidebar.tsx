@@ -26,10 +26,12 @@ type Dialog =
  * sits outside that route and can't rely on the route in context.
  */
 export const FolderSidebar = ({
+  canCreateTopLevel,
   collapsed,
   folders,
   isAdmin,
 }: {
+  canCreateTopLevel: boolean;
   collapsed: boolean;
   folders: NavFolder[];
   isAdmin: boolean;
@@ -79,7 +81,7 @@ export const FolderSidebar = ({
   return (
     <>
       <FolderNav currentId={currentId} folders={folders} onAction={onAction} />
-      {isAdmin && (
+      {canCreateTopLevel && (
         <Button
           block
           onClick={() => setDialog({ kind: "create", parent: null })}
@@ -98,8 +100,8 @@ export const FolderSidebar = ({
       {dialog?.kind === "create" && (
         <NewFolderDialog
           action={action}
+          canCreateTopLevel={canCreateTopLevel}
           folders={folders}
-          isAdmin={isAdmin}
           onClose={close}
           parent={dialog.parent}
         />

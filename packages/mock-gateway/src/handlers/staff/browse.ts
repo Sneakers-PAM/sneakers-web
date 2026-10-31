@@ -13,12 +13,14 @@ import {
   BrowseReorderSecretsDocument,
   BrowseRestoreSecretDocument,
   BrowseSecretsDocument,
+  BrowseTopLevelRuleDocument,
 } from "@sneakers-web/api-client";
 import { HttpResponse } from "msw";
 
 import type { MockFolder, MockRequest, MockSecret } from "#mock/fixtures/world";
 
 import { isSiteAdmin, refusal } from "#mock/admin/refuse";
+import { settings } from "#mock/admin/settings";
 import { userById } from "#mock/fixtures/users";
 import { api, asUser } from "#mock/handlers/graphql";
 import { folderChain, hidden, ownsFolder, resolve } from "#mock/handlers/raci";
@@ -154,6 +156,16 @@ export const browseHandlers = [
     ),
   ),
 
+  api.query(BrowseTopLevelRuleDocument, ({ request: request_ }) =>
+    asUser(request_, () =>
+      ok({
+        securitySettings: {
+          restrictTopLevelFolders: settings.security.restrictTopLevelFolders,
+        },
+      }),
+    ),
+  ),
+
   api.query(BrowseFolderAccessDocument, ({ request: request_, variables }) =>
     asUser(request_, (userId) => {
       const f = seen(userId, variables.folderId);
@@ -224,8 +236,13 @@ export const browseHandlers = [
       if (!name) return invalid("name is required");
       const parent = variables.parentId ? seen(userId, variables.parentId) : undefined;
       if (variables.parentId && !parent) return notFound();
-      if (parent ? !canManage(userId, parent) : !isSiteAdmin(userId)) {
-        return parent ? notOwner() : notAdmin();
+      if (parent && !canManage(userId, parent)) return notOwner();
+      if (!parent && settings.security.restrictTopLevelFolders && !isSiteAdmin(userId)) {
+        return refusal(
+          "PERMISSION_DENIED",
+          "top-level folders are restricted to admins",
+          "TOP_LEVEL_FOLDERS_RESTRICTED",
+        );
       }
       if (siblingNamed(parent?.id, name)) {
         return refusal("ALREADY_EXISTS", "a folder with that name already exists here");

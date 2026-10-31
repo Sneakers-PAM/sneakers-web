@@ -1,11 +1,16 @@
 import type { LoaderFunctionArgs } from "react-router";
 
-import { BrowseFoldersDocument, ShellCountsDocument } from "@sneakers-web/api-client";
+import {
+  BrowseFoldersDocument,
+  BrowseTopLevelRuleDocument,
+  ShellCountsDocument,
+} from "@sneakers-web/api-client";
 import { frameData, guard, requireUser } from "@sneakers-web/shell/server";
 
 /**
  * Who is signed in, plus the counts the frame shows (checkouts, open requests, agents waiting)
- * and the folder tree the left main nav pins (U-03), so it's there on every page.
+ * and the folder tree the left main nav pins (U-03), so it's there on every page. Whether to offer
+ * the shared top level sits here too, for the sidebar and the browse page; the vault still decides.
  */
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const frame = await frameData(request);
@@ -26,7 +31,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       if (error instanceof Response) throw error;
       return [];
     });
-  return { ...frame, counts, folders };
+  const canCreateTopLevel =
+    frame.isAdmin ||
+    (await guard(request, () => gw.gql(BrowseTopLevelRuleDocument))
+      .then((d) => !d.securitySettings.restrictTopLevelFolders)
+      .catch((error: unknown) => {
+        if (error instanceof Response) throw error;
+        return false;
+      }));
+  return { ...frame, canCreateTopLevel, counts, folders };
 };
 
 export { StaffFrame as default } from "@/frame/StaffFrame";

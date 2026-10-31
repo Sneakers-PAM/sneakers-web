@@ -1,4 +1,4 @@
-import { MOCK_GATEWAY_URL, mockState } from "@sneakers-web/mock-gateway";
+import { MOCK_GATEWAY_URL, mockSettings, mockState } from "@sneakers-web/mock-gateway";
 import { server, withMockGateway } from "@sneakers-web/mock-gateway/testing";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -259,7 +259,47 @@ describe("folder operations", () => {
     expect(mockState.world.folders.find((f) => f.name === "Legal")?.parentId).toBeUndefined();
   });
 
-  it("hides the shared top level from a non-admin creating a folder", async () => {
+  it("offers anyone the shared top level while the setting is off", async () => {
+    open("/browse/mock-folder-archive", "mock-user-bob");
+    const user = await folderMenu("New folder…");
+    const dialog = await screen.findByRole("dialog", { name: "New folder" });
+    await user.click(within(dialog).getByRole("radio", { name: "Shared · top level" }));
+    await user.type(within(dialog).getByLabelText("Name"), "Legal");
+    await user.click(within(dialog).getByRole("button", { name: "Create" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    const made = mockState.world.folders.find((f) => f.name === "Legal");
+    expect(made?.parentId).toBeUndefined();
+    expect(made?.owners).toEqual(["mock-user-bob"]);
+  });
+
+  it("still offers a site admin the shared top level while the setting is on", async () => {
+    mockSettings.security.restrictTopLevelFolders = true;
+    open("/browse/mock-folder-platform");
+    await folderMenu("New folder…");
+    const dialog = await screen.findByRole("dialog", { name: "New folder" });
+    expect(within(dialog).getByRole("radio", { name: "Shared · top level" })).toBeInTheDocument();
+  });
+
+  it("names the setting when it's turned on while the dialog is open", async () => {
+    open("/browse/mock-folder-archive", "mock-user-bob");
+    const user = await folderMenu("New folder…");
+    const dialog = await screen.findByRole("dialog", { name: "New folder" });
+    await user.click(within(dialog).getByRole("radio", { name: "Shared · top level" }));
+    await user.type(within(dialog).getByLabelText("Name"), "Legal");
+    mockSettings.security.restrictTopLevelFolders = true;
+    await user.click(within(dialog).getByRole("button", { name: "Create" }));
+    expect(
+      await within(dialog).findByText(/Restrict top-level folders to admins/),
+    ).toBeInTheDocument();
+    expect(mockState.world.folders.find((f) => f.name === "Legal")).toBeUndefined();
+    await waitFor(() =>
+      expect(within(dialog).queryByRole("radio", { name: "Shared · top level" })).toBeNull(),
+    );
+    expect(within(dialog).getByRole("button", { name: "Create" })).toBeDisabled();
+  });
+
+  it("hides the shared top level from a non-admin while the setting is on", async () => {
+    mockSettings.security.restrictTopLevelFolders = true;
     open("/browse/mock-folder-archive", "mock-user-bob");
     await folderMenu("New folder…");
     const dialog = await screen.findByRole("dialog", { name: "New folder" });

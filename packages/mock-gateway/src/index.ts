@@ -1,4 +1,5 @@
 export { tamperAuditRecord } from "#mock/admin/audit";
+export { settings as mockSettings } from "#mock/admin/settings";
 export { MOCK_SETUP_TOKEN } from "#mock/admin/setup";
 export { USERS, WRONG_CODE } from "#mock/fixtures/users";
 export type * from "#mock/fixtures/world";

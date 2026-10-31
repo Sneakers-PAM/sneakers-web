@@ -24,6 +24,7 @@ const SWITCHES = {
   allowApiForSensitive: "API access to sensitive secrets",
   requireMfaForReveal: "MFA before a reveal",
   requireMfaForSensitiveCheckout: "MFA for sensitive checkout",
+  restrictTopLevelFolders: "Restrict top-level folders to admins",
 } as const;
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -117,6 +118,18 @@ const Settings = () => {
             }
             id="set-api"
             title="Allow API access to sensitive secrets"
+          />
+          <SettingRow
+            body="Off (the default): anyone signed in can create a top-level folder, in the web or with a personal token, and owns it. On: only site admins and root can, and subfolders aren't affected."
+            control={
+              <Switch
+                aria-labelledby="set-top-level"
+                checked={security.restrictTopLevelFolders}
+                onCheckedChange={(on) => flip("restrictTopLevelFolders", on)}
+              />
+            }
+            id="set-top-level"
+            title="Restrict top-level folders to admins"
           />
           <SettingRow
             body={

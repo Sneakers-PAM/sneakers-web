@@ -35,6 +35,7 @@ const REFRESH_MS = 30_000;
 export const StaffFrame = () => {
   const {
     breakGlass,
+    canCreateTopLevel,
     counts,
     folders,
     isAdmin,
@@ -151,7 +152,12 @@ export const StaffFrame = () => {
             />
             <NavItem collapsed={collapsed} icon={<Target />} label="Targets" to="/targets" />
           </NavList>
-          <FolderSidebar collapsed={collapsed} folders={folders} isAdmin={isAdmin} />
+          <FolderSidebar
+            canCreateTopLevel={canCreateTopLevel}
+            collapsed={collapsed}
+            folders={folders}
+            isAdmin={isAdmin}
+          />
         </>
       )}
     >
