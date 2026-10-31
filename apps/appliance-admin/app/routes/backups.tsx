@@ -20,6 +20,7 @@ import type { GetBackupsResponse, RecoveryKey } from "@/lib/osadmin/types";
 
 import { NotAvailable } from "@/components/NotAvailable";
 import { downloadEscrow, ESCROW_NOTE } from "@/features/setup/RecoveryKeysStep";
+import { noAutofill } from "@/lib/noAutofill";
 import { runAction } from "@/lib/osadmin/action";
 import { backup, setup } from "@/lib/osadmin/client";
 import { isNotAvailable } from "@/lib/osadmin/errors";
@@ -123,17 +124,26 @@ export default function Backups() {
           }}
         >
           <Field hint="HH:MM local" label="Schedule">
-            <Input onChange={(event) => setSchedule(event.target.value)} value={schedule} />
+            <Input
+              {...noAutofill()}
+              onChange={(event) => setSchedule(event.target.value)}
+              value={schedule}
+            />
           </Field>
           <Field label="Retention (days)">
             <Input
+              {...noAutofill()}
               onChange={(event) => setRetentionDays(Number(event.target.value))}
               type="number"
               value={retentionDays}
             />
           </Field>
           <Field hint="Comma-separated" label="Targets">
-            <Input onChange={(event) => setTargets(event.target.value)} value={targets} />
+            <Input
+              {...noAutofill()}
+              onChange={(event) => setTargets(event.target.value)}
+              value={targets}
+            />
           </Field>
           <Button type="submit">Save policy</Button>
         </form>

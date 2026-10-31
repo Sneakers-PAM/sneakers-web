@@ -22,6 +22,7 @@ import type { GetImportResponse, ImportRun } from "@/lib/osadmin/types";
 
 import { NotAvailable } from "@/components/NotAvailable";
 import { downloadEscrow, ESCROW_NOTE } from "@/features/setup/RecoveryKeysStep";
+import { noAutofill } from "@/lib/noAutofill";
 import { runAction } from "@/lib/osadmin/action";
 import { importer } from "@/lib/osadmin/client";
 import { isNotAvailable } from "@/lib/osadmin/errors";
@@ -265,6 +266,7 @@ export default function Import() {
                 <Label className="flex flex-col gap-1">
                   New folders under
                   <Input
+                    {...noAutofill()}
                     onChange={(event) => setParent(event.target.value)}
                     placeholder="Infrastructure"
                     value={parent}
@@ -273,6 +275,7 @@ export default function Import() {
                 <Label className="flex flex-col gap-1">
                   The sheet&apos;s Personal rows belong to
                   <Input
+                    {...noAutofill()}
                     onChange={(event) => setPersonal(event.target.value)}
                     placeholder="user@example.org"
                     value={personal}
@@ -298,6 +301,7 @@ export default function Import() {
                 <Label className="flex flex-col gap-1">
                   First admin&apos;s email
                   <Input
+                    {...noAutofill()}
                     onChange={(event) => setOwnerEmail(event.target.value)}
                     placeholder="admin@example.org"
                     value={ownerEmail}

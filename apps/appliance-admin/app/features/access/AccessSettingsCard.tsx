@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import type { AccessPolicy, LockoutMode } from "@/lib/osadmin/types";
 
+import { noAutofill } from "@/lib/noAutofill";
 import { runAction } from "@/lib/osadmin/action";
 import { access } from "@/lib/osadmin/client";
 
@@ -68,6 +69,7 @@ export const AccessSettingsCard = ({
         <div className="grid grid-cols-1 gap-4 tablet:grid-cols-3">
           <Field hint="1 to 60" label="Root-shell code lifetime (minutes)">
             <Input
+              {...noAutofill()}
               inputMode="numeric"
               onChange={(event) => setCodeMinutes(event.target.value)}
               value={codeMinutes}
@@ -75,6 +77,7 @@ export const AccessSettingsCard = ({
           </Field>
           <Field hint="1 to 60" label="Root-shell session limit (minutes)">
             <Input
+              {...noAutofill()}
               inputMode="numeric"
               onChange={(event) => setSessionMinutes(event.target.value)}
               value={sessionMinutes}
@@ -82,6 +85,7 @@ export const AccessSettingsCard = ({
           </Field>
           <Field hint="1 to 1825" label="SSH key validity (days)">
             <Input
+              {...noAutofill()}
               inputMode="numeric"
               onChange={(event) => setValidDays(event.target.value)}
               value={validDays}

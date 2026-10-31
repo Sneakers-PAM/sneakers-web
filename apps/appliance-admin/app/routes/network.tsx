@@ -26,6 +26,7 @@ import type {
 
 import { NetworkReverted } from "@/components/StatusBanners";
 import { networkChanged } from "@/lib/networkChange";
+import { noAutofill } from "@/lib/noAutofill";
 import { runAction } from "@/lib/osadmin/action";
 import { network } from "@/lib/osadmin/client";
 import { OsadminError } from "@/lib/osadmin/errors";
@@ -276,19 +277,27 @@ export default function Network() {
             hint="Fully qualified, such as appliance.example.org. Certificates are checked against it."
             label="Hostname"
           >
-            <Input onChange={(event) => setHostname(event.target.value)} value={hostname} />
+            <Input
+              {...noAutofill()}
+              onChange={(event) => setHostname(event.target.value)}
+              value={hostname}
+            />
           </Field>
           <Field
             hint="Comma-separated. Leave empty to use the ones DHCP gives the box."
             label="DNS servers"
           >
-            <Input onChange={(event) => setDns(event.target.value)} value={dns} />
+            <Input {...noAutofill()} onChange={(event) => setDns(event.target.value)} value={dns} />
           </Field>
           <Field hint="Comma-separated" label="NTP servers">
-            <Input onChange={(event) => setNtp(event.target.value)} value={ntp} />
+            <Input {...noAutofill()} onChange={(event) => setNtp(event.target.value)} value={ntp} />
           </Field>
           <Field hint="Comma-separated CIDRs" label="Allow-list (22 and 8443)">
-            <Input onChange={(event) => setAllowList(event.target.value)} value={allowList} />
+            <Input
+              {...noAutofill()}
+              onChange={(event) => setAllowList(event.target.value)}
+              value={allowList}
+            />
           </Field>
           <Button type="submit">Apply</Button>
         </form>

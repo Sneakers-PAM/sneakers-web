@@ -54,6 +54,7 @@ import { CopyLine } from "@/features/access/CopyLine";
 import { InvitationDialog } from "@/features/access/InvitationDialog";
 import { removeBlocked } from "@/features/access/removeBlocked";
 import { RootShellsCard } from "@/features/access/RootShellsCard";
+import { noAutofill } from "@/lib/noAutofill";
 import { runAction } from "@/lib/osadmin/action";
 import { access, elevation as elevationClient } from "@/lib/osadmin/client";
 import { isNotAvailable, isStepUpRequired, plainMessage, reasonOf } from "@/lib/osadmin/errors";
@@ -302,7 +303,11 @@ export default function Access() {
             <p className="eyebrow">Add an admin</p>
             <div className="flex flex-col gap-2 tablet:flex-row">
               <Field className="w-full tablet:flex-1" label="Name">
-                <Input onChange={(event) => setName(event.target.value)} value={name} />
+                <Input
+                  {...noAutofill()}
+                  onChange={(event) => setName(event.target.value)}
+                  value={name}
+                />
               </Field>
               <div className="flex w-full flex-col gap-2 tablet:w-32 tablet:shrink-0">
                 <Label id={roleLabelId}>Role</Label>
@@ -524,6 +529,7 @@ export default function Access() {
             </fieldset>
             <Field hint="For a factory reset" label="Approvals required">
               <Input
+                {...noAutofill()}
                 max={Math.max(2, quorumMembers.length)}
                 min={leastRequired(quorumMembers.length)}
                 onChange={(event) =>

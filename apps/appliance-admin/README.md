@@ -41,6 +41,15 @@ Saving asks for a fresh code and applies the product again; **Send test email** 
 through the settings on the page without saving them. A product that sends no mail gets no form.
 The mock's `email-absent` scenario shows that case.
 
+No field on the page is filled in by the browser or a password manager: each one carries
+`autocomplete="off"` (`new-password` on the password) and the 1Password, LastPass and Bitwarden
+ignore attributes (`app/lib/noAutofill.ts`), so the admin's own sign-in never lands in the relay's
+username or password. The same goes for every other :8443 field an admin types into (network,
+backups, certificates, the update mirror, access and the typed confirms). Only the sign-in, setup's
+last sign-in, the current password when changing yours and the authenticator code boxes leave
+autofill on. `app/lib/noAutofill.test.ts` reads the app's source and fails on a new field without
+them.
+
 ## Status: the disk
 
 The Disk card on Status lists each of the box's volumes (state, product data and backup) with

@@ -53,6 +53,7 @@ import { offerKey, OfferList } from "@/components/updates/OfferList";
 import { UnitCard } from "@/components/updates/UnitCard";
 import { UpgradeSteps } from "@/components/UpgradeSteps";
 import { VersionFields } from "@/components/VersionFields";
+import { noAutofill } from "@/lib/noAutofill";
 import { runAction } from "@/lib/osadmin/action";
 import { upgrade } from "@/lib/osadmin/client";
 import {
@@ -1249,7 +1250,11 @@ export default function Updates() {
                 hint="An http:// or https:// URL. Every file's signature is checked either way."
                 label="Mirror"
               >
-                <Input onChange={(event) => setMirrorUrl(event.target.value)} value={mirrorUrl} />
+                <Input
+                  {...noAutofill()}
+                  onChange={(event) => setMirrorUrl(event.target.value)}
+                  value={mirrorUrl}
+                />
               </Field>
             )}
             <div>
@@ -1317,12 +1322,14 @@ export default function Updates() {
                 <div className="grid grid-cols-1 gap-4 tablet:grid-cols-2">
                   <Field label="Daily start (HH:MM)">
                     <Input
+                      {...noAutofill()}
                       onChange={(event) => setWindowStart(event.target.value)}
                       value={windowStart}
                     />
                   </Field>
                   <Field hint="45 to 720" label="Length (minutes)">
                     <Input
+                      {...noAutofill()}
                       inputMode="numeric"
                       onChange={(event) => setWindowMinutes(Number(event.target.value))}
                       value={String(windowMinutes)}
@@ -1758,7 +1765,7 @@ const ConfirmUpdateDialog = ({
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
       <Field label={`Type ${word} to confirm`}>
-        <Input onChange={(event) => setTyped(event.target.value)} value={typed} />
+        <Input {...noAutofill()} onChange={(event) => setTyped(event.target.value)} value={typed} />
       </Field>
       <Field label="Authenticator code">
         <CodeInput label="Authenticator code" onChange={setCode} size="md" value={code} />
@@ -1845,10 +1852,19 @@ const OverrideDialog = ({
         </DialogDescription>
       </DialogHeader>
       <Field label="Reason">
-        <Input onChange={(event) => setReason(event.target.value)} value={reason} />
+        <Input
+          {...noAutofill()}
+          onChange={(event) => setReason(event.target.value)}
+          value={reason}
+        />
       </Field>
       <Field label={`Type ${want} to confirm`}>
-        <Input mono onChange={(event) => setTyped(event.target.value)} value={typed} />
+        <Input
+          {...noAutofill()}
+          mono
+          onChange={(event) => setTyped(event.target.value)}
+          value={typed}
+        />
       </Field>
       <Field label="Authenticator code">
         <CodeInput label="Authenticator code" onChange={setCode} size="md" value={code} />

@@ -14,6 +14,7 @@ import { useState } from "react";
 
 import type { IssueRootShellCodeResponse } from "@/lib/osadmin/types";
 
+import { noAutofill } from "@/lib/noAutofill";
 import { rootShell } from "@/lib/osadmin/client";
 import { plainMessage, refusalOf } from "@/lib/osadmin/errors";
 import { refusalMessage } from "@/lib/osadmin/refusal";
@@ -132,6 +133,7 @@ export default function RootShell() {
               label="Challenge from the SSH menu"
             >
               <Input
+                {...noAutofill()}
                 autoCapitalize="characters"
                 autoComplete="off"
                 mono

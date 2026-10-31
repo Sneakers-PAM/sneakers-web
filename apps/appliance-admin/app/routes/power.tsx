@@ -36,6 +36,7 @@ import type {
 
 import { ProductResetNote } from "@/components/ProductResetNote";
 import { ResetCountdown } from "@/components/ResetCountdown";
+import { noAutofill } from "@/lib/noAutofill";
 import { runAction } from "@/lib/osadmin/action";
 import { power, status } from "@/lib/osadmin/client";
 import { useSession } from "@/lib/useSession";
@@ -298,7 +299,7 @@ const RequestReset = ({
       </p>
       <ProductResetNote />
       <Field label={`Type ${hostname} to confirm`}>
-        <Input onChange={(event) => setTyped(event.target.value)} value={typed} />
+        <Input {...noAutofill()} onChange={(event) => setTyped(event.target.value)} value={typed} />
       </Field>
       <div>
         <Button

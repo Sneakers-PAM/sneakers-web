@@ -13,6 +13,7 @@ import { useState } from "react";
 
 import type { UpdateTrust } from "@/lib/osadmin/types";
 
+import { noAutofill } from "@/lib/noAutofill";
 import { runAction } from "@/lib/osadmin/action";
 import { tls } from "@/lib/osadmin/client";
 
@@ -86,6 +87,7 @@ export const UpdateTrustCard = ({
                 label="CA certificate (PEM)"
               >
                 <Textarea
+                  {...noAutofill()}
                   onChange={(event) => setCaPem(event.target.value)}
                   placeholder="-----BEGIN CERTIFICATE-----"
                   rows={5}
@@ -105,7 +107,11 @@ export const UpdateTrustCard = ({
                 hint="Optional: the mirror's server certificate SHA-256, with or without colons. Checked after the chain, never instead of it."
                 label="Server certificate pin"
               >
-                <Input onChange={(event) => setPin(event.target.value)} value={pin} />
+                <Input
+                  {...noAutofill()}
+                  onChange={(event) => setPin(event.target.value)}
+                  value={pin}
+                />
               </Field>
               <p className="text-muted">There&apos;s no option to skip verification.</p>
               <div className="flex flex-wrap gap-3">
