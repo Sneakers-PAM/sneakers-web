@@ -392,12 +392,26 @@ describe("secret moves", () => {
     );
   });
 
+  it("doesn't offer the personal root for a selection of secrets", async () => {
+    const user = userEvent.setup();
+    open("/browse/mock-folder-finance", "mock-user-bob");
+    await user.click(await screen.findByRole("checkbox", { name: "Select Payroll portal" }));
+    await user.click(screen.getByRole("button", { name: "Move…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Move 1 secret" });
+    expect(
+      within(dialog).getByRole("radio", { name: "Personal · My secrets / Keys" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("radio", { name: "Personal · My secrets" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("asks a site admin before a shared secret moves into a personal folder", async () => {
     const user = userEvent.setup();
     open("/browse/mock-folder-finance", "mock-user-bob");
     await user.click(await screen.findByRole("checkbox", { name: "Select Payroll portal" }));
     await user.click(screen.getByRole("button", { name: "Move…" }));
-    await user.click(await screen.findByRole("radio", { name: "Personal · My secrets" }));
+    await user.click(await screen.findByRole("radio", { name: "Personal · My secrets / Keys" }));
     await user.click(screen.getByRole("button", { name: "Move here" }));
     const ask = await screen.findByRole("dialog", {
       name: "Ask to move this to your personal folder",

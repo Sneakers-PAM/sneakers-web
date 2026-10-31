@@ -273,6 +273,7 @@ export const editorsHandlers: RequestHandler[] = [
           .map((f) => ({
             canManage: canManageFolder(userId, f),
             id: f.id,
+            isMasterPersonal: f.isMasterPersonal ?? false,
             name: f.name,
             parentId: f.parentId ?? null,
             scope: f.scope,

@@ -82,6 +82,15 @@ describe("loading the new secret form", () => {
     expect(other.ok && other.draft.folderId).toBe("");
   });
 
+  it("offers the folders inside the personal root, never the root", async () => {
+    const d = await loadNew("/secret/new?folder=mock-folder-bob", "mock-user-bob");
+    if (!d.ok) throw new Error("expected the form");
+    const ids = d.folders.map((f) => f.id);
+    expect(ids).toContain("mock-folder-bob-keys");
+    expect(ids).not.toContain("mock-folder-bob");
+    expect(d.draft.folderId).toBe("");
+  });
+
   it("turns a failing gateway into a failure the page can retry", async () => {
     server.use(
       graphql

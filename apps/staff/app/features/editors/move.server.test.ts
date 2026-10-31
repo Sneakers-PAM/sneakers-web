@@ -53,10 +53,23 @@ describe("where an edited secret can move", () => {
     if (!d.ok) throw new Error("expected the form");
     const paths = d.folders.map((f) => f.path);
     expect(paths).toContain("Finance");
-    expect(paths).toContain("Personal · My secrets");
+    expect(paths).toContain("Personal · My secrets / Keys");
     expect(paths).not.toContain("Platform / Databases");
-    expect(d.moves?.["mock-folder-bob"]).toBe("request");
+    expect(d.moves?.["mock-folder-bob-keys"]).toBe("request");
     expect(d.moves?.["mock-folder-archive"]).toBe("direct");
+  });
+
+  it("never offers the personal root as somewhere new", async () => {
+    const d = await loadEdit("mock-secret-payroll", "mock-user-bob");
+    if (!d.ok) throw new Error("expected the form");
+    expect(d.folders.map((f) => f.id)).not.toContain("mock-folder-bob");
+  });
+
+  it("shows where a secret already sits, even in the personal root", async () => {
+    const d = await loadEdit("mock-secret-bob-laptop", "mock-user-bob");
+    if (!d.ok) throw new Error("expected the form");
+    expect(d.draft.folderId).toBe("mock-folder-bob");
+    expect(d.folders[0]?.id).toBe("mock-folder-bob");
   });
 
   it("keeps the secret's own folder on offer to an approver who doesn't manage it", async () => {
@@ -122,6 +135,6 @@ describe("where an edited secret can move", () => {
 
   it("lets a site admin move into someone's personal folder straight away", async () => {
     const d = await loadEdit("mock-secret-db-admin");
-    expect(d.ok && d.moves?.["mock-folder-alice"]).toBe("direct");
+    expect(d.ok && d.moves?.["mock-folder-alice-lab"]).toBe("direct");
   });
 });

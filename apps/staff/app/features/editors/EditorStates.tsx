@@ -63,7 +63,7 @@ export const NoFolders = () => (
           <Link to="/browse">Browse folders</Link>
         </Button>
       }
-      body="New secrets go in a folder you own. Ask a folder's owner to add you, or a site admin to make you a folder."
+      body="New secrets go in a folder you own, and the top of your personal folder can't hold one. Make a folder inside it, ask a folder's owner to add you, or ask a site admin to make you a folder."
       title="There's nowhere you can add a secret yet"
     />
   </div>

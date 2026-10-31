@@ -603,6 +603,15 @@ const FOLDERS: MockFolder[] = [
     ownerUserId: BOB,
     scope: "personal",
   },
+  {
+    id: "mock-folder-bob-keys",
+    name: "Keys",
+    order: 0,
+    owners: [BOB],
+    ownerUserId: BOB,
+    parentId: "mock-folder-bob",
+    scope: "personal",
+  },
 ];
 
 const CONNECTIONS: MockConnection[] = [
