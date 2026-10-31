@@ -169,6 +169,17 @@ export default function Import() {
           title="No import"
         />
       )}
+      {data.available && !data.setupDone && (
+        <section aria-label="The audit trail stays on the old box">
+          <Alert title="The audit trail stays on the old box" tone="info">
+            An audit trail belongs to the install that recorded it, so an export doesn&apos;t carry
+            one. This box&apos;s trail starts with one record of the import, naming the box it came
+            from. A bundle in format 1.x carries the old trail, so it&apos;s refused: export it
+            again with a current sneakers-migrate. Keep the old box&apos;s audit history with that
+            box, or offline, if you need it after the box is retired.
+          </Alert>
+        </section>
+      )}
       {data.available && data.setupDone && (
         <Alert title="Setup is done" tone="warn">
           {data.reason}
@@ -177,7 +188,7 @@ export default function Import() {
       {data.available && !data.open && !data.setupDone && (
         <Card>
           <CardHeader
-            subtitle="Bring an earlier install's users, secrets and audit chain in before this product's own setup. Opening needs a fresh code."
+            subtitle="Bring an earlier install's users, secrets and folders in before this product's own setup. Opening needs a fresh code."
             title={data.label || "Import"}
           />
           <div className="flex flex-col gap-4 p-5.5">

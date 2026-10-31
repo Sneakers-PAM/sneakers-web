@@ -17,9 +17,7 @@ import type { ListEventsResponse } from "@/lib/osadmin/types";
 
 import { Advanced } from "@/components/Advanced";
 import { audit } from "@/lib/osadmin/client";
-
-// Explore only; no backend yet. Off until the flag is turned on for a release.
-const SUPPORT_BUNDLE_ENABLED = false;
+import { isNotAvailable } from "@/lib/osadmin/errors";
 
 // The detail keys that hold an id or a fingerprint: shown in mono, since nobody reads them as
 // words. The box puts a human name in the target and moves the id here.
@@ -61,6 +59,9 @@ const EventDetail = ({ detail }: { detail: Record<string, string> }) => {
   );
 };
 
+const OLDER_BOX =
+  "This box's Base OS can't make a support bundle yet. Update the Base OS, then try again.";
+
 const download = (blob: Blob, fileName: string) => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -70,10 +71,28 @@ const download = (blob: Blob, fileName: string) => {
   URL.revokeObjectURL(url);
 };
 
+/** An older box has no support bundle; anything else, the box said why itself. */
+const bundleError = (error: unknown): string => {
+  if (isNotAvailable(error)) return OLDER_BOX;
+  return error instanceof Error ? error.message : "The support bundle didn't download.";
+};
+
 export default function Logs() {
   const [data, setData] = useState<ListEventsResponse>();
+  const [bundling, setBundling] = useState(false);
+  const [bundleRefusal, setBundleRefusal] = useState("");
   const reload = () => void audit.list().then(setData);
   useEffect(reload, []);
+
+  const downloadBundle = () => {
+    setBundling(true);
+    setBundleRefusal("");
+    void audit
+      .exportSupportBundle()
+      .then(({ blob, fileName }) => download(blob, fileName))
+      .catch((error: unknown) => setBundleRefusal(bundleError(error)))
+      .finally(() => setBundling(false));
+  };
 
   if (!data) return null;
 
@@ -123,11 +142,16 @@ export default function Logs() {
         </Table>
       </Card>
       <Advanced label="Advanced: support bundle">
-        {SUPPORT_BUNDLE_ENABLED ? (
-          <Button variant="secondary">Download support bundle</Button>
-        ) : (
-          <p className="text-small text-muted">Not available in this release.</p>
-        )}
+        <div className="flex flex-col items-start gap-3">
+          <p className="m-0 text-small text-muted">
+            One text file with the box&apos;s status, cluster and logs, with its secrets masked. The
+            box writes it as you wait, which can take up to 10 minutes.
+          </p>
+          <Button disabled={bundling} onClick={downloadBundle} variant="secondary">
+            {bundling ? "Preparing the bundle" : "Download support bundle"}
+          </Button>
+          {bundleRefusal && <Alert tone="danger">{bundleRefusal}</Alert>}
+        </div>
       </Advanced>
     </div>
   );

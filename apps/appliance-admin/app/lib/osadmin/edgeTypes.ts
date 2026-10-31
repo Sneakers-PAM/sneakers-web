@@ -14,6 +14,12 @@ export interface QuickLoginUser {
   note: string;
 }
 
+/** A support bundle as the box wrote it. */
+export interface SupportBundle {
+  blob: Blob;
+  fileName: string;
+}
+
 /**
  * The network edge an app build talks to: the live osadmin Connect API, or the in-memory
  * mock transport for local work and tests. Chosen once, by the Vite alias, at build time.
@@ -22,6 +28,8 @@ export interface Edge {
   /** Text for the persistent banner a mock build shows on every screen, or null for none. */
   banner: null | string;
   exportAuditLog(): Promise<Blob>;
+  /** The full support bundle and the file name the box gave it. */
+  exportSupportBundle(): Promise<SupportBundle>;
   mode: "live" | "mock";
   /** Mock builds only: sign in as a fixture admin without the SSH code round trip. */
   quickLogin?: {

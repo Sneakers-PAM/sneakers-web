@@ -1,4 +1,4 @@
-import { edge } from "@/lib/edge.live";
+import { edge, UNREACHABLE } from "@/lib/edge.live";
 import { OsadminError } from "@/lib/osadmin/errors";
 import { setCodeCsrfToken, setSession } from "@/lib/osadmin/sessionStore";
 
@@ -151,5 +151,66 @@ describe("live edge request when the box can't be reached", () => {
     expect(error).toBeInstanceOf(OsadminError);
     expect((error as OsadminError).code).toBe("unavailable");
     expect((error as OsadminError).message).toBe("The appliance can't be reached at this address.");
+  });
+});
+
+describe("the support bundle", () => {
+  const answer = (body: BodyInit | null, init: ResponseInit) =>
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(body, init));
+
+  it("gives the bundle and the file name the box chose", async () => {
+    const spy = answer("the bundle", {
+      headers: {
+        "Content-Disposition": 'attachment; filename="support-bundle-box1-20261030T120000Z.txt"',
+        "Content-Type": "text/plain; charset=utf-8",
+      },
+      status: 200,
+    });
+    const { blob, fileName } = await edge.exportSupportBundle();
+    expect(spy).toHaveBeenCalledWith("/export/support-bundle", { credentials: "same-origin" });
+    expect(fileName).toBe("support-bundle-box1-20261030T120000Z.txt");
+    expect(await blob.text()).toBe("the bundle");
+  });
+
+  it("names the file itself when the box doesn't", async () => {
+    answer("the bundle", { headers: { "Content-Type": "text/plain" }, status: 200 });
+    expect((await edge.exportSupportBundle()).fileName).toBe("support-bundle.txt");
+  });
+
+  it("reads a 404 as an older box", async () => {
+    answer("404 page not found", { status: 404 });
+    await expect(edge.exportSupportBundle()).rejects.toMatchObject({ code: "unimplemented" });
+  });
+
+  it("reads the pages' index.html as an older box, which serves it for any path it doesn't know", async () => {
+    answer("<!doctype html>", {
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+      status: 200,
+    });
+    await expect(edge.exportSupportBundle()).rejects.toMatchObject({ code: "unimplemented" });
+  });
+
+  it("keeps the box's plain-text refusal", async () => {
+    answer("Another support bundle is running.\n", { status: 503 });
+    await expect(edge.exportSupportBundle()).rejects.toMatchObject({
+      code: "unavailable",
+      message: "Another support bundle is running.",
+    });
+  });
+
+  it("says when the sign-in has gone", async () => {
+    answer("sign in again\n", { status: 401 });
+    await expect(edge.exportSupportBundle()).rejects.toMatchObject({
+      code: "unauthenticated",
+      message: "sign in again",
+    });
+  });
+
+  it("says when the box can't be reached", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    await expect(edge.exportSupportBundle()).rejects.toMatchObject({
+      code: "unavailable",
+      message: UNREACHABLE,
+    });
   });
 });

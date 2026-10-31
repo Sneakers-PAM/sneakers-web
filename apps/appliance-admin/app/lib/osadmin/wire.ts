@@ -754,6 +754,7 @@ export const checkUpdates = (w: Wire<CheckUpdatesResponse>): CheckUpdatesRespons
   indexFormat: w.indexFormat ?? 0,
   product: list(w.product, unitOffer),
   productReinstall: w.productReinstall ? unitOffer(w.productReinstall) : undefined,
+  publishingNote: w.publishingNote ?? "",
   source: w.source ?? "",
   url: w.url ?? "",
 });

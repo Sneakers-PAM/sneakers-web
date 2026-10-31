@@ -134,9 +134,10 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   end ("until an owner unlocks it" in that lockout mode) or this address's wait. The page
   links to `/setup` for a setup or invitation code.
 - **Setup (`app/routes/setup.tsx`, steps in `app/features/setup/`).** Six steps with a progress
-  line: 1 the console's setup code (16 Crockford base32 characters, `XXXX-XXXX-XXXX-XXXX`, valid for
-  60 minutes; case, dashes and spaces don't matter, and the page only asks for it, never shows
-  it; `RedeemCode` sets a code session cookie), 2 the first
+  line: 1 the console's setup code (16 characters from `23456789ABCDEFHJKMNPRSTVWXYZ`,
+  `XXXX-XXXX-XXXX-XXXX`, valid for 60 minutes; a code made before that alphabet can still be live
+  after an update, and the box reads it too; case, dashes and spaces don't matter, and the page
+  only asks for it, never shows it; `RedeemCode` sets a code session cookie), 2 the first
   admin's name and password, checked as it's typed (`CheckPassword`), then the authenticator
   (`BeginCredentials` gives the secret for the QR code and the typed key,
   `CompleteCredentials` checks a code from it and signs the browser in), 3 the recovery keys

@@ -1,21 +1,67 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import { audit } from "@/lib/osadmin/client";
+import { OsadminError } from "@/lib/osadmin/errors";
 import Logs from "@/routes/logs";
 import { renderPage } from "@/test/renderPage";
 
+const openBundle = async (user: ReturnType<typeof userEvent.setup>) => {
+  renderPage(Logs);
+  await screen.findByText("Logs and audit");
+  await user.click(screen.getByText("Advanced: support bundle"));
+  return screen.getByRole("button", { name: "Download support bundle" });
+};
+
 describe("Logs", () => {
-  it("lists the audit events and keeps the support bundle behind Advanced and a flag", async () => {
+  it("lists the audit events and keeps the support bundle behind Advanced", async () => {
     const user = userEvent.setup();
     renderPage(Logs);
     expect(await screen.findByText("Logs and audit")).toBeInTheDocument();
     expect(screen.getByText("signin.signout")).toBeInTheDocument();
     expect(screen.getByText(/refused \(ACCESS_KEY_WEAK\)/)).toBeInTheDocument();
     await user.click(screen.getByText("Advanced: support bundle"));
-    expect(screen.getByText("Not available in this release.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Download support bundle" })).toBeInTheDocument();
+  });
+
+  it("saves the support bundle under the name the box gives it", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:support-bundle");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await user.click(await openBundle(user));
+    await waitFor(() => expect(click).toHaveBeenCalledOnce());
+    expect((click.mock.contexts[0] as HTMLAnchorElement).download).toBe(
+      "support-bundle-box1-20261030T120000Z.txt",
+    );
+    expect(screen.getByRole("button", { name: "Download support bundle" })).toBeEnabled();
+  });
+
+  it("holds the button while the box writes the bundle", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(audit, "exportSupportBundle").mockReturnValueOnce(new Promise(() => {}));
+    await user.click(await openBundle(user));
+    expect(await screen.findByRole("button", { name: "Preparing the bundle" })).toBeDisabled();
+  });
+
+  it("says a box too old for the support bundle needs an update", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(audit, "exportSupportBundle").mockRejectedValueOnce(
+      new OsadminError("unimplemented", "no support bundle here"),
+    );
+    await user.click(await openBundle(user));
     expect(
-      screen.queryByRole("button", { name: "Download support bundle" }),
-    ).not.toBeInTheDocument();
+      await screen.findByText(/This box's Base OS can't make a support bundle yet/),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the box's own words when it refuses the bundle", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(audit, "exportSupportBundle").mockRejectedValueOnce(
+      new OsadminError("unavailable", "Another support bundle is running."),
+    );
+    await user.click(await openBundle(user));
+    expect(await screen.findByText("Another support bundle is running.")).toBeInTheDocument();
   });
 
   it("names targets in words and shows the ids and the rest of the detail", async () => {
