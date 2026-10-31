@@ -69,7 +69,9 @@ describe("Power", () => {
     await openPage();
     await user.click(screen.getByRole("button", { name: "Reboot" }));
     await user.click(screen.getByRole("button", { name: "Confirm" }));
-    expect(await screen.findByText(/Rebooting/)).toBeInTheDocument();
+    expect(
+      await screen.findByText("Rebooting. The box can take more than 5 minutes to come back."),
+    ).toBeInTheDocument();
   });
 
   it("says before a reboot that the box can take more than 5 minutes to come back", async () => {

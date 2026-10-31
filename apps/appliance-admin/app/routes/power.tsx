@@ -46,6 +46,11 @@ const RESET_POLL_MS = 5000;
 
 type Target = "reboot" | "shutdown";
 
+const comeBackNotice = (target: null | Target) =>
+  target === "shutdown"
+    ? "After a shutdown, the box can take more than 5 minutes to come back when it starts."
+    : "The box can take more than 5 minutes to come back.";
+
 const KIND_LABEL: Record<SessionKind, string> = {
   SESSION_KIND_BROWSER: "browser",
   SESSION_KIND_ELEVATED: "elevated shell",
@@ -95,7 +100,7 @@ export default function Power() {
     const call = target === "reboot" ? power.reboot : power.shutdown;
     void runAction(() => call(forced, forced && forcedConfirmed), {
       onSuccess: closeDialog,
-      successMessage: `${target === "reboot" ? "Rebooting" : "Shutting down"}.`,
+      successMessage: `${target === "reboot" ? "Rebooting" : "Shutting down"}. ${comeBackNotice(target)}`,
     });
   };
 
@@ -175,11 +180,7 @@ export default function Power() {
                 : "No active sessions."}
             </DialogDescription>
           </DialogHeader>
-          <p className="m-0 text-small text-muted">
-            {target === "shutdown"
-              ? "After a shutdown, the box can take more than 5 minutes to come back when it starts."
-              : "The box can take more than 5 minutes to come back."}
-          </p>
+          <p className="m-0 text-small text-muted">{comeBackNotice(target)}</p>
           <div className="flex items-center gap-3">
             <Label className="flex items-center gap-3">
               <Switch checked={forced} onCheckedChange={(checked) => setForced(checked === true)} />
