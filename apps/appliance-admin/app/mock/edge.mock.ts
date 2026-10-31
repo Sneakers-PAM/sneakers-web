@@ -169,7 +169,6 @@ let networkPending: { id: string; settings: NetdSettings; token: string; until: 
   null;
 /** How the last change that waited ended, as netd reports it after a revert or a confirm. */
 let lastNetworkChange: { atStart: boolean; id: string; reverted: boolean } | null = null;
-let networkChangeCount = 0;
 /** As netd: a change nobody confirmed is undone when its window ends. */
 const expireNetworkChange = () => {
   if (!networkPending || networkPending.until > Date.now()) return;
@@ -178,27 +177,45 @@ const expireNetworkChange = () => {
 };
 const networkSecondsLeft = () =>
   networkPending ? Math.max(0, Math.ceil((networkPending.until - Date.now()) / 1000)) : 0;
-/** Only these can't cut anyone off, so netd keeps a change of nothing else at once. */
-const KEPT_AT_ONCE: ("proxy" | "timezone" | keyof NetdSettings)[] = [
-  "dns",
-  "ntp",
-  "proxy",
-  "searchDomains",
-  "timezone",
-];
-const keptAtOnce = (before: NetdSettings, after: NetdSettings) => {
-  const rest = (settings: NetdSettings) =>
-    JSON.stringify(
-      Object.fromEntries(
-        Object.entries(settings)
-          .filter(([key]) => !(KEPT_AT_ONCE as string[]).includes(key))
-          .toSorted(([a], [b]) => a.localeCompare(b)),
-      ),
-    );
-  return rest(before) === rest(after);
+/** As netd: a stage lives in memory, one at a time, and a commit tests it first. */
+let networkStaged: { id: string; settings: NetdSettings } | null = null;
+let networkStageCount = 0;
+let gatewayDead = false;
+let commitDrops = false;
+let oldBase = false;
+
+const stagedReview = (before: NetdSettings, after: NetdSettings) => {
+  const moves = JSON.stringify(before.management) !== JSON.stringify(after.management);
+  const address = after.management?.ipv4?.address ?? after.management?.ipv6?.address;
+  const newAddress = moves && address ? (address.split("/", 1)[0] ?? "") : "";
+  return {
+    changesAllowList: before.allowList.join(",") !== after.allowList.join(","),
+    movesManagement: moves,
+    newAddress,
+    newCertificate: moves || before.hostname !== after.hostname,
+    newUrl: newAddress ? `https://${newAddress}:8443/` : "",
+  };
 };
 
-const NETWORK_REVERT_SECONDS = 120;
+const stageNetwork = (settings: NetdSettings) => {
+  networkStaged = { id: `staged-${String(++networkStageCount)}`, settings };
+  return networkStaged.id;
+};
+
+const checkStaged = ({ management }: NetdSettings) => {
+  const { ipv4, ipv6 } = management ?? {};
+  if (ipv4?.mode === "IPV4_MODE_STATIC" && !/^[\d.]+\/\d+$/.test(ipv4.address ?? ""))
+    throw new OsadminError(
+      "invalid_argument",
+      "NET_INVALID (3401): management.ipv4.address: use an address with its prefix, such as 192.0.2.10/24",
+    );
+  if (ipv6?.mode === "IPV6_MODE_STATIC" && !/^[\da-f:]+\/\d+$/i.test(ipv6.address ?? ""))
+    throw new OsadminError(
+      "invalid_argument",
+      "NET_INVALID (3401): management.ipv6.address: use an address with its prefix, such as 2001:db8::10/64",
+    );
+};
+
 const modules = structuredClone(world.MODULES);
 const recoveryKeys = structuredClone(world.RECOVERY_KEYS);
 const admins = structuredClone(world.ADMINS);
@@ -567,7 +584,7 @@ const STEP_UP_METHODS = new Set([
   "ImportService/RunImportStep",
   "ImportService/TakeOwnerPassword",
   "McpService/SetMcp",
-  "NetworkService/SetNetwork",
+  "NetworkService/CommitNetwork",
   "PowerService/ApproveFactoryReset",
   "PowerService/StartFactoryReset",
   "StatusService/CleanUpDisk",
@@ -1259,6 +1276,28 @@ const route = async (service: string, method: string, body: Record<string, unkno
     case "ModulesService/ListModules": {
       return { available: [...modules.available], platform: modules.platform };
     }
+    case "NetworkService/CommitNetwork": {
+      const stagedNow = networkStaged;
+      if (stagedNow?.id !== body.stagedId || !stagedNow)
+        throw new OsadminError(
+          "failed_precondition",
+          "NET_INVALID (3401): staged: the staged change isn't the one you reviewed; look at it again",
+        );
+      const next = stagedNow.settings;
+      const review = stagedReview(networkSettings, next);
+      const { address, gateway } = next.management?.ipv4 ?? {};
+      if (gatewayDead)
+        throw new OsadminError(
+          "failed_precondition",
+          `NET_GATEWAY (3404): the gateway ${gateway ?? ""} doesn't answer from ${address ?? ""}, so nothing was changed: no reply`,
+        );
+      const moved = review.movesManagement && gateway;
+      networkSettings = next;
+      networkStaged = null;
+      if (commitDrops)
+        throw new OsadminError("unavailable", "The appliance can't be reached at this address.");
+      return { review, ...(moved && { testedGateways: [gateway] }) };
+    }
     case "NetworkService/ConfirmNetwork": {
       expireNetworkChange();
       if (networkPending && networkPending.token === body.token) {
@@ -1266,6 +1305,11 @@ const route = async (service: string, method: string, body: Record<string, unkno
         lastNetworkChange = { atStart: false, id: networkPending.id, reverted: false };
         networkPending = null;
       }
+      return {};
+    }
+    case "NetworkService/DiscardStagedNetwork": {
+      if (oldBase) throw unimplemented("Not available in this release");
+      networkStaged = null;
       return {};
     }
     case "NetworkService/GetNetwork": {
@@ -1290,6 +1334,11 @@ const route = async (service: string, method: string, body: Record<string, unkno
         }),
         serviceAddresses: [],
         settings: networkPending?.settings ?? networkSettings,
+        ...(networkStaged && {
+          staged: networkStaged.settings,
+          stagedId: networkStaged.id,
+          stagedReview: stagedReview(networkSettings, networkStaged.settings),
+        }),
       };
     }
     case "NetworkService/RunChecks": {
@@ -1320,29 +1369,13 @@ const route = async (service: string, method: string, body: Record<string, unkno
         ],
       };
     }
-    case "NetworkService/SetNetwork": {
-      expireNetworkChange();
-      const token = Math.random().toString(36).slice(2);
-      const next = body.settings as NetdSettings;
-      if (!networkPending && keptAtOnce(networkSettings, next)) {
-        networkSettings = next;
-        return {};
-      }
-      const address = (s: NetdSettings) =>
-        s.addresses.find((a) => a.family === "ipv4" && a.mode === "static")?.address;
-      const moves = address(next) !== address(networkSettings);
-      networkPending = {
-        id: `net-${String(++networkChangeCount)}`,
-        settings: next,
-        token,
-        until: Date.now() + NETWORK_REVERT_SECONDS * 1000,
-      };
+    case "NetworkService/StageNetwork": {
+      if (oldBase) throw unimplemented("Not available in this release");
+      const settings = body.settings as NetdSettings;
+      checkStaged(settings);
       return {
-        movesManagement: moves,
-        newCertificate: moves || next.hostname !== networkSettings.hostname,
-        ...(moves && address(next) && { newUrl: `https://${address(next)!}:8443/` }),
-        revertAfterSeconds: NETWORK_REVERT_SECONDS,
-        token,
+        review: stagedReview(networkSettings, settings),
+        stagedId: stageNetwork(settings),
       };
     }
     case "PowerService/ApproveFactoryReset": {
@@ -2213,9 +2246,16 @@ const MOCK_SCENARIOS = [
   "manual",
   "email-absent",
   "mcp-absent",
+  "network-commit-drops",
+  "network-gateway-dead",
+  "network-old-base",
   "network-pending",
   "network-reverted",
   "network-reverted-at-start",
+  "network-staged",
+  "network-staged-allow-list",
+  "network-staged-dhcp",
+  "network-staged-moves",
   "no-previous",
   "no-product",
   "product-range",
@@ -2403,6 +2443,18 @@ export const applyMockScenario = (scenario: MockScenario): void => {
       mcpSwitch = false;
       break;
     }
+    case "network-commit-drops": {
+      commitDrops = true;
+      break;
+    }
+    case "network-gateway-dead": {
+      gatewayDead = true;
+      break;
+    }
+    case "network-old-base": {
+      oldBase = true;
+      break;
+    }
     case "network-pending": {
       networkPending = {
         id: "net-7",
@@ -2418,6 +2470,31 @@ export const applyMockScenario = (scenario: MockScenario): void => {
     }
     case "network-reverted-at-start": {
       lastNetworkChange = { atStart: true, id: "net-6", reverted: true };
+      break;
+    }
+    case "network-staged": {
+      stageNetwork({ ...networkSettings, hostname: "box.example.org" });
+      break;
+    }
+    case "network-staged-allow-list": {
+      stageNetwork({ ...networkSettings, allowList: ["198.51.100.0/24"] });
+      break;
+    }
+    case "network-staged-dhcp": {
+      stageNetwork({
+        ...networkSettings,
+        management: { ...networkSettings.management, ipv4: { mode: "IPV4_MODE_DHCP" } },
+      });
+      break;
+    }
+    case "network-staged-moves": {
+      stageNetwork({
+        ...networkSettings,
+        management: {
+          ...networkSettings.management,
+          ipv4: { address: "192.0.2.60/24", gateway: "192.0.2.1", mode: "IPV4_MODE_STATIC" },
+        },
+      });
       break;
     }
     case "no-previous": {
@@ -2605,7 +2682,11 @@ export const resetMockWorld = (): void => {
   refill(upgradeHistory, world.UPGRADE_HISTORY);
   networkPending = null;
   lastNetworkChange = null;
-  networkChangeCount = 0;
+  networkStaged = null;
+  networkStageCount = 0;
+  gatewayDead = false;
+  commitDrops = false;
+  oldBase = false;
   singleAdminAcknowledged = false;
   setupDone = true;
   secureBootOn = true;

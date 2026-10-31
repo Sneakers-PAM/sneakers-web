@@ -42,6 +42,13 @@ describe("parseOsadminError", () => {
   });
 });
 
+describe("a method the box doesn't have", () => {
+  it("reads a bare 404 as unimplemented, as Connect does", async () => {
+    const error = await parseOsadminError(new Response("404 page not found", { status: 404 }));
+    expect(isNotAvailable(error)).toBe(true);
+  });
+});
+
 describe("isNotAvailable", () => {
   it("is true only for an unimplemented Connect error", () => {
     expect(isNotAvailable(new OsadminError("unimplemented", "x"))).toBe(true);

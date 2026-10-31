@@ -1,5 +1,5 @@
-// The Network page tells the frame's pending-change banner to read the box again after an
-// Apply or a Confirm, so the banner never lags the page that changed it.
+// The Network page tells the frame's pending-change banner to read the box again after a
+// Commit or a Confirm, so the banner never lags the page that changed it.
 
 type Listener = () => void;
 

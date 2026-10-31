@@ -3,6 +3,7 @@
 import { edge } from "@sneakers-web/edge";
 
 import type {
+  CommitNetworkResponse,
   AccessPolicy,
   ActiveSession,
   Admin,
@@ -48,7 +49,7 @@ import type {
   RedeemCodeResponse,
   RunChecksResponse,
   Session,
-  SetNetworkResponse,
+  StageNetworkResponse,
   SetupStepKind,
   SignInResponse,
   TotpEnrolment,
@@ -269,12 +270,20 @@ export const rootShell = {
 };
 
 export const network = {
+  commit: (stagedId: string) =>
+    call<CommitNetworkResponse>(
+      "NetworkService",
+      "CommitNetwork",
+      { stagedId },
+      wire.commitNetwork,
+    ),
   confirm: (token: string) =>
     call<Record<string, never>>("NetworkService", "ConfirmNetwork", { token }),
+  discard: () => call<Record<string, never>>("NetworkService", "DiscardStagedNetwork", {}),
   get: () => call<GetNetworkResponse>("NetworkService", "GetNetwork", {}, wire.getNetwork),
   runChecks: () => call<RunChecksResponse>("NetworkService", "RunChecks", {}, wire.runChecks),
-  set: (settings: NetdSettings) =>
-    call<SetNetworkResponse>("NetworkService", "SetNetwork", { settings }, wire.setNetwork),
+  stage: (settings: NetdSettings) =>
+    call<StageNetworkResponse>("NetworkService", "StageNetwork", { settings }, wire.stageNetwork),
 };
 
 export const tls = {
