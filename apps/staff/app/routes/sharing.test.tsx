@@ -95,6 +95,23 @@ describe("the sharing page", () => {
     expect(screen.getByRole("checkbox", { name: "DB team: Approve" })).toBeChecked();
   });
 
+  it("finds a person for a folder's owners by name", async () => {
+    open(DATABASES);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Add owner" }));
+    await user.type(screen.getByPlaceholderText("Search people"), "gra");
+    await user.click(await screen.findByRole("option", { name: /Grace/ }));
+    expect(await screen.findByRole("button", { name: /Remove owner Grace/ })).toBeInTheDocument();
+  });
+
+  it("finds a person for a folder's owners by email", async () => {
+    open(DATABASES);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Add owner" }));
+    await user.type(screen.getByPlaceholderText("Search people"), "GRACE@EXAMPLE");
+    expect(await screen.findByRole("option", { name: /Grace/ })).toBeInTheDocument();
+  });
+
   it("simulates a person against the unsaved draft", async () => {
     open(DATABASES);
     const user = userEvent.setup();
