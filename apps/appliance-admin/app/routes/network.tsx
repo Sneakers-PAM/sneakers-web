@@ -130,8 +130,8 @@ const StagedNotice = ({
       )}
       {review.newCertificate && (
         <span>
-          The box makes a new certificate for the new name or address. If this page stops answering,
-          reload it and accept the new certificate.
+          The box&apos;s certificate may change once this is kept, for the new name or address. If
+          this page stops answering, reload it and accept the new certificate.
         </span>
       )}
       {review.changesAllowList && (

@@ -50,7 +50,7 @@ describe("Network", () => {
     await user.type(screen.getByLabelText("Hostname"), "box.example.org");
     await user.click(screen.getByRole("button", { name: "Stage change" }));
     expect(await screen.findByText("A network change is staged")).toBeInTheDocument();
-    expect(screen.getByText(/makes a new certificate/)).toBeInTheDocument();
+    expect(screen.getByText(/may change once this is kept/)).toBeInTheDocument();
     expect(screen.getByLabelText("Hostname")).toHaveValue("box.example.org");
     const staged = await network.get();
     expect(staged.settings?.hostname).toBe("appliance.example.org");

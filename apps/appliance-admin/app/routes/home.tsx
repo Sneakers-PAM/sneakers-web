@@ -183,6 +183,12 @@ export default function Home() {
                 Fingerprint: <LongValue value={data.tlsFingerprint} />
               </p>
               <p>{data.tlsSelfSigned ? "Self-signed" : "Not self-signed"}</p>
+              {data.tlsChange?.oldFingerprint && (
+                <p>
+                  Before {data.tlsChange.at ? shortDate(data.tlsChange.at) : "the last change"}:{" "}
+                  <LongValue value={data.tlsChange.oldFingerprint} />
+                </p>
+              )}
             </div>
           </Card>
         </>

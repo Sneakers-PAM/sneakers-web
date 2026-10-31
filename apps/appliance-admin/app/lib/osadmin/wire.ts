@@ -83,6 +83,7 @@ import type {
   UpgradeStep,
   ValidationCheck,
   Volume,
+  TlsChange,
   Warning,
   TrustedCa,
   UpdateTrust,
@@ -301,6 +302,14 @@ const networkChange = (w: Wire<NetworkChange>): NetworkChange => ({
   revertSecondsLeft: w.revertSecondsLeft ?? 0,
 });
 
+const tlsChange = (w: Wire<TlsChange>): TlsChange => ({
+  ...w,
+  newFingerprint: w.newFingerprint ?? "",
+  oldFingerprint: w.oldFingerprint ?? "",
+  reason: w.reason ?? "",
+  restored: w.restored ?? false,
+});
+
 export const getStatus = (w: Wire<GetStatusResponse>): GetStatusResponse => ({
   ...w,
   channel: w.channel ?? "",
@@ -323,6 +332,7 @@ export const getStatus = (w: Wire<GetStatusResponse>): GetStatusResponse => ({
   protectionReason: w.protectionReason ?? "",
   runningVersion: w.runningVersion ?? "",
   stagedVersion: w.stagedVersion ?? "",
+  tlsChange: optional(w.tlsChange, tlsChange),
   tlsFingerprint: w.tlsFingerprint ?? "",
   tlsSelfSigned: w.tlsSelfSigned ?? false,
   upgradeProgress: optional(w.upgradeProgress, upgradeProgress),

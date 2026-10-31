@@ -141,6 +141,7 @@ export type WarningKind =
   | "WARNING_KIND_NTP_UNSYNCED"
   | "WARNING_KIND_REDUCED_PROTECTION"
   | "WARNING_KIND_SELF_SIGNED_TLS"
+  | "WARNING_KIND_TLS_CHANGED"
   | "WARNING_KIND_TLS_EXPIRED"
   | "WARNING_KIND_TLS_EXPIRING"
   | "WARNING_KIND_TLS_NAMES"
@@ -151,6 +152,17 @@ export interface Warning {
   critical?: boolean;
   detail: string;
   kind: WarningKind;
+}
+
+/** A change to the box's own self-signed certificate, which Status carries for 7 days. */
+export interface TlsChange {
+  at?: string;
+  newFingerprint: string;
+  oldFingerprint: string;
+  /** addresses, hostname or expiring. */
+  reason: string;
+  /** True when newFingerprint is the certificate the box had before, put back. */
+  restored: boolean;
 }
 
 /** Who hid the reduced-protection notice for every admin, and when. */
@@ -303,6 +315,9 @@ export interface GetStatusResponse {
   revertedVersion?: string;
   runningVersion: string;
   stagedVersion: string;
+  /** The box's last change to its own certificate, while it's recent; left out by a box from
+   * before the certificate followed the address, and when there's been none lately. */
+  tlsChange?: TlsChange;
   tlsExpires?: string;
   tlsFingerprint: string;
   tlsSelfSigned: boolean;

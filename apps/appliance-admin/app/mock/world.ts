@@ -347,6 +347,18 @@ export const diskWarnings = (state: "critical" | "stuck" | "warning"): Warning[]
   return out;
 };
 
+/** The box's last change to its own certificate, as the tls-changed scenario reports it. */
+export const TLS_CHANGE = {
+  at: "2026-10-28T12:15:00Z",
+  newFingerprint: "SHA256:dK1X8qf9w2v6z4m7h5s1rQwQEuY7zL5mZ8w5z6c1h9",
+  oldFingerprint: "SHA256:pQ4n2Vb7Xc1Ty9Lk3Ms8Hd6Rf5Wg0Zj2Ae7Uo4Ni1",
+  reason: "addresses",
+  restored: false,
+};
+
+export const TLS_CHANGE_DETAIL =
+  "The box replaced its own certificate at 2026-10-28 12:15 UTC because its addresses changed. Browsers that trusted the old one ask again; check the new fingerprint against the console.";
+
 export const status: () => GetStatusResponse = () => ({
   channel: "stable",
   custodyMode: "tpm",
