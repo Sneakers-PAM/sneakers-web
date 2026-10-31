@@ -581,7 +581,9 @@ switch.
 
 Browse (U-03): the folder tree (`features/browse/FolderNav`, personal pinned, shared as a
 parent/child tree) lives in the frame's left main nav (`frame/FolderSidebar`), not the page, so
-it's there on every route. The frame loader (`routes/frame.tsx`) fetches the folder list; since
+it's there on every route. The number beside a folder is what opening it lists: `ownSecretCount`
+takes the subfolders out of the vault's caller-scoped subtree count. The frame loader
+(`routes/frame.tsx`) fetches the folder list; since
 `routeStub.tsx`'s `renderRoute` doesn't draw the frame's chrome, a page test never sees the tree —
 cover it against `StaffFrame` directly (`apps/staff/app/frame/StaffFrame.test.tsx`). Off `/browse`,
 a tree mutation posts explicitly to `/browse` (there's no route in context to default to); on it,

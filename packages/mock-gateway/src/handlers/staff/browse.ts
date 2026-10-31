@@ -100,7 +100,7 @@ const toFolder = (userId: string, f: MockFolder): BrowseFolderFieldsFragment => 
     role: f.role ?? null,
     scope: f.scope,
     subtreeSecretCount: canRead(userId, f)
-      ? mockState.world.secrets.filter((s) => ids.has(s.folderId)).length
+      ? mockState.world.secrets.filter((s) => ids.has(s.folderId) && live(s)).length
       : null,
   };
 };

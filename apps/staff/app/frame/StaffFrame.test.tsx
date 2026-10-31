@@ -152,6 +152,59 @@ const folderMenu = async (name: string, item: string) => {
   return user;
 };
 
+const navCount = (name: string) =>
+  within(within(nav()).getByRole("link", { name: new RegExp(name) })).getByText(/^\d+$/)
+    .textContent;
+// Read before the drawer opens: it hides the page from the accessibility tree.
+const rowsShown = () => Math.max(screen.queryAllByRole("row").length - 1, 0);
+
+describe("the count beside a folder in the sidebar", () => {
+  it.each([
+    ["nothing of its own", "mock-folder-alice", "My secrets", "0"],
+    ["one secret", "mock-folder-alice-lab", "Lab", "1"],
+    ["secrets and subfolders of secrets", "mock-folder-platform", "Platform", null],
+  ])("matches a folder with %s", async (_, id, name, expected) => {
+    open(`/browse/${id}`);
+    await screen.findByRole("heading", { name });
+    const rows = rowsShown();
+    await openDrawer();
+    const count = navCount(name);
+    if (expected !== null) expect(count).toBe(expected);
+    expect(count).toBe(String(rows));
+  });
+
+  it("follows a secret when it moves to another folder", async () => {
+    const user = userEvent.setup();
+    open("/browse/mock-folder-databases");
+    await screen.findByRole("heading", { name: "Databases" });
+    await openDrawer();
+    const before = { from: Number(navCount("Databases")), to: Number(navCount("Network")) };
+    await user.keyboard("{Escape}");
+    await user.click(await screen.findByRole("checkbox", { name: "Select DB admin" }));
+    await user.click(screen.getByRole("button", { name: "Move…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Move 1 secret" });
+    await user.click(within(dialog).getByRole("radio", { name: "Platform / Network" }));
+    await user.click(within(dialog).getByRole("button", { name: "Move here" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("link", { name: "DB admin" })).not.toBeInTheDocument(),
+    );
+    await openDrawer();
+    expect(navCount("Databases")).toBe(String(before.from - 1));
+    expect(navCount("Network")).toBe(String(before.to + 1));
+  });
+
+  it("leaves out a retired secret, as the folder does", async () => {
+    const secret = mockState.world.secrets.find((s) => s.id === "mock-secret-db-admin")!;
+    secret.retired = true;
+    open("/browse/mock-folder-databases");
+    await screen.findByRole("heading", { name: "Databases" });
+    expect(screen.queryByRole("link", { name: "DB admin" })).not.toBeInTheDocument();
+    const rows = rowsShown();
+    await openDrawer();
+    expect(navCount("Databases")).toBe(String(rows));
+  });
+});
+
 describe("the folder tree in the frame sidebar", () => {
   it("is there from a page that isn't browse, personal pinned and shared as a tree", async () => {
     open("/");
