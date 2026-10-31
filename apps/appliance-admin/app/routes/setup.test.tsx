@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createRoutesStub } from "react-router";
 
+import { SetupComplete } from "@/features/setup/SetupComplete";
 import { setup } from "@/lib/osadmin/client";
 import { OsadminError } from "@/lib/osadmin/errors";
 import { csrfToken, getSession } from "@/lib/osadmin/sessionStore";
@@ -230,6 +231,33 @@ describe("Setup", () => {
     expect(await screen.findByText("Step 4 of 6: Network (optional)")).toBeInTheDocument();
   });
 
+  it("says a recovery key is not a login key, in the intro and the save alert", async () => {
+    applyMockScenario("setup-keys");
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:recovery-key");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    const user = userEvent.setup();
+    open();
+    expect(await screen.findByText(/It isn't a login key/)).toHaveTextContent(
+      "SSH and PuTTY won't accept it",
+    );
+    await user.click(screen.getByRole("button", { name: "Generate a key pair" }));
+    const saved = await screen.findByText(/Your browser downloaded/);
+    expect(saved).toHaveTextContent("a recovery key, not a login key");
+    expect(saved).toHaveTextContent("SSH and PuTTY won't accept it");
+  });
+
+  it("points to the Access page for a login key with a .ppk on the finish step", async () => {
+    applyMockScenario("setup-finish");
+    open();
+    const pointer = await screen.findByText(/you need a login key/);
+    expect(pointer).toHaveTextContent(".ppk for PuTTY");
+    expect(within(pointer).getByRole("link", { name: "Access page" })).toHaveAttribute(
+      "href",
+      "/access",
+    );
+  });
+
   it("resumes where setup is after a reload, and shows the network the box got", async () => {
     applyMockScenario("setup-network");
     const user = userEvent.setup();
@@ -277,6 +305,12 @@ describe("Setup", () => {
     expect(screen.getByRole("link", { name: "Go to Updates" })).toHaveAttribute("href", "/updates");
     expect(screen.getByRole("link", { name: "Go to Status" })).toHaveAttribute("href", "/home");
   }, 30_000);
+
+  it("offers the Access page once setup is complete, when it can open", () => {
+    render(<SetupComplete />);
+    expect(screen.getByText(/you need a login key/)).toHaveTextContent(".ppk for PuTTY");
+    expect(screen.getByRole("link", { name: "Go to Access" })).toHaveAttribute("href", "/access");
+  });
 
   it("waits out the restart even when the box goes down before Finish answers", async () => {
     applyMockScenario("setup-finish");

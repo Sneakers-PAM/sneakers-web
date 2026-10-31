@@ -17,12 +17,19 @@ export const SetupComplete = () => (
       Sneakers-PAM isn&apos;t installed yet. Install the product on the Updates page: pick a
       version, or upload the bundle on an air-gapped box. It starts once it&apos;s installed.
     </p>
+    <p className="m-0 text-body">
+      To sign in over SSH you need a login key, because a recovery key won&apos;t work. Get one on
+      the Access page, with a .ppk for PuTTY.
+    </p>
     <div className="flex flex-wrap gap-3">
       <Button asChild>
         <a href="/updates">Go to Updates</a>
       </Button>
       <Button asChild variant="secondary">
         <a href="/home">Go to Status</a>
+      </Button>
+      <Button asChild variant="secondary">
+        <a href="/access">Go to Access</a>
       </Button>
     </div>
   </>
