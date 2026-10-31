@@ -107,10 +107,13 @@ export const folderDestinations = (folders: NavFolder[], source: NavFolder): Des
     .map((f) => ({ folder: f, label: folderLabel(folders, f), self: f.id === source.id }));
 };
 
-/** Where secrets can move from `from`: any other folder the user manages. */
+/** A personal root holds folders, never a secret; the vault refuses one there. */
+export const holdsSecrets = (f: Pick<NavFolder, "isMasterPersonal">) => !f.isMasterPersonal;
+
+/** Where secrets can move from `from`: any other folder the user manages that can hold them. */
 export const secretDestinations = (folders: NavFolder[], from: NavFolder): Destination[] =>
   treeOrder(folders)
-    .filter((f) => f.canManage)
+    .filter((f) => f.canManage && holdsSecrets(f))
     .map((f) => ({ folder: f, label: folderLabel(folders, f), self: f.id === from.id }));
 
 /** Where a new folder can be created: any folder the user manages. Nothing is "self" yet. */
@@ -119,11 +122,14 @@ export const creatableFolders = (folders: NavFolder[]): Destination[] =>
     .filter((f) => f.canManage)
     .map((f) => ({ folder: f, label: folderLabel(folders, f), self: false }));
 
-/** Where a deleted folder's contents can go: same realm, outside the folder, managed. */
+/** Where a deleted folder's secrets can go: same realm, outside the folder, managed. */
 export const reassignTargets = (folders: NavFolder[], folder: NavFolder): Destination[] => {
   const below = subtreeIds(folders, folder.id);
   return treeOrder(folders)
-    .filter((f) => f.canManage && !below.has(f.id) && isPersonal(f) === isPersonal(folder))
+    .filter(
+      (f) =>
+        f.canManage && holdsSecrets(f) && !below.has(f.id) && isPersonal(f) === isPersonal(folder),
+    )
     .map((f) => ({ folder: f, label: folderLabel(folders, f), self: false }));
 };
 

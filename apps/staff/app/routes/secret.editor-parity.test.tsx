@@ -59,7 +59,7 @@ describe("moving a secret from the edit form", () => {
     const user = userEvent.setup();
     renderRoute("/secret/mock-secret-payroll/edit", routes, { user: "mock-user-bob" });
     await screen.findByRole("heading", { level: 1, name: "Edit Payroll portal" });
-    await pickFolder(user, /My secrets/);
+    await pickFolder(user, /My secrets \/ Keys/);
     await user.click(screen.getByRole("button", { name: "Save changes" }));
     const dialog = await screen.findByRole("dialog", {
       name: "Request a move to a personal folder",
@@ -76,7 +76,7 @@ describe("moving a secret from the edit form", () => {
     ).toBeInTheDocument();
     expect(secret("mock-secret-payroll")?.folderId).toBe("mock-folder-finance");
     expect(mockState.world.requests.at(-1)).toMatchObject({
-      destParentId: "mock-folder-bob",
+      destParentId: "mock-folder-bob-keys",
       kind: "secret_move",
       reason: "Only I use this login now.",
       secretId: "mock-secret-payroll",

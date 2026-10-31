@@ -61,6 +61,7 @@ query EditorsPickers {
     name
     parentId
     scope
+    isMasterPersonal
     canManage
   }
   targets {

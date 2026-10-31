@@ -26,6 +26,7 @@ import type { Policy } from "@/features/editors/policy";
 import {
   findFolder,
   folderLabel,
+  holdsSecrets,
   type MoveKind,
   moveKind,
   type NavFolder,
@@ -108,7 +109,7 @@ const pickers = async (gw: GatewayClient) => {
   return {
     all: d,
     manageable: d.folders
-      .filter((f) => f.canManage)
+      .filter((f) => f.canManage && holdsSecrets(f))
       .map((f) => ({ id: f.id, path: pathOf(f.id) }))
       .toSorted((a, b) => a.path.localeCompare(b.path)),
     pathOf,

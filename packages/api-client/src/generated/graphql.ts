@@ -1890,6 +1890,7 @@ export type EditorsPickersQuery = {
     name: string;
     parentId: string | null;
     scope: FolderScope;
+    isMasterPersonal: boolean | null;
     canManage: boolean;
   }>;
   targets: Array<{ id: string; name: string; hostname: string; ownerUserId: string | null }>;
@@ -5261,6 +5262,7 @@ export const EditorsPickersDocument = new TypedDocumentString(`
     name
     parentId
     scope
+    isMasterPersonal
     canManage
   }
   targets {

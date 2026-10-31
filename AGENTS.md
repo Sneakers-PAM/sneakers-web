@@ -565,7 +565,9 @@ a tree mutation posts explicitly to `/browse` (there's no route in context to de
 to the open folder's own path, so a delete of the folder you're viewing still gets its redirect.
 Moves follow the vault's gate (`moveKind` in `features/browse/tree.ts`): a personal folder going
 shared is confirmed first, and shared into someone's personal folder is a folder_move or
-secret_move request unless the user is a site admin. The mock's canManage comes from the owners of
+secret_move request unless the user is a site admin. A personal root (`isMasterPersonal`) holds
+folders, never a secret: every picker for a secret's location leaves it out (`holdsSecrets` in
+`tree.ts`), and folder pickers keep it. The vault's refusal stays. The mock's canManage comes from the owners of
 the folder or any folder above it, and read access from ownership, the folder's group or its role.
 
 Anyone signed in can create a shared top-level folder and owns it, unless the admin console's
