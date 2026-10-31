@@ -15,7 +15,8 @@ export const refusalMessage = (
   const account = who || "This account";
   if (refusal?.retryAfter)
     return `Too many tries from this address. Try again at ${clockTime(refusal.retryAfter)}.`;
-  if (refusal?.lockedUntilUnlocked) return `${account} is locked until an owner unlocks it.`;
+  if (refusal?.lockedUntilUnlocked)
+    return `${account} is locked. Another owner can unlock it, or use Recover access on the console.`;
   if (refusal?.lockedUntil) return `${account} is locked until ${clockTime(refusal.lockedUntil)}.`;
   const opening =
     what === "sign-in"

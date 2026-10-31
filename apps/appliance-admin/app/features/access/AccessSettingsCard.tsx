@@ -58,12 +58,13 @@ export const AccessSettingsCard = ({
             onChange={setLockoutMode}
             options={[
               { label: "For 15 minutes", value: "LOCKOUT_MODE_TIMED" },
-              { label: "Until an owner unlocks it", value: "LOCKOUT_MODE_UNTIL_UNLOCKED" },
+              { label: "Until it's unlocked", value: "LOCKOUT_MODE_UNTIL_UNLOCKED" },
             ]}
             value={lockoutMode}
           />
           <span className="text-small text-muted">
-            The same rule covers SSH, this page, step-ups and the one-time codes.
+            The same rule covers SSH, this page, step-ups and the one-time codes. An owner unlocks
+            an account on this page. If no other owner can, use Recover access on the console.
           </span>
         </div>
         <div className="grid grid-cols-1 gap-4 tablet:grid-cols-3">

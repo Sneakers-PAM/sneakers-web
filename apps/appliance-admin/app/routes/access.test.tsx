@@ -546,7 +546,8 @@ describe("Access", () => {
     expect(settings.getByLabelText("Root-shell code lifetime (minutes)")).toHaveValue("10");
     expect(settings.getByLabelText("Root-shell session limit (minutes)")).toHaveValue("10");
     expect(settings.getByLabelText("SSH key validity (days)")).toHaveValue("365");
-    await user.click(settings.getByRole("radio", { name: "Until an owner unlocks it" }));
+    expect(settings.getByText(/if no other owner can, use Recover access/i)).toBeInTheDocument();
+    await user.click(settings.getByRole("radio", { name: "Until it's unlocked" }));
     const minutes = settings.getByLabelText("Root-shell code lifetime (minutes)");
     await user.clear(minutes);
     await user.type(minutes, "5");
