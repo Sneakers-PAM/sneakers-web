@@ -95,7 +95,7 @@ const FolderPane = ({
               </Button>
               {access.manage && (
                 <Button asChild>
-                  <Link to={`/secret/new?folderId=${folder.id}`}>
+                  <Link to={`/secret/new?folder=${folder.id}`}>
                     <Plus aria-hidden />
                     New secret
                   </Link>
