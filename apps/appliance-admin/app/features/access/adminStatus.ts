@@ -11,7 +11,7 @@ export interface AdminStatus {
 /** An admin's sign-in state in a few words: an open invitation, a lockout, or active. */
 export const adminStatus = (admin: Admin, now = Date.now()): AdminStatus => {
   if (admin.lockedUntilUnlocked)
-    return { label: "Locked until an owner unlocks", locked: true, tone: "warn" };
+    return { label: "Locked until unlocked", locked: true, tone: "warn" };
   if (admin.lockedUntil && Date.parse(admin.lockedUntil) > now)
     return { label: `Locked until ${clockTime(admin.lockedUntil)}`, locked: true, tone: "warn" };
   if (admin.credentialsSet === false) {

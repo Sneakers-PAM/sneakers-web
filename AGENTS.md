@@ -131,7 +131,8 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   detail; `refusalOf` (`app/lib/osadmin/errors.ts`) reads it from the detail's JSON `debug`
   form or, failing that, decodes its binary value, and `refusalMessage`
   (`app/lib/osadmin/refusal.ts`) turns it into one sentence: the tries left, the lockout's
-  end ("until an owner unlocks it" in that lockout mode) or this address's wait. The page
+  end (in the until-unlocked mode, that another owner can unlock it or Recover access on the
+  console gets back in, since a single-owner box has no other owner) or this address's wait. The page
   links to `/setup` for a setup or invitation code.
 - **Setup (`app/routes/setup.tsx`, steps in `app/features/setup/`).** Six steps with a progress
   line: 1 the console's setup code (16 characters from `23456789ABCDEFHJKMNPRSTVWXYZ`,
@@ -310,8 +311,8 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   `elevationOverride` on the same Apply or Revert; the box ends the session, audited, before the update goes ahead. A refusal of
   the override stays in the dialog.
 - **Access (`app/routes/access.tsx`, parts in `app/features/access/`).** The admins, each with
-  the role, a root-operator badge, the sign-in state (active, locked until when or until an
-  owner unlocks, an open invitation) and the issued SSH keys. Owners unlock (`UnlockAdmin`),
+  the role, a root-operator badge, the sign-in state (active, locked until when or until
+  unlocked, an open invitation) and the issued SSH keys. Owners unlock (`UnlockAdmin`),
   re-invite (`ReinviteAdmin`: the password and authenticator are cleared and a new code is
   shown) and remove admins. Remove admin shows, disabled with the reason next to it
   (`app/features/access/removeBlocked.ts`), on your own row ("You can't remove your own account.

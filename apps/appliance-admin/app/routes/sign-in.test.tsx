@@ -73,12 +73,16 @@ describe("SignIn", () => {
     expect(await screen.findByText(/bob is locked until \d{1,2}:\d{2}/)).toBeInTheDocument();
   });
 
-  it("says when only an owner can unlock the account", async () => {
+  it("says how to get back into a locked account", async () => {
     applyMockScenario("locked-until-unlocked");
     const user = userEvent.setup();
     renderPage(SignIn);
     await fill(user, "bob", MOCK_PASSWORD, "123456");
-    expect(await screen.findByText(/locked until an owner unlocks it/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        /bob is locked\. Another owner can unlock it, or use Recover access on the console\./,
+      ),
+    ).toBeInTheDocument();
   });
 
   it("says when this address has to wait", async () => {
