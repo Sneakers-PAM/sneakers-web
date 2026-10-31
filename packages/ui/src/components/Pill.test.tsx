@@ -22,6 +22,7 @@ describe("status pills", () => {
     ["verified", "Verified"],
     ["drift", "Drift"],
     ["unreachable", "Unreachable"],
+    ["untrusted", "Untrusted certificate"],
     ["unknown", "Unknown"],
     ["none", "No target"],
   ] as const)("heartbeat %s reads as words, not colour alone", (status, label) => {

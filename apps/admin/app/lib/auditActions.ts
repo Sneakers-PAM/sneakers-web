@@ -43,6 +43,7 @@ const LABELS: Record<string, string> = {
   "secret.create": "Secret created",
   "secret.delete": "Secret deleted",
   "secret.heartbeat.drift": "Heartbeat drift",
+  "secret.heartbeat.tls_certificate": "Heartbeat: untrusted certificate",
   "secret.heartbeat.unreachable": "Heartbeat unreachable",
   "secret.move": "Secret moved",
   "secret.read": "Secret viewed",
@@ -96,6 +97,6 @@ export const actionLabel = (action: string): string => {
 /** How loudly a row reads: danger for break-glass, failures and refusals; warn for drift. */
 export const actionTone = (action: string): "danger" | "plain" | "warn" => {
   if (/break_glass|failed|denied|refused/.test(action)) return "danger";
-  if (/drift|unreachable|degraded/.test(action)) return "warn";
+  if (/drift|unreachable|degraded|tls_certificate/.test(action)) return "warn";
   return "plain";
 };

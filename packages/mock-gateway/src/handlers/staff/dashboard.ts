@@ -33,7 +33,7 @@ const matches = (s: MockSecret, status: Status, now: number): boolean => {
   if (status === "expired") return expires < now;
   if (status === "expiring") return expires >= now && expires <= now + EXPIRING_WINDOW_MS;
   if (status === "drift")
-    return s.lastHeartbeatResult === "failed" || s.lastHeartbeatResult === "unreachable";
+    return ["failed", "unreachable", "untrustedCertificate"].includes(s.lastHeartbeatResult ?? "");
   return true;
 };
 
