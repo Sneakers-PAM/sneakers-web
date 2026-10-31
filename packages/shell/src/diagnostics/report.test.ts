@@ -1,4 +1,4 @@
-import { buildReport, type DiagnosticsData } from "#shell/diagnostics/report";
+import { buildReport, type DiagnosticsData, productText } from "#shell/diagnostics/report";
 
 const component = (name: string, version: null | string, status = "OK") =>
   ({
@@ -74,7 +74,7 @@ describe("buildReport", () => {
     expect(json.box).toEqual({ baseOS: "0.1.0-m", baseWeb: "0.1.0-m2", fqdn: "box1.example.org" });
     expect(json.appliance).toBe("0.1.0-m");
     const lines = text.split("\n");
-    expect(lines[1]).toBe("Product: Sneakers 0.1.0");
+    expect(lines[1]).toBe("Product: Sneakers v0.1.0");
     expect(lines.filter((l) => l.startsWith("Product:"))).toHaveLength(1);
     expect(text).toContain("Appliance: Base OS 0.1.0-m, Base Web 0.1.0-m2, box1.example.org");
     expect(text).toContain("  connector: 0.1.0 (abc1234)");
@@ -101,6 +101,13 @@ describe("buildReport", () => {
     expect(text).toContain("  vault: 0.1.0 (be456ff)");
     expect(json.app.commit).toBe("be456ff");
     expect(text).not.toContain(full);
+  });
+
+  it("writes the product line with one v, whether or not the version has one", () => {
+    expect(productText("0.1.0-rc.5")).toBe("Sneakers v0.1.0-rc.5");
+    expect(productText("v0.1.0-rc.5")).toBe("Sneakers v0.1.0-rc.5");
+    expect(productText(null)).toBe("Sneakers (version unknown)");
+    expect(productText("")).toBe("Sneakers (version unknown)");
   });
 
   it("says so when the product version or the box isn't known", () => {
