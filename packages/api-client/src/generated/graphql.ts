@@ -12,6 +12,7 @@ export type ComponentStatus = "NOT_CONFIGURED" | "OK" | "UNAVAILABLE";
 export type ConnectionInput = {
   description?: string | null | undefined;
   id?: string | null | undefined;
+  kdcPort?: number | null | undefined;
   name: string;
   port?: number | null | undefined;
   protocol: string;
@@ -783,6 +784,7 @@ export type ConnectionFieldsFragment = {
   protocol: string;
   port: number | null;
   useTls: boolean | null;
+  kdcPort: number | null;
   description: string | null;
   targetCount: number;
 };
@@ -810,6 +812,7 @@ export type AdminConnectionsQuery = {
     protocol: string;
     port: number | null;
     useTls: boolean | null;
+    kdcPort: number | null;
     description: string | null;
     targetCount: number;
   }>;
@@ -827,6 +830,7 @@ export type AdminSaveConnectionMutation = {
     protocol: string;
     port: number | null;
     useTls: boolean | null;
+    kdcPort: number | null;
     description: string | null;
     targetCount: number;
   };
@@ -3265,6 +3269,7 @@ export const ConnectionFieldsFragmentDoc = new TypedDocumentString(
   protocol
   port
   useTls
+  kdcPort
   description
   targetCount
 }
@@ -4270,6 +4275,7 @@ export const AdminConnectionsDocument = new TypedDocumentString(`
   protocol
   port
   useTls
+  kdcPort
   description
   targetCount
 }`) as unknown as TypedDocumentString<AdminConnectionsQuery, AdminConnectionsQueryVariables>;
@@ -4285,6 +4291,7 @@ export const AdminSaveConnectionDocument = new TypedDocumentString(`
   protocol
   port
   useTls
+  kdcPort
   description
   targetCount
 }`) as unknown as TypedDocumentString<

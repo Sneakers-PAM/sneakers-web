@@ -24,6 +24,7 @@ const world = () => mockState.world;
 const connectionView = (c: MockConnection) => ({
   description: c.description ?? null,
   id: c.id,
+  kdcPort: c.kdcPort ?? null,
   name: c.name,
   port: c.port ?? null,
   protocol: c.protocol,
@@ -88,6 +89,7 @@ export const targetHandlers = [
       const saved: MockConnection = {
         description: blank(input.description),
         id: existing?.id ?? newToken("mock-conn"),
+        kdcPort: input.kdcPort ?? undefined,
         name,
         port: input.port ?? undefined,
         protocol: input.protocol.trim(),

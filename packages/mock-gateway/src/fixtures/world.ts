@@ -19,6 +19,7 @@ export interface MockComment {
 export interface MockConnection {
   description?: string;
   id: string;
+  kdcPort?: number;
   name: string;
   port?: number;
   protocol: string;

@@ -45,10 +45,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       return `Deleted ${text(form, "name")}.`;
     }
     const port = text(form, "port");
+    const kdcPort = text(form, "kdcPort");
     const r = await gw.gql(AdminSaveConnectionDocument, {
       input: {
         description: text(form, "description") || null,
         id: text(form, "id") || null,
+        kdcPort: kdcPort ? Number(kdcPort) : null,
         name: text(form, "name"),
         port: port ? Number(port) : null,
         protocol: text(form, "protocol"),
@@ -65,6 +67,7 @@ type Connection = Awaited<ReturnType<typeof loader>>["connections"][number];
 
 interface Draft {
   description: string;
+  kdcPort: string;
   name: string;
   port: string;
   protocol: string;
@@ -73,11 +76,18 @@ interface Draft {
 
 const draftOf = (c?: Connection): Draft => ({
   description: c?.description ?? "",
+  kdcPort: c?.kdcPort ? String(c.kdcPort) : "",
   name: c?.name ?? "",
   port: c?.port ? String(c.port) : "22",
   protocol: c?.protocol ?? "ssh",
   useTls: !!c?.useTls,
 });
+
+/** A directory's rotated passwords are validated over Kerberos, on the KDC's own port. */
+const usesKdc = (protocol: string) => protocol === "ldap" || protocol === "ldaps";
+
+const portRange = (port: string) =>
+  port && (Number(port) < 1 || Number(port) > 65_535) ? "1 to 65535." : undefined;
 
 const usageText = (usedBy: string[]): string =>
   usedBy.length > 0 ? `Used by ${plural(usedBy.length, "target")}` : "Not used by any target";
@@ -102,8 +112,8 @@ const ConnectionCard = ({
   const id = connection?.id ?? "new";
   const label = connection?.name ?? "the new connection";
   const problem = d.name.trim() ? undefined : "Give it a name.";
-  const portProblem =
-    d.port && (Number(d.port) < 1 || Number(d.port) > 65_535) ? "1 to 65535." : undefined;
+  const portProblem = portRange(d.port);
+  const kdcProblem = usesKdc(d.protocol) ? portRange(d.kdcPort) : undefined;
   const refusal = fetcher.data && !fetcher.data.ok ? fetcher.data.refusal : undefined;
   const savedNew = !connection && fetcher.data?.ok && fetcher.data.intent === "save";
   useEffect(() => {
@@ -151,6 +161,18 @@ const ConnectionCard = ({
             value={d.port}
           />
         </Field>
+        {usesKdc(d.protocol) && (
+          <Field className="min-w-24 flex-1" error={kdcProblem} label="KDC port">
+            <Input
+              mono
+              name="kdcPort"
+              onChange={(event) => set({ kdcPort: event.target.value })}
+              placeholder="88"
+              type="number"
+              value={d.kdcPort}
+            />
+          </Field>
+        )}
         <div className="flex flex-col gap-2">
           <span className="text-[0.875rem] font-bold" id={`c-${id}-tls`}>
             TLS
@@ -187,7 +209,7 @@ const ConnectionCard = ({
             {dirty && (
               <Button
                 aria-label={`Save ${label}`}
-                disabled={!!problem || !!portProblem}
+                disabled={!!problem || !!portProblem || !!kdcProblem}
                 loading={fetcher.state !== "idle" && fetcher.formData?.get("intent") === "save"}
                 loadingLabel="Saving…"
                 size="sm"

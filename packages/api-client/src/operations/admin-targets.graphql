@@ -4,6 +4,7 @@ fragment ConnectionFields on Connection {
   protocol
   port
   useTls
+  kdcPort
   description
   targetCount
 }
