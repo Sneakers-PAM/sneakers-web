@@ -181,9 +181,9 @@ const cleanProblem = (p: Problem | undefined): null | Problem => {
   return Object.keys(out).length > 0 ? out : null;
 };
 
-/** The product line: "Sneakers <version>", once, at the top. */
+/** The product line: "Sneakers v<version>", once, at the top. The version may carry its v. */
 export const productText = (version: null | string | undefined): string =>
-  version ? `Sneakers ${version}` : "Sneakers (version unknown)";
+  version ? `Sneakers v${version.replace(/^v/, "")}` : "Sneakers (version unknown)";
 
 const lower = (s: string): string => s.toLowerCase().replaceAll("_", " ");
 
