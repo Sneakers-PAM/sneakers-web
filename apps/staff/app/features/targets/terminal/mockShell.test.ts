@@ -29,12 +29,26 @@ const run = async (pinned = true) => {
   );
   await Promise.resolve();
   return {
+    clear: () => {
+      out = "";
+    },
     closed,
     opened: () => opened,
     output: () => plain(out),
+    raw: () => out,
     session,
     type: (s: string) => session.send(s),
   };
+};
+
+const up = (rows: number) => `\u001B[${rows}A`;
+// The prompt is 17 cells, so a third letter fills the first row of 20.
+const narrow = async (typed: string) => {
+  const shell = await run();
+  shell.session.resize(20, 24);
+  shell.type(typed);
+  shell.clear();
+  return shell;
 };
 
 describe("the mock SSH session", () => {
@@ -59,6 +73,44 @@ describe("the mock SSH session", () => {
     expect(shell.output()).toContain("rm: command not found in the mock shell");
     shell.type("sleep 100\u0003");
     expect(shell.output()).toContain("sleep 100^C");
+  });
+
+  describe("a line that wraps", () => {
+    const DEL = "\u007F";
+    const PROMPT = "deploy@build1:~$ ";
+
+    it("rubs out one cell in the middle of a row", async () => {
+      const shell = await narrow("ab");
+      shell.type(DEL);
+      expect(shell.raw()).toBe("\b \b");
+    });
+
+    it("redraws from a full row, where the cursor can't step back", async () => {
+      const shell = await narrow("abc");
+      shell.type(DEL);
+      expect(shell.output()).toBe(`\r${PROMPT}ab`);
+      expect(shell.raw()).not.toContain(up(1));
+    });
+
+    it("goes back up a row when a delete crosses the wrap", async () => {
+      const shell = await narrow("abcd");
+      shell.type(DEL);
+      expect(shell.output()).toBe(`\r${PROMPT}abc`);
+      expect(shell.raw()).toContain(up(1));
+    });
+
+    it("climbs every row of a longer line", async () => {
+      const shell = await narrow("a".repeat(24));
+      shell.type(DEL);
+      expect(shell.output()).toBe(`\r${PROMPT}${"a".repeat(23)}`);
+      expect(shell.raw()).toContain(up(2));
+    });
+
+    it("runs the line it shows after editing across the wrap", async () => {
+      const shell = await narrow("whoamixxxx");
+      shell.type(`${DEL.repeat(4)}\r`);
+      expect(shell.output()).toContain("deploy\r\n");
+    });
   });
 
   it("ends the session on exit", async () => {
