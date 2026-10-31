@@ -5,6 +5,7 @@ import {
   Card,
   CardHeader,
   Checkbox,
+  CopyIconButton,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -46,7 +47,6 @@ import type {
   RevokedKey,
 } from "@/lib/osadmin/types";
 
-import { CopyIconButton } from "@/components/CopyIconButton";
 import { AccessSettingsCard } from "@/features/access/AccessSettingsCard";
 import { AccountCard } from "@/features/access/AccountCard";
 import { adminStatus } from "@/features/access/adminStatus";

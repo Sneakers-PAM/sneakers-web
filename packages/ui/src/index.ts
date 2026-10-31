@@ -13,6 +13,7 @@ export {
   CommandItem,
   CommandList,
 } from "#ui/components/Command";
+export { CopyIconButton } from "#ui/components/CopyIconButton";
 export { Countdown, formatDuration, useSecondsLeft } from "#ui/components/Countdown";
 export {
   AlertDialog,

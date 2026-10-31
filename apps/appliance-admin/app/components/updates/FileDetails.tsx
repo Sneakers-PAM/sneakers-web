@@ -1,6 +1,5 @@
-import { Badge } from "@sneakers-web/ui";
+import { Badge, CopyIconButton } from "@sneakers-web/ui";
 
-import { CopyIconButton } from "@/components/CopyIconButton";
 import { megabytes } from "@/components/updates/OfferList";
 
 /** The kind a generated file name says it is, read instead of shown: Base Web's own pages,

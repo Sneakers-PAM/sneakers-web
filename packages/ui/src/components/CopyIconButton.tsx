@@ -1,5 +1,7 @@
-import { Button, toast } from "@sneakers-web/ui";
 import { ClipboardCopy } from "lucide-react";
+
+import { Button } from "#ui/components/Button";
+import { toast } from "#ui/components/Toast";
 
 /**
  * A small icon-only Copy, for a value that's already shown in full (or as a short name) so it
@@ -12,7 +14,7 @@ export const CopyIconButton = ({ label, value }: { label: string; value: string 
     onClick={() => {
       void navigator.clipboard
         .writeText(value)
-        .then(() => toast(`${label} copied.`))
+        .then(() => toast("Copied."))
         .catch(() => toast.error("Couldn't copy. Try again."));
     }}
     size="icon-sm"

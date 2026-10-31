@@ -581,7 +581,8 @@ for an area in `packages/api-client/src/operations/staff/<area>.graphql`. Page t
 through `renderRoute(url, routes, { user })` (`apps/staff/app/test/routeStub.tsx`), which signs in
 a fixture user and puts the pages under the real frame loader. The staff app's tests run
 against the mock gateway through `apps/staff/vitest.config.ts`, so the build config has no test
-switch.
+switch. The secret page shows the secret's id below its name, with the kit's `CopyIconButton`,
+for anyone calling the API or MCP by id.
 
 Browse (U-03): the folder tree (`features/browse/FolderNav`, personal pinned, shared as a
 parent/child tree) lives in the frame's left main nav (`frame/FolderSidebar`), not the page, so

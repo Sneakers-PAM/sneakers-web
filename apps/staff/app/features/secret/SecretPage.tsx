@@ -9,6 +9,7 @@ import {
   Alert,
   Badge,
   Button,
+  CopyIconButton,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -344,7 +345,15 @@ export const SecretPage = ({ page }: { page: Page }) => {
               </Link>
             </>
           }
-          subtitle={type?.name}
+          subtitle={
+            <>
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="font-mono text-[0.875rem] wrap-anywhere">{secret.id}</span>
+                <CopyIconButton label="Copy secret id" value={secret.id} />
+              </span>
+              {type?.name}
+            </>
+          }
           title={
             <span className="flex flex-wrap items-center gap-3">
               {secret.name}
