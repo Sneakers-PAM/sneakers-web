@@ -661,6 +661,8 @@ WebSocket from the browser.
   whose `Origin` matches its `Host`, and the CSP's `connect-src 'self'` allows it. The live dev
   server proxies `/ssh` (WebSocket included) to `SSHBROKER_URL`, default `http://localhost:9097`,
   so the same holds locally.
+- **Keys typed while connecting.** `Console` holds them until the socket is open, then sends them
+  in order. A failed attempt throws them away, so they never reach the next session.
 - **A bounded open.** The broker answers the upgrade only once the shell is up and bounds that at
   `BROKER_OPEN_LIMIT_MS` (45 s); `OPEN_TIMEOUT_MS` (50 s) is just past it, so the broker's own
   reason always comes first. A socket that closes before it opens with no reason from the broker
