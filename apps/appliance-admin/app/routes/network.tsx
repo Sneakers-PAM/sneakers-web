@@ -424,7 +424,7 @@ export default function Network() {
           }}
         >
           <Field
-            hint="Fully qualified, such as appliance.example.org. Certificates are checked against it."
+            hint="Fully qualified, such as appliance.example.org. Certificates are checked against it. Once a new name is kept, an installed product restarts to take it, as in an update: its sign-in, OAuth and MCP addresses follow, its data stays, and Updates records it."
             label="Hostname"
           >
             <Input
