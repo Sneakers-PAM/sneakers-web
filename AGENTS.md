@@ -568,6 +568,14 @@ shared is confirmed first, and shared into someone's personal folder is a folder
 secret_move request unless the user is a site admin. The mock's canManage comes from the owners of
 the folder or any folder above it, and read access from ownership, the folder's group or its role.
 
+Anyone signed in can create a shared top-level folder and owns it, unless the admin console's
+"Restrict top-level folders to admins" security setting (`restrictTopLevelFolders`, off by default)
+is on; then only site admins and root can. The frame loader turns that into `canCreateTopLevel`,
+which gates the sidebar's New shared folder button and the New Folder dialog's top-level choice. The
+setting can change while a page is open, so the vault's refusal (`TOP_LEVEL_FOLDERS_RESTRICTED`)
+names it in the dialog, the choice goes with the revalidation, and Create waits for another pick.
+Moving a folder to the top level is a separate rule: `MoveFlow` offers it to site admins only.
+
 Each readable row in the browse grid (`features/browse/SecretsTable`) gets quick-copy buttons and
 matching context-menu entries for its type's primary fields (`quickCopy.primaryFieldsOf`: the
 identity field, plus the required sensitive field or the first sensitive field when none is

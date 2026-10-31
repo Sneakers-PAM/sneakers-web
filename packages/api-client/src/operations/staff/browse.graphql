@@ -19,6 +19,12 @@ query BrowseFolders {
   }
 }
 
+query BrowseTopLevelRule {
+  securitySettings {
+    restrictTopLevelFolders
+  }
+}
+
 query BrowseFolderAccess($folderId: String!, $ownerIds: [String!]!) {
   myFolderAccess(folderId: $folderId) {
     read

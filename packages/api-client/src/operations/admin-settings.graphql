@@ -49,6 +49,7 @@ fragment SecuritySettingsFields on SecuritySettings {
   sessionTtlSeconds
   requireMfaForReveal
   mfaMaxAgeSeconds
+  restrictTopLevelFolders
 }
 
 query AdminSecretTypes {

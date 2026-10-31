@@ -38,6 +38,16 @@ test("browse a folder, make a subfolder, move it and delete it", async ({ page }
   await expect(folders.getByRole("link", { name: /Staging/ })).toHaveCount(0);
 });
 
+test("someone who isn't an admin makes a top-level folder", async ({ page }) => {
+  await signInAs(page, "mock-user-bob", "/browse");
+  await page.getByRole("button", { name: "New shared folder" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Name").fill("Vendor contracts");
+  await dialog.getByRole("button", { name: "Create" }).click();
+  const folders = page.getByRole("navigation", { name: "Folders" });
+  await expect(folders.getByRole("link", { name: /Vendor contracts/ })).toBeVisible();
+});
+
 test("a folder without access says who owns it", async ({ page }) => {
   await signInAs(page, "mock-user-grace", "/browse/mock-folder-finance");
   await expect(page.getByText("You can't open this folder")).toBeVisible();

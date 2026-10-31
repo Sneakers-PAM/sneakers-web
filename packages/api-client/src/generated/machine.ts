@@ -96,7 +96,7 @@ export type MutationChangeSecretTypeForPrincipalArgs = {
 
 export type MutationCreateFolderForPrincipalArgs = {
   name: Scalars["String"]["input"];
-  parentId: Scalars["ID"]["input"];
+  parentId?: InputMaybe<Scalars["ID"]["input"]>;
 };
 
 export type MutationCreateSecretForPrincipalArgs = {

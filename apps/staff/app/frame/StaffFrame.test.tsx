@@ -2,6 +2,7 @@ import {
   MOCK_GATEWAY_URL,
   mockAppliance,
   mockBreakGlass,
+  mockSettings,
   mockState,
 } from "@sneakers-web/mock-gateway";
 import {
@@ -24,8 +25,8 @@ import { loader as frameLoader } from "@/routes/frame";
 withMockGateway();
 
 /** Mounts the real staff frame, with its real loader run against the mock gateway. */
-const openFrame = () => {
-  const cookie = sessionCookie("mock-user-alice");
+const openFrame = (userId = "mock-user-alice") => {
+  const cookie = sessionCookie(userId);
   const Stub = createRoutesStub([
     {
       children: [{ Component: () => <h1>Dashboard</h1>, index: true }],
@@ -40,6 +41,30 @@ const openFrame = () => {
   ]);
   return render(<Stub initialEntries={["/"]} />);
 };
+
+describe("StaffFrame New shared folder", () => {
+  const button = { name: "New shared folder" };
+
+  onDesktop();
+
+  it("offers it to everyone while the setting is off", async () => {
+    openFrame("mock-user-bob");
+    expect(await screen.findByRole("button", button)).toBeInTheDocument();
+  });
+
+  it("hides it from a non-admin while the setting is on", async () => {
+    mockSettings.security.restrictTopLevelFolders = true;
+    openFrame("mock-user-bob");
+    await screen.findByRole("navigation", { name: "Folders" });
+    expect(screen.queryByRole("button", button)).toBeNull();
+  });
+
+  it("keeps it for a site admin while the setting is on", async () => {
+    mockSettings.security.restrictTopLevelFolders = true;
+    openFrame();
+    expect(await screen.findByRole("button", button)).toBeInTheDocument();
+  });
+});
 
 describe("StaffFrame appliance banners", () => {
   it("shows neither banner on a plain install", async () => {

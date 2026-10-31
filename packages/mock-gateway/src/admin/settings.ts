@@ -25,6 +25,8 @@ export interface MockSecuritySettings {
   requestHistoryRetentionDays: number;
   requireMfaForReveal: boolean;
   requireMfaForSensitiveCheckout: boolean;
+  /** "Restrict top-level folders to admins": off, the vault's default, leaves them open. */
+  restrictTopLevelFolders: boolean;
   sessionTtlSeconds: number;
 }
 
@@ -79,6 +81,7 @@ const security = (): MockSecuritySettings => ({
   requestHistoryRetentionDays: 90,
   requireMfaForReveal: false,
   requireMfaForSensitiveCheckout: true,
+  restrictTopLevelFolders: false,
   sessionTtlSeconds: 1800,
 });
 

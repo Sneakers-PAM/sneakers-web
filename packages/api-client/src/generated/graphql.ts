@@ -130,6 +130,7 @@ export type SecuritySettingsInput = {
   requestHistoryRetentionDays?: number | null | undefined;
   requireMfaForReveal?: boolean | null | undefined;
   requireMfaForSensitiveCheckout?: boolean | null | undefined;
+  restrictTopLevelFolders?: boolean | null | undefined;
   sessionTtlSeconds?: number | null | undefined;
 };
 
@@ -471,6 +472,7 @@ export type SecuritySettingsFieldsFragment = {
   sessionTtlSeconds: number | null;
   requireMfaForReveal: boolean;
   mfaMaxAgeSeconds: number;
+  restrictTopLevelFolders: boolean;
 };
 
 export type AdminSecretTypesQueryVariables = Exact<{ [key: string]: never }>;
@@ -661,6 +663,7 @@ export type AdminPoliciesQuery = {
     sessionTtlSeconds: number | null;
     requireMfaForReveal: boolean;
     mfaMaxAgeSeconds: number;
+    restrictTopLevelFolders: boolean;
   };
 };
 
@@ -707,6 +710,7 @@ export type AdminUpdateSecuritySettingsMutation = {
     sessionTtlSeconds: number | null;
     requireMfaForReveal: boolean;
     mfaMaxAgeSeconds: number;
+    restrictTopLevelFolders: boolean;
   };
 };
 
@@ -1580,6 +1584,10 @@ export type BrowseFoldersQuery = {
     canManage: boolean;
   }>;
 };
+
+export type BrowseTopLevelRuleQueryVariables = Exact<{ [key: string]: never }>;
+
+export type BrowseTopLevelRuleQuery = { securitySettings: { restrictTopLevelFolders: boolean } };
 
 export type BrowseFolderAccessQueryVariables = Exact<{
   folderId: string;
@@ -3149,6 +3157,7 @@ export const SecuritySettingsFieldsFragmentDoc = new TypedDocumentString(
   sessionTtlSeconds
   requireMfaForReveal
   mfaMaxAgeSeconds
+  restrictTopLevelFolders
 }
     `,
   { fragmentName: "SecuritySettingsFields" },
@@ -4056,6 +4065,7 @@ fragment SecuritySettingsFields on SecuritySettings {
   sessionTtlSeconds
   requireMfaForReveal
   mfaMaxAgeSeconds
+  restrictTopLevelFolders
 }`) as unknown as TypedDocumentString<AdminPoliciesQuery, AdminPoliciesQueryVariables>;
 export const AdminSavePasswordPolicyDocument = new TypedDocumentString(`
     mutation AdminSavePasswordPolicy($input: PasswordPolicyInput!) {
@@ -4105,6 +4115,7 @@ export const AdminUpdateSecuritySettingsDocument = new TypedDocumentString(`
   sessionTtlSeconds
   requireMfaForReveal
   mfaMaxAgeSeconds
+  restrictTopLevelFolders
 }`) as unknown as TypedDocumentString<
   AdminUpdateSecuritySettingsMutation,
   AdminUpdateSecuritySettingsMutationVariables
@@ -4970,6 +4981,13 @@ export const BrowseFoldersDocument = new TypedDocumentString(`
   owners
   canManage
 }`) as unknown as TypedDocumentString<BrowseFoldersQuery, BrowseFoldersQueryVariables>;
+export const BrowseTopLevelRuleDocument = new TypedDocumentString(`
+    query BrowseTopLevelRule {
+  securitySettings {
+    restrictTopLevelFolders
+  }
+}
+    `) as unknown as TypedDocumentString<BrowseTopLevelRuleQuery, BrowseTopLevelRuleQueryVariables>;
 export const BrowseFolderAccessDocument = new TypedDocumentString(`
     query BrowseFolderAccess($folderId: String!, $ownerIds: [String!]!) {
   myFolderAccess(folderId: $folderId) {
