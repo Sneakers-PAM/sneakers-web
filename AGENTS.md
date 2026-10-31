@@ -282,9 +282,13 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   `GetSession`, until :8443 answers without the old session (sessions don't survive a restart;
   `app/lib/osadmin/restart.ts`), then loads the
   sign-in page in full, on a new TLS session. After 10 minutes it offers a reload, which is how
-  the browser gets to check a certificate that changed. While the box is down it says the box can
-  take more than 5 minutes to come back, as the Power page's reboot and shutdown confirms do before
-  you confirm. After an apply or a revert it lists the
+  the browser gets to check a certificate that changed. Until the box answers again it says the
+  box can take more than 5 minutes to come back, as the Power page's reboot and shutdown confirms
+  do before you confirm. A confirmed reboot on Power swaps that page for the same restart page, and
+  a shutdown does too with `shutdown` set: it says the box is off and stays off until someone
+  starts it, and the late reload asks whether the box was started again rather than saying it's
+  slow. The mock box never goes down, so on a mock build these pages stay at the first step. After
+  an apply or a revert it lists the
   update's steps, seeded from `GetUpgrades` as the apply returns and then from the public
   `GetPhase.upgradeProgress` (the steps alone): rebooting while the box is down, then checking
   health and marking good once :8443 answers, and it goes to sign-in only when they're done. A
@@ -581,7 +585,9 @@ switch.
 
 Browse (U-03): the folder tree (`features/browse/FolderNav`, personal pinned, shared as a
 parent/child tree) lives in the frame's left main nav (`frame/FolderSidebar`), not the page, so
-it's there on every route. The frame loader (`routes/frame.tsx`) fetches the folder list; since
+it's there on every route. The number beside a folder is what opening it lists: `ownSecretCount`
+takes the subfolders out of the vault's caller-scoped subtree count. The frame loader
+(`routes/frame.tsx`) fetches the folder list; since
 `routeStub.tsx`'s `renderRoute` doesn't draw the frame's chrome, a page test never sees the tree —
 cover it against `StaffFrame` directly (`apps/staff/app/frame/StaffFrame.test.tsx`). Off `/browse`,
 a tree mutation posts explicitly to `/browse` (there's no route in context to default to); on it,
@@ -661,6 +667,8 @@ WebSocket from the browser.
   whose `Origin` matches its `Host`, and the CSP's `connect-src 'self'` allows it. The live dev
   server proxies `/ssh` (WebSocket included) to `SSHBROKER_URL`, default `http://localhost:9097`,
   so the same holds locally.
+- **Keys typed while connecting.** `Console` holds them until the socket is open, then sends them
+  in order. A failed attempt throws them away, so they never reach the next session.
 - **A bounded open.** The broker answers the upgrade only once the shell is up and bounds that at
   `BROKER_OPEN_LIMIT_MS` (45 s); `OPEN_TIMEOUT_MS` (50 s) is just past it, so the broker's own
   reason always comes first. A socket that closes before it opens with no reason from the broker

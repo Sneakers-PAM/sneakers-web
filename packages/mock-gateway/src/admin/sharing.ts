@@ -20,7 +20,7 @@ export const sharingHandlers = [
         ? ok({
             folderRuleset: o.value,
             groups: groups(),
-            users: USERS.map((u) => ({ id: u.id, name: u.name })),
+            users: USERS.map(({ email, id, name, username }) => ({ email, id, name, username })),
           })
         : o.refusal;
     }),

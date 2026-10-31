@@ -1,12 +1,13 @@
 import { TargetsOpenSshSessionDocument, TargetsTerminalDocument } from "@sneakers-web/api-client";
 import { MOCK_GATEWAY_URL, mockState } from "@sneakers-web/mock-gateway";
 import { server, withMockGateway } from "@sneakers-web/mock-gateway/testing";
-import { screen } from "@testing-library/react";
+import { act, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
 import { graphql } from "msw/graphql";
 
 import type { TerminalDeps } from "@/features/targets/terminal/deps";
+import type { Connect, SessionEvents } from "@/features/targets/terminal/session";
 import type { StubRoute } from "@/test/routeStub";
 
 import { TerminalDepsContext } from "@/features/targets/terminal/deps";
@@ -40,6 +41,33 @@ const page = (deps: TerminalDeps): StubRoute[] => [
 const output = async (text: RegExp | string) =>
   expect(await screen.findByTestId("terminal-output")).toHaveTextContent(text);
 
+/** A session the test opens or fails by hand, recording what the page sends it. */
+const heldSession = () => {
+  const sent: string[] = [];
+  const attempts: SessionEvents[] = [];
+  const connect: Connect = (_ticket, _info, events) => {
+    attempts.push(events);
+    return Promise.resolve({
+      close: () => {},
+      resize: () => {},
+      send: (data) => sent.push(data),
+    });
+  };
+  return { attempts, connect, sent };
+};
+
+const openHeld = async () => {
+  vi.stubEnv("SNEAKERS_MOCK", "true");
+  const held = heldSession();
+  const screens = fakeScreens();
+  renderRoute(
+    `/secret/${KEY}/terminal`,
+    page({ connect: held.connect, createScreen: screens.create }),
+  );
+  await vi.waitFor(() => expect(held.attempts).toHaveLength(1));
+  return { ...held, screen: () => screens.last()! };
+};
+
 describe("U-12 terminal", () => {
   afterEach(() => vi.unstubAllEnvs());
 
@@ -57,6 +85,32 @@ describe("U-12 terminal", () => {
     screens.last()!.type("whoami\r");
     await output("$ whoami deploy");
     expect(screen.getByRole("link", { name: "Back" })).toHaveAttribute("href", `/secret/${KEY}`);
+  });
+
+  describe("typing before the session opens", () => {
+    it("sends the keys in order once it's open", async () => {
+      const held = await openHeld();
+      held.screen().type("wh");
+      held.screen().type("oami\r");
+      expect(held.sent).toEqual([]);
+      act(() => held.attempts[0]!.onOpen());
+      expect(await screen.findByText("Connected")).toBeInTheDocument();
+      held.screen().type("ls\r");
+      expect(held.sent).toEqual(["wh", "oami\r", "ls\r"]);
+    });
+
+    it("keeps nothing for the next attempt when the session fails", async () => {
+      const held = await openHeld();
+      const user = userEvent.setup();
+      held.screen().type("secret-typed-early");
+      act(() => held.attempts[0]!.onClose({ kind: "failed", started: false }));
+      const [reconnect] = await screen.findAllByRole("button", { name: "Reconnect" });
+      await user.click(reconnect!);
+      await vi.waitFor(() => expect(held.attempts).toHaveLength(2));
+      act(() => held.attempts[1]!.onOpen());
+      expect(await screen.findByText("Connected")).toBeInTheDocument();
+      expect(held.sent).toEqual([]);
+    });
   });
 
   it("shows the session ending, and reconnects on a new ticket", async () => {

@@ -47,7 +47,7 @@ describe("AboutDialog", () => {
   it("shows the product once at the top, the box, and each service's own build", async () => {
     renderAbout(onBox);
     const dialog = await screen.findByRole("dialog", { name: "About and diagnostics" });
-    const product = await within(dialog).findByText("Sneakers 0.1.0");
+    const product = await within(dialog).findByText("Sneakers v0.1.0");
     const terms = within(dialog).getAllByRole("term");
     expect(terms[0]).toHaveTextContent("Product");
     expect(product).toBeInTheDocument();

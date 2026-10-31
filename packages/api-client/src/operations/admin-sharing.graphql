@@ -36,6 +36,8 @@ query AdminFolderRuleset($folderId: String!) {
   users {
     id
     name
+    username
+    email
   }
 }
 

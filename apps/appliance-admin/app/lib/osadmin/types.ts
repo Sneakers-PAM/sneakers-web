@@ -1091,6 +1091,11 @@ export interface ProductSlots {
    * running Base OS is in it. */
   fits?: boolean;
   requiresBaseOs?: string;
+  /** The box is finishing a cut-off reset by itself; nothing is asked of an owner. */
+  resetFinishing?: boolean;
+  /** A reset was cut off part-way: that the box is finishing it, or why the product can't start
+   * and how to finish it. Empty otherwise, and left out by a box from before it. */
+  resetNote?: string;
   /** The product services (k0s) are running. */
   running?: boolean;
   stagedVersion?: string;

@@ -15,7 +15,7 @@ import {
   TableRow,
 } from "@sneakers-web/ui";
 import { ArrowDown, ArrowUp, Check, Globe, Lock, User, Users, X } from "lucide-react";
-import { useId, useState } from "react";
+import { useId, useMemo, useState } from "react";
 
 import type {
   InheritedRule,
@@ -159,6 +159,18 @@ export const RulesetEditor = ({
   const ownersHeading = useId();
   const inheritedHeading = useId();
   const readOnly = readOnlyReason !== undefined;
+  // Stable across renders: a search that changes the page's fetcher state rerenders this editor,
+  // and SubjectPicker drops an answer when its `search` changes while it's waiting.
+  const searchPeople = useMemo(
+    () =>
+      searchSubjects
+        ? async (q: string) => {
+            const found = await searchSubjects(q);
+            return found.filter((s) => s.kind === "user");
+          }
+        : undefined,
+    [searchSubjects],
+  );
 
   const change = (next: RulesetDraft) => {
     setDraft(next);
@@ -195,12 +207,6 @@ export const RulesetEditor = ({
     );
 
   const owners = draft.owners ?? [];
-  const searchPeople = searchSubjects
-    ? async (q: string) => {
-        const found = await searchSubjects(q);
-        return found.filter((s) => s.kind === "user");
-      }
-    : undefined;
 
   return (
     <div className="flex min-w-0 flex-col gap-5.5">

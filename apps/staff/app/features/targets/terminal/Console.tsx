@@ -83,6 +83,10 @@ export const Console = ({
   const attemptRef = useRef<null | symbol>(null);
   const handled = useRef<unknown>(null);
   const keysRef = useRef<(event: KeyboardEvent) => boolean>(() => true);
+  // Keys typed while an attempt opens; null once it's open or has failed. The socket drops
+  // anything sent before it opens, and a failed attempt's keys never reach the next one.
+  const typedEarly = useRef<null | string[]>(null);
+  const socketOpen = useRef(false);
   const [status, setStatus] = useState<Status>("connecting");
   const [sessionProblem, setProblem] = useState<null | Problem>(null);
   const [fontSize, setFontSize] = useState(DEFAULT_FONT);
@@ -97,6 +101,8 @@ export const Console = ({
     attemptRef.current = null;
     sessionRef.current?.close();
     sessionRef.current = null;
+    typedEarly.current = [];
+    socketOpen.current = false;
     setStatus("connecting");
     setProblem(null);
     const screen = screenRef.current;
@@ -122,7 +128,10 @@ export const Console = ({
       }
       made = screen;
       screenRef.current = screen;
-      screen.onInput((data) => sessionRef.current?.send(data));
+      screen.onInput((data) => {
+        if (typedEarly.current) typedEarly.current.push(data);
+        else sessionRef.current?.send(data);
+      });
       screen.onResize((cols, rows) => sessionRef.current?.resize(cols, rows));
       screen.onKey((event) => keysRef.current(event));
       setReady(true);
@@ -152,7 +161,10 @@ export const Console = ({
     const result = fetcher.data;
     if (!result || handled.current === result) return;
     handled.current = result;
-    if (!result.ok) return;
+    if (!result.ok) {
+      typedEarly.current = null;
+      return;
+    }
     const attempt = Symbol("attempt");
     attemptRef.current = attempt;
     const live = () => attemptRef.current === attempt;
@@ -160,12 +172,21 @@ export const Console = ({
       const screen = screenRef.current;
       if (screen) sessionRef.current?.resize(screen.size().cols, screen.size().rows);
     };
+    // The socket can open before or after connect resolves, so both call this.
+    const sendTypedEarly = () => {
+      const session = sessionRef.current;
+      const typed = typedEarly.current;
+      if (!session || !socketOpen.current || !typed) return;
+      typedEarly.current = null;
+      for (const data of typed) session.send(data);
+    };
     void deps
       .connect(result.ticket, session, {
         onClose: (reason: CloseReason) => {
           if (!live()) return;
           sessionRef.current = null;
           attemptRef.current = null;
+          typedEarly.current = null;
           if (reason.kind === "ended") {
             setStatus("closed");
             setProblem({ message: "The shell ended the session.", title: "Session closed" });
@@ -184,6 +205,8 @@ export const Console = ({
           screenRef.current?.fit();
           screenRef.current?.focus();
           sizeUp();
+          socketOpen.current = true;
+          sendTypedEarly();
           setStatus("connected");
         },
         onOutput: (data) => {
@@ -197,11 +220,13 @@ export const Console = ({
         }
         sessionRef.current = opened;
         sizeUp();
+        sendTypedEarly();
       })
       .catch(() => {
         // A connect that throws never reaches onClose; without this the page stays on Connecting.
         if (!live()) return;
         attemptRef.current = null;
+        typedEarly.current = null;
         setStatus("error");
         setProblem({
           message: closeMessage({ kind: "failed", started: false }),

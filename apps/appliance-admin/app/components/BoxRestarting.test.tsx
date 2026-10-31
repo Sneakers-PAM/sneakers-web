@@ -53,6 +53,44 @@ describe("BoxRestarting", () => {
     ).toBeInTheDocument();
   });
 
+  it("says so before the box goes down too, since a drain can take minutes", () => {
+    vi.spyOn(signIn, "getSession").mockResolvedValue(session);
+    render(<BoxRestarting onBack={vi.fn()} pollMs={1000} />);
+    expect(
+      screen.getByText(/The box can take more than 5 minutes to come back\./),
+    ).toBeInTheDocument();
+  });
+
+  describe("after a shutdown", () => {
+    it("says the box shuts down and stays off until someone starts it", async () => {
+      vi.spyOn(signIn, "getSession").mockRejectedValue(new TypeError("Failed to fetch"));
+      render(<BoxRestarting onBack={vi.fn()} pollMs={5} shutdown />);
+      expect(screen.getByRole("heading", { name: "The box is shutting down" })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: "The box is off" })).toBeInTheDocument();
+      expect(screen.getByText(/stays off until someone starts it/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/After a shutdown, the box can take more than 5 minutes/),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/restarts/)).not.toBeInTheDocument();
+    });
+
+    it("doesn't call a box that's meant to be off late, and still offers the reload", async () => {
+      vi.spyOn(signIn, "getSession").mockRejectedValue(new TypeError("Failed to fetch"));
+      render(<BoxRestarting onBack={vi.fn()} pollMs={5} shutdown slowMs={5} />);
+      expect(await screen.findByRole("button", { name: "Reload" })).toBeInTheDocument();
+      expect(screen.queryByText("This is taking longer than usual")).not.toBeInTheDocument();
+    });
+
+    it("goes on when the box answers again", async () => {
+      vi.spyOn(signIn, "getSession")
+        .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+        .mockRejectedValue(signedOut());
+      const onBack = vi.fn();
+      render(<BoxRestarting onBack={onBack} pollMs={5} shutdown />);
+      await waitFor(() => expect(onBack).toHaveBeenCalledTimes(1));
+    });
+  });
+
   it("with waitForDownMs, doesn't take a signed-out answer for back before the box went down", async () => {
     vi.spyOn(signIn, "getSession").mockRejectedValue(signedOut());
     const onBack = vi.fn();

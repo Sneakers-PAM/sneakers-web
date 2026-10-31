@@ -70,8 +70,37 @@ describe("Power", () => {
     await user.click(screen.getByRole("button", { name: "Reboot" }));
     await user.click(screen.getByRole("button", { name: "Confirm" }));
     expect(
-      await screen.findByText("Rebooting. The box can take more than 5 minutes to come back."),
+      await screen.findByRole("heading", { name: "The box is restarting" }),
     ).toBeInTheDocument();
+    expect(screen.getByText(/can take more than 5 minutes to come back/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reboot" })).not.toBeInTheDocument();
+  });
+
+  it("shows the shutdown page, not the restart page, after a shutdown", async () => {
+    const user = userEvent.setup();
+    await openPage();
+    await user.click(screen.getByRole("button", { name: "Shut down" }));
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+    expect(
+      await screen.findByRole("heading", { name: "The box is shutting down" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/After a shutdown, the box can take more than 5 minutes/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/for the restart/)).not.toBeInTheDocument();
+  });
+
+  it("stays on the page when the box refuses the reboot", async () => {
+    vi.spyOn(power, "reboot").mockRejectedValueOnce(
+      new OsadminError("failed_precondition", "The box refused the reboot."),
+    );
+    const user = userEvent.setup();
+    await openPage();
+    await user.click(screen.getByRole("button", { name: "Reboot" }));
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+    expect(await screen.findByText(/The box refused the reboot/)).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "The box is restarting" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Confirm" })).toBeInTheDocument();
   });
 
   it("says before a reboot that the box can take more than 5 minutes to come back", async () => {

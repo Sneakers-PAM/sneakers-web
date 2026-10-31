@@ -114,7 +114,7 @@ describe("Copy diagnostics", () => {
     expect(
       await within(dialog).findByText(/^mock-vault-1\.0\.0 \(mock-vault-commit\)/),
     ).toBeInTheDocument();
-    expect(within(dialog).getByText("Sneakers 0.0.0-mock")).toBeInTheDocument();
+    expect(within(dialog).getByText("Sneakers v0.0.0-mock")).toBeInTheDocument();
     expect(within(dialog).getByText("mock-appliance-1.0.0")).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Copy diagnostics" }));
     await waitFor(() => expect(writeText).toHaveBeenCalledOnce());

@@ -24,6 +24,9 @@ export const openMockShell: Connect = (_ticket, info, events) => {
   const short = info.hostname.split(".", 1)[0] ?? info.hostname;
   const user = info.username || "user";
   const prompt = `${GREEN}${user}@${short}${RESET}:${BLUE}~${RESET}$ `;
+  // What the terminal starts at, until the page sends the real size.
+  let cols = 80;
+  const promptCells = `${user}@${short}:~$ `.length;
   let line = "";
   let closed = false;
 
@@ -60,6 +63,24 @@ export const openMockShell: Connect = (_ticket, info, events) => {
     out(`${command ? command(arguments_) : `${name}: command not found in the mock shell`}\r\n`);
   };
 
+  // A cursor that has just filled the last cell stays on that row until the next character.
+  const rowOf = (cells: number) => (cells === 0 ? 0 : Math.floor((cells - 1) / cols));
+
+  /**
+   * Take the last character off. "\b" can't step back over a wrap, and from a full row it lands
+   * one cell short, so at either edge of a row the whole line is drawn again from the prompt.
+   */
+  const rubOut = () => {
+    const cells = promptCells + line.length;
+    line = line.slice(0, -1);
+    if (cells % cols > 1) {
+      out("\b \b");
+      return;
+    }
+    const rows = rowOf(cells);
+    out(`\r${rows ? `${ESC}[${rows}A` : ""}${ESC}[J${prompt}${line}`);
+  };
+
   const send = (input: string) => {
     let rest = input;
     while (rest && !closed) {
@@ -81,10 +102,7 @@ export const openMockShell: Connect = (_ticket, info, events) => {
         }
         case BACKSPACE:
         case DEL: {
-          if (line) {
-            line = line.slice(0, -1);
-            out("\b \b");
-          }
+          if (line) rubOut();
 
           break;
         }
@@ -123,7 +141,9 @@ export const openMockShell: Connect = (_ticket, info, events) => {
     close: () => {
       closed = true;
     },
-    resize: () => {},
+    resize: (newCols) => {
+      cols = newCols;
+    },
     send,
   });
 };

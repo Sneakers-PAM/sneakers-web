@@ -109,6 +109,18 @@ describe("folders", () => {
     expect(await screen.findByRole("button", { name: "Save sharing" })).toBeDisabled();
   });
 
+  it.each([
+    ["first name", "gra"],
+    ["username in capitals", "GRACE"],
+    ["email", "grace@example"],
+  ])("finds an owner by %s", async (_, query) => {
+    const user = userEvent.setup();
+    renderAdmin(ROUTES, "/folders/mock-folder-databases", CAROL);
+    await user.click(await screen.findByRole("button", { name: "Add owner" }));
+    await user.type(screen.getByPlaceholderText("Search people"), query);
+    expect(await screen.findByRole("option", { name: /Grace/ })).toBeInTheDocument();
+  });
+
   it("puts the saved rules back on Discard", async () => {
     const user = userEvent.setup();
     renderAdmin(ROUTES, "/folders/mock-folder-databases", CAROL);

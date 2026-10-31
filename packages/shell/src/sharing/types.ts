@@ -77,6 +77,8 @@ export interface RulesetSubject {
   id?: string;
   kind: "everyone" | "group" | "user";
   name: string;
+  /** What the picker matches a typed query against, when that's more than the name. */
+  searchText?: string;
 }
 
 /** The actions in the gateway's order (C, I, A, R), with the words the screens use. */

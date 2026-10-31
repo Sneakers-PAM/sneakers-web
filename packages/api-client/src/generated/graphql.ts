@@ -48,7 +48,13 @@ export type FieldMappingInput = {
 export type FolderScope = "group" | "personal" | "role";
 
 export type HeartbeatResult =
-  "failed" | "hostKeyMismatch" | "hostKeyNotPinned" | "ok" | "unknown" | "unreachable";
+  | "failed"
+  | "hostKeyMismatch"
+  | "hostKeyNotPinned"
+  | "ok"
+  | "unknown"
+  | "unreachable"
+  | "untrustedCertificate";
 
 export type KeyValueInput = {
   key: string;
@@ -761,7 +767,7 @@ export type AdminFolderRulesetQuery = {
     inheritedOwners: Array<{ userId: string; fromFolderId: string; fromFolderName: string }>;
   };
   groups: Array<{ id: string; name: string }>;
-  users: Array<{ id: string; name: string }>;
+  users: Array<{ id: string; name: string; username: string; email: string }>;
 };
 
 export type AdminSetFolderRulesetMutationVariables = Exact<{
@@ -4217,6 +4223,8 @@ export const AdminFolderRulesetDocument = new TypedDocumentString(`
   users {
     id
     name
+    username
+    email
   }
 }
     fragment AdminRaciRuleFields on RaciRule {
