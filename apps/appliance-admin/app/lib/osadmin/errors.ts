@@ -69,7 +69,9 @@ export const parseOsadminError = async (response: Response): Promise<OsadminErro
     if (body.message) message = body.message;
     if (Array.isArray(body.details)) details = body.details;
   } catch {
-    // Not JSON (a network or proxy error page): keep the status-based message.
+    // Not JSON (a network or proxy error page): keep the status-based message. A method the
+    // box's base doesn't have yet answers a bare 404, which Connect reads as unimplemented.
+    if (response.status === 404) code = "unimplemented";
   }
   return new OsadminError(code, message, symbolOf(message), details);
 };

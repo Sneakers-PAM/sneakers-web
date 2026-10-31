@@ -179,10 +179,19 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   in `AppFrame`. The dialog asks for a fresh TOTP code (`SignInService.StepUp`), keeps a
   refusal in place, and retries the action once the box takes the code. Its button says
   "Verify code", never "Confirm". It stays open while the retry runs, and a follow-up the action
-  hands back (`runAction`'s `afterStepUp`, a `StepUpFollowUp`) is asked in the same dialog: a
-  network change's "Keep this change?", whose button calls `ConfirmNetwork`. A Connect `unimplemented` (a page's backend isn't on the box yet) becomes "Not
+  hands back (`runAction`'s `afterStepUp`, a `StepUpFollowUp`) is asked in the same dialog; no page
+  hands one back today. A Connect `unimplemented` (a page's backend isn't on the box yet) becomes "Not
   available in this release" (`app/components/NotAvailable.tsx`); the Updates page shows it in
   full when `GetUpgrades` answers that way.
+- **Network (`app/routes/network.tsx`).** Edits stage (`StageNetwork`) and change nothing live;
+  a staged banner shows `stagedReview` with Commit (`CommitNetwork`, step-up) and Discard
+  (`DiscardStagedNetwork`), and the form fills from `staged` when there is one. `NetdSettings`
+  (`app/lib/osadmin/types.ts`) is the proto's shape, because a stage sends the whole set back; the
+  page keeps the fields it doesn't edit by spreading them. A commit that loses the box on a moved
+  address (`unavailable`) is expected and shows the reconnect link. A `NET_*` refusal stays on the
+  page. `unimplemented` on Stage (an older base; `parseOsadminError` reads a bare 404 as that)
+  shows what to do instead. `SetNetwork` is no longer called; `ConfirmNetwork` stays for a change
+  that waits in its window, which only an allow-list reset from the console or SSH makes now.
 - **Updates (`app/routes/updates.tsx`).** One flow for the three update units
   (sneakers-appliance spec 7), each in its own card, side by side from the `desktop` breakpoint
   in this order (stacked below it): **Base OS** (the root image, its two slots and a reboot;
@@ -370,6 +379,10 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
 - **Mock scenarios.** `applyMockScenario` (`app/mock/edge.mock.ts`), or `?mockScenario=a,b` on a
   mock build's URL, puts the mock box into a state for the tests and the review screen list:
   `air-gapped`, `staged`, `network-pending` (net-7, a host name change, waits 95 seconds),
+  `network-staged`, `network-staged-moves` (to 192.0.2.60), `network-staged-dhcp`,
+  `network-staged-allow-list`, `network-gateway-dead` (a commit is refused with `NET_GATEWAY`),
+  `network-commit-drops` (a commit applies but the box never answers), `network-old-base` (no stage
+  RPCs),
   `network-reverted` and `network-reverted-at-start` (net-6 was undone by its window, or when the
   box started again), `no-previous` (nothing in the other slot; by default 0.0.9 is kept
   there for a revert), `failed` (boot counting fell back from 0.2.0), `reverted` (alice

@@ -106,7 +106,7 @@ export default defineConfig({
     },
     {
       name: "appliance-version-overflow",
-      testMatch: "appliance-version-overflow.spec.ts",
+      testMatch: /appliance-(network|version-overflow)\.spec\.ts$/,
       use: { ...devices["Desktop Chrome"], baseURL: `http://127.0.0.1:${APPLIANCE_MOCK_PORT}` },
     },
   ],

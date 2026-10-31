@@ -506,23 +506,63 @@ export interface ListElevationsResponse {
 
 // ---- network ----
 
-export interface NetdAddress {
-  family: "ipv4" | "ipv6";
-  mode: "dhcp" | "off" | "slaac" | "static";
+export type Ipv4Mode =
+  "IPV4_MODE_DHCP" | "IPV4_MODE_OFF" | "IPV4_MODE_STATIC" | "IPV4_MODE_UNSPECIFIED";
+
+export type Ipv6Mode =
+  | "IPV6_MODE_DHCPV6"
+  | "IPV6_MODE_OFF"
+  | "IPV6_MODE_SLAAC"
+  | "IPV6_MODE_STATIC"
+  | "IPV6_MODE_UNSPECIFIED";
+
+export interface NetdIpv4 {
+  /** A prefix such as 192.0.2.10/24, in static mode only. */
   address?: string;
   gateway?: string;
-  prefix?: number;
+  mode?: Ipv4Mode;
 }
 
+export interface NetdIpv6 {
+  /** A prefix such as 2001:db8::10/64, in static mode only. */
+  address?: string;
+  gateway?: string;
+  mode?: Ipv6Mode;
+}
+
+export interface NetdInterface {
+  ipv4?: NetdIpv4;
+  ipv6?: NetdIpv6;
+  name?: string;
+}
+
+/** netd's settings as the proto has them; a stage sends the whole set back. */
 export interface NetdSettings {
+  allowList: string[];
+  cluster?: { pods?: string; services?: string };
   dns: string[];
   hostname: string;
-  managementInterface: string;
+  httpsProxy?: string;
+  management?: NetdInterface;
   ntp: string[];
-  addresses: NetdAddress[];
-  allowList: string[];
-  searchDomains: string[];
-  serviceInterface?: string;
+  search: string[];
+  /** Absent when one NIC carries both roles. */
+  service?: NetdInterface;
+  timeZone?: string;
+}
+
+/** What a commit of the staged settings does, shown before it runs. */
+export interface StagedReview {
+  /** The allow-list changes, which can shut out the session that commits it. */
+  changesAllowList: boolean;
+  /** The management address moves, so a session on the old one drops. That's expected. */
+  movesManagement: boolean;
+  /** The static address to reconnect to; empty when DHCP or SLAAC gives it. */
+  newAddress: string;
+  /** The box makes a new self-signed :8443 certificate. */
+  newCertificate: boolean;
+  /** The admin page at newAddress. */
+  newUrl: string;
 }
 
 export type CheckState =
@@ -565,20 +605,23 @@ export interface GetNetworkResponse {
   revertSecondsLeft?: number;
   serviceAddresses: string[];
   settings?: NetdSettings;
+  /** What StageNetwork recorded; absent when nothing is staged, and on a base from before it. */
+  staged?: NetdSettings;
+  /** What CommitNetwork takes for it. */
+  stagedId?: string;
+  stagedReview?: StagedReview;
 }
 
-export interface SetNetworkResponse {
-  /** The management address changes: confirm from the new address. */
-  movesManagement?: boolean;
-  /** The box remakes its self-signed certificate for the new name or address. */
-  newCertificate?: boolean;
-  /** Where the box answers after the change, when the new address is known. */
-  newUrl?: string;
-  /** The window; 0 when the change was kept at once. */
-  revertAfterSeconds: number;
-  /** What ConfirmNetwork takes. Empty when the change was kept at once: one of only the DNS
-   * servers, search domains, NTP servers, time zone or proxy can't cut anyone off. */
-  token: string;
+export interface StageNetworkResponse {
+  review: StagedReview;
+  /** What CommitNetwork takes. */
+  stagedId: string;
+}
+
+export interface CommitNetworkResponse {
+  review: StagedReview;
+  /** The gateways that answered; empty when the change set no new gateway to test. */
+  testedGateways: string[];
 }
 
 export interface RunChecksResponse {

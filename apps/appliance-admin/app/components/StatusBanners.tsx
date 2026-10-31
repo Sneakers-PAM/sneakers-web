@@ -107,6 +107,6 @@ export const NetworkReverted = ({ atStart, changeId }: { atStart: boolean; chang
     {atStart
       ? "The box restarted before it was kept (a reboot or an update inside its window), and put them back when it started."
       : "Nobody kept it before its window ended."}{" "}
-    Apply it again and keep it to make it stick.
+    Stage it again and commit it to make it stick.
   </Alert>
 );

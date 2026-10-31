@@ -1,7 +1,7 @@
 import { Skeleton } from "@sneakers-web/ui";
 import { useEffect, useState } from "react";
 
-import type { GetNetworkResponse } from "@/lib/osadmin/types";
+import type { GetNetworkResponse, Ipv4Mode, Ipv6Mode } from "@/lib/osadmin/types";
 
 import { network } from "@/lib/osadmin/client";
 
@@ -11,6 +11,8 @@ const Row = ({ label, value }: { label: string; value: string }) => (
     <dd className="m-0 font-mono break-words">{value || "none"}</dd>
   </div>
 );
+
+const modeName = (mode: Ipv4Mode | Ipv6Mode) => mode.replace(/^IPV[46]_MODE_/, "");
 
 /** Step 4 (optional): the settings the box got, read only; the Network page changes them. */
 export const NetworkStep = () => {
@@ -25,11 +27,10 @@ export const NetworkStep = () => {
   );
   if (!data) return <Skeleton className="h-40" />;
   const settings = data.settings;
-  const addresses = (settings?.addresses ?? [])
-    .map((a) =>
-      a.address
-        ? `${a.mode.toUpperCase()} ${a.address}/${String(a.prefix ?? "")}${a.gateway ? `, gateway ${a.gateway}` : ""}`
-        : a.mode.toUpperCase(),
+  const addresses = [settings?.management?.ipv4, settings?.management?.ipv6]
+    .flatMap((family) => (family?.mode ? [{ ...family, mode: family.mode }] : []))
+    .map(({ address, gateway, mode }) =>
+      [modeName(mode), address, gateway && `gateway ${gateway}`].filter(Boolean).join(" "),
     )
     .join("; ");
   return (
@@ -39,7 +40,7 @@ export const NetworkStep = () => {
         once setup is done.
       </p>
       <dl className="m-0 flex flex-col gap-2 text-small">
-        <Row label="Admin port" value={settings?.managementInterface ?? ""} />
+        <Row label="Admin port" value={settings?.management?.name ?? ""} />
         <Row label="Addresses" value={addresses} />
         <Row label="Host name" value={settings?.hostname ?? ""} />
         <Row label="DNS" value={(settings?.dns ?? []).join(", ")} />

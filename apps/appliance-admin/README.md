@@ -151,22 +151,32 @@ mock states are `mirror-http`, `mirror-https`, `mirror-custom-ca`, `mirror-wrong
 
 ## Network
 
-The Network page reads and changes the box's settings (`NetworkService`). An applied change
-reverts unless an owner confirms it in time: the pending banner counts down the seconds the box
-reports and keeps its Confirm button after a reload, because `GetNetwork` returns the pending
-change's token to owner sessions. When a change moves the management address, the banner names
-the new URL to sign in at and confirm from; when it changes the name or address, it warns that
-the box makes a new certificate. A Confirm that can't reach the box says so, with the seconds
-left, rather than the browser's network error.
+The Network page reads the box's settings and changes them by stage and commit
+(`NetworkService`), the same way `network set` and `network commit` work over SSH. The form edits
+the host name, DNS, NTP, the allow-list, and the management interface's IPv4 (DHCP, static with
+address/prefix and gateway, off) and IPv6 (SLAAC, DHCPv6, static, off). The service interface has
+no editor yet.
 
-A change of only the DNS servers, search domains, NTP servers, time zone or proxy can't cut
-anyone off, so the box keeps it at once (`SetNetwork` answers no token and 0 seconds) and the
-page says so; anything else (an address, an interface, the host name, the allow-list, the
-cluster ranges) waits 120 seconds. When Apply asked for a fresh code first, the step-up dialog
-asks "Keep this change?" right after it, so the change is kept in one place. Every other page
-shows the pending change in a banner with the same countdown and a link to Network
-(`GetStatus.networkChange`). When the last change wasn't kept and the box undid it, by its
-window or because the box restarted inside it, Network and Status say so. **Run checks** shows each check as OK (green),
+**Stage change** (`StageNetwork`) changes nothing live. The staged banner shows what a commit does
+(`staged_review`), and the form shows the staged values, including after a reload; staging again
+builds on them. **Commit** (`CommitNetwork`, with a fresh step-up) tests any new gateway from the
+new address, then keeps the change for good, with no window. **Discard** drops it
+(`DiscardStagedNetwork`). When the change moves the management address, the banner warns that the
+page will drop and links the new URL (or says to find the address on the console when DHCP or
+SLAAC gives it). A commit the box never answers on a moved address reads as expected, with the
+same link, not as an error. A refused commit (`NET_GATEWAY`, or a stage the live settings moved
+past) stays on the page in a red alert, and the change stays staged. A box whose base has no
+stage RPCs answers a bare 404, which `parseOsadminError` reads as Connect's `unimplemented`, and
+Stage change then says the base needs an update.
+
+`SetNetwork` isn't used here any more. A change can still wait in the 120-second window when an
+allow-list reset comes from the console or SSH: the pending banner counts down the seconds the box
+reports and keeps its Confirm button after a reload, because `GetNetwork` returns the pending
+change's token to owner sessions, and a Confirm that can't reach the box says so, with the seconds
+left, rather than the browser's network error. Every other page shows the pending change in a
+banner with the same countdown and a link to Network (`GetStatus.networkChange`). When the last
+change wasn't kept and the box undid it, by its window or because the box restarted inside it,
+Network and Status say so. **Run checks** shows each check as OK (green),
 Warning (yellow), Failed (red) or Unknown, with its `NET_*` code and detail. The Addresses card
 lists the DNS servers, search domains and NTP servers DHCP gave the box (`learntDns`,
 `learntSearch`, `learntNtp`) next to the typed ones, and the servers the clock asks now. Toasts sit at the

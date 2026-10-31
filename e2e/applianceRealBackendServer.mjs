@@ -87,11 +87,14 @@ const api = {
     ntpSynced: true,
     pending: false,
     settings: {
-      addresses: [{ address: "192.0.2.10", family: "ipv4", mode: "static", prefix: 24 }],
       allowList: ["192.0.2.0/24"],
       dns: ["192.0.2.1"],
       hostname: "appliance01",
-      managementInterface: "eth0",
+      management: {
+        ipv4: { address: "192.0.2.10/24", mode: "IPV4_MODE_STATIC" },
+        ipv6: { mode: "IPV6_MODE_SLAAC" },
+        name: "eth0",
+      },
       ntp: ["192.0.2.1"],
     },
   }),
@@ -212,6 +215,12 @@ createServer((request, response) => {
   if (request.method === "POST" && pathname.startsWith("/sneakers.appliance.osadmin.v1.")) {
     const answer = api[pathname];
     request.resume();
+    // A base from before stage and commit: connect-go answers a method it doesn't have with a
+    // bare 404, not a Connect error.
+    if (pathname.endsWith("/NetworkService/StageNetwork")) {
+      response.writeHead(404, { "Content-Type": "text/plain" }).end("404 page not found");
+      return;
+    }
     if (!answer) {
       json(response, 501, { code: "unimplemented", message: "not in this test server" });
       return;

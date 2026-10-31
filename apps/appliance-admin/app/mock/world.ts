@@ -257,16 +257,16 @@ export const MODULES: ListModulesResponse = {
 };
 
 export const NETWORK_SETTINGS: NetdSettings = {
-  addresses: [
-    { address: "192.0.2.50", family: "ipv4", gateway: "192.0.2.1", mode: "static", prefix: 24 },
-    { family: "ipv6", mode: "slaac" },
-  ],
   allowList: ["192.0.2.0/24"],
   dns: ["192.0.2.53"],
   hostname: "appliance.example.org",
-  managementInterface: "eth0",
+  management: {
+    ipv4: { address: "192.0.2.50/24", gateway: "192.0.2.1", mode: "IPV4_MODE_STATIC" },
+    ipv6: { mode: "IPV6_MODE_SLAAC" },
+    name: "eth0",
+  },
   ntp: ["192.0.2.123"],
-  searchDomains: ["example.org"],
+  search: ["example.org"],
 };
 
 const GIB = 1_073_741_824;

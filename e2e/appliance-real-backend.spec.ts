@@ -26,6 +26,25 @@ const UNAVAILABLE = [
 
 const AVAILABLE = ["/home", "/network", "/access", "/certificates", "/logs", "/power"] as const;
 
+test("a base with no stage and commit says so on Network, and the page stays up", async ({
+  page,
+}) => {
+  const problems: string[] = [];
+  page.on("pageerror", (error) => problems.push(error.message));
+  await page.goto("/");
+  await page.getByLabel("Admin name").fill("owner");
+  await page.getByLabel("Password", { exact: true }).fill("any password at all");
+  await page.getByLabel("Authenticator code").first().fill("123456");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.waitForURL("**/home", { timeout: 15_000 });
+  await navigate(page, "/network");
+  await page.waitForURL("**/network");
+  await page.getByRole("button", { name: "Stage change" }).click();
+  await expect(page.getByText(/base OS doesn't have stage and commit yet/)).toBeVisible();
+  await expect(page.getByLabel("Hostname")).toBeVisible();
+  expect(problems).toEqual([]);
+});
+
 test("every page renders against a real-shaped backend, with unimplemented pages showing Not available", async ({
   page,
 }) => {

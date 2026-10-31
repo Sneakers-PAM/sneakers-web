@@ -1,15 +1,15 @@
 // A single step-up dialog mounted once (in the frame) serves every mutating action: a call
 // that answers ACCESS_STEPUP_REQUIRED queues its own retry here instead of each page building
-// its own prompt. A retry may hand back a follow-up question, which the same dialog asks next
-// (a network change's "Keep this change?"), so the admin never has to find a second button.
+// its own prompt. A retry may hand back a follow-up question, which the same dialog asks next,
+// so the admin never has to find a second button.
 
 /** A question the dialog asks after the retried action went through. */
 export interface StepUpFollowUp {
   /** One or two sentences under the title. */
   body: string;
-  /** The button that does it, such as "Keep this change". */
+  /** The button that does it. */
   confirmLabel: string;
-  /** The button that leaves it, such as "Not now". */
+  /** The button that leaves it. */
   dismissLabel: string;
   /** Runs on the confirm button; a refusal stays in the dialog. */
   run: () => Promise<void>;

@@ -5,6 +5,7 @@
 // guard a list or a string. `Wire<T>` is the answer as sent, with every field optional at every
 // depth; returning `T` from it makes the compiler name any required field left without a default.
 import type {
+  CommitNetworkResponse,
   EmailSettings,
   GetEmailResponse,
   GetImportResponse,
@@ -56,7 +57,6 @@ import type {
   ListModulesResponse,
   ListProductVersionsResponse,
   ListSessionsResponse,
-  NetdAddress,
   NetdCheck,
   NetdSettings,
   NetworkChange,
@@ -70,7 +70,8 @@ import type {
   RevokedKey,
   RunChecksResponse,
   Session,
-  SetNetworkResponse,
+  StagedReview,
+  StageNetworkResponse,
   SetupStep,
   StoredCertificate,
   TotpEnrolment,
@@ -450,21 +451,21 @@ export const listElevations = (w: Wire<ListElevationsResponse>): ListElevationsR
 
 // ---- network ----
 
-const netdAddress = (w: Wire<NetdAddress>): NetdAddress => ({
-  ...w,
-  family: word(w.family),
-  mode: word(w.mode),
-});
-
 const netdSettings = (w: Wire<NetdSettings>): NetdSettings => ({
   ...w,
-  addresses: list(w.addresses, netdAddress),
   allowList: texts(w.allowList),
   dns: texts(w.dns),
   hostname: w.hostname ?? "",
-  managementInterface: w.managementInterface ?? "",
   ntp: texts(w.ntp),
-  searchDomains: texts(w.searchDomains),
+  search: texts(w.search),
+});
+
+const stagedReview = (w: undefined | Wire<StagedReview>): StagedReview => ({
+  changesAllowList: w?.changesAllowList ?? false,
+  movesManagement: w?.movesManagement ?? false,
+  newAddress: w?.newAddress ?? "",
+  newCertificate: w?.newCertificate ?? false,
+  newUrl: w?.newUrl ?? "",
 });
 
 export const getNetwork = (w: Wire<GetNetworkResponse>): GetNetworkResponse => ({
@@ -484,14 +485,22 @@ export const getNetwork = (w: Wire<GetNetworkResponse>): GetNetworkResponse => (
   ...(w.revertSecondsLeft === undefined ? {} : { revertSecondsLeft: w.revertSecondsLeft }),
   serviceAddresses: texts(w.serviceAddresses),
   settings: optional(w.settings, netdSettings),
+  ...(w.staged &&
+    w.stagedId && {
+      staged: netdSettings(w.staged),
+      stagedId: w.stagedId,
+      stagedReview: stagedReview(w.stagedReview),
+    }),
 });
 
-export const setNetwork = (w: Wire<SetNetworkResponse>): SetNetworkResponse => ({
-  movesManagement: w.movesManagement ?? false,
-  newCertificate: w.newCertificate ?? false,
-  ...(w.newUrl ? { newUrl: w.newUrl } : {}),
-  revertAfterSeconds: w.revertAfterSeconds ?? 0,
-  token: w.token ?? "",
+export const stageNetwork = (w: Wire<StageNetworkResponse>): StageNetworkResponse => ({
+  review: stagedReview(w.review),
+  stagedId: w.stagedId ?? "",
+});
+
+export const commitNetwork = (w: Wire<CommitNetworkResponse>): CommitNetworkResponse => ({
+  review: stagedReview(w.review),
+  testedGateways: texts(w.testedGateways),
 });
 
 const netdCheck = (w: Wire<NetdCheck>): NetdCheck => ({
