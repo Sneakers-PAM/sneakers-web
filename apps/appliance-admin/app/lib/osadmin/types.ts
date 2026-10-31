@@ -990,6 +990,8 @@ export interface CheckUpdatesResponse {
   product: UnitOffer[];
   /** The installed product version itself, when the source has it: a reinstall keeps the data. */
   productReinstall?: UnitOffer;
+  /** Each newer release the check skipped and why; empty when the newest one is used. */
+  publishingNote: string;
   /** mirror, builtin or direct, and its address. */
   source: string;
   url: string;

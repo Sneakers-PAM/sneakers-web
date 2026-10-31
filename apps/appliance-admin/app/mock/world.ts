@@ -130,7 +130,7 @@ export const ELEVATIONS: Elevation[] = [
     approvedBy: "bob",
     ended: soon(-60 * 24 + 6),
     endReason: "exit",
-    id: "E-7K2Q",
+    id: "E-7K2R",
     keyFingerprint: bobKey.fingerprint,
     minutes: 10,
     reason: "",
@@ -193,7 +193,7 @@ export const AUDIT_EVENTS: AuditEvent[] = [
     action: "elevation.request",
     actor: "bob",
     code: "",
-    detail: { id: "E-7K2Q", reason: "investigate kubelet" },
+    detail: { id: "E-7K2R", reason: "investigate kubelet" },
     keyFingerprint: bobKey.fingerprint,
     outcome: "ok",
     sourceAddress: "192.0.2.50",
@@ -395,7 +395,7 @@ export const status: () => GetStatusResponse = () => ({
 /** Every mock admin's password. Any 6-digit code but 000000 passes as their TOTP code. */
 export const MOCK_PASSWORD = "correct horse battery staple";
 /** The code the mock console shows for first-boot setup, and carol's invitation code. */
-export const MOCK_SETUP_CODE = "7PQK-NMS9-XD2A-4KJW";
+export const MOCK_SETUP_CODE = "7PXK-NMS9-XD2A-4KJW";
 export const MOCK_INVITE_CODE = "R4WN-8HTE";
 /** Passwords the mock's breached-password check refuses. */
 export const BREACHED_PASSWORDS = ["password1234", "qwertyuiop123", "123456789012"]; // gitleaks:allow (made-up weak passwords)

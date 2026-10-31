@@ -578,6 +578,26 @@ describe("Updates", () => {
     expect(await screen.findByText(/Daily at 03:30 for 120 minutes/)).toBeInTheDocument();
   });
 
+  it("says which newer releases the check skipped, and why", async () => {
+    const real = await upgrade.checkUpdates();
+    vi.spyOn(upgrade, "checkUpdates").mockResolvedValueOnce({
+      ...real,
+      publishingNote: "v0.3.0 is being published; v0.2.0's index doesn't verify; showing v0.1.1",
+    });
+    await openPage();
+    expect(
+      await screen.findByText(
+        "v0.3.0 is being published; v0.2.0's index doesn't verify; showing v0.1.1",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("says nothing about publishing when the newest release is the one used", async () => {
+    await openPage();
+    expect(await screen.findByText(/^Last check/)).toBeInTheDocument();
+    expect(screen.queryByText("A newer release isn't ready")).not.toBeInTheDocument();
+  });
+
   it("says it isn't available when the box's update backend isn't there", async () => {
     vi.spyOn(upgrade, "get").mockRejectedValueOnce(
       new OsadminError("unimplemented", "UpgradeService isn't on this box"),

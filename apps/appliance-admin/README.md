@@ -108,7 +108,9 @@ Web** (the :8443 pages, no reboot) and **Product** (restarts the product), each 
 colour, its running and previous versions, what the mirror offers for it (full or patch, with the
 size), Fetch with its progress, Verify and stage, Apply and Revert. Below them the **Update
 mirror** card (the source, its status, the last check and Check now) and **Install an update**,
-upload only, for air-gapped boxes. After a Base Web update the frame offers a reload. The mock
+upload only, for air-gapped boxes. When a check skips a newer release (still being published, or
+its index doesn't verify) a note above the cards says which one and why
+(`CheckUpdatesResponse.publishing_note`). After a Base Web update the frame offers a reload. The mock
 states are `web-installed`, `web-staged`, `web-failed`, `web-compat`, `web-updated`, `fetching`
 and `source-builtin`.
 
@@ -149,6 +151,12 @@ card links to; the CA is trusted for the mirror only, and there is no skip-verif
 mock states are `mirror-http`, `mirror-https`, `mirror-custom-ca`, `mirror-wrong-ca` and
 `mirror-pin-mismatch`.
 
+## Import
+
+The product's Import page brings an earlier install's export in before the product's own setup. A
+note on the page says the audit trail stays on the old box: this box's trail starts with one record
+of the import naming the source, and a bundle in format 1.x is refused.
+
 ## Network
 
 The Network page reads and changes the box's settings (`NetworkService`). An applied change
@@ -178,6 +186,12 @@ The Logs page lists the box's audit entries (`AuditService`). The target names t
 on in words (a certificate by its names, a session by its admin and source); the entry's detail
 sits under it, with ids and fingerprints in mono. **Export** downloads the whole log as JSON
 lines, ids included.
+
+**Advanced: support bundle** downloads the box's full support bundle as one text file
+(`GET /export/support-bundle`), under the name the box gives it. The box writes it as it's asked,
+so the button holds until the file is done. A Base OS without the route answers 404 or the pages'
+own `index.html`; the page reads either as a box that needs an update, and shows the box's own words
+for anything else, such as a bundle already running.
 
 ## Review gallery
 

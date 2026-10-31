@@ -1,4 +1,9 @@
-import { type Edge, UPLOAD_CANCELLED, type UploadOptions } from "@/lib/osadmin/edgeTypes";
+import {
+  type Edge,
+  type SupportBundle,
+  UPLOAD_CANCELLED,
+  type UploadOptions,
+} from "@/lib/osadmin/edgeTypes";
 import { csrfToken } from "@/lib/osadmin/sessionStore";
 import { OsadminError, parseOsadminError, symbolOf } from "@/lib/osadmin/errors";
 import { noteServedWebVersion, WEB_VERSION_HEADER } from "@/lib/webVersion";
@@ -19,6 +24,12 @@ const uploadError = (status: number, text: string): OsadminError => {
 /** What a request that never reached osadmin says. */
 export const UNREACHABLE = "The appliance can't be reached at this address.";
 
+const bundleRefusal = (status: number, text: string): OsadminError =>
+  new OsadminError(
+    status === 401 ? "unauthenticated" : status === 503 ? "unavailable" : "unknown",
+    text.trim() || `osadmin answered ${String(status)}`,
+  );
+
 /**
  * The live edge: the browser calls osadmin's Connect API at the same origin (no gateway,
  * no Node server -- osadmin serves the static assets and the API side by side on :8443).
@@ -29,6 +40,22 @@ export const edge: Edge = {
     const response = await fetch("/export/audit-log", { credentials: "same-origin" });
     if (!response.ok) throw await parseOsadminError(response);
     return response.blob();
+  },
+  async exportSupportBundle(): Promise<SupportBundle> {
+    try {
+      const response = await fetch("/export/support-bundle", { credentials: "same-origin" });
+      // A box without the route never reaches it: 8443 serves the pages' index.html for a path it
+      // doesn't know, so a 200 that isn't the bundle's plain text means the same as a 404.
+      const isBundle = response.headers.get("Content-Type")?.startsWith("text/plain") ?? false;
+      if (response.status === 404 || (response.ok && !isBundle))
+        throw new OsadminError("unimplemented", "This box has no support bundle.");
+      if (!response.ok) throw bundleRefusal(response.status, await response.text());
+      const named = /filename="([^"]+)"/.exec(response.headers.get("Content-Disposition") ?? "");
+      return { blob: await response.blob(), fileName: named?.[1] ?? "support-bundle.txt" };
+    } catch (error) {
+      if (error instanceof TypeError) throw new OsadminError("unavailable", UNREACHABLE);
+      throw error;
+    }
   },
   mode: "live" as const,
   async request<Result>(service: string, method: string, body: unknown): Promise<Result> {

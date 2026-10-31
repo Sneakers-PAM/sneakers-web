@@ -218,7 +218,7 @@ describe("Setup", () => {
     expect(screen.getByText(/can't show it again/)).toBeInTheDocument();
     expect(screen.getByText("offline safe")).toBeInTheDocument();
     expect(saved()).toHaveLength(1);
-    expect(saved()[0]!.name).toMatch(/^sneakers-recovery-/);
+    expect(saved()[0]!.name).toMatch(/^sneakers-recovery-key-/);
     expect(await saved()[0]!.text).toContain("BEGIN OPENSSH PRIVATE KEY");
 
     await user.click(screen.getByRole("button", { name: /Download the private key again/ }));

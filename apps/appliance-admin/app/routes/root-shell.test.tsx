@@ -19,7 +19,7 @@ describe("RootShell", () => {
     signInAs("alice");
     const user = userEvent.setup();
     renderPage(RootShell);
-    await ask(user, "k3m9 7pqx 2hdw r4te", "314159");
+    await ask(user, "k3m9 7pxr 2hdw r4te", "314159");
     const result = within(await screen.findByRole("region", { name: "Your root-shell code" }));
     expect(result.getByLabelText("Root-shell code")).toHaveTextContent(/^[0-9A-Z]{4}-[0-9A-Z]{4}$/);
     expect(
@@ -34,7 +34,7 @@ describe("RootShell", () => {
     signInAs("alice");
     const user = userEvent.setup();
     renderPage(RootShell);
-    await ask(user, "K3M9-7PQX-2HDW-R4TE", "000000");
+    await ask(user, "K3M9-7PXR-2HDW-R4TE", "000000");
     expect(await screen.findByText(/That code didn't work/)).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Your root-shell code" })).not.toBeInTheDocument();
   });

@@ -879,6 +879,11 @@ export default function Updates() {
         </Alert>
       )}
       {!isOwner && <Alert tone="info">Only an owner can install, apply or revert updates.</Alert>}
+      {check?.publishingNote && (
+        <Alert title="A newer release isn't ready" tone="info">
+          {check.publishingNote}
+        </Alert>
+      )}
 
       {/* The three units as their own full-width rows, never side by side: a unit's offers,
           its buttons and its own progress all need the width, and a "Fetch" or "Apply" button

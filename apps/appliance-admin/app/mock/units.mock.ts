@@ -192,6 +192,7 @@ export const checkUpdates = (
         version: v.version,
       }),
     ),
+    publishingNote: "",
     source,
     url,
   };

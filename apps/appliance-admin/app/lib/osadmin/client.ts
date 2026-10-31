@@ -484,6 +484,7 @@ export const modules = {
 
 export const audit = {
   exportLog: () => edge.exportAuditLog(),
+  exportSupportBundle: () => edge.exportSupportBundle(),
   list: (limit = 100, pageToken = "", action = "") =>
     call<ListEventsResponse>(
       "AuditService",

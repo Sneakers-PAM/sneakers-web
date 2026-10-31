@@ -210,13 +210,13 @@ let quorum = structuredClone(world.QUORUM);
 let accessPolicy = structuredClone(world.ACCESS_POLICY);
 let keySerial = 100;
 let inviteCount = 0;
-const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+const CODE_ALPHABET = "23456789ABCDEFHJKMNPRSTVWXYZ";
 
 /** A new 24-hour invitation code for the admin, as AddAdmin and ReinviteAdmin answer. */
 const invite = (admin: string) => {
   inviteCount++;
   const code = Array.from({ length: 8 }, (_, index) =>
-    CROCKFORD.charAt((inviteCount * 7 + index * 13 + admin.length) % CROCKFORD.length),
+    CODE_ALPHABET.charAt((inviteCount * 7 + index * 13 + admin.length) % CODE_ALPHABET.length),
   ).join("");
   const formatted = `${code.slice(0, 4)}-${code.slice(4)}`;
   invitations.set(normalCode(formatted), admin);
@@ -1424,14 +1424,14 @@ const route = async (service: string, method: string, body: Record<string, unkno
           "permission_denied",
           "ACCESS_FORBIDDEN: only root operators get root-shell codes",
         );
-      if (!/^[0-9A-HJKMNP-TV-Z]{16}$/.test(normalCode(String(body.challenge ?? ""))))
+      if (!/^[2-9A-FHJKMNPRSTV-Z]{16}$/.test(normalCode(String(body.challenge ?? ""))))
         throw new OsadminError(
           "invalid_argument",
           "ROOTSHELL_CHALLENGE: that isn't a challenge from your SSH menu; it looks like XXXX-XXXX-XXXX-XXXX",
         );
       checkCredentials(caller(), null, String(body.totpCode ?? ""));
       return {
-        code: "Q7XD-2PNR",
+        code: "X7KD-2PNR",
         expires: new Date(Date.now() + accessPolicy.rootCodeMinutes * 60_000).toISOString(),
         sessionMinutes: accessPolicy.rootSessionMinutes,
         sourceAddress: "192.0.2.50",
@@ -1541,7 +1541,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
       };
       recoveryKeys.push(key);
       return {
-        fileName: `sneakers-recovery-${set.replaceAll(/[-:]|\.\d+/g, "")}`,
+        fileName: `sneakers-recovery-key-${set.replaceAll(/[-:]|\.\d+/g, "")}`,
         privateKey: [
           "-----BEGIN OPENSSH PRIVATE KEY-----", // gitleaks:allow (a placeholder, not a key)
           "MOCK-RECOVERY-KEY-NOT-A-REAL-KEY-MOCK-RECOVERY-KEY-NOT-A-REAL-KEY",
@@ -2136,6 +2136,12 @@ export const edge: Edge = {
   async exportAuditLog(): Promise<Blob> {
     const lines = auditEvents.map((event) => JSON.stringify(event)).join("\n");
     return new Blob([lines], { type: "application/jsonl" });
+  },
+  async exportSupportBundle() {
+    return {
+      blob: new Blob(["The mock box's support bundle.\n"], { type: "text/plain" }),
+      fileName: "support-bundle-box1-20261030T120000Z.txt",
+    };
   },
   mode: "mock" as const,
   quickLogin: {
