@@ -736,7 +736,14 @@ graphql.ts`, re-exported from `@sneakers-web/mock-gateway`), which resets to a p
   the third-party versions, and the copy button. Every commit shows as its short form, the first 7
   characters (`shortCommit`), in the dialog and in the copied report, its JSON included. The
   copied report carries the same (`product` and `box` in the JSON).
-- The mock gateway answers `diagnostics` with `mock-` versions.
+- For root (`isRoot`), the admin console's account menu has **Appliance admin**, which opens the
+  box's own :8443 pages in a new tab. The address is `https://<fqdn>:8443/`, from the host name
+  the box reports for itself (`diagnostics.box.fqdn`, the `ApplianceAdminHost` query, asked only
+  for root by the admin frame loader; `app/lib/applianceAdmin.server.ts`). There's no item for
+  anyone else, off an appliance, or when the box says `unknown`. The link carries no session: the
+  appliance admin keeps its own sign-in.
+- The mock gateway answers `diagnostics` with `mock-` versions, and no box unless a test sets
+  `mockAppliance.current.box`.
 - An app with no `resources/diagnostics` gives its own copier through `DiagnosticsCopierProvider`;
   every `CopyDiagnostics` below it, the crash, offline and not-found screens included, calls it
   instead of asking the app server. The appliance admin does this in `root.tsx` (its page and its

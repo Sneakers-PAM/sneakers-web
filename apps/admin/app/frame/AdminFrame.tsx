@@ -29,8 +29,16 @@ import type { loader } from "@/routes/frame";
 
 /** The admin console frame. The header is inverted (an ink bar) so it's never mistaken for the user app. */
 export const AdminFrame = () => {
-  const { breakGlass, isAdmin, maintenance, maintenanceReason, mcpOff, mfaSetupRecommended, user } =
-    useLoaderData<typeof loader>();
+  const {
+    applianceAdmin,
+    breakGlass,
+    isAdmin,
+    maintenance,
+    maintenanceReason,
+    mcpOff,
+    mfaSetupRecommended,
+    user,
+  } = useLoaderData<typeof loader>();
   const { config, developmentUiIssueCopy } = useRootData();
   const submit = useSubmit();
   const phone = useBreakpoint() === "phone";
@@ -43,11 +51,19 @@ export const AdminFrame = () => {
           developmentUiIssueCopy={developmentUiIssueCopy}
           email={user.email}
           inverted
-          items={
-            phone
+          items={[
+            ...(phone
               ? [{ label: "User app", onSelect: () => globalThis.location.assign(config.staffUrl) }]
-              : []
-          }
+              : []),
+            ...(applianceAdmin
+              ? [
+                  {
+                    label: "Appliance admin",
+                    onSelect: () => void globalThis.open(applianceAdmin, "_blank", "noopener"),
+                  },
+                ]
+              : []),
+          ]}
           name={user.name}
           onSignOut={() => void submit(null, { action: "/sign-out", method: "post" })}
           role={primaryRole(user)}

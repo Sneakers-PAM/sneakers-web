@@ -11,8 +11,8 @@ import { loader as frameLoader } from "@/routes/frame";
 withMockGateway();
 
 /** Mounts the real admin frame, with its real loader run against the mock gateway. */
-const openFrame = () => {
-  const cookie = sessionCookie("mock-user-alice");
+const openFrame = (userId = "mock-user-alice") => {
+  const cookie = sessionCookie(userId);
   const Stub = createRoutesStub([
     {
       children: [{ Component: () => <h1>Targets</h1>, index: true }],
@@ -97,5 +97,36 @@ describe("AdminFrame user menu", () => {
     } finally {
       globalThis.matchMedia = original;
     }
+  });
+});
+
+const BOX = { baseOS: "0.2.0", baseWeb: "0.2.0", fqdn: "box.example.org" };
+const openMenu = async () => {
+  await screen.findByText("Targets");
+  await userEvent.setup().click(screen.getByRole("button", { name: /^Account:/ }));
+  await screen.findByRole("menuitem", { name: "Sign out" });
+};
+
+describe("AdminFrame appliance admin link (#326)", () => {
+  it("offers root the box's :8443 pages, in a new tab", async () => {
+    mockAppliance.current = { ...mockAppliance.current, box: BOX };
+    const open = vi.spyOn(globalThis, "open").mockReturnValue(null);
+    openFrame("mock-user-carol");
+    await openMenu();
+    await userEvent.setup().click(screen.getByRole("menuitem", { name: "Appliance admin" }));
+    expect(open).toHaveBeenCalledWith("https://box.example.org:8443/", "_blank", "noopener");
+  });
+
+  it("isn't there for a site admin who isn't root", async () => {
+    mockAppliance.current = { ...mockAppliance.current, box: BOX };
+    openFrame("mock-user-alice");
+    await openMenu();
+    expect(screen.queryByRole("menuitem", { name: "Appliance admin" })).toBeNull();
+  });
+
+  it("isn't there for root when the product doesn't run on a box", async () => {
+    openFrame("mock-user-carol");
+    await openMenu();
+    expect(screen.queryByRole("menuitem", { name: "Appliance admin" })).toBeNull();
   });
 });
