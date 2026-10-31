@@ -163,7 +163,13 @@ describe("Access", () => {
       signInAsOwner();
       renderPage(Access);
       await screen.findByRole("table", { name: "Admins" });
-      expect(screen.getByText(/single-admin box can't factory reset/)).toBeInTheDocument();
+      const warning = screen
+        .getAllByRole("status")
+        .find((node) => /single-admin box can't factory reset/.test(node.textContent));
+      expect(warning).toHaveClass("border-danger", "bg-danger-soft");
+      expect(warning?.innerHTML).toContain("lucide-triangle-alert");
+      expect(warning).toHaveTextContent(/one admin isn't a quorum/);
+      expect(warning).toHaveTextContent(/re-flash/);
     } finally {
       if (bob) world.ADMINS.push(bob);
     }
