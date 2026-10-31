@@ -171,8 +171,12 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   (ACCESS_PASSWORD)"), or, for a message that is only a code, a sentence for the code; toasts
   and the in-place refusals use it, so a raw "ACCESS_PASSWORD (3016)" is never all an admin sees.
 - **The frame's notices (`app/components/StatusBanners.tsx`).** From `GetStatus`, on every
-  page change: a network change waiting to be kept (not on Network, which has its own), and a
-  base apply or revert under way (not on Updates), which will end this session too.
+  page change: a network change waiting to be kept (not on Network, which has its own), a
+  base apply or revert under way (not on Updates), which will end this session too, and
+  `WARNING_KIND_TLS_CHANGED`'s `detail` with a link to Status (not on Status, which shows it with
+  its other warnings). That warning says the box replaced its own certificate, or put an earlier
+  one back, in the last 7 days, which explains a browser warning on any page. Status's TLS card
+  adds `tlsChange.oldFingerprint`. An older box sends neither, so nothing shows.
 - **One step-up dialog for every page.** A mutating call that answers
   `ACCESS_STEPUP_REQUIRED` (Connect `permission_denied`) doesn't build its own prompt; it calls
   `requestStepUp` (`app/lib/osadmin/stepUpController.ts`) through `runAction`
@@ -188,7 +192,9 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   a staged banner shows `stagedReview` with Commit (`CommitNetwork`, step-up) and Discard
   (`DiscardStagedNetwork`), and the form fills from `staged` when there is one. `NetdSettings`
   (`app/lib/osadmin/types.ts`) is the proto's shape, because a stage sends the whole set back; the
-  page keeps the fields it doesn't edit by spreading them. A commit that loses the box on a moved
+  page keeps the fields it doesn't edit by spreading them. `newCertificate` says the certificate
+  may change once kept: the box replaces it only then, and only when it doesn't already name the
+  result. A commit that loses the box on a moved
   address (`unavailable`) is expected and shows the reconnect link. A `NET_*` refusal stays on the
   page. `unimplemented` on Stage (an older base; `parseOsadminError` reads a bare 404 as that)
   shows what to do instead. `SetNetwork` is no longer called; `ConfirmNetwork` stays for a change
@@ -527,7 +533,10 @@ usernames, display names or emails.
 ## Brand mark
 
 The brand mark is the still `Mark` everywhere it stands for the brand (the sign-in panel, empty
-states, the no-access cards, the setup "all set" screen). The animated `SneakerLoader` is only for
+states, the no-access cards, the setup "all set" screen). Every screen shown before the app opens
+gets it from `CenteredFrame` or `SignInLayout` (`packages/shell/src/gate/Frames.tsx`), error and
+`BoxWait` screens included, and it's inline SVG, so it needs no request while the product is down;
+don't add a second one to a screen in those frames. The animated `SneakerLoader` is only for
 loading states: the connecting screen and the hand-off after sign-in.
 
 ## Layout

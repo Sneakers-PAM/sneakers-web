@@ -2,15 +2,20 @@ import { Alert, Button } from "@sneakers-web/ui";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 
-import type { GetStatusResponse, NetworkChange, UpgradeProgress } from "@/lib/osadmin/types";
+import type {
+  GetStatusResponse,
+  NetworkChange,
+  UpgradeProgress,
+  Warning,
+} from "@/lib/osadmin/types";
 
 import { subscribeNetworkChange } from "@/lib/networkChange";
 import { status } from "@/lib/osadmin/client";
 
 /**
  * The frame's notices from GetStatus, on every :8443 page: a network change waiting to be kept,
- * and a base update under way that will end this session. Read on every page change and whenever
- * the Network page changes something.
+ * a base update under way that will end this session, and a change the box made to its own
+ * certificate. Read on every page change and whenever the Network page changes something.
  */
 export const StatusBanners = ({ pathname }: { pathname: string }) => {
   const [data, setData] = useState<GetStatusResponse>();
@@ -30,6 +35,9 @@ export const StatusBanners = ({ pathname }: { pathname: string }) => {
   );
   useEffect(read, [read, pathname]);
   useEffect(() => subscribeNetworkChange(read), [read]);
+  const certificateChange = data?.warnings?.find(
+    (warning) => warning.kind === "WARNING_KIND_TLS_CHANGED",
+  );
   return (
     <>
       {pathname !== "/network" && data?.networkChange?.pending && (
@@ -37,6 +45,9 @@ export const StatusBanners = ({ pathname }: { pathname: string }) => {
       )}
       {pathname !== "/updates" && data?.upgradeProgress && (
         <UpdateUnderWay progress={data.upgradeProgress} />
+      )}
+      {pathname !== "/home" && certificateChange && (
+        <CertificateChanged warning={certificateChange} />
       )}
     </>
   );
@@ -98,6 +109,25 @@ const UpdateUnderWay = ({ progress }: { progress: UpgradeProgress }) => {
     </Alert>
   );
 };
+
+/**
+ * The box changed its own certificate, which explains a browser warning that can meet an admin on
+ * any page. The words are the box's; Status shows them with its other warnings, and the
+ * fingerprint the box had before, so this one stays off that page.
+ */
+const CertificateChanged = ({ warning }: { warning: Warning }) => (
+  <Alert
+    action={
+      <Button asChild size="sm" variant="secondary">
+        <Link to="/home">Open Status</Link>
+      </Button>
+    }
+    role="status"
+    tone="warn"
+  >
+    {warning.detail}
+  </Alert>
+);
 
 /** The last network change nobody kept, which the box undid: on Network and Status. */
 export const NetworkReverted = ({ atStart, changeId }: { atStart: boolean; changeId: string }) => (

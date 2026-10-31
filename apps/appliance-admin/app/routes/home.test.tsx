@@ -35,6 +35,21 @@ describe("Home", () => {
     expect(screen.queryByText(/wasn't confirmed and was undone/)).not.toBeInTheDocument();
   });
 
+  it("says the box replaced its certificate, once, with the fingerprint it had", async () => {
+    applyMockScenario("tls-changed");
+    renderPage(Home);
+    expect(await screen.findAllByText(/replaced its own certificate/)).toHaveLength(1);
+    expect(screen.getByText(/Before 28 Oct 2026/)).toBeInTheDocument();
+    expect(screen.getByText(world.TLS_CHANGE.oldFingerprint)).toBeInTheDocument();
+  });
+
+  it("names no earlier certificate on a box that sends no change", async () => {
+    renderPage(Home);
+    expect(await screen.findByText(/Not self-signed|Self-signed/)).toBeInTheDocument();
+    expect(screen.queryByText(/replaced its own certificate/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Before /)).not.toBeInTheDocument();
+  });
+
   it("lists the product's exposed values, and shows one only on Show", async () => {
     signInAs("bob");
     const user = userEvent.setup();

@@ -527,6 +527,8 @@ let statusFails = false;
  * cleanup may remove, or 93% full of what it never touches ("stuck"); "" is the healthy box.
  */
 let diskState: "" | "critical" | "stuck" | "warning" = "";
+/** Whether the box has lately changed its own certificate (the tls-changed scenario). */
+let tlsChanged = false;
 let lastCleanup: DiskCleanup | undefined;
 let verifyStalls = false;
 let stepUpOnce = false;
@@ -1740,6 +1742,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
         upgradeProgress: structuredClone(upgradeProgress),
         ...(lastCleanup && { lastCleanup: structuredClone(lastCleanup) }),
         ...(diskState && { volumes: world.fullVolumes(diskState === "warning" ? 85 : 93) }),
+        ...(tlsChanged && { tlsChange: { ...world.TLS_CHANGE } }),
         ...((networkPending || lastNetworkChange?.reverted) && {
           networkChange: {
             ...(networkPending && {
@@ -1760,6 +1763,9 @@ const route = async (service: string, method: string, body: Record<string, unkno
             ? [{ detail: reduced.detail, kind: "WARNING_KIND_REDUCED_PROTECTION" as const }]
             : []),
           ...(diskState ? world.diskWarnings(diskState) : []),
+          ...(tlsChanged
+            ? [{ detail: world.TLS_CHANGE_DETAIL, kind: "WARNING_KIND_TLS_CHANGED" as const }]
+            : []),
           ...(networkPending
             ? [
                 {
@@ -2277,6 +2283,7 @@ const MOCK_SCENARIOS = [
   "staged",
   "stepup",
   "throttled",
+  "tls-changed",
   "uploading",
   "verifying",
   "source-builtin",
@@ -2598,6 +2605,10 @@ export const applyMockScenario = (scenario: MockScenario): void => {
       throttledUntil = new Date(Date.now() + 4 * 60_000).toISOString();
       break;
     }
+    case "tls-changed": {
+      tlsChanged = true;
+      break;
+    }
     case "uploading": {
       uploadStalls = true;
       break;
@@ -2663,6 +2674,7 @@ export const resetMockWorld = (): void => {
   uploadStalls = false;
   statusFails = false;
   diskState = "";
+  tlsChanged = false;
   lastCleanup = undefined;
   verifyStalls = false;
   stepUpOnce = false;
