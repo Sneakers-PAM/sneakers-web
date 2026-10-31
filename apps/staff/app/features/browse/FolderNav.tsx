@@ -11,7 +11,7 @@ import { Fragment } from "react";
 import { Link } from "react-router";
 
 import { type FolderAction, folderActions } from "@/features/browse/folderActions";
-import { childrenOf, isPersonal, type NavFolder } from "@/features/browse/tree";
+import { childrenOf, isPersonal, type NavFolder, ownSecretCount } from "@/features/browse/tree";
 
 interface RowContext {
   currentId?: string;
@@ -26,6 +26,7 @@ const Row = ({ ctx, depth, folder }: { ctx: RowContext; depth: number; folder: N
   const selected = folder.id === ctx.currentId;
   const items = folderActions(ctx.folders, folder);
   const Icon = isPersonal(folder) && depth === 0 ? Circle : Play;
+  const count = ownSecretCount(ctx.folders, folder);
   return (
     <li>
       <ContextMenu>
@@ -42,9 +43,7 @@ const Row = ({ ctx, depth, folder }: { ctx: RowContext; depth: number; folder: N
           >
             <Icon aria-hidden className="size-2 shrink-0 text-muted" fill="currentColor" />
             <span className="min-w-0 flex-1 truncate">{folder.name}</span>
-            {folder.subtreeSecretCount !== null && (
-              <span className="font-mono text-small text-muted">{folder.subtreeSecretCount}</span>
-            )}
+            {count !== null && <span className="font-mono text-small text-muted">{count}</span>}
           </Link>
         </ContextMenuTrigger>
         <ContextMenuContent>
