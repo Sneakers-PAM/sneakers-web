@@ -30,6 +30,7 @@ import {
   SecretVersionsDocument,
   type SecretVersionsQuery,
   SharingUserLabelsDocument,
+  TargetsTerminalDocument,
 } from "@sneakers-web/api-client";
 import { type Refusal, refusalMessage, refusalOf } from "@sneakers-web/shell";
 import { guard, isAdmin, requireUser, type SessionUser } from "@sneakers-web/shell/server";
@@ -38,6 +39,11 @@ import { data, redirect } from "react-router";
 
 import { appKeyProblem } from "@/features/editors/githubAppKey";
 import { activeLeaseFor, checkIn, checkOut } from "@/features/requests/leases.server";
+import {
+  opensTerminal,
+  type TerminalAvailability,
+  terminalAvailability,
+} from "@/features/targets/terminal.server";
 
 const log = createLogger("staff.secret");
 
@@ -83,6 +89,9 @@ export interface SecretPage {
    * read as having none; `target` above stays the first/primary for callers that haven't moved
    * to the list. */
   targets: { hostname: string; id: string; name: string }[];
+  /** For a secret the web terminal opens: whether Open terminal can connect yet, or why not
+   * (#317). Null for every other type. */
+  terminal: null | TerminalAvailability;
   type: null | SecretType;
   /** The signed-in user's id, to tell their own lease from someone else's. */
   viewerId: string;
@@ -151,14 +160,22 @@ const page = async (
   const { mySecretAccess: access } = await gw.gql(SecretAccessDocument, { secretId: secret.id });
   const admin = isAdmin(user);
   const type = detail.secretTypes.find((t) => t.id === secret.typeId) ?? null;
-  const [fields, history, lease, creatorLabels] = await Promise.all([
+  const [fields, history, lease, creatorLabels, terminalTargets] = await Promise.all([
     access.read ? gw.gql(SecretFieldsDocument, { id: secret.id }) : null,
     access.read ? gw.gql(SecretVersionsDocument, { secretId: secret.id }) : null,
     type?.checkout ? activeLeaseFor(gw, secret.id) : null,
     secret.creatorPrincipalId
       ? gw.gql(SharingUserLabelsDocument, { ids: [secret.creatorPrincipalId] })
       : null,
+    opensTerminal(secret.typeId) ? gw.gql(TargetsTerminalDocument, { id: secret.id }) : null,
   ]);
+  const terminal = terminalTargets ? terminalAvailability(terminalTargets) : null;
+  if (terminal?.blocked) {
+    log.debug("secret page: terminal can't connect yet", {
+      reason: terminal.blocked,
+      secretId: secret.id,
+    });
+  }
   const fieldValues = Object.fromEntries((fields?.secretFields ?? []).map((f) => [f.key, f.value]));
   const history_ = history?.secretVersions ?? null;
   // #168: a secret saved before targetIds existed is read back as a one-item list built from
@@ -190,6 +207,7 @@ const page = async (
       .map((id) => targetOf(id))
       .filter((t): t is NonNullable<typeof t> => !!t)
       .map((t) => ({ hostname: t.hostname, id: t.id, name: t.name })),
+    terminal,
     type,
     viewerId: user.id,
   };
