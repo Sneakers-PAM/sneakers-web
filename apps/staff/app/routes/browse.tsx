@@ -24,6 +24,7 @@ import {
 } from "react-router";
 
 import type { OpenFolder } from "@/features/browse/types";
+import type { ChangeSubject } from "@/features/editors/changeType";
 import type { loader as frameLoader } from "@/routes/frame";
 
 import { browseAction, loadBrowse } from "@/features/browse/browse.server";
@@ -37,6 +38,7 @@ import { NoAccess } from "@/features/browse/NoAccess";
 import { SecretsTable } from "@/features/browse/SecretsTable";
 import { folderLabel, isPersonal, type NavFolder, reordered } from "@/features/browse/tree";
 import { useBrowseAction } from "@/features/browse/useBrowseAction";
+import { ChangeTypeDialog } from "@/features/editors/ChangeTypeDialog";
 
 export const loader = ({ params, request }: LoaderFunctionArgs) =>
   loadBrowse(request, params.folderId);
@@ -50,6 +52,7 @@ export const meta = ({ data }: MetaArgs<typeof loader>) => [
 
 type Dialog =
   | { folder: NavFolder; kind: "delete" | "rename" }
+  | { kind: "change-type"; secrets: ChangeSubject[] }
   | { kind: "create"; parent: NavFolder | null }
   | { kind: "move"; subject: MoveSubject };
 
@@ -58,12 +61,14 @@ const FolderPane = ({
   folders,
   includeRetired,
   onAction,
+  onChangeType,
   onMoveSecrets,
 }: {
   current: OpenFolder;
   folders: NavFolder[];
   includeRetired: boolean;
   onAction: (action: FolderAction, folder: NavFolder) => void;
+  onChangeType: (secrets: ChangeSubject[]) => void;
   onMoveSecrets: (secrets: { id: string; name: string }[]) => void;
 }) => {
   const [, setParameters] = useSearchParams();
@@ -139,6 +144,7 @@ const FolderPane = ({
           folderId={folder.id}
           includeRetired={includeRetired}
           key={folder.id}
+          onChangeType={onChangeType}
           onMove={onMoveSecrets}
           onShowRetired={(on) =>
             setParameters(on ? { retired: "1" } : {}, { preventScrollReset: true, replace: true })
@@ -233,6 +239,7 @@ const Browse = () => {
             folders={folders}
             includeRetired={includeRetired}
             onAction={onAction}
+            onChangeType={(secrets) => open({ kind: "change-type", secrets })}
             onMoveSecrets={(secrets) =>
               open({ kind: "move", subject: { from: current.folder, kind: "secrets", secrets } })
             }
@@ -276,6 +283,9 @@ const Browse = () => {
       )}
       {shown?.kind === "move" && (
         <MoveFlow folders={folders} isAdmin={isAdmin} onClose={close} subject={shown.subject} />
+      )}
+      {shown?.kind === "change-type" && (
+        <ChangeTypeDialog onClose={close} secrets={shown.secrets} />
       )}
       {shown?.kind === "delete" && (
         <DeleteFolderDialog folder={shown.folder} folders={folders} onClose={close} />

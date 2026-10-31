@@ -34,6 +34,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
 import type { BrowseSecret, BrowseSecretType } from "@/features/browse/types";
+import type { ChangeSubject } from "@/features/editors/changeType";
 
 import { heartbeatOf } from "@/features/browse/heartbeat";
 import { primaryFieldsOf } from "@/features/browse/quickCopy";
@@ -54,6 +55,7 @@ export const SecretsTable = ({
   canManage,
   folderId,
   includeRetired,
+  onChangeType,
   onMove,
   onShowRetired,
   secrets,
@@ -62,6 +64,7 @@ export const SecretsTable = ({
   canManage: boolean;
   folderId: string;
   includeRetired: boolean;
+  onChangeType: (secrets: ChangeSubject[]) => void;
   onMove: (secrets: { id: string; name: string }[]) => void;
   onShowRetired: (on: boolean) => void;
   secrets: BrowseSecret[];
@@ -170,6 +173,18 @@ export const SecretsTable = ({
           >
             Export…
           </Button>
+          {canManage && (
+            <Button
+              className="border-bg/60 bg-transparent text-bg hover:bg-bg/10"
+              onClick={() =>
+                onChangeType(chosen.map(({ id, name, typeId }) => ({ id, name, typeId })))
+              }
+              size="sm"
+              variant="secondary"
+            >
+              Change type…
+            </Button>
+          )}
           {canManage && (
             <Button
               className="border-bg/60 bg-transparent text-bg hover:bg-bg/10"
@@ -524,6 +539,15 @@ export const SecretsTable = ({
                       {canManage && (
                         <ContextMenuItem onSelect={() => onMove([{ id: s.id, name: s.name }])}>
                           Move…
+                        </ContextMenuItem>
+                      )}
+                      {canManage && !s.retired && (
+                        <ContextMenuItem
+                          onSelect={() =>
+                            onChangeType([{ id: s.id, name: s.name, typeId: s.typeId }])
+                          }
+                        >
+                          Change type…
                         </ContextMenuItem>
                       )}
                       <ContextMenuSeparator />

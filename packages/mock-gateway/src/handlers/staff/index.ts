@@ -2,6 +2,7 @@ import { agentRunsHandlers } from "#mock/handlers/staff/agentRuns";
 import { agentsHandlers } from "#mock/handlers/staff/agents";
 import { breakGlassHandlers } from "#mock/handlers/staff/breakGlass";
 import { browseHandlers } from "#mock/handlers/staff/browse";
+import { changeTypeHandlers } from "#mock/handlers/staff/changeType";
 import { dashboardHandlers } from "#mock/handlers/staff/dashboard";
 import { editorsHandlers } from "#mock/handlers/staff/editors";
 import { requestsHandlers } from "#mock/handlers/staff/requests";
@@ -20,6 +21,7 @@ export const staffHandlers = [
   ...agentsHandlers,
   ...agentRunsHandlers,
   ...editorsHandlers,
+  ...changeTypeHandlers,
   ...targetsHandlers,
   ...sharingHandlers,
   ...settingsHandlers,

@@ -138,3 +138,65 @@ mutation EditorsSaveTarget($input: TargetInput!) {
     ...EditorsTargetFields
   }
 }
+
+query EditorsPreviewTypeChange(
+  $id: ID!
+  $newTypeId: ID!
+  $fieldMapping: [FieldMappingInput!]
+  $fields: [KeyValueInput!]
+  $unmappedFields: UnmappedFieldPolicy
+) {
+  previewSecretTypeChange(
+    id: $id
+    newTypeId: $newTypeId
+    fieldMapping: $fieldMapping
+    fields: $fields
+    unmappedFields: $unmappedFields
+  ) {
+    allowed
+    refusalReason
+    refusalMessage
+    fieldChanges {
+      fromKey
+      toKey
+      outcome
+      reason
+    }
+    missingRequiredKeys
+    notesFieldKey
+    fieldKeys
+    changeLabel
+    rotation
+    heartbeat
+    target
+    fromTargetId
+    targetId
+  }
+}
+
+mutation EditorsChangeSecretType(
+  $id: ID!
+  $newTypeId: ID!
+  $fieldMapping: [FieldMappingInput!]
+  $fields: [KeyValueInput!]
+  $unmappedFields: UnmappedFieldPolicy
+) {
+  changeSecretType(
+    id: $id
+    newTypeId: $newTypeId
+    fieldMapping: $fieldMapping
+    fields: $fields
+    unmappedFields: $unmappedFields
+  ) {
+    secret {
+      id
+      typeId
+      targetIds
+      rotationOptOut
+    }
+    fieldKeys
+    movedToNotesKeys
+    notesFieldKey
+    changeLabel
+  }
+}

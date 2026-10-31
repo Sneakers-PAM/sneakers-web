@@ -38,6 +38,7 @@ const renderTable = ({
   secrets = SECRETS,
 }: { applyOrder?: boolean; canManage?: boolean; secrets?: BrowseSecret[] } = {}) => {
   const submitted: FormData[] = [];
+  const onChangeType = vi.fn();
   let current = secrets;
   // The action answers only once the test lets it. Its answer toasts, and the toast's own
   // announcement replaces the move note, so a test reads the note before it lets the action answer.
@@ -65,6 +66,7 @@ const renderTable = ({
           canManage={canManage}
           folderId="mock-folder"
           includeRetired={false}
+          onChangeType={onChangeType}
           onMove={() => {}}
           onShowRetired={() => {}}
           secrets={current}
@@ -82,7 +84,7 @@ const renderTable = ({
       <LiveRegion />
     </>,
   );
-  return { answer, submitted };
+  return { answer, onChangeType, submitted };
 };
 
 const typeCellsInOrder = () =>
@@ -134,14 +136,24 @@ describe("SecretsTable sorting", () => {
 });
 
 describe("the selection bar", () => {
-  it("offers no Change type action while the web can't change a secret's type", async () => {
+  it("hands the selection to the Change type flow, with each secret's current type", async () => {
     const user = userEvent.setup();
-    renderTable({ canManage: true });
+    const { onChangeType } = renderTable({ canManage: true });
     await user.click(screen.getByRole("checkbox", { name: "Select Alpha" }));
     const bar = screen.getByRole("region", { name: "Selected secrets" });
     expect(within(bar).getByRole("button", { name: "Move…" })).toBeInTheDocument();
+    await user.click(within(bar).getByRole("button", { name: "Change type…" }));
+    expect(onChangeType).toHaveBeenCalledWith([
+      { id: "s-alpha", name: "Alpha", typeId: "type-db" },
+    ]);
+  });
+
+  it("offers Change type only to someone who can manage the folder", async () => {
+    const user = userEvent.setup();
+    renderTable();
+    await user.click(screen.getByRole("checkbox", { name: "Select Alpha" }));
+    const bar = screen.getByRole("region", { name: "Selected secrets" });
     expect(within(bar).queryByRole("button", { name: /Change type/ })).not.toBeInTheDocument();
-    expect(screen.queryByText(/Change type/)).not.toBeInTheDocument();
   });
 });
 

@@ -665,6 +665,30 @@ WebSocket from the browser.
 - The one exception is a folder's ruleset and sharing: those pass `ownsFolder`/`manageRuleset`,
   which includes site admins by design, so they stay editable for admins on the sharing page.
 
+## Changing a secret's type (staff)
+
+- **Change type…** opens `ChangeTypeDialog` (`features/editors/`) from the edit form, a row's menu
+  and the selection bar. The list offers it to someone who can manage the folder, like Move; the
+  edit form always offers it, and the vault refuses anyone who may not (Author on the secret, or
+  the folder's owner). The edit form's Type picker stays locked: saving a form never changes a
+  type.
+- Both places use one resource route, `resources/change-type`: its loader gives the types and its
+  action runs `previewSecretTypeChange` and `changeSecretType` with the same arguments. The preview
+  is a POST so values typed for `fields` never land in a URL. The server logs field keys, never
+  those values.
+- The preview is keys only, and is run again as the person answers: a picker on any field that
+  isn't carried over sets `fieldMapping`, and `missingRequiredKeys` become inputs that send
+  `fields`. **Change type** enables only on an allowed preview of the current answers.
+- The vault's rule stands: a value with no field moves to notes, shown in the preview. To refuse
+  that, the person leaves (or skips, in a selection). The confirm sends `unmappedFields: refuse`
+  when the preview showed nothing moving, so a value stored since then is refused by name rather
+  than moved unseen. Refusals name fields by label (`typeChangeRefusal`).
+- A selection runs one secret at a time with its own preview, then a results table. A secret
+  already on the new type is reported as skipped.
+- The audit record and the version's change label come from the vault. The mock
+  (`handlers/staff/changeType.ts`) follows sneakers-vault `docs/type-change.md`, without the
+  certificate, length and pattern rules.
+
 ## GitHub App secrets (staff)
 
 - `type-github-app` gets its own editor and page instead of the generic Fields card, the way the
