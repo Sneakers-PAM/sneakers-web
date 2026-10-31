@@ -12,7 +12,7 @@ import { TokensTable } from "@/features/agents/TokensTable";
 
 export const loader = ({ request }: LoaderFunctionArgs) => loadTokens(request);
 
-/** `revoke` by `id`. */
+/** `revoke` and `delete` by `id`. */
 export const action = ({ request }: ActionFunctionArgs) => tokensAction(request);
 
 export const meta = () => [{ title: "My tokens · Sneakers-PAM" }];

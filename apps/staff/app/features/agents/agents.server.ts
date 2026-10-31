@@ -2,6 +2,7 @@ import {
   AgentsBeginFactorPasskeyDocument,
   AgentsCreateGrantDocument,
   AgentsDecideUseDocument,
+  AgentsDeleteTokenDocument,
   AgentsGrantsDocument,
   AgentsPendingUsesDocument,
   AgentsRevokeGrantDocument,
@@ -140,15 +141,26 @@ export const loadTokens = async (
   });
 };
 
-/** `revoke` by `id`. */
+/** `revoke` and `delete` by `id`. Only a revoked token can be deleted. */
 export const tokensAction = async (request: Request): Promise<AgentsResult> => {
   const form = await request.formData();
   const intent = field(form, "intent");
-  if (intent !== "revoke") return unknownIntent(intent);
-  return act(request, intent, async (gw) => {
-    const { revokeMyToken } = await gw.gql(AgentsRevokeTokenDocument, { id: field(form, "id") });
-    return { done: `${revokeMyToken.label || "The token"} is revoked.` };
-  });
+  if (intent === "revoke") {
+    return act(request, intent, async (gw) => {
+      const { revokeMyToken } = await gw.gql(AgentsRevokeTokenDocument, { id: field(form, "id") });
+      return { done: `${revokeMyToken.label || "The token"} is revoked.` };
+    });
+  }
+  if (intent === "delete") {
+    const result = await act(request, intent, async (gw) => {
+      await gw.gql(AgentsDeleteTokenDocument, { id: field(form, "id") });
+      return { done: "Token deleted." };
+    });
+    return !result.ok && result.refusal.code === "FAILED_PRECONDITION"
+      ? { ...result, message: "Only a revoked token can be deleted." }
+      : result;
+  }
+  return unknownIntent(intent);
 };
 
 const useRows = (uses: AgentsUseFieldsFragment[]): UseRow[] =>

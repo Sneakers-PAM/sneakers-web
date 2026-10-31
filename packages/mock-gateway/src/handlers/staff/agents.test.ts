@@ -2,6 +2,7 @@
 import {
   AgentsCreateGrantDocument,
   AgentsDecideUseDocument,
+  AgentsDeleteTokenDocument,
   AgentsGrantsDocument,
   AgentsPendingUsesDocument,
   AgentsRevokeGrantDocument,
@@ -84,6 +85,27 @@ describe("personal tokens", () => {
       "NOT_FOUND",
     );
     expect(world().tokens.find((t) => t.id === "mock-token-3")?.revokedAtUnix).toBe(0);
+  });
+
+  it("deletes your own revoked token", async () => {
+    const gw = await as(ALICE);
+    await gw.gql(AgentsRevokeTokenDocument, { id: "mock-token-1" });
+    const { deleteMyToken } = await gw.gql(AgentsDeleteTokenDocument, { id: "mock-token-1" });
+    expect(deleteMyToken).toBe(true);
+    expect(world().tokens.some((t) => t.id === "mock-token-1")).toBe(false);
+  });
+
+  it("refuses to delete an active or expired token, or someone else's", async () => {
+    const gw = await as(ALICE);
+    for (const id of ["mock-token-1", "mock-token-2"]) {
+      expect(await codeOf(gw.gql(AgentsDeleteTokenDocument, { id }))).toBe("FAILED_PRECONDITION");
+    }
+    const bobs = world().tokens.find((t) => t.id === "mock-token-3")!;
+    bobs.revokedAtUnix = nowUnix();
+    expect(await codeOf(gw.gql(AgentsDeleteTokenDocument, { id: "mock-token-3" }))).toBe(
+      "NOT_FOUND",
+    );
+    expect(world().tokens).toHaveLength(3);
   });
 });
 

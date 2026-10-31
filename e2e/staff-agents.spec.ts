@@ -59,3 +59,31 @@ test("an agent signs in, gets a use grant, and a use waits for approval", async 
     page.getByRole("region", { name: "Your requests" }).getByRole("row", { name: /DB admin/ }),
   ).toContainText("Waiting for an owner or approver");
 });
+
+test("a revoked token can be deleted, and leaves the list", async ({ page }) => {
+  await page.route(`${LOOPBACK}/**`, (route) =>
+    route.fulfill({ body: "<p>Signed in. You can close this tab.</p>", contentType: "text/html" }),
+  );
+  await signInAsAlice(page, "/");
+
+  const run = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const label = `e2e delete ${run}`;
+  await page.goto(`/oauth/consent?req=mock-consent-new-${run}`);
+  await page.getByLabel("Token name").fill(label);
+  await page.getByLabel("6-digit code").fill("123456");
+  await page.getByRole("button", { name: "Allow" }).click();
+  await page.waitForURL(`${LOOPBACK}/callback?**`);
+
+  await page.goto("/tokens");
+  const row = page.getByRole("row", { name: label });
+  await expect(row.getByRole("button", { name: `Delete ${label}` })).toHaveCount(0);
+
+  await row.getByRole("button", { name: `Revoke ${label}` }).click();
+  await page.getByRole("button", { name: "Revoke token" }).click();
+  await expect(row.getByText("Revoked")).toBeVisible();
+
+  await row.getByRole("button", { name: `Delete ${label}` }).click();
+  await page.getByRole("button", { name: "Delete token" }).click();
+  await expect(page.getByText("Token deleted.").first()).toBeVisible();
+  await expect(row).toHaveCount(0);
+});
