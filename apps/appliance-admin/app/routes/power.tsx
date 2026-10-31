@@ -175,6 +175,11 @@ export default function Power() {
                 : "No active sessions."}
             </DialogDescription>
           </DialogHeader>
+          <p className="m-0 text-small text-muted">
+            {target === "shutdown"
+              ? "After a shutdown, the box can take more than 5 minutes to come back when it starts."
+              : "The box can take more than 5 minutes to come back."}
+          </p>
           <div className="flex items-center gap-3">
             <Label className="flex items-center gap-3">
               <Switch checked={forced} onCheckedChange={(checked) => setForced(checked === true)} />

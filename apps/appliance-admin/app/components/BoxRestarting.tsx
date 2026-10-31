@@ -160,7 +160,7 @@ export const BoxRestarting = ({
           <p className="m-0">
             {phase === "going" && "Waiting for the box to go down for the restart."}
             {phase === "down" &&
-              "The box is down while it restarts. This page reconnects by itself when :8443 answers again; it can take a few minutes."}
+              "The box is down while it restarts. This page reconnects by itself when :8443 answers again. The box can take more than 5 minutes to come back."}
             {phase === "checking" &&
               "It answers again. It checks its health and marks the release good; then sign in again."}
             {phase === "back" &&

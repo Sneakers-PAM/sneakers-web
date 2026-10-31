@@ -45,6 +45,14 @@ describe("BoxRestarting", () => {
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 
+  it("says the box can take more than 5 minutes to come back while it's down", async () => {
+    vi.spyOn(signIn, "getSession").mockRejectedValue(new TypeError("Failed to fetch"));
+    render(<BoxRestarting onBack={vi.fn()} pollMs={5} />);
+    expect(
+      await screen.findByText(/The box can take more than 5 minutes to come back\./),
+    ).toBeInTheDocument();
+  });
+
   it("with waitForDownMs, doesn't take a signed-out answer for back before the box went down", async () => {
     vi.spyOn(signIn, "getSession").mockRejectedValue(signedOut());
     const onBack = vi.fn();

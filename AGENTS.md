@@ -266,7 +266,9 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   `GetSession`, until :8443 answers without the old session (sessions don't survive a restart;
   `app/lib/osadmin/restart.ts`), then loads the
   sign-in page in full, on a new TLS session. After 10 minutes it offers a reload, which is how
-  the browser gets to check a certificate that changed. After an apply or a revert it lists the
+  the browser gets to check a certificate that changed. While the box is down it says the box can
+  take more than 5 minutes to come back, as the Power page's reboot and shutdown confirms do before
+  you confirm. After an apply or a revert it lists the
   update's steps, seeded from `GetUpgrades` as the apply returns and then from the public
   `GetPhase.upgradeProgress` (the steps alone): rebooting while the box is down, then checking
   health and marking good once :8443 answers, and it goes to sign-in only when they're done. A
