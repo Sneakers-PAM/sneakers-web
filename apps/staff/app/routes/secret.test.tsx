@@ -51,6 +51,16 @@ describe("the secret detail page", () => {
     expect(within(card("History")).getByText("Active")).toBeInTheDocument();
   });
 
+  it("shows the secret's id below its name and copies it", async () => {
+    const user = userEvent.setup();
+    open("mock-secret-db-admin");
+    const heading = await screen.findByRole("heading", { level: 1, name: /DB admin/ });
+    const id = screen.getByText("mock-secret-db-admin");
+    expect(heading.compareDocumentPosition(id)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    await user.click(screen.getByRole("button", { name: "Copy secret id" }));
+    expect(await navigator.clipboard.readText()).toBe("mock-secret-db-admin");
+  });
+
   it("shows the AD logon format fields, data-driven and unset on an older secret", async () => {
     open("mock-secret-acme-vpn");
     await screen.findByRole("heading", { level: 1, name: /Acme VPN/ });

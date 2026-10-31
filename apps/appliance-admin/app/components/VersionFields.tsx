@@ -1,6 +1,5 @@
-import { Badge } from "@sneakers-web/ui";
+import { Badge, CopyIconButton } from "@sneakers-web/ui";
 
-import { CopyIconButton } from "@/components/CopyIconButton";
 import { parseVersion, type VersionChannel } from "@/lib/parseVersion";
 
 const CHANNEL_LABEL: Record<VersionChannel, string> = { lab: "Lab", rc: "RC", stable: "Stable" };
