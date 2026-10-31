@@ -8,6 +8,7 @@ import { graphql } from "msw/graphql";
 import * as browse from "@/routes/browse";
 import * as stepUpRoute from "@/routes/resources.step-up";
 import * as secret from "@/routes/secret";
+import * as newSecret from "@/routes/secret.new";
 import { renderRoute, type StubRoute } from "@/test/routeStub";
 
 withMockGateway();
@@ -23,6 +24,12 @@ const ROUTES = [
   { ...page, id: "routes/browse", path: "/browse" },
   { ...page, id: "routes/browse-folder", path: "/browse/:folderId" },
   { action: secret.action, loader: secret.loader, path: "/secret/:id" },
+  {
+    action: newSecret.action,
+    Component: newSecret.default,
+    loader: newSecret.loader,
+    path: "/secret/new",
+  },
   { action: stepUpRoute.action, path: "/resources/step-up" },
 ] as StubRoute[];
 
@@ -122,8 +129,27 @@ describe("the browse page", () => {
     open("/browse/mock-folder-alice");
     expect(await screen.findByText("No secrets here yet")).toBeInTheDocument();
     for (const link of screen.getAllByRole("link", { name: "New secret" })) {
-      expect(link).toHaveAttribute("href", "/secret/new?folderId=mock-folder-alice");
+      expect(link).toHaveAttribute("href", "/secret/new?folder=mock-folder-alice");
     }
+  });
+
+  it.each([
+    ["the header", false],
+    ["the empty state", true],
+  ])("opens New secret from %s with that folder chosen", async (_, empty) => {
+    if (empty) {
+      mockState.world.secrets = mockState.world.secrets.filter(
+        (s) => s.folderId !== "mock-folder-databases",
+      );
+    }
+    const user = userEvent.setup();
+    open("/browse/mock-folder-databases");
+    const links = await screen.findAllByRole("link", { name: "New secret" });
+    await user.click(links.at(-1)!);
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "New secret" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /Folder/ })).toHaveTextContent(/Databases/);
   });
 
   it("explains a folder the user can't open, naming its owner", async () => {

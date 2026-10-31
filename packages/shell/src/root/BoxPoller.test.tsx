@@ -1,6 +1,6 @@
 /* eslint-disable testing-library/no-container, testing-library/no-node-access -- a script tag has no accessible role to query. */
 import { DEFAULT_DISPLAY } from "@sneakers-web/ui";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { createRoutesStub } from "react-router";
 
 import { BoxPoller } from "#shell/root/Document";
@@ -51,6 +51,8 @@ describe("the appliance box-state poller tag", () => {
     const Stub = page(true);
     render(<Stub initialEntries={["/"]} />);
     await screen.findByText("loaded");
+    // BoxPoller wraps fetch in an effect, which can run after "loaded" is on the page.
+    await waitFor(() => expect(globalThis.fetch).not.toBe(fetchMock));
     await fetch("/secret/s-1.data");
     expect(reload).toHaveBeenCalledTimes(1);
     vi.unstubAllGlobals();

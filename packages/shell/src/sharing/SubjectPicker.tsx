@@ -18,6 +18,7 @@ import type { RulesetSubject } from "#shell/sharing/types";
 import { sameSubject } from "#shell/sharing/draft";
 
 const MIN_QUERY = 2;
+const NOTHING_FOUND = { hits: [], query: "" };
 
 const ICON = { everyone: Globe, group: Users, user: User };
 const META = { everyone: "Anyone who can sign in", group: "Group", user: "Person" };
@@ -45,7 +46,7 @@ export const SubjectPicker = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [found, setFound] = useState<RulesetSubject[]>([]);
+  const [found, setFound] = useState<{ hits: RulesetSubject[]; query: string }>(NOTHING_FOUND);
   const [searching, setSearching] = useState(false);
 
   useEffect(() => {
@@ -56,10 +57,10 @@ export const SubjectPicker = ({
       setSearching(true);
       search(q)
         .then((r) => {
-          if (live) setFound(r);
+          if (live) setFound({ hits: r, query: q.toLowerCase() });
         })
         .catch(() => {
-          if (live) setFound([]);
+          if (live) setFound(NOTHING_FOUND);
         })
         .finally(() => {
           if (live) setSearching(false);
@@ -72,20 +73,22 @@ export const SubjectPicker = ({
   }, [query, search]);
 
   const q = query.trim().toLowerCase();
-  const pool = [...options];
+  const nameMatches = (o: RulesetSubject) => o.name.toLowerCase().includes(q);
+  const pool = options.filter((o) => !q || (o.searchText ?? o.name).toLowerCase().includes(q));
   if (search && q.length >= MIN_QUERY) {
-    for (const f of found) if (!pool.some((p) => sameSubject(p, f))) pool.push(f);
+    // An answer to this query stands as it is: the server may have matched a username or email.
+    // One to an earlier query is kept only while its name still fits, until the new answer lands.
+    for (const f of found.hits.filter((h) => found.query === q || nameMatches(h))) {
+      if (!pool.some((p) => sameSubject(p, f))) pool.push(f);
+    }
   }
-  const shown = pool
-    .filter((o) => !exclude.some((x) => sameSubject(x, o)))
-    .filter((o) => !q || o.name.toLowerCase().includes(q))
-    .slice(0, 8);
+  const shown = pool.filter((o) => !exclude.some((x) => sameSubject(x, o))).slice(0, 8);
 
   const close = (next: boolean) => {
     setOpen(next);
     if (!next) {
       setQuery("");
-      setFound([]);
+      setFound(NOTHING_FOUND);
     }
   };
 
