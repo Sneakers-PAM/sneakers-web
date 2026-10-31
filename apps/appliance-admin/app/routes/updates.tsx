@@ -879,6 +879,11 @@ export default function Updates() {
         </Alert>
       )}
       {!isOwner && <Alert tone="info">Only an owner can install, apply or revert updates.</Alert>}
+      {product?.resetNote && (
+        <Alert role="alert" title="A product reset was cut off" tone="danger">
+          {product.resetNote}
+        </Alert>
+      )}
       {check?.publishingNote && (
         <Alert title="A newer release isn't ready" tone="info">
           {check.publishingNote}

@@ -1091,6 +1091,9 @@ export interface ProductSlots {
    * running Base OS is in it. */
   fits?: boolean;
   requiresBaseOs?: string;
+  /** Why the product can't start: a reset was cut off part-way, and how to finish it. Empty
+   * otherwise, and left out by a box from before it. */
+  resetNote?: string;
   /** The product services (k0s) are running. */
   running?: boolean;
   stagedVersion?: string;

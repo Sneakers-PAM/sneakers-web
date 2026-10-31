@@ -592,6 +592,18 @@ describe("Updates", () => {
     ).toBeInTheDocument();
   });
 
+  it("says when a product reset was cut off and the product is held", async () => {
+    const real = await upgrade.get();
+    const note =
+      "A product reset was cut off part-way, so Sneakers 0.1.0 can't start. An owner finishes it with sneakers reset over SSH.";
+    vi.spyOn(upgrade, "get").mockResolvedValue({
+      ...real,
+      product: { ...real.product, resetNote: note },
+    });
+    await openPage();
+    expect(await screen.findByText(note)).toBeInTheDocument();
+  });
+
   it("says nothing about publishing when the newest release is the one used", async () => {
     await openPage();
     expect(await screen.findByText(/^Last check/)).toBeInTheDocument();
