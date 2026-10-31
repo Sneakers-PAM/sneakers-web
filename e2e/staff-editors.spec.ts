@@ -40,6 +40,27 @@ test("a secret is created from its type's fields, then edited without touching i
   await expect(page.getByRole("group", { name: "Username" })).toContainText("report_owner");
 });
 
+test("a secret's type changes after a preview, keeping its values", async ({ page }) => {
+  await signInAsAlice(page, "/secret/mock-secret-edge-router/edit");
+  await page.getByRole("button", { name: "Change type…" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("combobox", { name: /New type/ }).click();
+  await page.getByRole("option", { name: "Password Account (SSH)" }).click();
+  await dialog.getByRole("button", { name: "Continue" }).click();
+
+  const fields = dialog.getByRole("table", { name: "Where each field goes" });
+  await expect(fields.getByRole("row", { name: /^Username / })).toContainText("Carried over");
+  await expect(dialog).not.toContainText("mock-Vamp-Collar-63");
+  await dialog.getByRole("textbox", { name: /Host/ }).fill("router.example.org");
+  await expect(dialog.getByRole("button", { name: "Change type" })).toBeEnabled();
+  await dialog.getByRole("button", { name: "Change type" }).click();
+
+  await expect(dialog).toBeHidden();
+  const form = page.getByRole("region", { name: "Fields" });
+  await expect(form.getByRole("textbox", { name: /Host/ })).toHaveValue("router.example.org");
+  await expect(form.getByRole("textbox", { name: /Username/ })).toHaveValue("admin");
+});
+
 test("an SSH key pair is generated in the vault and only its public half is shown", async ({
   page,
 }) => {

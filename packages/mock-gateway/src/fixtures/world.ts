@@ -233,6 +233,8 @@ export interface MockUseGrant {
 export interface MockVersion {
   active: boolean;
   changedFieldKeys: string[];
+  /** Set only on a version a type change produced, as the vault does. */
+  changeLabel?: string;
   createdAt: string;
   createdBy: string;
   createdByName: string;

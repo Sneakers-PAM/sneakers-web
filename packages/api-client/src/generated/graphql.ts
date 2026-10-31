@@ -39,6 +39,11 @@ export type FactorInput = {
 export type FieldKind =
   "boolean" | "file" | "multiline" | "password" | "select" | "sensitive" | "text";
 
+export type FieldMappingInput = {
+  from: string;
+  to: string;
+};
+
 export type FolderScope = "group" | "personal" | "role";
 
 export type HeartbeatResult =
@@ -104,6 +109,8 @@ export type SecretFieldDefInput = {
   superSensitive?: boolean | null | undefined;
 };
 
+export type SecretTypeChangeOutcome = "blocked" | "carried" | "movedToNotes" | "renamed";
+
 export type SecretTypeInput = {
   checkout?: boolean | null | undefined;
   fields: Array<SecretFieldDefInput>;
@@ -157,6 +164,8 @@ export type TargetInput = {
 };
 
 export type TypeOrigin = "custom" | "extension" | "system";
+
+export type UnmappedFieldPolicy = "notes" | "refuse";
 
 export type UpdateSecretInput = {
   expiresAt?: string | null | undefined;
@@ -1956,6 +1965,60 @@ export type EditorsSaveTargetMutationVariables = Exact<{
 
 export type EditorsSaveTargetMutation = {
   saveTarget: { id: string; name: string; hostname: string; ownerUserId: string | null };
+};
+
+export type EditorsPreviewTypeChangeQueryVariables = Exact<{
+  id: string;
+  newTypeId: string;
+  fieldMapping?: Array<FieldMappingInput> | FieldMappingInput | null | undefined;
+  fields?: Array<KeyValueInput> | KeyValueInput | null | undefined;
+  unmappedFields?: UnmappedFieldPolicy | null | undefined;
+}>;
+
+export type EditorsPreviewTypeChangeQuery = {
+  previewSecretTypeChange: {
+    allowed: boolean;
+    refusalReason: string | null;
+    refusalMessage: string | null;
+    missingRequiredKeys: Array<string>;
+    notesFieldKey: string | null;
+    fieldKeys: Array<string>;
+    changeLabel: string | null;
+    rotation: string;
+    heartbeat: string;
+    target: string;
+    fromTargetId: string | null;
+    targetId: string | null;
+    fieldChanges: Array<{
+      fromKey: string;
+      toKey: string | null;
+      outcome: SecretTypeChangeOutcome;
+      reason: string | null;
+    }>;
+  };
+};
+
+export type EditorsChangeSecretTypeMutationVariables = Exact<{
+  id: string;
+  newTypeId: string;
+  fieldMapping?: Array<FieldMappingInput> | FieldMappingInput | null | undefined;
+  fields?: Array<KeyValueInput> | KeyValueInput | null | undefined;
+  unmappedFields?: UnmappedFieldPolicy | null | undefined;
+}>;
+
+export type EditorsChangeSecretTypeMutation = {
+  changeSecretType: {
+    fieldKeys: Array<string>;
+    movedToNotesKeys: Array<string>;
+    notesFieldKey: string | null;
+    changeLabel: string | null;
+    secret: {
+      id: string;
+      typeId: string;
+      targetIds: Array<string>;
+      rotationOptOut: boolean | null;
+    };
+  };
 };
 
 export type RequestsRequestFieldsFragment = {
@@ -5404,6 +5467,64 @@ export const EditorsSaveTargetDocument = new TypedDocumentString(`
 }`) as unknown as TypedDocumentString<
   EditorsSaveTargetMutation,
   EditorsSaveTargetMutationVariables
+>;
+export const EditorsPreviewTypeChangeDocument = new TypedDocumentString(`
+    query EditorsPreviewTypeChange($id: ID!, $newTypeId: ID!, $fieldMapping: [FieldMappingInput!], $fields: [KeyValueInput!], $unmappedFields: UnmappedFieldPolicy) {
+  previewSecretTypeChange(
+    id: $id
+    newTypeId: $newTypeId
+    fieldMapping: $fieldMapping
+    fields: $fields
+    unmappedFields: $unmappedFields
+  ) {
+    allowed
+    refusalReason
+    refusalMessage
+    fieldChanges {
+      fromKey
+      toKey
+      outcome
+      reason
+    }
+    missingRequiredKeys
+    notesFieldKey
+    fieldKeys
+    changeLabel
+    rotation
+    heartbeat
+    target
+    fromTargetId
+    targetId
+  }
+}
+    `) as unknown as TypedDocumentString<
+  EditorsPreviewTypeChangeQuery,
+  EditorsPreviewTypeChangeQueryVariables
+>;
+export const EditorsChangeSecretTypeDocument = new TypedDocumentString(`
+    mutation EditorsChangeSecretType($id: ID!, $newTypeId: ID!, $fieldMapping: [FieldMappingInput!], $fields: [KeyValueInput!], $unmappedFields: UnmappedFieldPolicy) {
+  changeSecretType(
+    id: $id
+    newTypeId: $newTypeId
+    fieldMapping: $fieldMapping
+    fields: $fields
+    unmappedFields: $unmappedFields
+  ) {
+    secret {
+      id
+      typeId
+      targetIds
+      rotationOptOut
+    }
+    fieldKeys
+    movedToNotesKeys
+    notesFieldKey
+    changeLabel
+  }
+}
+    `) as unknown as TypedDocumentString<
+  EditorsChangeSecretTypeMutation,
+  EditorsChangeSecretTypeMutationVariables
 >;
 export const RequestsListDocument = new TypedDocumentString(`
     query RequestsList {

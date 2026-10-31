@@ -11,6 +11,7 @@ import {
   type CertificateDraft,
   EMPTY_CERTIFICATE,
 } from "@/features/editors/CertificateCard";
+import { ChangeTypeDialog } from "@/features/editors/ChangeTypeDialog";
 import { FieldControl, isWide } from "@/features/editors/FieldControl";
 import { FormCard } from "@/features/editors/FormCard";
 import { GITHUB_APP_KEYS, GitHubAppCard } from "@/features/editors/GitHubAppCard";
@@ -79,6 +80,7 @@ export const EditorPage = ({ page }: { page: EditorData }) => {
   const [targetOpen, setTargetOpen] = useState(false);
   const [attempted, setAttempted] = useState(false);
   const [asking, setAsking] = useState<"request" | "share" | null>(null);
+  const [changingType, setChangingType] = useState(false);
 
   const type = page.types.find((t) => t.id === typeId);
   const certCreate = !editing && !!type && isCertificateType(type);
@@ -107,6 +109,14 @@ export const EditorPage = ({ page }: { page: EditorData }) => {
     setTypeId(id);
     const t = page.types.find((x) => x.id === id);
     if (t) setValues(seed(t, page.policies));
+    setAttempted(false);
+  };
+
+  // The vault changed the saved secret, so the form takes the reloaded values under the new type.
+  const typeChanged = () => {
+    setTypeId(page.draft.typeId);
+    setTargetId(page.draft.targetId);
+    setValues(page.draft.values);
     setAttempted(false);
   };
 
@@ -243,14 +253,26 @@ export const EditorPage = ({ page }: { page: EditorData }) => {
               value={folderId}
             />
           </Field>
-          <Field error={problems.basics.typeId?.message} label="Type" required>
-            <TypePicker
-              disabled={editing}
-              onChange={chooseType}
-              types={page.types}
-              value={typeId}
-            />
-          </Field>
+          <div className="flex items-end gap-2">
+            <Field
+              className="min-w-0 flex-1"
+              error={problems.basics.typeId?.message}
+              label="Type"
+              required
+            >
+              <TypePicker
+                disabled={editing}
+                onChange={chooseType}
+                types={page.types}
+                value={typeId}
+              />
+            </Field>
+            {editing && (
+              <Button onClick={() => setChangingType(true)} type="button" variant="secondary">
+                Change type…
+              </Button>
+            )}
+          </div>
           {type && usesTarget(type) && (
             <div className="flex items-end gap-2">
               <Field className="min-w-0 flex-1" label="Target">
@@ -371,6 +393,15 @@ export const EditorPage = ({ page }: { page: EditorData }) => {
         }}
         open={asking === "request"}
       />
+
+      {changingType && page.secretId && (
+        <ChangeTypeDialog
+          note="It changes the saved secret, so unsaved field edits here are dropped."
+          onChanged={typeChanged}
+          onClose={() => setChangingType(false)}
+          secrets={[{ id: page.secretId, name: page.draft.name, typeId }]}
+        />
+      )}
 
       <NewTargetDialog
         connections={page.connections}

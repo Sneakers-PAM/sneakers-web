@@ -8,6 +8,7 @@ export default [
   route("enroll", "routes/enroll.tsx"),
   route("sign-out", "routes/sign-out.tsx"),
   route("resources/break-glass", "routes/resources.break-glass.tsx"),
+  route("resources/change-type", "routes/resources.change-type.tsx"),
   route("resources/diagnostics", "routes/resources.diagnostics.tsx"),
   route("resources/display", "routes/resources.display.tsx"),
   route("resources/host-key-pin", "routes/resources.host-key-pin.tsx"),
