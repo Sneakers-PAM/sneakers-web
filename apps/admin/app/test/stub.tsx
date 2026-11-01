@@ -1,4 +1,4 @@
-import { sessionCookie, withCookie } from "@sneakers-web/mock-gateway/testing";
+import { sessionCookie, withCookie } from "@sneakers-pam/mock-server/in-process/testing";
 import { ProblemActions } from "@sneakers-web/shell";
 import { Toaster, TooltipProvider } from "@sneakers-web/ui";
 import { configure, render } from "@testing-library/react";

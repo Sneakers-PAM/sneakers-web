@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// End-to-end checks run both apps' mock builds: the real servers, with the gateway answered
-// in-process from fixtures. CHROME_PATH points at an installed Chrome when Playwright's own
+// End-to-end checks run both apps' mock builds: the real servers, each against its own standalone
+// mock server. CHROME_PATH points at an installed Chrome when Playwright's own
 // browser isn't downloaded.
 const STAFF_PORT = 4176;
 const ADMIN_PORT = 4177;
@@ -15,11 +15,13 @@ const APPLIANCE_REAL_PORT = 4180;
 // The appliance admin's mock build (fixture data, the dev quick login and `?mockScenario=`),
 // served the same way, for checks that need a scenario the real-backend shape can't fake.
 const APPLIANCE_MOCK_PORT = 4181;
+// Each app server has its own mock server, as it had its own state in-process.
+const MOCK_PORTS = { admin: 4183, fresh: 4184, staff: 4182 };
 
 // The staff server trusts a proxy in front of it and the admin server doesn't, so e2e/proxy.spec.ts
 // can check both.
-const serve = (app: string, port: number, trustProxy?: string) => ({
-  command: `npm run build:mock -w @sneakers-web/${app} && npm run start:mock -w @sneakers-web/${app}`,
+const serve = (app: "admin" | "staff", port: number, trustProxy?: string) => ({
+  command: `npm run build:mock -w @sneakers-web/${app} && node scripts/with-mock.mjs ${MOCK_PORTS[app]} -- npm run start:mock -w @sneakers-web/${app}`,
   env: {
     APP_ENV: "dev",
     LOG_LEVEL: "warn",
@@ -35,7 +37,7 @@ const serve = (app: string, port: number, trustProxy?: string) => ({
 // It reuses the admin build (two builds into one folder would race), so it waits for the
 // admin server first.
 const fresh = {
-  command: `node e2e/waitFor.mjs http://127.0.0.1:${ADMIN_PORT}/admin/healthz && npm run start:mock -w @sneakers-web/admin`,
+  command: `node e2e/waitFor.mjs http://127.0.0.1:${ADMIN_PORT}/admin/healthz && node scripts/with-mock.mjs ${MOCK_PORTS.fresh} -- npm run start:mock -w @sneakers-web/admin`,
   env: { APP_ENV: "dev", LOG_LEVEL: "warn", MOCK_FRESH_INSTALL: "1", PORT: String(FRESH_PORT) },
   reuseExistingServer: false,
   timeout: 300_000,

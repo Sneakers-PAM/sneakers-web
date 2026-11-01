@@ -1,5 +1,5 @@
-import { mockState, USERS } from "@sneakers-web/mock-gateway";
-import { withMockGateway } from "@sneakers-web/mock-gateway/testing";
+import { mockState, USERS } from "@sneakers-pam/mock-server/in-process";
+import { withMockGateway } from "@sneakers-pam/mock-server/in-process/testing";
 import { Toaster } from "@sneakers-web/ui";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";

@@ -1,10 +1,10 @@
-import { MOCK_GATEWAY_URL, mockState } from "@sneakers-web/mock-gateway";
+import { MOCK_GATEWAY_URL, mockState } from "@sneakers-pam/mock-server/in-process";
 import {
   server,
   sessionCookie,
   withCookie,
   withMockGateway,
-} from "@sneakers-web/mock-gateway/testing";
+} from "@sneakers-pam/mock-server/in-process/testing";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";

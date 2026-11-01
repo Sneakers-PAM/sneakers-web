@@ -1,11 +1,11 @@
-import { CheckoutsCheckinDocument } from "@sneakers-web/api-client";
-import { MOCK_GATEWAY_URL } from "@sneakers-web/mock-gateway";
+import { MOCK_GATEWAY_URL } from "@sneakers-pam/mock-server/in-process";
 import {
   appRequest,
   server,
   sessionCookie,
   withMockGateway,
-} from "@sneakers-web/mock-gateway/testing";
+} from "@sneakers-pam/mock-server/in-process/testing";
+import { CheckoutsCheckinDocument } from "@sneakers-web/api-client";
 import { Toaster } from "@sneakers-web/ui";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";

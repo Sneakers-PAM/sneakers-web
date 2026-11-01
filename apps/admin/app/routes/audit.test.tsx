@@ -1,5 +1,9 @@
-import { mockBreakGlass, tamperAuditRecord } from "@sneakers-web/mock-gateway";
-import { appRequest, sessionCookie, withMockGateway } from "@sneakers-web/mock-gateway/testing";
+import { mockBreakGlass, tamperAuditRecord } from "@sneakers-pam/mock-server/in-process";
+import {
+  appRequest,
+  sessionCookie,
+  withMockGateway,
+} from "@sneakers-pam/mock-server/in-process/testing";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 

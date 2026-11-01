@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 
-import { sessionCookie, withCookie } from "@sneakers-web/mock-gateway/testing";
+import { sessionCookie, withCookie } from "@sneakers-pam/mock-server/in-process/testing";
 import { ProblemActions } from "@sneakers-web/shell";
 import { render } from "@testing-library/react";
 import {

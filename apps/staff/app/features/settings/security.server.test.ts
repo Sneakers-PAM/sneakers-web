@@ -1,12 +1,12 @@
 // @vitest-environment node
-import { MOCK_GATEWAY_URL, USERS } from "@sneakers-web/mock-gateway";
+import { MOCK_GATEWAY_URL, USERS } from "@sneakers-pam/mock-server/in-process";
 import {
   appRequest,
   form,
   server,
   sessionCookie,
   withMockGateway,
-} from "@sneakers-web/mock-gateway/testing";
+} from "@sneakers-pam/mock-server/in-process/testing";
 import { http, HttpResponse } from "msw";
 
 import { loadSecurity, securityAction } from "@/features/settings/security.server";

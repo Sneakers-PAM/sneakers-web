@@ -7,7 +7,6 @@
       "#ui/*": ["../../packages/ui/src/*"],
       "#api/*": ["../../packages/api-client/src/*"],
       "#shell/*": ["../../packages/shell/src/*"],
-      "#mock/*": ["../../packages/mock-gateway/src/*"],
       "@sneakers-web/edge": ["./app/lib/edge.live.ts"],
       "@sneakers-web/edge.server": ["../../packages/api-client/src/edge/live.server.ts"]
     },

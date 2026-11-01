@@ -61,8 +61,8 @@ export type SignInState =
 const ssoEnabled = () => publicConfigFrom(process.env, "").sso;
 
 // Both build flags are literals after the build, so a release build drops the quick login.
-const developmentUsers = (): QuickLoginUser[] => {
-  if (import.meta.env.SNEAKERS_MOCK === "true") return edge.quickLogin?.users() ?? [];
+const developmentUsers = async (): Promise<QuickLoginUser[]> => {
+  if (import.meta.env.SNEAKERS_MOCK === "true") return (await edge.quickLogin?.users()) ?? [];
   if (import.meta.env.SNEAKERS_DEV_QUICK_LOGIN_BUILD === "true")
     return developmentQuickLoginAccounts().map((a) => developmentQuickLoginUser(a));
   return [];
@@ -113,7 +113,7 @@ export const signInLoader = async ({ request }: LoaderFunctionArgs): Promise<Sig
   return {
     ended: url.searchParams.get("ended") === "1",
     next,
-    quickLoginUsers: developmentUsers(),
+    quickLoginUsers: await developmentUsers(),
     sso,
     state,
   };
@@ -164,7 +164,7 @@ export const signInAction = async ({ request }: ActionFunctionArgs) => {
   const next = safeNext(form.get("next"));
   // The flag check comes first so a live build drops this whole branch, intent included.
   if (import.meta.env.SNEAKERS_MOCK === "true" && intent === "mock-quick-login") {
-    const signed = edge.quickLogin?.signIn(field(form, "userId"));
+    const signed = await edge.quickLogin?.signIn(field(form, "userId"));
     if (!signed) throw new Response("Not found", { status: 404 });
     log.info("dev quick login", { enroll: signed.enroll, userId: field(form, "userId") });
     throw redirect(signed.enroll ? appPath("enroll") : next, {

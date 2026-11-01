@@ -22,7 +22,7 @@ Before changing anything in the staff or admin apps, know two things:
 - **The edge is chosen at build time, never at run time.** Server code imports
   `@sneakers-web/edge.server`, which Vite aliases to the live edge
   (`packages/api-client/src/edge/live.server.ts`) or, only for `--mode mock`, the mock edge
-  (`packages/mock-gateway/src/edge.server.ts`). App code never checks which one it got.
+  (`packages/api-client/src/edge/mock.server.ts`). App code never checks which one it got.
 
 ## Content-Security-Policy (staff and admin)
 
@@ -41,13 +41,17 @@ admin's SPA prerender gets no nonce (osadmin sets its own policy), nor does the 
 
 - Mock mode comes only from `--mode mock` (`npm run dev:mock`, `build:mock`, or the image's
   `EDGE=mock`). A live build with `SNEAKERS_MOCK` set is refused.
-- The mock gateway answers in-process with MSW in Node, at `mock-gateway.example.invalid`, a name
-  that never resolves, so a mock request can't reach a real server.
+- The mock gateway is Sneakers-PAM/sneakers-mock-server. Mock builds call it at `MOCK_GATEWAY_URL`
+  (default `http://127.0.0.1:5171`); `npm run dev:mock` starts one through `scripts/with-mock.mjs`.
+  A mock app server won't start without one on the `mock_sneakers_sid` cookie.
+- Unit tests run the same code in-process (`@sneakers-pam/mock-server/in-process`), installed as a
+  dev dependency pinned to a commit. A change to the mock's behaviour goes in that repo first, then
+  the pin moves here. No image installs it.
 - Mock and live never share state: the mock uses its own session cookie (`mock_sneakers_sid`),
   cookie prefix (`mock_`) and storage prefix (`mock:`).
 - Every mock screen shows the "MOCK DATA, not a real server" banner.
 - `npm run check:no-mock` fails if a live build (`apps/*/build`) contains the mock marker, and
-  also if a mock build (`apps/*/build-mock`) lacks it. A live image installs no msw. CI runs it
+  also if a mock build (`apps/*/build-mock`) lacks it. No image installs msw. CI runs it
   in the Test workflow's build job.
 
 ## Appliance admin (apps/appliance-admin)
@@ -563,7 +567,7 @@ loading states: the connecting screen and the hand-off after sign-in.
   "desktop"), gets the same drawer a phone does.
 - `packages/api-client/src/`: the gateway client, auth routes, errors, logger, public config and
   the generated GraphQL documents (`generated/`, rebuilt by `npm run schema:generate`).
-- `packages/mock-gateway/src/`: fixtures, MSW handlers and the mock edge. `fixtures/world.ts` is
+- Fixtures and handlers live in Sneakers-PAM/sneakers-mock-server. `fixtures/world.ts` there is
   the invented organisation the staff and admin screens use (folders, secrets, secret types,
   targets, groups and their members, personal tokens, checkouts, requests, agent access), rebuilt
   by `resetMockState()`; handlers read and change `mockState.world`, so both apps always see the
@@ -777,8 +781,8 @@ WebSocket from the browser.
 - The maintenance banner shows while `appliance.maintenance` is true, with `appliance.
 maintenanceReason` when the appliance gave one. The MCP notice shows when `appliance.mcp` is
   `"off"` (it's also `"on"` or `"degraded"`; only off has copy today).
-- The mock gateway answers with `mockAppliance.current` (`packages/mock-gateway/src/handlers/
-graphql.ts`, re-exported from `@sneakers-web/mock-gateway`), which resets to a plain install
+- The mock gateway answers with `mockAppliance.current` (its `handlers/graphql.ts`, re-exported from
+  `@sneakers-pam/mock-server/in-process`), which resets to a plain install
   (`present: false`, every other field null or false) between tests. Set it before rendering to
   mock either banner on.
 
@@ -883,7 +887,7 @@ nobody else can decide, the requester confirms the task once with their second f
   `--build-arg DEV_QUICK_LOGIN=true` and `--build-arg DEV_UI_ISSUE_COPY=true` only for a local
   stack image (see Dev quick login and Dev UI issue copy).
 - Test: `npm test`. Server tests run in Node against the mock gateway, with the helpers in
-  `@sneakers-web/mock-gateway/testing`: `withMockGateway()` for the file, `sessionCookie(userId)`
+  `@sneakers-pam/mock-server/in-process/testing`: `withMockGateway()` for the file, `sessionCookie(userId)`
   for a signed-in fixture user, and `withCookie(cookie, loader)` to send it with a route's
   requests. Page tests use `createRoutesStub` with the real loaders and actions.
 - End to end: `npm run test:e2e` builds and serves both mock builds and runs `e2e/*.spec.ts`

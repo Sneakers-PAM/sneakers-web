@@ -1,4 +1,8 @@
-import { sessionCookie, withCookie, withMockGateway } from "@sneakers-web/mock-gateway/testing";
+import {
+  sessionCookie,
+  withCookie,
+  withMockGateway,
+} from "@sneakers-pam/mock-server/in-process/testing";
 import { render, screen } from "@testing-library/react";
 import { createRoutesStub } from "react-router";
 

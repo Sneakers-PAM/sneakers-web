@@ -1,4 +1,9 @@
-import { appRequest, cookieFrom, form, withMockGateway } from "@sneakers-web/mock-gateway/testing";
+import {
+  appRequest,
+  cookieFrom,
+  form,
+  withMockGateway,
+} from "@sneakers-pam/mock-server/in-process/testing";
 
 // @vitest-environment node
 import { enrollAction, enrollLoader, type EnrollState } from "#shell/server/enroll.server";

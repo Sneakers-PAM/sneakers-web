@@ -10,9 +10,9 @@ import path from "node:path";
 
 const root = path.resolve(import.meta.dirname, "..");
 const marker = /export const MOCK_MARKER = "([^"]+)"/.exec(
-  readFileSync(path.join(root, "packages/mock-gateway/src/marker.ts"), "utf8"),
+  readFileSync(path.join(root, "packages/api-client/src/edge/mockMarker.ts"), "utf8"),
 )?.[1];
-if (!marker) throw new Error("MOCK_MARKER not found in packages/mock-gateway/src/marker.ts");
+if (!marker) throw new Error("MOCK_MARKER not found in packages/api-client/src/edge/mockMarker.ts");
 // The dev quick login's intents, label and server variables prove it never reaches a live
 // build either, so setting SNEAKERS_DEV_QUICK_LOGIN on a release image does nothing. Same for
 // the dev-only "Copy for UI issue" button and SNEAKERS_DEV_UI_ISSUE_COPY.
@@ -30,7 +30,7 @@ const tells = [
   marker,
   issueCopyMarker[1],
   "mock_sneakers_sid",
-  "mock-gateway.example.invalid",
+  "/_mock/controls",
   "mock-quick-login",
   "dev-quick-login",
   "Dev quick login",

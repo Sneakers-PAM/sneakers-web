@@ -1,5 +1,5 @@
-import { MOCK_GATEWAY_URL, mockSettings, mockState } from "@sneakers-web/mock-gateway";
-import { server, withMockGateway } from "@sneakers-web/mock-gateway/testing";
+import { MOCK_GATEWAY_URL, mockSettings, mockState } from "@sneakers-pam/mock-server/in-process";
+import { server, withMockGateway } from "@sneakers-pam/mock-server/in-process/testing";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";

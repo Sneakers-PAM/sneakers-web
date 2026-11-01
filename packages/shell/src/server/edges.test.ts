@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { edge as live } from "#api/edge/live.server";
-import { edge as mock, MOCK_BANNER } from "#mock/edge.server";
+import { edge as mock, MOCK_BANNER } from "#api/edge/mock.server";
 import { displayCookie } from "#shell/server/root.server";
 
 describe("mock and live never share state", () => {
@@ -18,7 +18,7 @@ describe("mock and live never share state", () => {
     expect(live.banner).toBeNull();
   });
 
-  it("the mock gateway lives on a name that can never resolve", () => {
-    expect(new URL(mock.gatewayUrl).hostname.endsWith(".invalid")).toBe(true);
+  it("the mock gateway is on this machine unless told otherwise", () => {
+    expect(new URL(mock.gatewayUrl).hostname).toBe("127.0.0.1");
   });
 });

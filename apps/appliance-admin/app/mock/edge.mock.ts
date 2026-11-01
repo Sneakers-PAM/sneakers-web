@@ -1,5 +1,3 @@
-import { MOCK_MARKER } from "@sneakers-web/mock-gateway";
-
 import type {
   AccessPolicy,
   Admin,
@@ -42,6 +40,7 @@ import {
 } from "@/mock/mirror.mock";
 import * as units from "@/mock/units.mock";
 import * as world from "@/mock/world";
+import { MOCK_MARKER } from "#api/edge/mockMarker";
 
 /** The banner every screen shows while the app runs against the mock transport. */
 export const MOCK_BANNER = `MOCK DATA, not a real box (${MOCK_MARKER})`;

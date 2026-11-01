@@ -1,12 +1,12 @@
 // @vitest-environment node
-import { mockState } from "@sneakers-web/mock-gateway";
+import { mockState } from "@sneakers-pam/mock-server/in-process";
 import {
   appRequest,
   form,
   sessionCookie,
   withCookie,
   withMockGateway,
-} from "@sneakers-web/mock-gateway/testing";
+} from "@sneakers-pam/mock-server/in-process/testing";
 
 import { editorAction, type EditorLoad, loadEditSecret } from "@/features/editors/editors.server";
 

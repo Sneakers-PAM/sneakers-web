@@ -1,5 +1,9 @@
-import { mockAppliance } from "@sneakers-web/mock-gateway";
-import { sessionCookie, withCookie, withMockGateway } from "@sneakers-web/mock-gateway/testing";
+import { mockAppliance } from "@sneakers-pam/mock-server/in-process";
+import {
+  sessionCookie,
+  withCookie,
+  withMockGateway,
+} from "@sneakers-pam/mock-server/in-process/testing";
 import { ProblemActions } from "@sneakers-web/shell";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";

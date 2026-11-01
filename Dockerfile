@@ -3,6 +3,7 @@
 # The edge is fixed when the image is built; a running container can't be switched to mock.
 #   docker build --build-arg APP=staff -t sneakers-web-staff .
 #   docker build --build-arg APP=staff --build-arg EDGE=mock -t sneakers-web-staff-mock .
+# A mock image calls a standalone mock server at MOCK_GATEWAY_URL.
 # VERSION and COMMIT stamp the build that About and diagnostics shows (the package version and
 # "unknown" when unset).
 # DEV_QUICK_LOGIN=true builds in the dev quick login for a local stack (still off until the
@@ -28,7 +29,6 @@ COPY package.json package-lock.json ./
 COPY apps/staff/package.json apps/staff/
 COPY apps/admin/package.json apps/admin/
 COPY packages/api-client/package.json packages/api-client/
-COPY packages/mock-gateway/package.json packages/mock-gateway/
 COPY packages/shell/package.json packages/shell/
 COPY packages/ui/package.json packages/ui/
 COPY packages/vite-config/package.json packages/vite-config/
@@ -39,8 +39,8 @@ RUN cd "apps/$APP" && if [ "$EDGE" = mock ]; then MODE=mock; else MODE=productio
     SNEAKERS_DEV_UI_ISSUE_COPY_BUILD="$DEV_UI_ISSUE_COPY" \
     APP_BUILD_DIR=build npx react-router build --mode "$MODE"
 
-# Production dependencies only. A live image never gets the mock gateway or msw; a mock image
-# adds them, because its server answers gateway calls in-process.
+# Production dependencies only. No image gets the mock server or msw: a mock image calls a
+# standalone mock server at MOCK_GATEWAY_URL.
 FROM ${NODE_IMAGE} AS deps
 ARG APP
 ARG EDGE=live
@@ -51,7 +51,6 @@ COPY apps/${APP}/package.json apps/${APP}/
 COPY packages/api-client/package.json packages/api-client/
 COPY packages/shell/package.json packages/shell/
 COPY packages/ui/package.json packages/ui/
-COPY packages/mock-gateway/package.json packages/mock-gateway/
 RUN --mount=type=cache,target=/tmp/npm-cache node scripts/runtime-deps.mjs "$APP" "$EDGE" \
     && npm install --omit=dev --ignore-scripts --no-audit --no-fund --cache /tmp/npm-cache \
     && rm -rf node_modules/@sneakers-web

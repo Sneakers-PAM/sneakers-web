@@ -1,5 +1,5 @@
-import { MOCK_SETUP_TOKEN, mockState, USERS } from "@sneakers-web/mock-gateway";
-import { withMockGateway } from "@sneakers-web/mock-gateway/testing";
+import { MOCK_SETUP_TOKEN, mockState, USERS } from "@sneakers-pam/mock-server/in-process";
+import { withMockGateway } from "@sneakers-pam/mock-server/in-process/testing";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createRoutesStub } from "react-router";
@@ -101,7 +101,7 @@ describe("first-run setup", () => {
 describe("the setup page once an admin exists", () => {
   it("sends people to sign in", async () => {
     mockState.needsSetup = false;
-    const { appRequest } = await import("@sneakers-web/mock-gateway/testing");
+    const { appRequest } = await import("@sneakers-pam/mock-server/in-process/testing");
     const r = await setup
       .loader({ context: {}, params: {}, request: appRequest("/setup") } as never)
       .catch((error: unknown) => error);

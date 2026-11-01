@@ -1,6 +1,6 @@
 // @vitest-environment node
-import { MOCK_GATEWAY_URL } from "@sneakers-web/mock-gateway";
-import { appRequest, server, withMockGateway } from "@sneakers-web/mock-gateway/testing";
+import { MOCK_GATEWAY_URL } from "@sneakers-pam/mock-server/in-process";
+import { appRequest, server, withMockGateway } from "@sneakers-pam/mock-server/in-process/testing";
 import { http, HttpResponse } from "msw";
 
 import { needsSetup, requireUser } from "#shell/server/session.server";
@@ -66,7 +66,7 @@ describe("requireUser", () => {
   });
 
   it("reports an install that needs setup", async () => {
-    const { mockState } = await import("@sneakers-web/mock-gateway");
+    const { mockState } = await import("@sneakers-pam/mock-server/in-process");
     mockState.needsSetup = true;
     expect(await needsSetup(appRequest("/"))).toBe(true);
   });
