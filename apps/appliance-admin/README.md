@@ -197,10 +197,11 @@ on in words (a certificate by its names, a session by its admin and source); the
 sits under it, with ids and fingerprints in mono. **Export** downloads the whole log as JSON
 lines, ids included.
 
-**Advanced: support bundle** downloads the box's full support bundle as one text file
-(`GET /export/support-bundle`), under the name the box gives it. The box writes it as it's asked,
-so the button holds until the file is done. A Base OS without the route answers 404 or the pages'
-own `index.html`; the page reads either as a box that needs an update, and shows the box's own words
+**Advanced: support bundle** downloads the box's full support bundle as a `.zip` holding one text
+file (`GET /export/support-bundle`), under the name the box gives it. An older Base OS sends the
+plain text file instead, and the page saves that just the same. The box writes it as it's asked, so
+the button holds until the file is done. A Base OS without the route answers 404 or the pages' own
+`index.html`; the page reads either as a box that needs an update, and shows the box's own words
 for anything else, such as a bundle already running.
 
 ## Review gallery

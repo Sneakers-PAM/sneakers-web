@@ -284,6 +284,10 @@ let upgradePolicy = structuredClone(world.UPGRADE_POLICY);
 const upgradeHistory = structuredClone(world.UPGRADE_HISTORY);
 let runningVersion = "0.1.0";
 let stagedVersion = "";
+/** A real zip, so the mock's download opens: one .txt that says it's the mock box's. */
+const MOCK_BUNDLE_ZIP =
+  "UEsDBBQAAAAIAABgXl0D9WBvIQAAAB8AAAAoAAAAc3VwcG9ydC1idW5kbGUtYm94MS0yMDI2MTAzMFQxMjAwMDBaLnR4dAvJSFXIzU/OVkjKr1AvViguLSjILypRSCrNS8lJ1eMCAFBLAQIUAxQAAAAIAABgXl0D9WBvIQAAAB8AAAAoAAAAAAAAAAAAAACAAQAAAABzdXBwb3J0LWJ1bmRsZS1ib3gxLTIwMjYxMDMwVDEyMDAwMFoudHh0UEsFBgAAAAABAAEAVgAAAGcAAAAAAA==";
+
 /** The product bundle's slots on the state volume. */
 let product = structuredClone(world.PRODUCT_SLOTS);
 /** This build has a release source to fetch from directly. */
@@ -2177,8 +2181,10 @@ export const edge: Edge = {
   },
   async exportSupportBundle() {
     return {
-      blob: new Blob(["The mock box's support bundle.\n"], { type: "text/plain" }),
-      fileName: "support-bundle-box1-20261030T120000Z.txt",
+      blob: new Blob([Uint8Array.from(atob(MOCK_BUNDLE_ZIP), (c) => c.codePointAt(0) ?? 0)], {
+        type: "application/zip",
+      }),
+      fileName: "support-bundle-box1-20261030T120000Z.zip",
     };
   },
   mode: "mock" as const,

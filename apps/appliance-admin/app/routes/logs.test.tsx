@@ -32,7 +32,7 @@ describe("Logs", () => {
     await user.click(await openBundle(user));
     await waitFor(() => expect(click).toHaveBeenCalledOnce());
     expect((click.mock.contexts[0] as HTMLAnchorElement).download).toBe(
-      "support-bundle-box1-20261030T120000Z.txt",
+      "support-bundle-box1-20261030T120000Z.zip",
     );
     expect(screen.getByRole("button", { name: "Download support bundle" })).toBeEnabled();
   });

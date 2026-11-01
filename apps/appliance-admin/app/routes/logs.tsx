@@ -144,7 +144,7 @@ export default function Logs() {
       <Advanced label="Advanced: support bundle">
         <div className="flex flex-col items-start gap-3">
           <p className="m-0 text-small text-muted">
-            One text file with the box&apos;s status, cluster and logs, with its secrets masked. The
+            One zip file with the box&apos;s status, cluster and logs, with its secrets masked. The
             box writes it as you wait, which can take up to 10 minutes.
           </p>
           <Button disabled={bundling} onClick={downloadBundle} variant="secondary">

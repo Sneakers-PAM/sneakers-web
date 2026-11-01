@@ -45,13 +45,17 @@ export const edge: Edge = {
     try {
       const response = await fetch("/export/support-bundle", { credentials: "same-origin" });
       // A box without the route never reaches it: 8443 serves the pages' index.html for a path it
-      // doesn't know, so a 200 that isn't the bundle's plain text means the same as a 404.
-      const isBundle = response.headers.get("Content-Type")?.startsWith("text/plain") ?? false;
+      // doesn't know, so a 200 that isn't a bundle means the same as a 404. An older box sends the
+      // bundle as plain text, a newer one as a zip.
+      const type = response.headers.get("Content-Type") ?? "";
+      const isZip = type.startsWith("application/zip");
+      const isBundle = isZip || type.startsWith("text/plain");
       if (response.status === 404 || (response.ok && !isBundle))
         throw new OsadminError("unimplemented", "This box has no support bundle.");
       if (!response.ok) throw bundleRefusal(response.status, await response.text());
       const named = /filename="([^"]+)"/.exec(response.headers.get("Content-Disposition") ?? "");
-      return { blob: await response.blob(), fileName: named?.[1] ?? "support-bundle.txt" };
+      const fallback = isZip ? "support-bundle.zip" : "support-bundle.txt";
+      return { blob: await response.blob(), fileName: named?.[1] ?? fallback };
     } catch (error) {
       if (error instanceof TypeError) throw new OsadminError("unavailable", UNREACHABLE);
       throw error;
