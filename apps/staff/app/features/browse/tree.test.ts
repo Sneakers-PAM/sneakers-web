@@ -4,7 +4,7 @@ import {
   activeFolderId,
   creatableFolders,
   folderDestinations,
-  ownSecretCount,
+  navSecretCount,
   reassignTargets,
   secretDestinations,
 } from "@/features/browse/tree";
@@ -30,22 +30,18 @@ const counted = (id: string, parentId: null | string, subtreeSecretCount: null |
   subtreeSecretCount,
 });
 
-describe("a folder's own secret count", () => {
-  it("takes out what its subfolders hold", () => {
-    const folders = [counted("a", null, 7), counted("b", "a", 3), counted("c", "b", 2)];
-    expect(ownSecretCount(folders, folders[0]!)).toBe(4);
-    expect(ownSecretCount(folders, folders[1]!)).toBe(1);
-    expect(ownSecretCount(folders, folders[2]!)).toBe(2);
+describe("the count beside a folder in the nav", () => {
+  it("is the whole subtree, as the gateway counted it", () => {
+    expect(navSecretCount(counted("a", null, 7))).toBe(7);
+    expect(navSecretCount(counted("b", "a", 0))).toBe(0);
   });
 
   it("is unknown when the gateway gave no count", () => {
-    const folders = [counted("a", null, null)];
-    expect(ownSecretCount(folders, folders[0]!)).toBeNull();
+    expect(navSecretCount(counted("a", null, null))).toBeNull();
   });
 
-  it("never goes below zero, even with a count from an older vault", () => {
-    const folders = [counted("a", null, 0), counted("b", "a", 1)];
-    expect(ownSecretCount(folders, folders[0]!)).toBe(0);
+  it("is left off a personal root, which never holds a secret", () => {
+    expect(navSecretCount({ ...counted("me", null, 5), isMasterPersonal: true })).toBeNull();
   });
 });
 

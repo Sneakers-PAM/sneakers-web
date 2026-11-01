@@ -22,17 +22,11 @@ export const childrenOf = (folders: NavFolder[], parentId: null | string): NavFo
   folders.filter((f) => (f.parentId ?? null) === parentId).toSorted(byOrder);
 
 /**
- * What the folder itself lists, without its subfolders. Opening a folder shows only its own
- * secrets, while the gateway's count covers the whole subtree.
+ * The number beside a folder in the nav: the gateway's caller-scoped count of its whole subtree.
+ * A personal root holds no secrets of its own, so it shows none.
  */
-export const ownSecretCount = (folders: NavFolder[], folder: NavFolder): null | number => {
-  if (folder.subtreeSecretCount === null) return null;
-  const below = childrenOf(folders, folder.id).reduce(
-    (total, child) => total + (child.subtreeSecretCount ?? 0),
-    0,
-  );
-  return Math.max(folder.subtreeSecretCount - below, 0);
-};
+export const navSecretCount = (folder: NavFolder): null | number =>
+  folder.isMasterPersonal ? null : folder.subtreeSecretCount;
 
 export const findFolder = (folders: NavFolder[], id: null | string | undefined) =>
   id ? folders.find((f) => f.id === id) : undefined;
