@@ -10,7 +10,7 @@ export const renderPage = (Component: ComponentType, path = "/") => {
   return render(
     <TooltipProvider>
       <Stub initialEntries={[path]} />
-      <Toaster position="bottom-center" />
+      <Toaster />
     </TooltipProvider>,
   );
 };

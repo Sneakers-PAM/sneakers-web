@@ -88,8 +88,7 @@ const Root = () => {
         <ApplianceDiagnostics>
           <Outlet />
         </ApplianceDiagnostics>
-        {/* Bottom centre: the accessibility widget holds the bottom right corner. */}
-        <Toaster position="bottom-center" />
+        <Toaster />
         <LiveRegion />
       </TooltipProvider>
     </ThemeProvider>
