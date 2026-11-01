@@ -1,5 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 
+import { checkTextSizes } from "./textSize";
+
 // The frame fills the viewport and only its main area scrolls: the document itself never
 // scrolls, on a short page or a long one, and nothing inside a page (Radix's hidden form
 // inputs, sr-only text) stretches it past the frame. Issue #225.
@@ -34,6 +36,11 @@ const signIn = async (page: Page) => {
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL("**/home", { timeout: 15_000 });
 };
+
+test("every text size changes what the appliance admin renders, and sticks", async ({ page }) => {
+  await signIn(page);
+  await checkTextSizes(page);
+});
 
 for (const viewport of [
   { height: 800, width: 1280 },

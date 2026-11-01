@@ -7,6 +7,7 @@ import {
   type ProblemAction,
   ProblemActionProvider,
   setToastProblemAction,
+  textScaleFactor,
   ThemeProvider,
   Toaster,
   TooltipProvider,
@@ -65,7 +66,7 @@ export const Document = ({ children }: { children: ReactNode }) => {
       style={
         display.textScale === DEFAULT_DISPLAY.textScale
           ? undefined
-          : ({ "--text-scale": String(display.textScale) } as React.CSSProperties)
+          : ({ "--text-scale": String(textScaleFactor(display.textScale)) } as React.CSSProperties)
       }
     >
       <head>
