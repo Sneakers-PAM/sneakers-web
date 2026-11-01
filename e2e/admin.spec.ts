@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { signInAsAlice, signOut, switchToDark } from "./signIn";
+import { checkTextSizes } from "./textSize";
 
 test("the admin console signs in under /admin/, keeps the theme and signs out", async ({
   page,
@@ -13,6 +14,11 @@ test("the admin console signs in under /admin/, keeps the theme and signs out", 
   await switchToDark(page);
   await signOut(page);
   await expect(page).toHaveURL(/\/admin\/sign-in$/);
+});
+
+test("every text size changes what the admin console renders, and sticks", async ({ page }) => {
+  await signInAsAlice(page, "/admin/users");
+  await checkTextSizes(page);
 });
 
 test("single sign-on hands back to the second-factor step", async ({ page }) => {

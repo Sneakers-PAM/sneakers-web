@@ -242,8 +242,9 @@
   }
 
   html {
-    font-size: calc(100% * var(--text-scale));
-    @apply bg-bg font-sans text-body text-ink antialiased;
+    font-size: calc(var(--text-body) * var(--text-scale));
+    line-height: var(--text-body--line-height);
+    @apply bg-bg font-sans text-ink antialiased;
   }
   body {
     @apply m-0 min-h-dvh bg-bg text-ink;

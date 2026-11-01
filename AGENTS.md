@@ -103,7 +103,8 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
     open; `app/csp/styleSingletonPlugin.ts` swaps react-style-singleton's singleton for
     `app/csp/styleSingleton.ts`, which uses a constructed stylesheet instead.
   - Each of these plugins fails the build if the package changes so the swap no longer applies.
-  - The shell's `Document` leaves the `--text-scale` style attribute off at the default size,
+  - The shell's `Document` leaves the `--text-scale` style attribute off at the default size
+    (normal; the five steps are `TEXT_SIZES` in `packages/ui/src/theme/ThemeProvider.tsx`),
     so the prerendered `<html>` carries none. The stylesheet link in `root.tsx` has a
     `precedence`, so React hoists it and the prerendered `<head>` hydrates.
   - `npm run check:csp` (in `npm run check` and the Test workflow) fails if a built page, live

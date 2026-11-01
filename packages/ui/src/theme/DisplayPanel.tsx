@@ -10,6 +10,7 @@ import { useBreakpoint } from "#ui/lib/media";
 import {
   type ContrastChoice,
   type MotionChoice,
+  TEXT_SIZES,
   type TextScale,
   type ThemeChoice,
   useDisplay,
@@ -61,17 +62,13 @@ export const DisplayPanel = ({
   const rows = (
     <>
       <Row label="Text size">
-        <Segmented<string>
+        <Segmented<TextScale>
+          className="[&>button]:px-2"
           label="Text size"
-          onChange={(v) => update({ textScale: Number(v) as TextScale })}
-          options={[
-            { label: "100%", value: "1" },
-            { label: "125%", value: "1.25" },
-            { label: "150%", value: "1.5" },
-            { label: "200%", value: "2" },
-          ]}
+          onChange={(textScale) => update({ textScale })}
+          options={TEXT_SIZES.map(({ label, value }) => ({ label, value }))}
           size="sm"
-          value={String(settings.textScale)}
+          value={settings.textScale}
         />
       </Row>
       <Row label="Contrast">
@@ -151,7 +148,7 @@ export const DisplayPanel = ({
           <PopoverPrimitive.Content
             align="start"
             aria-label="Accessibility"
-            className="z-(--z-a11y) flex w-70 flex-col gap-3 rounded-xl border border-border-strong bg-surface p-4 text-ink shadow-dialog"
+            className="z-(--z-a11y) flex w-92 flex-col gap-3 rounded-xl border border-border-strong bg-surface p-4 text-ink shadow-dialog"
             side="top"
             sideOffset={10}
           >

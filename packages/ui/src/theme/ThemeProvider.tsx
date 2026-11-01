@@ -8,16 +8,29 @@ export interface DisplaySettings {
   theme: ThemeChoice;
 }
 export type MotionChoice = "reduce" | "system";
-export type TextScale = 1 | 1.25 | 1.5 | 2;
+export type TextScale = "large" | "normal" | "small" | "x-large" | "x-small";
 
 export type ThemeChoice = "dark" | "light" | "system";
 
 export const DEFAULT_DISPLAY: DisplaySettings = {
   contrast: "standard",
   motion: "system",
-  textScale: 1,
+  textScale: "normal",
   theme: "system",
 };
+
+/** The text sizes, smallest first. `factor` multiplies the root size, and normal leaves it alone. */
+export const TEXT_SIZES: { factor: number; label: string; value: TextScale }[] = [
+  { factor: 0.85, label: "X-small", value: "x-small" },
+  { factor: 0.925, label: "Small", value: "small" },
+  { factor: 1, label: "Normal", value: "normal" },
+  { factor: 1.15, label: "Large", value: "large" },
+  { factor: 1.3, label: "X-large", value: "x-large" },
+];
+
+/** What `--text-scale` holds for a text size. */
+export const textScaleFactor = (scale: TextScale): number =>
+  TEXT_SIZES.find((s) => s.value === scale)?.factor ?? 1;
 
 interface DisplayState {
   settings: DisplaySettings;
@@ -27,7 +40,18 @@ interface DisplayState {
 const DisplayContext = createContext<DisplayState>({ settings: DEFAULT_DISPLAY, update: () => {} });
 
 const THEMES: Set<ThemeChoice> = new Set(["dark", "light", "system"]);
-const SCALES: Set<TextScale> = new Set([1, 1.25, 1.5, 2]);
+/** The percentages saved before the steps had names. */
+const OLD_SCALES = new Map<unknown, TextScale>([
+  [1, "normal"],
+  [1.25, "large"],
+  [1.5, "x-large"],
+  [2, "x-large"],
+]);
+
+const parseTextScale = (saved: unknown): TextScale =>
+  OLD_SCALES.get(saved) ??
+  TEXT_SIZES.find((s) => s.value === saved)?.value ??
+  DEFAULT_DISPLAY.textScale;
 
 /** The <html> classes for the settings, so the server renders the right theme on first paint. */
 export const displayClassName = (s: DisplaySettings): string =>
@@ -54,7 +78,7 @@ export const applyDisplay = (
   else if (s.theme === "dark") root.classList.add("dark");
   else if (s.theme === "system") root.classList.add("system");
   if (s.motion === "reduce") root.classList.add("reduce-motion");
-  root.style.setProperty("--text-scale", String(s.textScale));
+  root.style.setProperty("--text-scale", String(textScaleFactor(s.textScale)));
 };
 
 /** Read saved settings, ignoring anything malformed (the value comes from a cookie). */
@@ -65,7 +89,7 @@ export const parseDisplay = (raw: null | string): DisplaySettings => {
     return {
       contrast: v.contrast === "high" ? "high" : "standard",
       motion: v.motion === "reduce" ? "reduce" : "system",
-      textScale: SCALES.has(v.textScale as TextScale) ? (v.textScale as TextScale) : 1,
+      textScale: parseTextScale(v.textScale),
       theme: THEMES.has(v.theme as ThemeChoice) ? (v.theme as ThemeChoice) : "system",
     };
   } catch {
