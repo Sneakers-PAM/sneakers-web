@@ -3,17 +3,26 @@ import { Toaster as Sonner, toast as sonnerToast } from "sonner";
 
 import { toastProblemAction } from "#ui/components/ProblemAction";
 
-/** The toast stack: dark ink toasts, above dialogs, in the bottom right unless told otherwise. */
+/** The Display button's top edge is 3.5rem up at most, so this clears it at any width. */
+const CLEAR_OF_DISPLAY = { bottom: "4rem" };
+
+/**
+ * The toast stack: dark ink toasts, above dialogs, bottom center unless told otherwise. The
+ * stack sits just above the Display button in the bottom right corner, because at phone width a
+ * toast spans the screen and would otherwise run under it.
+ */
 export const Toaster = ({
-  position = "bottom-right",
+  position = "bottom-center",
 }: {
   position?: React.ComponentProps<typeof Sonner>["position"];
 }) => {
   return (
     <Sonner
       gap={10}
+      mobileOffset={CLEAR_OF_DISPLAY}
+      offset={CLEAR_OF_DISPLAY}
       position={position}
-      style={{ zIndex: "var(--z-toast)" } as React.CSSProperties}
+      style={{ "--width": "22rem", zIndex: "var(--z-toast)" } as React.CSSProperties}
       toastOptions={{
         classNames: {
           actionButton:
