@@ -158,8 +158,22 @@ describe("the support bundle", () => {
   const answer = (body: BodyInit | null, init: ResponseInit) =>
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(body, init));
 
-  it("gives the bundle and the file name the box chose", async () => {
+  it("gives the zip and the file name the box chose", async () => {
     const spy = answer("the bundle", {
+      headers: {
+        "Content-Disposition": 'attachment; filename="support-bundle-box1-20261030T120000Z.zip"',
+        "Content-Type": "application/zip",
+      },
+      status: 200,
+    });
+    const { blob, fileName } = await edge.exportSupportBundle();
+    expect(spy).toHaveBeenCalledWith("/export/support-bundle", { credentials: "same-origin" });
+    expect(fileName).toBe("support-bundle-box1-20261030T120000Z.zip");
+    expect(await blob.text()).toBe("the bundle");
+  });
+
+  it("still takes the text file an older box sends", async () => {
+    answer("the bundle", {
       headers: {
         "Content-Disposition": 'attachment; filename="support-bundle-box1-20261030T120000Z.txt"',
         "Content-Type": "text/plain; charset=utf-8",
@@ -167,12 +181,16 @@ describe("the support bundle", () => {
       status: 200,
     });
     const { blob, fileName } = await edge.exportSupportBundle();
-    expect(spy).toHaveBeenCalledWith("/export/support-bundle", { credentials: "same-origin" });
     expect(fileName).toBe("support-bundle-box1-20261030T120000Z.txt");
     expect(await blob.text()).toBe("the bundle");
   });
 
   it("names the file itself when the box doesn't", async () => {
+    answer("the bundle", { headers: { "Content-Type": "application/zip" }, status: 200 });
+    expect((await edge.exportSupportBundle()).fileName).toBe("support-bundle.zip");
+  });
+
+  it("doesn't call an older box's text a zip when it names no file", async () => {
     answer("the bundle", { headers: { "Content-Type": "text/plain" }, status: 200 });
     expect((await edge.exportSupportBundle()).fileName).toBe("support-bundle.txt");
   });
