@@ -159,18 +159,34 @@ const navCount = (name: string) =>
 const rowsShown = () => Math.max(screen.queryAllByRole("row").length - 1, 0);
 
 describe("the count beside a folder in the sidebar", () => {
-  it.each([
-    ["nothing of its own", "mock-folder-alice", "My secrets", "0"],
-    ["one secret", "mock-folder-alice-lab", "Lab", "1"],
-    ["secrets and subfolders of secrets", "mock-folder-platform", "Platform", null],
-  ])("matches a folder with %s", async (_, id, name, expected) => {
-    open(`/browse/${id}`);
-    await screen.findByRole("heading", { name });
+  it("matches a folder with no subfolders", async () => {
+    open("/browse/mock-folder-alice-lab");
+    await screen.findByRole("heading", { name: "Lab" });
     const rows = rowsShown();
     await openDrawer();
-    const count = navCount(name);
-    if (expected !== null) expect(count).toBe(expected);
-    expect(count).toBe(String(rows));
+    expect(navCount("Lab")).toBe("1");
+    expect(navCount("Lab")).toBe(String(rows));
+  });
+
+  it("adds a folder's subfolders to what it holds itself", async () => {
+    open("/browse/mock-folder-platform");
+    await screen.findByRole("heading", { name: "Platform" });
+    const rows = rowsShown();
+    await openDrawer();
+    const below = ["Certificates", "Databases", "Network"].reduce(
+      (total, name) => total + Number(navCount(name)),
+      0,
+    );
+    expect(below).toBeGreaterThan(0);
+    expect(navCount("Platform")).toBe(String(rows + below));
+  });
+
+  it("shows no number on the Personal root", async () => {
+    open("/browse/mock-folder-alice");
+    await screen.findByRole("heading", { name: "My secrets" });
+    await openDrawer();
+    const row = within(nav()).getByRole("link", { name: /My secrets/ });
+    expect(within(row).queryByText(/^\d+$/)).not.toBeInTheDocument();
   });
 
   it("follows a secret when it moves to another folder", async () => {
