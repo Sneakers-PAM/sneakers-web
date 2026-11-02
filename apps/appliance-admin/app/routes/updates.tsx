@@ -1485,7 +1485,7 @@ const UnitConfirm = ({
         : action === "apply"
           ? {
               confirmLabel: "Install and restart the product",
-              description: `Sneakers-PAM's services restart on ${version}, with no reboot; k0s keeps running. Sneakers-PAM is unavailable until they're back; the previous version stays in the other slot.`,
+              description: `Sneakers-PAM's services restart on ${version}, with no reboot: k0s stops and starts again, so Sneakers-PAM is briefly unavailable until it's back. The previous version stays in the other slot.`,
               title: "Install the product update",
               word: version,
             }

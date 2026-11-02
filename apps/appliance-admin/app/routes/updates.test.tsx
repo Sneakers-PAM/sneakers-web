@@ -768,6 +768,8 @@ describe("Updates", () => {
       await user.click(product.getByRole("button", { name: "Apply update" }));
       const dialog = within(await screen.findByRole("dialog"));
       expect(dialog.getByText(/no reboot/)).toBeInTheDocument();
+      expect(dialog.getByText(/k0s stops and starts again/)).toBeInTheDocument();
+      expect(dialog.queryByText(/k0s keeps running/)).not.toBeInTheDocument();
       await user.type(dialog.getByLabelText("Type 0.2.0 to confirm"), "0.2.0");
       await user.type(dialog.getByLabelText("Authenticator code"), "123456");
       await user.click(dialog.getByRole("button", { name: "Install and restart the product" }));
