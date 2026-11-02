@@ -870,6 +870,62 @@ export interface SendTestEmailRequest {
   to: string;
 }
 
+// ---- telemetry ----
+
+/** Where the installed product's services export traces, metrics and logs over OTLP. */
+export interface TelemetrySettings {
+  /** Off stops the export and keeps the endpoint. */
+  enabled: boolean;
+  /** https://<host>[:<port>]. */
+  endpoint: string;
+  /** Logs as well as traces and metrics. */
+  logs: boolean;
+  /** Skips the collector's CA and certificate checks; no logs leave while it's on. */
+  skipVerify: boolean;
+}
+
+/** One service's export state. */
+export interface TelemetryWorkload {
+  name: string;
+  /** "sending", "issue", "off" or "unknown". */
+  state: string;
+}
+
+/** The last restart for a change. */
+export interface TelemetryRestart {
+  /** The phase it's at, or stopped at. */
+  phase: string;
+  /** "none", "running", "done" or "failed". */
+  state: string;
+  /** Why it stopped; later phases keep the old settings until a retry. */
+  why: string;
+  /** The workload it stopped at. */
+  workload: string;
+}
+
+export interface GetTelemetryResponse {
+  label: string;
+  /** Logs are switched on but stay on the box, because the collector isn't verified. */
+  logsHeld: boolean;
+  restart: TelemetryRestart;
+  settings: TelemetrySettings;
+  /** "not installed", "not in this product", "off" or "on". */
+  state: string;
+  /** Set when the services' states couldn't be read. */
+  statusError: string;
+  workloads: TelemetryWorkload[];
+}
+
+export interface SetTelemetryRequest {
+  elevationOverride?: ElevationOverride;
+  settings: TelemetrySettings;
+}
+
+export interface SetTelemetryResponse {
+  /** The settings changed what the services read, so they restart. */
+  restarting: boolean;
+}
+
 // ---- import ----
 
 /** One file of the open import: bundle, mapping, sheet or types. */

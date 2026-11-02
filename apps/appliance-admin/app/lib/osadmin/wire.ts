@@ -8,6 +8,10 @@ import type {
   CommitNetworkResponse,
   EmailSettings,
   GetEmailResponse,
+  GetTelemetryResponse,
+  SetTelemetryResponse,
+  TelemetrySettings,
+  TelemetryWorkload,
   GetImportResponse,
   ImportRun,
   AccessPolicy,
@@ -663,6 +667,39 @@ export const getEmail = (w: Wire<GetEmailResponse>): GetEmailResponse => ({
   passwordSet: w.passwordSet ?? false,
   settings: emailSettings(w.settings),
   state: w.state ?? "",
+});
+
+// ---- telemetry ----
+
+const telemetrySettings = (w: Wire<TelemetrySettings> | undefined): TelemetrySettings => ({
+  enabled: w?.enabled ?? false,
+  endpoint: w?.endpoint ?? "",
+  logs: w?.logs ?? false,
+  skipVerify: w?.skipVerify ?? false,
+});
+
+const telemetryWorkload = (w: Wire<TelemetryWorkload>): TelemetryWorkload => ({
+  name: w.name ?? "",
+  state: w.state ?? "",
+});
+
+export const getTelemetry = (w: Wire<GetTelemetryResponse>): GetTelemetryResponse => ({
+  label: w.label ?? "",
+  logsHeld: w.logsHeld ?? false,
+  restart: {
+    phase: w.restart?.phase ?? "",
+    state: w.restart?.state || "none",
+    why: w.restart?.why ?? "",
+    workload: w.restart?.workload ?? "",
+  },
+  settings: telemetrySettings(w.settings),
+  state: w.state ?? "",
+  statusError: w.statusError ?? "",
+  workloads: list(w.workloads, telemetryWorkload),
+});
+
+export const setTelemetry = (w: Wire<SetTelemetryResponse>): SetTelemetryResponse => ({
+  restarting: w.restarting ?? false,
 });
 
 // ---- import ----

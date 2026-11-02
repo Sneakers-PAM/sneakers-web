@@ -40,6 +40,7 @@ const FRAME = [
   "/certificates",
   "/backups",
   "/mcp",
+  "/telemetry",
   "/modules",
   "/logs",
   "/power",
@@ -91,6 +92,9 @@ const SCENARIOS = [
     route: "/updates",
     scenario: "product-range",
   },
+  // Telemetry: export on with every service sending, and a restart stopped at a phase.
+  { name: "telemetry-on", route: "/telemetry", scenario: "telemetry-on" },
+  { name: "telemetry-restart-failed", route: "/telemetry", scenario: "telemetry-failed" },
   { name: "access-locked-invited", route: "/access", scenario: "locked,invited,elevated" },
   {
     act: async (page) => {

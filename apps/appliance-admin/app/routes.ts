@@ -16,6 +16,7 @@ export default [
     route("backups", "routes/backups.tsx"),
     route("mcp", "routes/mcp.tsx"),
     route("email", "routes/email.tsx"),
+    route("telemetry", "routes/telemetry.tsx"),
     route("import", "routes/import.tsx"),
     route("modules", "routes/modules.tsx"),
     route("logs", "routes/logs.tsx"),

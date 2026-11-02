@@ -31,6 +31,7 @@ import type {
   GetPowerResponse,
   GetSetupResponse,
   GetStatusResponse,
+  GetTelemetryResponse,
   GetUpgradesResponse,
   ImportCertificateRequest,
   Invitation,
@@ -60,6 +61,8 @@ import type {
   RunImportStepRequest,
   SendTestEmailRequest,
   SetEmailRequest,
+  SetTelemetryRequest,
+  SetTelemetryResponse,
 } from "@/lib/osadmin/types";
 
 import * as wire from "@/lib/osadmin/wire";
@@ -375,6 +378,15 @@ export const email = {
     call<Record<string, never>>("EmailService", "SetEmail", request),
   test: (request: SendTestEmailRequest) =>
     call<{ answer?: string }>("EmailService", "SendTestEmail", request),
+};
+
+export const telemetry = {
+  get: () => call<GetTelemetryResponse>("TelemetryService", "GetTelemetry", {}, wire.getTelemetry),
+  /** Carries a failed restart on from the phase it stopped at. */
+  retryRestart: () => call<Record<string, never>>("TelemetryService", "RetryTelemetryRestart", {}),
+  /** Checks the collector, saves, and answers once the services' restart has begun. */
+  set: (request: SetTelemetryRequest) =>
+    call<SetTelemetryResponse>("TelemetryService", "SetTelemetry", request, wire.setTelemetry),
 };
 
 export const importer = {
