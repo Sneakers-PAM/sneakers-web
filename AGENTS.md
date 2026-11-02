@@ -577,7 +577,10 @@ loading states: the connecting screen and the hand-off after sign-in.
   extension packs not yet installed) stays there and registers its reset with `onMockReset`.
   A mock server started with `MOCK_FRESH_INSTALL=1` has no administrator yet, so the admin console
   opens first-run setup (the setup token is `mock-setup-token`). Live builds never contain the
-  mock edge, so the variable does nothing there.
+  mock edge, so the variable does nothing there. The setup action (`apps/admin/app/routes/setup.tsx`)
+  takes form posts only: any other body answers 415 and a form it can't read 400, never a 500.
+  Once an administrator exists it refuses a new one the way the loader refuses the page, with a
+  redirect to sign-in and no call to the gateway's bootstrap.
   Staff answers live in `handlers/staff/<area>.ts`, one module per area.
 - `packages/ui/src/`: the Laces kit (components, theme, brand).
 - `packages/vite-config/src/`: the shared Vite and Vitest config, and the edge choice.
