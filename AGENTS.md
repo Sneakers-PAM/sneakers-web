@@ -904,7 +904,11 @@ nobody else can decide, the requester confirms the task once with their second f
   `apps/*/build-mock`). Run one locally with `npm run start -w @sneakers-web/staff`.
 - Image: `docker build --build-arg APP=<staff|admin> [--build-arg EDGE=mock] .` Add
   `--build-arg DEV_QUICK_LOGIN=true` and `--build-arg DEV_UI_ISSUE_COPY=true` only for a local
-  stack image (see Dev quick login and Dev UI issue copy).
+  stack image (see Dev quick login and Dev UI issue copy). The Dockerfile uses BuildKit's
+  `RUN --mount` caches, so build it with `docker buildx build` (or a `docker build` that runs
+  BuildKit); the legacy builder can't read it. The `build` stage's install takes the repo's
+  `.npmrc`, so it resolves the mock server's tarball URL (`allow-remote=root`) on npm 12 and peer
+  dependencies the way CI does.
 - Test: `npm test`. Server tests run in Node against the mock gateway, with the helpers in
   `@sneakers-pam/mock-server/in-process/testing`: `withMockGateway()` for the file, `sessionCookie(userId)`
   for a signed-in fixture user, and `withCookie(cookie, loader)` to send it with a route's

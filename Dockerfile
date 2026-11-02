@@ -24,8 +24,10 @@ RUN test "$APP" = staff || test "$APP" = admin || { echo "APP must be staff or a
 RUN test "$EDGE" = live || test "$EDGE" = mock || { echo "EDGE must be live or mock" >&2; exit 1; }
 WORKDIR /src
 # Install from the manifests first, so a source change reuses this layer instead of adding a
-# new full install to the build cache each time.
-COPY package.json package-lock.json ./
+# new full install to the build cache each time. .npmrc comes along so this install takes the
+# same settings as CI: legacy-peer-deps, and allow-remote=root for the mock server's tarball
+# URL, which npm 12 refuses without it.
+COPY .npmrc package.json package-lock.json ./
 COPY apps/staff/package.json apps/staff/
 COPY apps/admin/package.json apps/admin/
 COPY packages/api-client/package.json packages/api-client/
