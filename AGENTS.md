@@ -375,6 +375,15 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   machine API switches (`SetMcp`, step-up; the box restarts the product's MCP stacks), and
   `not in this product` (the product.yaml declares no MCP switch) and `not installed` show no
   switch. The mock's `mcp-absent` state is the product with no MCP switch.
+- **Telemetry (`app/routes/telemetry.tsx`, under the product's nav section after Email).**
+  `TelemetryService` (sneakers-appliance `docs/product-telemetry.md`): `GetTelemetry.state` is
+  `on`, `off`, `not in this product` (no form) or `not installed`. The form sets export on or off,
+  the `https://` endpoint, Verify the certificate (`skipVerify` inverted) and Export logs, and
+  `SetTelemetry` (step-up) answers `restarting`. The Restart card shows `restart` as the box gives
+  it (the running phase, done, or the phase, workload and reason it stopped at with a Retry,
+  `RetryTelemetryRestart`, step-up), and the Services table each workload's state, or
+  `statusError`. The page re-reads every `TELEMETRY_POLL_MS` (3 seconds) without refilling the
+  form. The mock moves a running restart on by one phase each read (core, services, edge).
 - **Product values (`app/components/ProductValues.tsx`, on Status).** The values the installed
   product's bundle exposes to the signed-in admin's role (`ProductService.ListExposedValues`,
   such as Sneakers' one-time setup token), each read only on Show (`GetExposedValue`, which the
@@ -420,7 +429,9 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   minutes or until an owner unlocks him), `throttled` (this address has to wait), `first-boot` (no admin yet; the setup code is
   `MOCK_SETUP_CODE`), `setup-admin`, `setup-keys`, `setup-network`, `setup-protection` and
   `setup-finish` (setup part-way, as a reload finds it), `reduced` (no Secure Boot, no TPM),
-  `invited` (carol's invitation, `MOCK_INVITE_CODE`), `setup-token-used` (the product's
+  `invited` (carol's invitation, `MOCK_INVITE_CODE`), `telemetry-on`, `telemetry-collector-down`,
+  `telemetry-failed`, `telemetry-restart-fails`, `telemetry-status-down`, `telemetry-absent`,
+  `setup-token-used` (the product's
   one-time setup token was used), `signed-in` (the box still knows this browser), `single-admin`, `reset-pending` and
   `reset-countdown`. The mock verifies an upload by its content: one containing "tampered" fails
   the signature, "lab" the channel, and "patch" is a patch for the running version. A key removed

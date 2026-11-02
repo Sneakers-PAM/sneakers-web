@@ -16,7 +16,7 @@ npm run build -w @sneakers-web/appliance-admin   # the live build, in build/clie
 
 The nav's base sections (Appliance, Advanced, Power) hold the appliance's own pages, the same on
 every box. An installed product adds its own section, labelled with the name the box gives it
-(`GetUpgrades.product.name`, such as "Sneakers"), holding the product's pages (today MCP, Email and Import; the
+(`GetUpgrades.product.name`, such as "Sneakers"), holding the product's pages (today MCP, Email, Telemetry and Import; the
 list is `app/frame/productPages.tsx`). With no product installed the section isn't there, and a
 product page's address shows "Nothing here" without naming the page. The nav reads the product
 again on each page change, so installing one from Updates shows its section on the next page.
@@ -49,6 +49,30 @@ backups, certificates, the update mirror, access and the typed confirms). Only t
 last sign-in, the current password when changing yours and the authenticator code boxes leave
 autofill on. `app/lib/noAutofill.test.ts` reads the app's source and fails on a new field without
 them.
+
+## Telemetry
+
+The product's Telemetry page sets the OTLP collector the product's services export to
+(`TelemetryService`, sneakers-appliance `docs/product-telemetry.md`): the Export switch, the
+endpoint (`https://<host>[:<port>]`; the box refuses `http://`, a bare `host:port` and other
+schemes with `TELEMETRY_INVALID`), Verify the certificate (on by default) and Export logs. While
+verification is off the page warns, as Email does, that traces and metrics go to an unchecked
+collector and that no logs leave; with logs on as well it says they stay on the box
+(`logsHeld`). Saving asks for a fresh code, and the box checks the collector first: one that
+doesn't answer is refused with `TELEMETRY_UNREACHABLE` and nothing is saved. The page says before
+saving that a change restarts the services that read the settings.
+
+A save that changes what the services read restarts them phase by phase (`restarting` in the
+answer; a new endpoint while export is off saves without one). The Restart card follows
+`GetTelemetry.restart` as the box gives it: the phase it's at while running, Done, or the phase,
+workload and reason it stopped at, with a **Retry** (`RetryTelemetryRestart`, a fresh code) that
+carries on from that phase. The Services table shows each service's export state from the box
+(Sending, Issue, Off or Unknown), or the box's `statusError` when it can't read them. The page reads
+the box again every 3 seconds (`TELEMETRY_POLL_MS`) without touching what's being typed. A product
+that exports nothing gets no form. The mock's scenarios are `telemetry-on`,
+`telemetry-collector-down` (every service shows an issue), `telemetry-failed` (a restart stopped at
+the services phase), `telemetry-restart-fails` (the next restart stops there),
+`telemetry-status-down` and `telemetry-absent`.
 
 ## Status: the disk
 

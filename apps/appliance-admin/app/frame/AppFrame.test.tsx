@@ -163,6 +163,21 @@ describe("AppFrame", () => {
       expect(within(base).getByRole("link", { name: "Network" })).toBeInTheDocument();
     });
 
+    it("lists Telemetry after Email in the product's section", async () => {
+      stub("/home");
+      const productNav = await screen.findByRole("navigation", { name: "Sneakers" });
+      const names = within(productNav)
+        .getAllByRole("link")
+        .map((link) => link.textContent);
+      expect(names.indexOf("Telemetry")).toBe(names.indexOf("Email") + 1);
+      expect(within(productNav).getByRole("link", { name: "Telemetry" })).toHaveAttribute(
+        "href",
+        "/telemetry",
+      );
+      const base = screen.getByRole("navigation", { name: "Appliance" });
+      expect(within(base).queryByRole("link", { name: "Telemetry" })).not.toBeInTheDocument();
+    });
+
     it("names the section from the box, not from the nav", async () => {
       const real = upgrade.get;
       vi.spyOn(upgrade, "get").mockImplementation(async () => {

@@ -257,6 +257,30 @@ let emailSettings: Record<string, unknown> = { ...NO_RELAY };
 let emailPassword = "";
 /** The product's product.yaml declares an email section. */
 let emailDeclared = true;
+/** The product's telemetry collector (the Telemetry page): export off, nothing saved. */
+const NO_COLLECTOR = { enabled: false, endpoint: "", logs: false, skipVerify: false } as const;
+/** The collector the telemetry scenarios point at. */
+export const TELEMETRY_ENDPOINT = "https://collector.example.org:4317";
+/** The product's restart order for a telemetry change, as its product.yaml's phases have it. */
+const TELEMETRY_PHASES = [
+  { phase: "core", workloads: ["identity", "vault"] },
+  { phase: "services", workloads: ["workflow", "audit", "notify", "connector", "sshbroker"] },
+  { phase: "edge", workloads: ["gateway", "mcp"] },
+] as const;
+const NO_RESTART = { phase: "", state: "none", why: "", workload: "" };
+let telemetrySettings: Record<string, unknown> = { ...NO_COLLECTOR };
+/** The product's product.yaml declares a telemetry section. */
+let telemetryDeclared = true;
+/** The last restart for a telemetry change, as GetTelemetry answers it. */
+let telemetryRestart: Record<string, string> = { ...NO_RESTART };
+/** A running restart's phase was read once, so the next read moves it on. */
+let telemetryPhaseSeen = false;
+/** The next restart stops at the services phase, with audit not back in time. */
+let telemetryRestartFails = false;
+/** The collector stopped answering: every service that sends shows an issue. */
+let telemetryCollectorDown = false;
+/** The gateway is down, so the services' export states can't be read. */
+let telemetryStatusDown = false;
 let mcpEnabled = true;
 /** The product's product.yaml declares an mcp switch. */
 let mcpSwitch = true;
@@ -593,9 +617,37 @@ const STEP_UP_METHODS = new Set([
   "PowerService/ApproveFactoryReset",
   "PowerService/StartFactoryReset",
   "StatusService/CleanUpDisk",
+  "TelemetryService/RetryTelemetryRestart",
+  "TelemetryService/SetTelemetry",
   "TlsService/AssignCertificate",
   "TlsService/RevertToSelfSigned",
 ]);
+
+/** Moves a running telemetry restart on by one phase, or stops it where the scenario says. */
+const advanceTelemetryRestart = (): void => {
+  const at = TELEMETRY_PHASES.findIndex((p) => p.phase === telemetryRestart.phase);
+  if (telemetryRestartFails && telemetryRestart.phase === "services") {
+    telemetryRestart = {
+      phase: "services",
+      state: "failed",
+      why: "it isn't back after 5m0s: 0 of 1 updated replicas are available",
+      workload: "sneakers/deployment/sneakers-audit",
+    };
+    return;
+  }
+  const next = TELEMETRY_PHASES[at + 1];
+  telemetryRestart = next
+    ? { ...NO_RESTART, phase: next.phase, state: "running" }
+    : { ...NO_RESTART, phase: telemetryRestart.phase ?? "", state: "done" };
+};
+
+/** Each service's export state, in the gateway's words. */
+const telemetryWorkloads = (on: boolean): { name: string; state: string }[] =>
+  TELEMETRY_PHASES.flatMap((p) => p.workloads).map((name) => {
+    if (!on) return { name, state: "off" };
+    if (name === "mcp" && !mcpEnabled) return { name, state: "off" };
+    return { name, state: telemetryCollectorDown ? "issue" : "sending" };
+  });
 
 const historyEntry = (
   action: UpgradeEvent["action"],
@@ -1798,6 +1850,69 @@ const route = async (service: string, method: string, body: Record<string, unkno
       secureBootOn = body.on as boolean;
       return {};
     }
+    case "TelemetryService/GetTelemetry": {
+      if (!product.installedVersion)
+        return { restart: { state: "none" }, settings: {}, state: "not installed" };
+      if (!telemetryDeclared)
+        return { restart: { state: "none" }, settings: {}, state: "not in this product" };
+      // A running restart moves on by one phase a read, once each phase has been read.
+      if (telemetryRestart.state === "running") {
+        if (telemetryPhaseSeen) advanceTelemetryRestart();
+        telemetryPhaseSeen = true;
+      }
+      const on = telemetrySettings.enabled === true;
+      return {
+        label: "Traces, metrics and logs from every service",
+        logsHeld: on && telemetrySettings.logs === true && telemetrySettings.skipVerify === true,
+        restart: { ...telemetryRestart },
+        settings: { ...telemetrySettings },
+        state: on ? "on" : "off",
+        ...(telemetryStatusDown
+          ? { statusError: "the services' export states can't be read while the gateway is down" }
+          : { workloads: telemetryWorkloads(on) }),
+      };
+    }
+    case "TelemetryService/RetryTelemetryRestart": {
+      if (telemetryRestart.state !== "failed")
+        throw new OsadminError(
+          "failed_precondition",
+          "TELEMETRY_RESTART (3912): there's no failed restart to retry",
+        );
+      telemetryRestartFails = false;
+      telemetryRestart = { ...NO_RESTART, phase: telemetryRestart.phase ?? "", state: "running" };
+      telemetryPhaseSeen = false;
+      return {};
+    }
+    case "TelemetryService/SetTelemetry": {
+      if (!product.installedVersion || !telemetryDeclared)
+        throw new OsadminError(
+          "failed_precondition",
+          "NOT_AVAILABLE (3703): the product reads no telemetry settings",
+        );
+      const next = { ...NO_COLLECTOR, ...(body.settings as Record<string, unknown>) };
+      const endpoint = String(next.endpoint ?? "");
+      if ((next.enabled || endpoint) && !/^https:\/\/[a-z0-9.-]+(?::\d{1,5})?$/i.test(endpoint))
+        throw new OsadminError(
+          "invalid_argument",
+          `TELEMETRY_INVALID (3910): the endpoint "${endpoint}" isn't https://<host>[:<port>]`,
+        );
+      if (next.enabled && endpoint.includes("unreachable.example.org"))
+        throw new OsadminError(
+          "failed_precondition",
+          `TELEMETRY_UNREACHABLE (3911): the collector at ${endpoint} didn't answer a TLS handshake: connection refused; nothing was saved`,
+        );
+      const was = telemetrySettings;
+      // A change to what the services read restarts them; a new endpoint while off doesn't.
+      const reads = (t: Record<string, unknown>) =>
+        t.enabled ? JSON.stringify([t.endpoint, t.skipVerify, t.logs]) : "off";
+      const restarting = reads(was) !== reads(next);
+      telemetrySettings = next;
+      if (restarting) {
+        telemetryRestart = { ...NO_RESTART, phase: "core", state: "running" };
+        telemetryPhaseSeen = false;
+      }
+      return { restarting };
+    }
     case "UpgradeService/ApplyUpdate": {
       checkCallCode(body.totpCode);
       if (body.target === "UPDATE_TARGET_BASE_WEB") {
@@ -2257,6 +2372,12 @@ const MOCK_SCENARIOS = [
   "manual",
   "email-absent",
   "mcp-absent",
+  "telemetry-absent",
+  "telemetry-collector-down",
+  "telemetry-failed",
+  "telemetry-on",
+  "telemetry-restart-fails",
+  "telemetry-status-down",
   "network-commit-drops",
   "network-gateway-dead",
   "network-old-base",
@@ -2606,6 +2727,38 @@ export const applyMockScenario = (scenario: MockScenario): void => {
       stepUpOnce = true;
       break;
     }
+    case "telemetry-absent": {
+      telemetryDeclared = false;
+      break;
+    }
+    case "telemetry-collector-down": {
+      telemetrySettings = { ...NO_COLLECTOR, enabled: true, endpoint: TELEMETRY_ENDPOINT };
+      telemetryCollectorDown = true;
+      break;
+    }
+    case "telemetry-failed": {
+      telemetrySettings = { ...NO_COLLECTOR, enabled: true, endpoint: TELEMETRY_ENDPOINT };
+      telemetryRestart = {
+        phase: "services",
+        state: "failed",
+        why: "it isn't back after 5m0s: 0 of 1 updated replicas are available",
+        workload: "sneakers/deployment/sneakers-audit",
+      };
+      break;
+    }
+    case "telemetry-on": {
+      telemetrySettings = { ...NO_COLLECTOR, enabled: true, endpoint: TELEMETRY_ENDPOINT };
+      telemetryRestart = { ...NO_RESTART, phase: "edge", state: "done" };
+      break;
+    }
+    case "telemetry-restart-fails": {
+      telemetryRestartFails = true;
+      break;
+    }
+    case "telemetry-status-down": {
+      telemetryStatusDown = true;
+      break;
+    }
     case "throttled": {
       throttledUntil = new Date(Date.now() + 4 * 60_000).toISOString();
       break;
@@ -2712,6 +2865,13 @@ export const resetMockWorld = (): void => {
   emailSettings = { ...NO_RELAY };
   emailPassword = "";
   emailDeclared = true;
+  telemetrySettings = { ...NO_COLLECTOR };
+  telemetryDeclared = true;
+  telemetryRestart = { ...NO_RESTART };
+  telemetryRestartFails = false;
+  telemetryPhaseSeen = false;
+  telemetryCollectorDown = false;
+  telemetryStatusDown = false;
   mcpEnabled = true;
   mcpSwitch = true;
   machineApiEnabled = false;
