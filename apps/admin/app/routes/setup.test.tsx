@@ -1,5 +1,10 @@
 import { MOCK_SETUP_TOKEN, mockState, USERS } from "@sneakers-pam/mock-server/in-process";
-import { withMockGateway } from "@sneakers-pam/mock-server/in-process/testing";
+import {
+  appRequest,
+  form,
+  server,
+  withMockGateway,
+} from "@sneakers-pam/mock-server/in-process/testing";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createRoutesStub } from "react-router";
@@ -98,10 +103,112 @@ describe("first-run setup", () => {
   });
 });
 
+const gatewayPaths = (): string[] => {
+  const paths: string[] = [];
+  server.events.on("request:start", ({ request }) => {
+    paths.push(new URL(request.url).pathname);
+  });
+  return paths;
+};
+
+const post = (body: BodyInit, contentType?: string) =>
+  setup.action({
+    context: {},
+    params: {},
+    request: appRequest("/setup", {
+      body,
+      headers: contentType ? { "Content-Type": contentType } : {},
+      method: "POST",
+    }),
+  } as never);
+
+const statusOf = (r: unknown): number =>
+  r instanceof Response ? r.status : ((r as { init?: { status?: number } }).init?.status ?? 200);
+
+describe("the setup action's refusals", () => {
+  afterEach(() => {
+    server.events.removeAllListeners();
+  });
+
+  it("answers a JSON body with 415, not a 500, and never reaches the gateway", async () => {
+    const paths = gatewayPaths();
+    const r = await post(
+      JSON.stringify({ intent: "create", setupToken: "not-the-token" }),
+      "application/json",
+    );
+    expect(statusOf(r)).toBe(415);
+    expect(paths).toEqual([]);
+  });
+
+  it("answers a body with no content type with 415", async () => {
+    const r = await post("intent=create");
+    expect(statusOf(r)).toBe(415);
+  });
+
+  it("answers a form body it can't read with 400", async () => {
+    const r = await post("--broken", "multipart/form-data; boundary=nothing-matches");
+    expect(statusOf(r)).toBe(400);
+  });
+
+  it("answers a wrong setup token with a 4xx and creates nobody", async () => {
+    const r = await post(
+      form({
+        confirm: "correct horse battery",
+        email: "frank@example.org",
+        intent: "create",
+        name: "Frank",
+        password: "correct horse battery",
+        setupToken: "not-the-token",
+        username: "frank",
+      }),
+    );
+    expect(statusOf(r)).toBe(400);
+    expect(USERS.some((u) => u.username === "frank")).toBe(false);
+  });
+
+  it("answers a missing setup token with a 4xx without calling the gateway's bootstrap", async () => {
+    const paths = gatewayPaths();
+    const r = await post(
+      form({
+        confirm: "correct horse battery",
+        email: "frank@example.org",
+        intent: "create",
+        name: "Frank",
+        password: "correct horse battery",
+        username: "frank",
+      }),
+    );
+    expect(statusOf(r)).toBe(400);
+    expect(paths).not.toContain("/setup/bootstrap");
+  });
+});
+
+// These run last: once the shell has seen an administrator it remembers that for the process,
+// as the real server does.
 describe("the setup page once an admin exists", () => {
+  it("refuses a create the way the loader does, without calling the gateway's bootstrap", async () => {
+    mockState.needsSetup = false;
+    const paths = gatewayPaths();
+    const r = await post(
+      form({
+        confirm: "correct horse battery",
+        email: "frank@example.org",
+        intent: "create",
+        name: "Frank",
+        password: "correct horse battery",
+        setupToken: MOCK_SETUP_TOKEN,
+        username: "frank",
+      }),
+    ).catch((error: unknown) => error);
+    server.events.removeAllListeners();
+    expect(r).toBeInstanceOf(Response);
+    expect((r as Response).headers.get("Location")).toBe("/sign-in");
+    expect(paths).not.toContain("/setup/bootstrap");
+    expect(USERS.some((u) => u.username === "frank")).toBe(false);
+  });
+
   it("sends people to sign in", async () => {
     mockState.needsSetup = false;
-    const { appRequest } = await import("@sneakers-pam/mock-server/in-process/testing");
     const r = await setup
       .loader({ context: {}, params: {}, request: appRequest("/setup") } as never)
       .catch((error: unknown) => error);

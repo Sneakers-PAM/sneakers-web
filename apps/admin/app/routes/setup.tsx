@@ -49,12 +49,47 @@ type Fields = { email: string; name: string; username: string };
 
 const text = (form: FormData, key: string) => String(form.get(key) ?? "").trim();
 
+const EMPTY_FORM: SetupState = { fields: { email: "", name: "", username: "" }, view: "form" };
+
+const FORM_TYPES = new Set(["application/x-www-form-urlencoded", "multipart/form-data"]);
+
+/** The posted form, or the refusal for a body that isn't one. */
+const readForm = async (
+  request: Request,
+): Promise<{ form: FormData } | { refusal: ReturnType<typeof data<SetupState>> }> => {
+  const [mediaType = ""] = (request.headers.get("Content-Type") ?? "").split(";", 1);
+  const type = mediaType.trim().toLowerCase();
+  if (!FORM_TYPES.has(type)) {
+    log.warn("setup post refused: not form data", { contentType: type || "none" });
+    return { refusal: data<SetupState>({ ...EMPTY_FORM, problem: "invalid" }, { status: 415 }) };
+  }
+  try {
+    return { form: await request.formData() };
+  } catch (error) {
+    log.warn("setup post refused: the form couldn't be read", {
+      contentType: type,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { refusal: data<SetupState>({ ...EMPTY_FORM, problem: "invalid" }, { status: 400 }) };
+  }
+};
+
 export const action = async ({ request }: ActionFunctionArgs) => {
+  const read = await readForm(request);
+  if ("refusal" in read) return read.refusal;
+  const { form } = read;
   const gw = gatewayFor(request);
-  const form = await request.formData();
   const intent = text(form, "intent");
   const userId = text(form, "userId");
   const username = text(form, "username");
+  log.debug("setup action", { intent });
+
+  // The later steps (seed, verify, resend, skip) run after the admin exists, so only a new
+  // admin is refused once setup is done, as the loader refuses the page.
+  if (intent === "create" && !(await needsSetup(request))) {
+    log.warn("setup create refused: an administrator already exists");
+    throw redirect("/sign-in");
+  }
 
   // Create the admin, then install the built-ins straight away, so the setup token is
   // used inside this one request and never sent back to the browser.
@@ -115,10 +150,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       : data<SetupState>({ ...verifying, wrong: true });
   }
   if (intent === "skip") return data<SetupState>({ username, verified: false, view: "ready" });
-  return data<SetupState>(
-    { fields: { email: "", name: "", username: "" }, view: "form" },
-    { status: 400 },
-  );
+  return data<SetupState>(EMPTY_FORM, { status: 400 });
 };
 
 export const meta = () => [{ title: "Set up Sneakers-PAM" }];
