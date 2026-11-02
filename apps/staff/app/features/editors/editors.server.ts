@@ -116,7 +116,7 @@ const pickers = async (gw: GatewayClient) => {
   };
 };
 
-const failed = (error: unknown, context: Record<string, string>): EditorLoad => {
+export const failed = (error: unknown, context: Record<string, string>): EditorLoad => {
   const refusal = refusalOf(error);
   if (refusal) {
     log.warn("editor: refused", { ...context, code: refusal.code, reason: refusal.reason });
@@ -185,7 +185,7 @@ const moveChoices = (folders: NavFolder[], fromId: string, admin: boolean) => {
 };
 
 /** Never "deleted" — the gateway doesn't say whether it's gone or just not visible. */
-const missing = (id: string, gatewayCode = "NOT_FOUND") => {
+export const missing = (id: string, gatewayCode = "NOT_FOUND") => {
   log.info("edit secret: not found", { gatewayCode, secretId: id });
   return data({ code: "NOT_FOUND", detail: "", metadata: { id } } satisfies Refusal, {
     status: 404,
