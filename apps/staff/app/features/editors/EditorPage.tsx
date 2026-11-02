@@ -2,7 +2,7 @@ import { refusalMessage } from "@sneakers-web/shell";
 import { Alert, Button, cn, Field, Input, PageHeader, plural } from "@sneakers-web/ui";
 import { Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useFetcher, useSearchParams } from "react-router";
+import { Link, useFetcher, useNavigate, useSearchParams } from "react-router";
 
 import type { EditorActionResult, EditorData, Target } from "@/features/editors/editors.server";
 
@@ -11,7 +11,7 @@ import {
   type CertificateDraft,
   EMPTY_CERTIFICATE,
 } from "@/features/editors/CertificateCard";
-import { ChangeTypeDialog } from "@/features/editors/ChangeTypeDialog";
+import { changeTypePath, type ChangeTypeTrip } from "@/features/editors/changeType";
 import { FieldControl, isWide } from "@/features/editors/FieldControl";
 import { FormCard } from "@/features/editors/FormCard";
 import { GITHUB_APP_KEYS, GitHubAppCard } from "@/features/editors/GitHubAppCard";
@@ -67,6 +67,7 @@ const usesTarget = (t: SecretType) => !!t.heartbeat || !!t.rotation || isKeyPair
 export const EditorPage = ({ page }: { page: EditorData }) => {
   const editing = page.mode === "edit";
   const [searchParameters] = useSearchParams();
+  const navigate = useNavigate();
   const focusField = searchParameters.get("focus");
   const saver = useFetcher<EditorActionResult>({ key: "editor-save" });
   const [name, setName] = useState(page.draft.name);
@@ -80,7 +81,6 @@ export const EditorPage = ({ page }: { page: EditorData }) => {
   const [targetOpen, setTargetOpen] = useState(false);
   const [attempted, setAttempted] = useState(false);
   const [asking, setAsking] = useState<"request" | "share" | null>(null);
-  const [changingType, setChangingType] = useState(false);
 
   const type = page.types.find((t) => t.id === typeId);
   const certCreate = !editing && !!type && isCertificateType(type);
@@ -113,13 +113,6 @@ export const EditorPage = ({ page }: { page: EditorData }) => {
   };
 
   // The vault changed the saved secret, so the form takes the reloaded values under the new type.
-  const typeChanged = () => {
-    setTypeId(page.draft.typeId);
-    setTargetId(page.draft.targetId);
-    setValues(page.draft.values);
-    setAttempted(false);
-  };
-
   const created = useCallback((t: Target) => {
     setTargets((list) => [...list.filter((x) => x.id !== t.id), t]);
     setTargetId(t.id);
@@ -267,8 +260,18 @@ export const EditorPage = ({ page }: { page: EditorData }) => {
                 value={typeId}
               />
             </Field>
-            {editing && (
-              <Button onClick={() => setChangingType(true)} type="button" variant="secondary">
+            {editing && page.secretId && (
+              <Button
+                onClick={() => {
+                  const id = page.secretId ?? "";
+                  void navigate(changeTypePath(id), {
+                    state: { from: `/secret/${id}/edit` } satisfies ChangeTypeTrip,
+                  });
+                }}
+                title="It changes the saved secret, so unsaved field edits here are dropped."
+                type="button"
+                variant="secondary"
+              >
                 Change type…
               </Button>
             )}
@@ -393,15 +396,6 @@ export const EditorPage = ({ page }: { page: EditorData }) => {
         }}
         open={asking === "request"}
       />
-
-      {changingType && page.secretId && (
-        <ChangeTypeDialog
-          note="It changes the saved secret, so unsaved field edits here are dropped."
-          onChanged={typeChanged}
-          onClose={() => setChangingType(false)}
-          secrets={[{ id: page.secretId, name: page.draft.name, typeId }]}
-        />
-      )}
 
       <NewTargetDialog
         connections={page.connections}

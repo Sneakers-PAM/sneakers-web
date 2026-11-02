@@ -707,27 +707,44 @@ WebSocket from the browser.
 
 ## Changing a secret's type (staff)
 
-- **Change type…** opens `ChangeTypeDialog` (`features/editors/`) from the edit form, a row's menu
-  and the selection bar. The list offers it to someone who can manage the folder, like Move; the
-  edit form always offers it, and the vault refuses anyone who may not (Author on the secret, or
-  the folder's owner). The edit form's Type picker stays locked: saving a form never changes a
-  type.
-- Both places use one resource route, `resources/change-type`: its loader gives the types and its
-  action runs `previewSecretTypeChange` and `changeSecretType` with the same arguments. The preview
-  is a POST so values typed for `fields` never land in a URL. The server logs field keys, never
-  those values.
-- The preview is keys only, and is run again as the person answers: a picker on any field that
-  isn't carried over sets `fieldMapping`, and `missingRequiredKeys` become inputs that send
-  `fields`. **Change type** enables only on an allowed preview of the current answers.
-- The vault's rule stands: a value with no field moves to notes, shown in the preview. To refuse
-  that, the person leaves (or skips, in a selection). The confirm sends `unmappedFields: refuse`
-  when the preview showed nothing moving, so a value stored since then is refused by name rather
-  than moved unseen. Refusals name fields by label (`typeChangeRefusal`).
-- A selection runs one secret at a time with its own preview, then a results table. A secret
-  already on the new type is reported as skipped.
-- The audit record and the version's change label come from the vault. The mock
-  (`handlers/staff/changeType.ts`) follows sneakers-vault `docs/type-change.md`, without the
-  certificate, length and pattern rules.
+- **Change type…** opens the change-type page, `/secret/:id/change-type`
+  (`routes/secret.change-type.tsx`, `features/editors/ChangeTypePage.tsx`), from the edit form, a
+  row's menu and the selection bar. It's a full page, not a dialog. The location's state
+  (`ChangeTypeTrip`) carries where to go back to and, for a selection, the secrets and the results
+  so far; `?to=<typeId>` picks the new type. The list offers it to someone who can manage the
+  folder, like Move; the edit form always offers it, and the vault refuses anyone who may not
+  (Author on the secret, or the folder's owner). The edit form's Type picker stays locked: saving a
+  form never changes a type.
+- **Step 1, line up the fields** (`LineUpStep.tsx`): the left column is the secret's stored keys
+  (from the first preview for the type, keys only), fixed, by name, never values. The right column
+  is the new type's fields, moved by drag or by the arrow keys (a swap with the neighbour), plus
+  "Goes to Notes" cards for values with no field. Name, id and folder aren't shown; they carry over.
+- `lineUp.ts` holds the rules, framework-free and unit-tested: `propose` keeps a field with its own
+  name where it can, offers a sensitive value only the new type's free sensitive fields (required
+  ones first), and sends the rest to Notes; `assess` runs the check on every move and keystroke. A
+  sensitive value next to a non-sensitive field is refused with a line saying how to fix it, a value
+  whose own field is lined up against something else is flagged (the vault would keep it there), and
+  anything going to Notes is said so. The new type's fields no stored value fills sit below the
+  line-up as inputs, marked Required where they are; a field a stored value fills is never asked for.
+- The vault's preview (`previewSecretTypeChange`) runs again on every change, debounced, with the
+  line-up as `fieldMapping` and typed values as `fields`. It's a POST to the page's own action, so
+  values never land in a URL, and the server logs field keys, never values. **Next: review**
+  enables only when the page's check is clean and the vault's preview of the current answers is
+  allowed; otherwise the check shows the vault's refusal in the page's words (`typeChangeRefusal`).
+- **Step 2, review what moves** (`ReviewStep.tsx`): each line says what moves where, what goes to
+  Notes, and each new value as typed. A non-sensitive value is a Show away (the edit form's
+  non-sensitive values, from the loader); a sensitive one uses `SensitiveValue`, so a Reveal posts
+  `reveal` to the page's action, which hands it to the secret page's `secretAction`: audited, and
+  held for approval where the secret asks for one. A line that moves has a Change button back to
+  step 1 with focus on that field; a field that keeps its name says "unchanged".
+- Nothing changes until **Change type**. The confirm sends `unmappedFields: refuse` when the
+  preview showed nothing moving to notes, so a value stored since then is refused by name rather
+  than moved unseen. The page's posts don't reload its data (`shouldRevalidate`).
+- A selection runs one secret at a time, each on its own page with its own preview, Skip and Stop
+  here, then a results table. A secret already on the new type is reported as skipped.
+- The audit record and the version's change label come from the vault, and earlier values stay in
+  the version history. The mock (`handlers/staff/changeType.ts` in sneakers-mock-server) follows
+  sneakers-vault `docs/type-change.md`, without the certificate, length and pattern rules.
 
 ## GitHub App secrets (staff)
 

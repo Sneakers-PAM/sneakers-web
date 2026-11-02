@@ -3,7 +3,13 @@ import { type Refusal, refusalMessage } from "@sneakers-web/shell";
 import type { ChangeTypePreview } from "@/features/editors/changeType.server";
 import type { SecretType } from "@/features/editors/validate";
 
-export const CHANGE_TYPE_ROUTE = "/resources/change-type";
+/** What one secret of a selection came to, for the results at the end. */
+export interface ChangeOutcome {
+  detail?: string;
+  id: string;
+  name: string;
+  status: "changed" | "skipped";
+}
 
 /** A secret the flow changes. `typeId` lets a selection skip those already on the new type. */
 export interface ChangeSubject {
@@ -11,6 +17,21 @@ export interface ChangeSubject {
   name: string;
   typeId: string;
 }
+
+/**
+ * What the change-type page is handed in the location's state: where to go when it's done, and
+ * for a selection, the secrets in it and what came of those already done.
+ */
+export interface ChangeTypeTrip {
+  from?: string;
+  outcomes?: ChangeOutcome[];
+  /** A selection that's done: what came of each secret, shown in place of the page. */
+  results?: ChangeOutcome[];
+  selection?: ChangeSubject[];
+}
+
+export const changeTypePath = (id: string, toTypeId?: string) =>
+  `/secret/${encodeURIComponent(id)}/change-type${toTypeId ? `?to=${encodeURIComponent(toTypeId)}` : ""}`;
 
 export type FieldLabel = (key: string) => string;
 
@@ -22,23 +43,23 @@ export const fieldLabeller =
     from?.fields.find((f) => f.key === key)?.label ??
     key;
 
-export const notesFieldOf = (t: SecretType) =>
-  t.fields.find((f) => f.key === "notes" || f.key === "note")?.key;
-
 /** The vault's refusals name keys and its own arguments; this names fields in the page's words. */
 export const typeChangeRefusal = (r: Refusal, label: FieldLabel): string => {
   const keys = (r.metadata.fields ?? "").split(",").filter(Boolean);
   const names = keys.map((k) => label(k)).join(", ");
   if (keys.length === 0) return refusalMessage(r);
   switch (r.reason) {
+    case "FIELD_VALUE_REQUIRED": {
+      return `${names}: the new type needs a value for this. Fill it in below.`;
+    }
     case "TYPE_CHANGE_LOWERS_PROTECTION": {
-      return `${names}: a sensitive value can't move to a less protected field. Pick a sensitive field for it.`;
+      return `${names}: a sensitive value can't move to a less protected field. Move a sensitive field next to it.`;
     }
     case "TYPE_CHANGE_NOTES_TOO_LONG": {
-      return `${names}: moving this to notes would pass the notes field's length limit.`;
+      return `${names}: moving this to notes would pass the notes field's length limit. Move a field next to it.`;
     }
     case "TYPE_CHANGE_UNMAPPED_FIELDS": {
-      return `${names}: there's no field for this under the new type. Pick one for it.`;
+      return `${names}: there's no field for this under the new type. Move a field next to it.`;
     }
     default: {
       return `${names}: ${refusalMessage(r)}`;
@@ -50,10 +71,11 @@ export const typeChangeRefusal = (r: Refusal, label: FieldLabel): string => {
 export const previewRefusal = (p: ChangeTypePreview): null | Refusal => {
   if (p.allowed) return null;
   const blocked = p.fieldChanges.filter((c) => c.outcome === "blocked").map((c) => c.fromKey);
+  const missing = p.refusalReason === "FIELD_VALUE_REQUIRED" ? p.missingRequiredKeys : [];
   return {
     code: "FAILED_PRECONDITION",
     detail: p.refusalMessage ?? "",
-    metadata: { fields: blocked.join(",") },
+    metadata: { fields: [...blocked, ...missing].join(",") },
     reason: p.refusalReason ?? undefined,
   };
 };

@@ -17,6 +17,7 @@ import { Fragment, useState } from "react";
 import {
   Link,
   useLoaderData,
+  useLocation,
   useNavigate,
   useNavigation,
   useRouteLoaderData,
@@ -38,7 +39,7 @@ import { NoAccess } from "@/features/browse/NoAccess";
 import { SecretsTable } from "@/features/browse/SecretsTable";
 import { folderLabel, isPersonal, type NavFolder, reordered } from "@/features/browse/tree";
 import { useBrowseAction } from "@/features/browse/useBrowseAction";
-import { ChangeTypeDialog } from "@/features/editors/ChangeTypeDialog";
+import { changeTypePath, type ChangeTypeTrip } from "@/features/editors/changeType";
 
 export const loader = ({ params, request }: LoaderFunctionArgs) =>
   loadBrowse(request, params.folderId);
@@ -52,7 +53,6 @@ export const meta = ({ data }: MetaArgs<typeof loader>) => [
 
 type Dialog =
   | { folder: NavFolder; kind: "delete" | "rename" }
-  | { kind: "change-type"; secrets: ChangeSubject[] }
   | { kind: "create"; parent: NavFolder | null }
   | { kind: "move"; subject: MoveSubject };
 
@@ -166,6 +166,7 @@ const Browse = () => {
     useRouteLoaderData<typeof frameLoader>("routes/frame")?.canCreateTopLevel ?? false;
   const navigate = useNavigate();
   const navigation = useNavigation();
+  const location = useLocation();
   const order = useBrowseAction();
   const currentId = current?.folder.id;
   // A dialog belongs to the folder it was opened on; opening another folder drops it.
@@ -175,6 +176,18 @@ const Browse = () => {
   const shown = dialog && dialog.at === currentId ? dialog : null;
   const loading =
     navigation.state === "loading" && navigation.location.pathname.startsWith("/browse");
+
+  // A selection goes through the change-type page one secret at a time, then back here.
+  const changeType = (secrets: ChangeSubject[]) => {
+    const first = secrets[0];
+    if (!first) return;
+    void navigate(changeTypePath(first.id), {
+      state: {
+        from: `${location.pathname}${location.search}`,
+        selection: secrets,
+      } satisfies ChangeTypeTrip,
+    });
+  };
 
   const onAction = (act: FolderAction, folder: NavFolder) => {
     switch (act) {
@@ -239,7 +252,7 @@ const Browse = () => {
             folders={folders}
             includeRetired={includeRetired}
             onAction={onAction}
-            onChangeType={(secrets) => open({ kind: "change-type", secrets })}
+            onChangeType={(secrets) => changeType(secrets)}
             onMoveSecrets={(secrets) =>
               open({ kind: "move", subject: { from: current.folder, kind: "secrets", secrets } })
             }
@@ -283,9 +296,6 @@ const Browse = () => {
       )}
       {shown?.kind === "move" && (
         <MoveFlow folders={folders} isAdmin={isAdmin} onClose={close} subject={shown.subject} />
-      )}
-      {shown?.kind === "change-type" && (
-        <ChangeTypeDialog onClose={close} secrets={shown.secrets} />
       )}
       {shown?.kind === "delete" && (
         <DeleteFolderDialog folder={shown.folder} folders={folders} onClose={close} />
