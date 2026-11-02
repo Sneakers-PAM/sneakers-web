@@ -10,6 +10,7 @@ export { handleRequest, streamTimeout } from "#shell/server/entry.server";
 export { frameData, type FrameData } from "#shell/server/frame.server";
 export { gatewayFor, relayCookies } from "#shell/server/gateway.server";
 export {
+  hostKeyFingerprint,
   hostKeyPinAction,
   type HostKeyPinState,
   type HostKeyScanView,

@@ -7,7 +7,9 @@ import {
   type TargetsTerminalQuery,
 } from "@sneakers-web/api-client";
 import { type Refusal, refusalOf } from "@sneakers-web/shell";
-import { guard, isAdmin, requireUser } from "@sneakers-web/shell/server";
+import { guard, requireUser, type SessionUser } from "@sneakers-web/shell/server";
+
+import { canManage } from "@/features/targets/targets.server";
 
 const log = createLogger("terminal");
 
@@ -19,9 +21,13 @@ const SSH_TERMINAL_TYPES = new Set([SSH_KEY_TYPE, SSH_PASSWORD_TYPE]);
 /** Whether the web terminal can open a session for a secret of this type. */
 export const opensTerminal = (typeId: string): boolean => SSH_TERMINAL_TYPES.has(typeId);
 
-/** Whether the secret's Open terminal can connect yet, and if not, why (#317). */
+/**
+ * Whether the secret's Open terminal can connect yet, and if not, why (#317). For an unpinned
+ * target, `canPin` says whether this user may scan and pin it right there (#318).
+ */
 export type TerminalAvailability =
-  { blocked: "no-target" | "not-ssh" | null } | { blocked: "not-pinned"; targetId: string };
+  | { blocked: "no-target" | "not-ssh" | null }
+  | { blocked: "not-pinned"; canPin: boolean; hostname: string; targetId: string };
 
 /**
  * The secret's attached targets that connect over SSH, in attach order. A legacy secret
@@ -52,13 +58,22 @@ const sshTargetsOf = (
  * disabled with its reason instead of leaving it off. One usable target with a pinned host key
  * is enough; the terminal page picks among several.
  */
-export const terminalAvailability = (d: TargetsTerminalQuery): TerminalAvailability => {
+export const terminalAvailability = (
+  d: TargetsTerminalQuery,
+  user: SessionUser,
+): TerminalAvailability => {
   if (!d.secret) return { blocked: "no-target" };
   const { targetIds, usable } = sshTargetsOf(d.secret, d);
   if (targetIds.length === 0) return { blocked: "no-target" };
   if (usable.length === 0) return { blocked: "not-ssh" };
   if (usable.some((t) => t.sshHostKeys.length > 0)) return { blocked: null };
-  return { blocked: "not-pinned", targetId: usable[0]!.id };
+  const target = usable[0]!;
+  return {
+    blocked: "not-pinned",
+    canPin: canManage(user, target),
+    hostname: target.hostname,
+    targetId: target.id,
+  };
 };
 
 export type OpenResult = { ok: false; refusal: Refusal } | { ok: true; ticket: SessionTicket };
@@ -140,7 +155,7 @@ export const loadTerminal = async (request: Request, id: string): Promise<Termin
     return {
       secret,
       session: {
-        canPinHostKey: isAdmin(user),
+        canPinHostKey: canManage(user, target),
         hostname: target.hostname,
         kind: "ready",
         pinned: target.sshHostKeys.length > 0,

@@ -362,6 +362,20 @@ describe("U-12 terminal", () => {
     expect(screen.queryByRole("button", { name: "Pin the host key" })).not.toBeInTheDocument();
   });
 
+  // #318: the owner of a personal target pins it, not only a site admin.
+  it("offers the pin action to the owner of a personal target", async () => {
+    vi.stubEnv("SNEAKERS_MOCK", "true");
+    const target = mockState.world.targets.find((t) => t.id === "mock-target-build1")!;
+    target.sshHostKeys = [];
+    target.ownerUserId = "mock-user-bob";
+    renderRoute(
+      `/secret/${KEY}/terminal`,
+      page({ connect: connectSession, createScreen: fakeScreens().create }),
+      { user: "mock-user-bob" },
+    );
+    expect(await screen.findByRole("button", { name: "Pin the host key" })).toBeInTheDocument();
+  });
+
   it("scans, pins on confirm, and reconnects with the newly pinned key", async () => {
     vi.stubEnv("SNEAKERS_MOCK", "true");
     mockState.world.targets.find((t) => t.id === "mock-target-build1")!.sshHostKeys = [];

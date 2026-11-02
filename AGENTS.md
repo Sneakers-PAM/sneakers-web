@@ -700,10 +700,32 @@ WebSocket from the browser.
   carries the broker's sentence for the step that failed, even after the upgrade it refuses on.
 - **Unpinned targets.** The broker refuses a target with no pinned host key before it issues a
   ticket (`FAILED_PRECONDITION`, reason `HOST_KEY_NOT_PINNED`). The terminal shows that straight
-  from the action's answer, with no socket: a site admin or root gets the "Pin the host key"
-  button, anyone else a line saying an admin pins it on the target's page in the admin app
-  (`/admin/targets/<id>`, Scan and pin…). The broker's 1008 close for a missing pin at dial time is
-  shown the same way. The mock gateway refuses an unpinned target the same way.
+  from the action's answer, with no socket: someone who may pin the target (a site admin or root,
+  or the owner of a personal target) gets the "Pin the host key" button, anyone else a line saying
+  an admin pins it on the target's page in the admin app (`/admin/targets/<id>`, Scan and pin…).
+  The broker's 1008 close for a missing pin at dial time is shown the same way. The mock gateway
+  refuses an unpinned target the same way.
+
+## Scan and pin a host key (#318)
+
+- **Who:** a person only, never a token: a site admin on any target, or the owner of a personal
+  target, the same rule as editing it (`canManage` in `features/targets/targets.server.ts`). The
+  vault and the gateway enforce it; the pages only decide whether to offer the action.
+- **Where:** the admin console's target page (Scan and pin…), the staff target page's "SSH host
+  key" card (Scan and pin host key…), the terminal's "Pin the host key" button, and the secret
+  page's Actions menu, where an unpinned target's disabled Open terminal gets Scan and pin host
+  key… beside it for someone who may pin. Once pinned, the page revalidates and Open terminal
+  enables.
+- **One dialog:** all of them open `HostKeyPinDialog` (`@sneakers-web/shell`), posting to each
+  app's `resources/host-key-pin` route (`hostKeyPinAction`). It shows the scan through the kit's
+  `FingerprintCheck` (`@sneakers-web/ui`): key type, SHA256 fingerprint and the address the
+  broker dialled, with the plain line to check it against a fingerprint got another way. When
+  the host offers a key the target doesn't pin while it pins others, the pinned fingerprints and
+  the offered one sit side by side and Pin waits for the hostname to be typed. Pinning adds the
+  key to the target's pins; it doesn't remove the old ones.
+- **TLS next:** `FingerprintCheck` also takes a `tls-certificate` (subject, alternative names,
+  issuer, validity, SHA-256 fingerprint, address) for the LDAPS target and the email relay. No
+  page uses that shape yet.
 
 ## Manage controls on a secret
 
