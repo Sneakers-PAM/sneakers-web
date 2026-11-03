@@ -35,6 +35,8 @@ let fetch: FetchProgress | undefined;
 let lastCheck: CheckUpdatesResponse | undefined;
 /** While set, the last fetch shows downloading, as a fetch under way does. */
 let fetching = false;
+/** While set, the Base OS full file is the preferred line, as the box marks one across trains. */
+let fullPreferred = false;
 /** While set, the Base OS patch offer uses this version and file name instead of the default. */
 let baseOsOffer: { fileName: string; version: string } | null = null;
 
@@ -43,6 +45,7 @@ export const resetUnits = (): void => {
   fetch = undefined;
   lastCheck = undefined;
   fetching = false;
+  fullPreferred = false;
   baseOsOffer = null;
 };
 
@@ -145,13 +148,14 @@ export const checkUpdates = (
             note: web.current
               ? `After the reboot the box serves the built-in pages of 0.2.0 until a Base Web that fits it is installed (the installed Base Web ${web.current} needs Base OS 0.1.0 to before 0.2.0).`
               : "",
-            preferred: true,
+            preferred: !fullPreferred,
             size: String(Math.round(1.4 * MB)),
             version: baseOsOffer?.version ?? "0.2.0",
           }),
           offer("UPDATE_TARGET_BASE", {
             fileName: "sneakers-appliance-baseOS-0.2.0-g1a2b3c4-amd64.bin",
             includesBaseWeb: "0.2.0",
+            preferred: fullPreferred,
             size: String(72 * MB),
             version: "0.2.0",
           }),
@@ -255,12 +259,22 @@ export const fetchProgress = (): FetchProgress | undefined => {
 };
 
 /** The units' review scenarios. */
-export const UNIT_SCENARIOS = ["fetching", "web-failed", "web-installed", "web-staged"] as const;
+export const UNIT_SCENARIOS = [
+  "base-full-preferred",
+  "fetching",
+  "web-failed",
+  "web-installed",
+  "web-staged",
+] as const;
 
 export type UnitScenario = (typeof UNIT_SCENARIOS)[number];
 
 export const applyUnitScenario = (scenario: UnitScenario): void => {
   switch (scenario) {
+    case "base-full-preferred": {
+      fullPreferred = true;
+      break;
+    }
     case "fetching": {
       fetching = true;
       break;

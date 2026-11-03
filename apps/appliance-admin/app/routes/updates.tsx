@@ -785,6 +785,7 @@ export default function Updates() {
         <OfferList
           label={label}
           legend={legend}
+          markPreferred={place === "baseOs"}
           offers={list}
           onPick={(key) => setPicked((current) => ({ ...current, [place]: key }))}
           picked={picked[place]}

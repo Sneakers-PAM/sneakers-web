@@ -304,6 +304,32 @@ describe("Updates", () => {
     expect(base.getByRole("button", { name: "Fetch 0.2.0" })).toBeDisabled();
   });
 
+  it("marks the one Base OS line the box prefers, and no other unit's", async () => {
+    await openPage();
+    const base = within(screen.getByRole("region", { name: "Base OS" }));
+    const offers = within(await base.findByRole("radiogroup", { name: "Base OS versions" }));
+    const [patch, full] = offers.getAllByRole("radio");
+    expect(patch).toHaveAccessibleName(/recommended/);
+    expect(full).not.toHaveAccessibleName(/recommended/);
+    expect(offers.getAllByText("recommended")).toHaveLength(1);
+    const web = within(screen.getByRole("region", { name: "Base Web" }));
+    await web.findByRole("radiogroup", { name: "Base Web versions" });
+    expect(web.queryByText("recommended")).not.toBeInTheDocument();
+  });
+
+  it("marks and picks the full file when the box prefers it", async () => {
+    applyMockScenario("base-full-preferred");
+    await openPage();
+    const base = within(screen.getByRole("region", { name: "Base OS" }));
+    const offers = within(await base.findByRole("radiogroup", { name: "Base OS versions" }));
+    const [patch, full] = offers.getAllByRole("radio");
+    expect(full).toBeChecked();
+    expect(patch).not.toBeChecked();
+    expect(full).toHaveAccessibleName(/recommended/);
+    expect(patch).not.toHaveAccessibleName(/recommended/);
+    expect(offers.getAllByText("recommended")).toHaveLength(1);
+  });
+
   it("hides the mirror fetch on an air-gapped box", async () => {
     applyMockScenario("air-gapped");
     await openPage();
