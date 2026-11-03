@@ -88,11 +88,11 @@ const checkCredentials = (name: string, password: null | string, code: string): 
   }
   if (!admin)
     throw refused("SIGNIN_REFUSED: the name, the password or the code is wrong", {
-      attemptsLeft: MAX_FAILURES - 1,
+      attemptsLeft: maxFailures() - 1,
     });
   const failed = (failures.get(name) ?? 0) + 1;
   failures.set(name, failed);
-  if (failed >= MAX_FAILURES) {
+  if (failed >= maxFailures()) {
     const untilUnlocked = lockoutMode === "LOCKOUT_MODE_UNTIL_UNLOCKED";
     const until = untilUnlocked
       ? undefined
@@ -104,7 +104,7 @@ const checkCredentials = (name: string, password: null | string, code: string): 
     });
   }
   throw refused("SIGNIN_REFUSED: the name, the password or the code is wrong", {
-    attemptsLeft: MAX_FAILURES - failed,
+    attemptsLeft: maxFailures() - failed,
   });
 };
 
@@ -224,6 +224,9 @@ const sessions = structuredClone(world.SESSIONS);
 const auditEvents = structuredClone(world.AUDIT_EVENTS);
 let quorum = structuredClone(world.QUORUM);
 let accessPolicy = structuredClone(world.ACCESS_POLICY);
+/** The box's lockout limit when the policy leaves it at 0. */
+const DEFAULT_MAX_FAILURES = 5;
+const maxFailures = (): number => accessPolicy.lockoutMaxFailures || DEFAULT_MAX_FAILURES;
 let keySerial = 100;
 let inviteCount = 0;
 const CODE_ALPHABET = "23456789ABCDEFHJKMNPRSTVWXYZ";
@@ -564,7 +567,6 @@ const failures = new Map<string, number>();
 const locks = new Map<string, { until?: string; untilUnlocked: boolean }>();
 /** While set, this browser's address is throttled until then. */
 let throttledUntil = "";
-const MAX_FAILURES = 3;
 const LOCK_MINUTES = 15;
 
 const RESET_DELAY_MS = 10 * 60_000;
@@ -1123,6 +1125,11 @@ const route = async (service: string, method: string, body: Record<string, unkno
         throw new OsadminError(
           "invalid_argument",
           "ACCESS_POLICY: root-shell minutes are 1 to 60, and SSH key validity 1 to 1825 days",
+        );
+      if (![0, 3, 4, 5].includes(policy.lockoutMaxFailures ?? 0))
+        throw new OsadminError(
+          "invalid_argument",
+          "ACCESS_POLICY: the lockout limit is 3, 4 or 5 failures (0 for the default of 5)",
         );
       accessPolicy = structuredClone(policy);
       lockoutMode =

@@ -401,11 +401,17 @@ export interface RevokedKey {
   type: string;
 }
 
-/** What 3 consecutive failures in 15 minutes do (NIST SP 800-53 AC-7). */
+/** What `lockoutMaxFailures` consecutive failures in 15 minutes do (NIST SP 800-53 AC-7). */
 export type LockoutMode =
   "LOCKOUT_MODE_TIMED" | "LOCKOUT_MODE_UNSPECIFIED" | "LOCKOUT_MODE_UNTIL_UNLOCKED";
 
 export interface AccessPolicy {
+  /**
+   * The consecutive failures in 15 minutes that lock an account: 3, 4 or 5, and 0 for the
+   * default of 5. A wrong password and a wrong code count toward the same limit. Any other value
+   * is refused (`ACCESS_POLICY`).
+   */
+  lockoutMaxFailures: number;
   lockoutMode: LockoutMode;
   /** How long a root-shell code works, 1 to 60 minutes (default 10). */
   rootCodeMinutes: number;

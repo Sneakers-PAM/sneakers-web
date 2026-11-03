@@ -8,11 +8,20 @@ import { runAction } from "@/lib/osadmin/action";
 import { access } from "@/lib/osadmin/client";
 
 const DEFAULTS: AccessPolicy = {
+  lockoutMaxFailures: 0,
   lockoutMode: "LOCKOUT_MODE_TIMED",
   rootCodeMinutes: 10,
   rootSessionMinutes: 10,
   sshKeyValidDays: 365,
 };
+
+/** The lockout limits the box takes; 0 on the wire means its default, the last of them. */
+const LOCKOUT_LIMITS = ["3", "4", "5"] as const;
+type LockoutLimit = (typeof LOCKOUT_LIMITS)[number];
+const DEFAULT_LOCKOUT_LIMIT: LockoutLimit = "5";
+
+const limitOf = (failures: number): LockoutLimit =>
+  LOCKOUT_LIMITS.find((limit) => Number(limit) === failures) ?? DEFAULT_LOCKOUT_LIMIT;
 
 /** Owners only: the lockout, the root-shell code and session lifetimes, the SSH key validity. */
 export const AccessSettingsCard = ({
@@ -26,6 +35,7 @@ export const AccessSettingsCard = ({
   const [lockoutMode, setLockoutMode] = useState<LockoutMode>(
     start.lockoutMode === "LOCKOUT_MODE_UNTIL_UNLOCKED" ? start.lockoutMode : "LOCKOUT_MODE_TIMED",
   );
+  const [maxFailures, setMaxFailures] = useState<LockoutLimit>(limitOf(start.lockoutMaxFailures));
   const [codeMinutes, setCodeMinutes] = useState(String(start.rootCodeMinutes || 10));
   const [sessionMinutes, setSessionMinutes] = useState(String(start.rootSessionMinutes || 10));
   const [validDays, setValidDays] = useState(String(start.sshKeyValidDays || 365));
@@ -40,6 +50,7 @@ export const AccessSettingsCard = ({
           void runAction(
             () =>
               access.setAccessPolicy({
+                lockoutMaxFailures: Number(maxFailures),
                 lockoutMode,
                 rootCodeMinutes: Number(codeMinutes),
                 rootSessionMinutes: Number(sessionMinutes),
@@ -51,20 +62,30 @@ export const AccessSettingsCard = ({
       >
         <div className="flex flex-col gap-2">
           <span className="text-[0.875rem] font-bold text-ink">
-            After 3 wrong tries in 15 minutes, lock the account
+            After {maxFailures} wrong tries in 15 minutes, lock the account
           </span>
-          <Segmented
-            label="Lockout"
-            onChange={setLockoutMode}
-            options={[
-              { label: "For 15 minutes", value: "LOCKOUT_MODE_TIMED" },
-              { label: "Until it's unlocked", value: "LOCKOUT_MODE_UNTIL_UNLOCKED" },
-            ]}
-            value={lockoutMode}
-          />
+          <div className="flex flex-wrap gap-3">
+            <Segmented
+              label="Wrong tries before a lockout"
+              onChange={setMaxFailures}
+              options={LOCKOUT_LIMITS.map((limit) => ({ label: limit, value: limit }))}
+              value={maxFailures}
+            />
+            <Segmented
+              label="Lockout"
+              onChange={setLockoutMode}
+              options={[
+                { label: "For 15 minutes", value: "LOCKOUT_MODE_TIMED" },
+                { label: "Until it's unlocked", value: "LOCKOUT_MODE_UNTIL_UNLOCKED" },
+              ]}
+              value={lockoutMode}
+            />
+          </div>
           <span className="text-small text-muted">
-            The same rule covers SSH, this page, step-ups and the one-time codes. An owner unlocks
-            an account on this page. If no other owner can, use Recover access on the console.
+            5 by default. A wrong password and a wrong code count toward the same limit, and a lower
+            limit counts from the next wrong try, so it locks no one by itself. The same rule covers
+            SSH, this page, step-ups and the one-time codes. An owner unlocks an account on this
+            page. If no other owner can, use Recover access on the console.
           </span>
         </div>
         <div className="grid grid-cols-1 gap-4 tablet:grid-cols-3">

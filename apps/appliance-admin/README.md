@@ -74,6 +74,16 @@ that exports nothing gets no form. The mock's scenarios are `telemetry-on`,
 the services phase), `telemetry-restart-fails` (the next restart stops there),
 `telemetry-status-down` and `telemetry-absent`.
 
+## Access: the lockout
+
+An account locks after a run of wrong tries within 15 minutes: 5 by default, and an owner can lower
+it to 3 or 4 in Access settings, next to whether the lockout lasts 15 minutes or until another owner
+unlocks it (`AccessPolicy.lockoutMaxFailures` and `lockoutMode`, saved with `SetAccessPolicy`). The
+box sends 0 for its default, and the page shows that as 5. A wrong password and a wrong
+authenticator code count toward the same limit, and a lower limit counts from the next wrong try,
+so it locks no one by itself. The box refuses any other value with `ACCESS_POLICY`. The mock locks
+after 5 wrong tries, or at the limit set.
+
 ## Status: the disk
 
 The Disk card on Status lists each of the box's volumes (state, product data and backup) with

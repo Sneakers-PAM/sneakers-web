@@ -337,7 +337,9 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   prompt) with Copy, the box's user CA (`userCaPublicKey`), and the PuTTY, MobaXterm and PEM
   steps; SSH asks for the TOTP code after login. The Key fingerprints card shows the same
   known_hosts line, the user CA and the host CA's fingerprint (`ListAdmins.knownHosts`,
-  `userCaPublicKey`, `hostCa`). Owners set the access settings (`SetAccessPolicy`: the lockout mode, the root-shell
+  `userCaPublicKey`, `hostCa`). Owners set the access settings (`SetAccessPolicy`: the lockout limit, 3, 4 or 5 wrong tries
+  in 15 minutes, `lockoutMaxFailures`, where the box's 0 means its default of 5 and anything else
+  is refused with `ACCESS_POLICY`, beside the lockout mode, the root-shell
   code and session minutes, 10 by default, and the SSH key validity) and the root-operator
   roster (`SetQuorum`; the same roster approves a factory reset, and a single-admin box gets a
   red warning here that it can't factory reset). The page also lists the
@@ -437,8 +439,8 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   the signature, "lab" the channel, and "patch" is a patch for the running version. A key removed
   in the mock lands on its revoked list as revoked by the signed-in admin, as on the box, and the
   world starts with one key alice revoked. Every mock admin's password is `MOCK_PASSWORD`
-  (`app/mock/world.ts`), any 6-digit code but `000000` passes as their TOTP code, and 3 wrong
-  tries lock the admin for 15 minutes, as on the box.
+  (`app/mock/world.ts`), any 6-digit code but `000000` passes as their TOTP code, and 5 wrong
+  tries (or the lockout limit an owner set) lock the admin for 15 minutes, as on the box.
 - **Advanced disclosure.** The trust/PKI details on Certificates, the whole Add-on modules page
   and the Logs page's support bundle sit behind `app/components/Advanced.tsx`, a plain
   `<details>` -- no new kit component needed for a collapsed-by-default section.
