@@ -67,6 +67,7 @@ export type Mutation = {
   createSecretForPrincipal: SecretSummary;
   detachSecretTargetForPrincipal: SecretSummary;
   generateSecretForPrincipal: GeneratedSecret;
+  importExtension: SecretTypeSummary;
   moveSecretForPrincipal: SecretSummary;
   prepareSecretUse: SecretUse;
   redeemSecretUse: RedeemedSecretUse;
@@ -126,6 +127,10 @@ export type MutationGenerateSecretForPrincipalArgs = {
   returnValue?: InputMaybe<Scalars["Boolean"]["input"]>;
   targetId?: InputMaybe<Scalars["ID"]["input"]>;
   typeId: Scalars["ID"]["input"];
+};
+
+export type MutationImportExtensionArgs = {
+  id: Scalars["ID"]["input"];
 };
 
 export type MutationMoveSecretForPrincipalArgs = {
@@ -205,6 +210,7 @@ export type PrincipalFolder = {
 };
 
 export type Query = {
+  availableExtensions: Array<SecretTypeSummary>;
   connectionsForPrincipal: Array<MachineConnection>;
   findSecretsForPrincipal: Array<SecretSummary>;
   foldersForPrincipal: Array<PrincipalFolder>;

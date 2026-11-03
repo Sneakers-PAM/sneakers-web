@@ -169,7 +169,7 @@ const page = async (
       : null,
     opensTerminal(secret.typeId) ? gw.gql(TargetsTerminalDocument, { id: secret.id }) : null,
   ]);
-  const terminal = terminalTargets ? terminalAvailability(terminalTargets) : null;
+  const terminal = terminalTargets ? terminalAvailability(terminalTargets, user) : null;
   if (terminal?.blocked) {
     log.debug("secret page: terminal can't connect yet", {
       reason: terminal.blocked,

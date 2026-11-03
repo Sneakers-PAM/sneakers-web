@@ -7,9 +7,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  LongValue,
+  Field,
+  FingerprintCheck,
+  Input,
 } from "@sneakers-web/ui";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFetcher } from "react-router";
 
 import type { HostKeyPinState } from "#shell/server/hostKeyPin.server";
@@ -31,8 +33,10 @@ export interface HostKeyPinDialogProps {
 
 /**
  * Trust-on-first-use: scans the target's offered SSH host key as soon as it opens, shows its
- * type and SHA256 fingerprint, and pins only the fingerprint the person saw, on Confirm. Never
- * scans or pins on its own; opening it is the only way in.
+ * type, SHA256 fingerprint and the address it was read from, and pins only the fingerprint the
+ * person saw, on Confirm. A key that differs from what's pinned is shown beside the pinned ones
+ * and needs the hostname typed first (#318). Never scans or pins on its own; opening it is the
+ * only way in.
  */
 export const HostKeyPinDialog = ({
   hostname,
@@ -44,6 +48,8 @@ export const HostKeyPinDialog = ({
   const fetcher = useFetcher<HostKeyPinState>();
   const handled = useRef<HostKeyPinState | undefined>(undefined);
   const askedFor = useRef<null | string>(null);
+  // The typed confirm belongs to one scan: a new scan, or reopening, starts it empty.
+  const [typed, setTyped] = useState<{ for?: HostKeyPinState; value: string }>({ value: "" });
 
   const send = (fields: Record<string, string>) =>
     void fetcher.submit({ targetId, ...fields }, { action: HOST_KEY_PIN_ROUTE, method: "post" });
@@ -72,6 +78,10 @@ export const HostKeyPinDialog = ({
   const state = fetcher.data;
   const scan = state?.view === "scanned" ? state.scan : undefined;
   const refusal = state?.view === "problem" ? state.refusal : undefined;
+  const pinnedNow = state?.view === "scanned" ? state.pinnedFingerprints : [];
+  const changed = !!scan && !scan.pinned && pinnedNow.length > 0;
+  const typedNow = typed.for === state ? typed.value : "";
+  const confirmed = !changed || typedNow.trim() === hostname;
   const intent = fetcher.formData?.get("intent");
   const busy = fetcher.state !== "idle";
   const scanning = busy && intent === "scan";
@@ -89,15 +99,33 @@ export const HostKeyPinDialog = ({
         </DialogHeader>
         {scanning && <p className="text-body text-muted">Scanning {hostname}…</p>}
         {refusal && <Alert tone="danger">{refusalMessage(refusal)}</Alert>}
+        {changed && (
+          <Alert tone="warn">
+            {hostname} now offers a different key from the one pinned. If you weren&apos;t expecting
+            a change, stop and ask the server&apos;s admin before you pin it.
+          </Alert>
+        )}
         {scan && (
-          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-body">
-            <dt className="font-bold text-muted">Key type</dt>
-            <dd className="font-mono">{scan.keyType}</dd>
-            <dt className="font-bold text-muted">Fingerprint</dt>
-            <dd>
-              <LongValue value={scan.fingerprint} />
-            </dd>
-          </dl>
+          <FingerprintCheck
+            offered={{
+              address: scan.address,
+              fingerprint: scan.fingerprint,
+              keyType: scan.keyType,
+              kind: "ssh-host-key",
+            }}
+            pinned={changed ? pinnedNow : []}
+          />
+        )}
+        {changed && (
+          <Field label={`Type ${hostname} to confirm`}>
+            <Input
+              autoCapitalize="none"
+              mono
+              onChange={(event) => setTyped({ for: state, value: event.target.value })}
+              spellCheck={false}
+              value={typedNow}
+            />
+          </Field>
         )}
         {scan?.pinned && <Alert tone="ok">This key is already pinned.</Alert>}
         <DialogFooter>
@@ -105,7 +133,7 @@ export const HostKeyPinDialog = ({
             Cancel
           </Button>
           <Button
-            disabled={!scan || scan.pinned}
+            disabled={!scan || scan.pinned || !confirmed}
             loading={pinning}
             loadingLabel="Pinning…"
             onClick={() =>

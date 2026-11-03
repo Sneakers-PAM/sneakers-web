@@ -1,4 +1,5 @@
 import {
+  HostKeyPinDialog,
   needsStepUp,
   refusalMessage,
   StepUpDialog,
@@ -22,7 +23,7 @@ import {
 } from "@sneakers-web/ui";
 import { Ban, ChevronDown, ChevronLeft, Clock, ShieldCheck, TriangleAlert } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { Link, useRouteLoaderData } from "react-router";
+import { Link, useRevalidator, useRouteLoaderData } from "react-router";
 
 import type { SecretPage as Page } from "@/features/secret/secret.server";
 import type { TerminalAvailability } from "@/features/targets/terminal.server";
@@ -46,26 +47,38 @@ import { AgentAccessCard, AutomationCard } from "@/features/secret/SettingsCards
 import { TargetsCard } from "@/features/secret/TargetsCard";
 import { useSecretFetcher } from "@/features/secret/useSecretFetcher";
 
-type DialogName = "break-glass" | "delete" | "export" | "replace-key" | "replace" | "rotate" | null;
-
-type TerminalBlocked = NonNullable<TerminalAvailability["blocked"]>;
+type DialogName =
+  | "break-glass"
+  | "delete"
+  | "export"
+  | "pin-host-key"
+  | "replace-key"
+  | "replace"
+  | "rotate"
+  | null;
 
 const CERT_TYPE = "type-ssl-cert";
 const DB_TYPE = "type-database-account";
 const GITHUB_APP_TYPE = "type-github-app";
-/** Why Open terminal can't connect yet, next to the disabled action (#317). */
-const terminalReason = (blocked: TerminalBlocked, siteAdmin: boolean): string => {
-  switch (blocked) {
+/**
+ * Why Open terminal can't connect yet, next to the disabled action (#317). Someone who may pin
+ * the target gets Scan and pin host key beside it (#318).
+ */
+const terminalReason = (terminal: TerminalAvailability): string => {
+  switch (terminal.blocked) {
     case "no-target": {
       return "Attach a target first.";
     }
     case "not-pinned": {
-      return siteAdmin
-        ? "Pin the target's host key first: Targets → Scan and pin"
+      return terminal.canPin
+        ? "Pin the target's host key first."
         : "An admin needs to pin the target's host key first.";
     }
     case "not-ssh": {
       return "Its target doesn't connect over SSH.";
+    }
+    case null: {
+      return "";
     }
   }
 };
@@ -110,6 +123,7 @@ export const SecretPage = ({ page }: { page: Page }) => {
   const { access, fields, folderPath, history, isAdmin, secret, terminal, type } = page;
   const viewer = useRouteLoaderData<typeof frameLoader>("routes/frame")?.user;
   const { config } = useRootData();
+  const revalidator = useRevalidator();
   const act = useSecretFetcher();
   const glass = useSecretFetcher({ quiet: true });
   const leasing = useSecretFetcher({ quiet: true });
@@ -237,7 +251,7 @@ export const SecretPage = ({ page }: { page: Page }) => {
                         <DropdownMenuItem disabled>
                           Open terminal
                           <span className="ml-auto text-[0.75rem] text-muted">
-                            {terminalReason(terminal.blocked, isAdmin)}
+                            {terminalReason(terminal)}
                           </span>
                         </DropdownMenuItem>
                       ) : (
@@ -245,11 +259,9 @@ export const SecretPage = ({ page }: { page: Page }) => {
                           <Link to={`/secret/${secret.id}/terminal`}>Open terminal</Link>
                         </DropdownMenuItem>
                       )}
-                      {terminal.blocked === "not-pinned" && isAdmin && (
-                        <DropdownMenuItem asChild>
-                          <a href={`${config.adminUrl}targets/${terminal.targetId}`}>
-                            Open the target in the admin app
-                          </a>
+                      {terminal.blocked === "not-pinned" && terminal.canPin && (
+                        <DropdownMenuItem onSelect={() => setDialog("pin-host-key")}>
+                          Scan and pin host key…
                         </DropdownMenuItem>
                       )}
                     </>
@@ -519,6 +531,15 @@ export const SecretPage = ({ page }: { page: Page }) => {
           {...stepUp.dialog}
           description="Checking this secret out needs a fresh second factor."
         />
+        {terminal?.blocked === "not-pinned" && terminal.canPin && (
+          <HostKeyPinDialog
+            hostname={terminal.hostname}
+            onOpenChange={(o) => setDialog(o ? "pin-host-key" : null)}
+            onPinned={() => void revalidator.revalidate()}
+            open={dialog === "pin-host-key"}
+            targetId={terminal.targetId}
+          />
+        )}
         <BreakGlassDialog
           fetcher={glass}
           name={secret.name}

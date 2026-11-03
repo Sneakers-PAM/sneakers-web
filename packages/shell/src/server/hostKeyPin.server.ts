@@ -1,9 +1,11 @@
 import {
   createLogger,
+  TargetsListDocument,
   TargetsPinHostKeyDocument,
   TargetsScanHostKeyDocument,
   type TargetsScanHostKeyQuery,
 } from "@sneakers-web/api-client";
+import { createHash } from "node:crypto";
 import { type ActionFunctionArgs, data } from "react-router";
 
 import { type Refusal, refusalOf } from "#shell/refusal";
@@ -13,18 +15,31 @@ const log = createLogger("host-key-pin");
 
 /** What the pin dialog shows after each post: the scan, the pin, or why not. */
 export type HostKeyPinState =
+  | {
+      /** The SHA256 fingerprints the target pins now, to show beside a key that changed. */
+      pinnedFingerprints: string[];
+      scan: HostKeyScanView;
+      view: "scanned";
+    }
   | { publicKey: string; view: "pinned" }
-  | { refusal: Refusal; view: "problem" }
-  | { scan: HostKeyScanView; view: "scanned" };
+  | { refusal: Refusal; view: "problem" };
 
 export type HostKeyScanView = TargetsScanHostKeyQuery["scanTargetHostKey"];
 
 const text = (form: FormData, key: string) => String(form.get(key) ?? "").trim();
 
+/** An authorized_keys line's SHA256 fingerprint, as ssh-keygen -l prints it. */
+export const hostKeyFingerprint = (line: string): string => {
+  const blob = line.trim().split(/\s+/, 2)[1] ?? "";
+  const digest = createHash("sha256").update(Buffer.from(blob, "base64")).digest("base64");
+  return `SHA256:${digest.replace(/=+$/, "")}`;
+};
+
 /**
  * The host-key pin dialog's resource action: scan a target's offered key, or pin exactly the
- * fingerprint the person confirmed. A scan never pins; the gateway checks site admin or root
- * and that the fingerprint still matches before it pins anything.
+ * fingerprint the person confirmed. A scan never pins; the gateway checks the person may pin
+ * (a site admin, or the owner of a personal target) and that the fingerprint still matches
+ * before it pins anything.
  */
 export const hostKeyPinAction = async ({ request }: ActionFunctionArgs) => {
   const { gw } = await requireUser(request);
@@ -35,8 +50,20 @@ export const hostKeyPinAction = async ({ request }: ActionFunctionArgs) => {
   try {
     if (intent === "scan") {
       const { scanTargetHostKey } = await gw.gql(TargetsScanHostKeyDocument, { targetId });
-      log.info("host key scanned", { pinned: scanTargetHostKey.pinned, targetId });
-      return data<HostKeyPinState>({ scan: scanTargetHostKey, view: "scanned" });
+      const { targets } = await gw.gql(TargetsListDocument);
+      const pinnedFingerprints = (targets.find((t) => t.id === targetId)?.sshHostKeys ?? []).map(
+        (key) => hostKeyFingerprint(key),
+      );
+      log.info("host key scanned", {
+        changed: !scanTargetHostKey.pinned && pinnedFingerprints.length > 0,
+        pinned: scanTargetHostKey.pinned,
+        targetId,
+      });
+      return data<HostKeyPinState>({
+        pinnedFingerprints,
+        scan: scanTargetHostKey,
+        view: "scanned",
+      });
     }
     if (intent === "pin") {
       const fingerprint = text(form, "fingerprint");

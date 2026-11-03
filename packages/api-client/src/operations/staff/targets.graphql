@@ -71,6 +71,7 @@ query TargetsTerminal($id: ID!) {
     name
     hostname
     connectionId
+    ownerUserId
     sshHostKeys
   }
   connections {
@@ -105,6 +106,7 @@ query TargetsScanHostKey($targetId: ID!) {
     publicKey
     fingerprint
     pinned
+    address
   }
 }
 

@@ -3064,6 +3064,7 @@ export type TargetsTerminalQuery = {
     name: string;
     hostname: string;
     connectionId: string;
+    ownerUserId: string | null;
     sshHostKeys: Array<string>;
   }>;
   connections: Array<{ id: string; protocol: string; port: number | null }>;
@@ -3095,6 +3096,7 @@ export type TargetsScanHostKeyQuery = {
     publicKey: string;
     fingerprint: string;
     pinned: boolean;
+    address: string;
   };
 };
 
@@ -6516,6 +6518,7 @@ export const TargetsTerminalDocument = new TypedDocumentString(`
     name
     hostname
     connectionId
+    ownerUserId
     sshHostKeys
   }
   connections {
@@ -6557,6 +6560,7 @@ export const TargetsScanHostKeyDocument = new TypedDocumentString(`
     publicKey
     fingerprint
     pinned
+    address
   }
 }
     `) as unknown as TypedDocumentString<TargetsScanHostKeyQuery, TargetsScanHostKeyQueryVariables>;

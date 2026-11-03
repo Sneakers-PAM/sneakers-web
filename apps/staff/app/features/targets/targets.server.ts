@@ -7,7 +7,13 @@ import {
   TargetsSaveDocument,
 } from "@sneakers-web/api-client";
 import { type Refusal, refusalOf } from "@sneakers-web/shell";
-import { guard, isAdmin, requireUser, type SessionUser } from "@sneakers-web/shell/server";
+import {
+  guard,
+  hostKeyFingerprint,
+  isAdmin,
+  requireUser,
+  type SessionUser,
+} from "@sneakers-web/shell/server";
 import { data, redirect } from "react-router";
 
 import type {
@@ -26,8 +32,11 @@ type Target = TargetsListQuery["targets"][number];
 
 const text = (form: FormData, key: string) => String(form.get(key) ?? "").trim();
 
-/** The vault's rule: the owner of a personal target, or a site admin for any target. */
-const canManage = (user: SessionUser, t: Target) =>
+/**
+ * The vault's rule: the owner of a personal target, or a site admin for any target. The same
+ * people may pin its host keys (#318).
+ */
+export const canManage = (user: SessionUser, t: Pick<Target, "ownerUserId">) =>
   isAdmin(user) || (!!t.ownerUserId && t.ownerUserId === user.id);
 
 /** U-10: the targets the user can see, shared and their own, and which they may change. */
@@ -93,7 +102,15 @@ export interface TargetEditorData {
   draft: TargetDraft;
   /** Shared targets a plain user can't change here, named in the editor's note. */
   sharedNames: string[];
-  target: { id: string; scope: "personal" | "shared"; secretCount: number } | null;
+  target: {
+    /** #318: the SHA256 fingerprints of its pinned SSH host keys. */
+    hostKeyFingerprints: string[];
+    id: string;
+    scope: "personal" | "shared";
+    secretCount: number;
+    /** Whether it connects over SSH, so it has a host key to pin. */
+    ssh: boolean;
+  } | null;
 }
 
 const connectionLabel = (c: TargetsListQuery["connections"][number]) =>
@@ -174,9 +191,13 @@ export const loadTargetEditor = async (
       },
       sharedNames,
       target: {
+        hostKeyFingerprints: t.sshHostKeys.map((key) => hostKeyFingerprint(key)),
         id: t.id,
         scope: t.ownerUserId ? "personal" : "shared",
         secretCount: t.secretCount,
+        ssh: t.connections.some(
+          (c) => d.connections.find((x) => x.id === c.connectionId)?.protocol === "ssh",
+        ),
       },
     };
   });
@@ -184,8 +205,8 @@ export const loadTargetEditor = async (
 
 /**
  * Save the editor's form. Host-key pins are left out, so the gateway keeps the target's own;
- * only admins change them, in the admin console. Done goes back to the list; a refusal comes
- * back with what was typed.
+ * they change only through Scan and pin host key (#318). Done goes back to the list; a refusal
+ * comes back with what was typed.
  */
 export const saveTargetAction = async (request: Request, id?: string) => {
   const { gw } = await requireUser(request);

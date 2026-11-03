@@ -8,6 +8,7 @@ import { graphql } from "msw/graphql";
 
 import type { StubRoute } from "@/test/routeStub";
 
+import * as hostKeyPinRoute from "@/routes/resources.host-key-pin";
 import * as target from "@/routes/target";
 import { renderRoute } from "@/test/routeStub";
 
@@ -29,6 +30,7 @@ const pages = (): StubRoute[] => [
   { Component: () => <h1>Targets list</h1>, path: "/targets" },
   editor("/targets/new", "routes/target"),
   editor("/targets/:id", "routes/target-edit"),
+  { action: hostKeyPinRoute.action, path: "/resources/host-key-pin" },
 ];
 
 describe("U-11 target editor", () => {
@@ -194,5 +196,69 @@ describe("U-11 target editor", () => {
     server.resetHandlers();
     await user.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByRole("heading", { name: "Build host" })).toBeInTheDocument();
+  });
+});
+
+const card = () => screen.getByRole("region", { name: "SSH host key" });
+
+// #318: a staff user scans and pins their own target's host key on its page.
+describe("U-11 SSH host key on the target page", () => {
+  const NAS = "mock-target-bob-nas";
+  const OLD_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockBobOldKey old";
+  const bobsTarget = (patch: Record<string, unknown> = {}) => {
+    mockState.world.targets.push({
+      connectionId: "mock-conn-ssh",
+      hostname: "nas.example.org",
+      id: NAS,
+      name: "Bob's NAS",
+      ownerUserId: BOB,
+      sshHostKeys: [],
+      ...patch,
+    });
+    return mockState.world.targets.at(-1)!;
+  };
+
+  it("says an unpinned target is refused, then scans and pins its key", async () => {
+    const t = bobsTarget();
+    const user = userEvent.setup();
+    renderRoute(`/targets/${NAS}`, pages(), { user: BOB });
+    await screen.findByRole("heading", { name: "Bob's NAS" });
+    expect(within(card()).getByText(/No host key is pinned yet/)).toBeInTheDocument();
+    await user.click(within(card()).getByRole("button", { name: "Scan and pin host key…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Pin the host key" });
+    expect(await within(dialog).findByText("nas.example.org:22")).toBeInTheDocument();
+    expect(within(dialog).getByText(/got another way/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Pin this key" }));
+    await vi.waitFor(() => expect(t.sshHostKeys).toHaveLength(1));
+    await vi.waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(await within(card()).findByText(/^SHA256:/)).toBeInTheDocument();
+    expect(within(card()).queryByText(/No host key is pinned yet/)).toBeNull();
+  });
+
+  it("shows a changed key beside the pinned one and wants the host typed before pinning", async () => {
+    const t = bobsTarget({ sshHostKeys: [OLD_KEY] });
+    const user = userEvent.setup();
+    renderRoute(`/targets/${NAS}`, pages(), { user: BOB });
+    await screen.findByRole("heading", { name: "Bob's NAS" });
+    await user.click(within(card()).getByRole("button", { name: "Scan and pin host key…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Pin the host key" });
+    const before = await within(dialog).findByRole("group", { name: "Pinned now" });
+    expect(within(before).getByText(/^SHA256:/)).toBeInTheDocument();
+    expect(within(dialog).getByRole("group", { name: "Offered now" })).toBeInTheDocument();
+    const pin = within(dialog).getByRole("button", { name: "Pin this key" });
+    expect(pin).toBeDisabled();
+    await user.type(
+      within(dialog).getByLabelText("Type nas.example.org to confirm"),
+      "nas.example.org",
+    );
+    await user.click(pin);
+    await vi.waitFor(() => expect(t.sshHostKeys).toHaveLength(2));
+  });
+
+  it("has no host key card for a target that doesn't connect over SSH", async () => {
+    bobsTarget({ connectionId: "mock-conn-postgres" });
+    renderRoute(`/targets/${NAS}`, pages(), { user: BOB });
+    await screen.findByRole("heading", { name: "Bob's NAS" });
+    expect(screen.queryByRole("region", { name: "SSH host key" })).toBeNull();
   });
 });

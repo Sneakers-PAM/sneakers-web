@@ -1,4 +1,4 @@
-import { type Refusal, refusalMessage } from "@sneakers-web/shell";
+import { HostKeyPinDialog, type Refusal, refusalMessage } from "@sneakers-web/shell";
 import {
   Alert,
   Button,
@@ -6,6 +6,7 @@ import {
   CardHeader,
   Field,
   Input,
+  LongValue,
   PageHeader,
   plural,
   Segmented,
@@ -16,7 +17,7 @@ import {
   SelectValue,
 } from "@sneakers-web/ui";
 import { useId, useState } from "react";
-import { Form, Link, useNavigation } from "react-router";
+import { Form, Link, useNavigation, useRevalidator } from "react-router";
 
 import type { TargetEditorData } from "@/features/targets/targets.server";
 
@@ -132,6 +133,9 @@ export const TargetForm = ({
   const { attachedSecrets, connections, sharedNames, target } = data;
   const busy = useNavigation().state === "submitting";
   const attachedHeadingId = useId();
+  const hostKeyHeadingId = useId();
+  const [pinOpen, setPinOpen] = useState(false);
+  const revalidator = useRevalidator();
   const [d, setD] = useState<TargetDraft>(result?.draft ?? data.draft);
   const [tried, setTried] = useState(false);
   const set = (patch: Partial<TargetDraft>) => setD((current) => ({ ...current, ...patch }));
@@ -291,6 +295,51 @@ export const TargetForm = ({
         <Alert title="Shared targets are read-only here" tone="info">
           Ask an admin to change {listed(sharedNames)}.
         </Alert>
+      )}
+      {/* #318: anyone who may change this target may scan and pin its SSH host key. */}
+      {target?.ssh && (
+        <Card aria-labelledby={hostKeyHeadingId}>
+          <div className="flex items-baseline gap-3 px-5.5 py-4.5">
+            <h2
+              className="m-0 font-display text-[1.25rem] leading-none font-bold"
+              id={hostKeyHeadingId}
+            >
+              SSH host key
+            </h2>
+          </div>
+          <div className="flex flex-col gap-3 p-5.5">
+            {target.hostKeyFingerprints.length === 0 ? (
+              <Alert tone="warn">
+                No host key is pinned yet, so terminal sessions and heartbeats to this host are
+                refused until one is.
+              </Alert>
+            ) : (
+              <ul className="m-0 flex list-none flex-col gap-2 p-0">
+                {target.hostKeyFingerprints.map((fp) => (
+                  <li className="flex" key={fp}>
+                    <LongValue value={fp} />
+                  </li>
+                ))}
+              </ul>
+            )}
+            <Button
+              className="self-start"
+              onClick={() => setPinOpen(true)}
+              type="button"
+              variant="secondary"
+            >
+              Scan and pin host key…
+            </Button>
+          </div>
+          <HostKeyPinDialog
+            // The saved host, the one the scan reads: an unsaved edit isn't scanned.
+            hostname={data.draft.hostname}
+            onOpenChange={setPinOpen}
+            onPinned={() => void revalidator.revalidate()}
+            open={pinOpen}
+            targetId={target.id}
+          />
+        </Card>
       )}
       {/* #168: every secret attached to this target. */}
       {target && (

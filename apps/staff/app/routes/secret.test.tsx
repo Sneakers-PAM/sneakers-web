@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
 import { graphql } from "msw/graphql";
 
+import * as hostKeyPinRoute from "@/routes/resources.host-key-pin";
 import * as stepUpRoute from "@/routes/resources.step-up";
 import * as secret from "@/routes/secret";
 import { renderRoute } from "@/test/routeStub";
@@ -22,6 +23,7 @@ const page = {
 const routes = [
   page,
   { action: stepUpRoute.action, path: "/resources/step-up" },
+  { action: hostKeyPinRoute.action, path: "/resources/host-key-pin" },
   { Component: () => <h1>Folder</h1>, path: "/browse/:folderId" },
 ];
 
@@ -457,16 +459,39 @@ describe("the Open terminal action when the terminal can't connect yet (#317)", 
     expect(item).toHaveAttribute("href", `/secret/${SWITCH}/terminal`);
   });
 
-  it("shows it disabled to a site admin with the way to pin the key in the admin app", async () => {
+  // #318: the reason becomes the action for someone who may pin.
+  it("shows it disabled to a site admin, with Scan and pin host key right there", async () => {
     switchTarget().sshHostKeys = [];
     const user = userEvent.setup();
     open(SWITCH);
     const item = await terminalItem(user);
     expect(item).toHaveAttribute("aria-disabled", "true");
-    expect(item).toHaveTextContent("Pin the target's host key first: Targets → Scan and pin");
-    expect(
-      screen.getByRole("menuitem", { name: "Open the target in the admin app" }),
-    ).toHaveAttribute("href", "/admin/targets/mock-target-switch1");
+    expect(item).toHaveTextContent("Pin the target's host key first.");
+    expect(screen.getByRole("menuitem", { name: "Scan and pin host key…" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /admin app/ })).toBeNull();
+  });
+
+  it("lets the owner of a personal target scan and pin it inline, then enables Open terminal", async () => {
+    const target = switchTarget();
+    target.sshHostKeys = [];
+    target.ownerUserId = "mock-user-bob";
+    mockState.world.folders
+      .find((f) => f.id === "mock-folder-platform")!
+      .owners.push("mock-user-bob");
+    const user = userEvent.setup();
+    open(SWITCH, "mock-user-bob");
+    await terminalItem(user);
+    await user.click(screen.getByRole("menuitem", { name: "Scan and pin host key…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Pin the host key" });
+    expect(await within(dialog).findByText("switch1.example.org:22")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Pin this key" }));
+    await vi.waitFor(() => expect(target.sshHostKeys).toHaveLength(1));
+    await vi.waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await user.click(screen.getByRole("button", { name: "Actions" }));
+    expect(await screen.findByRole("menuitem", { name: "Open terminal" })).toHaveAttribute(
+      "href",
+      `/secret/${SWITCH}/terminal`,
+    );
   });
 
   it("shows it disabled to anyone else, saying an admin has to pin the key", async () => {
@@ -482,6 +507,7 @@ describe("the Open terminal action when the terminal can't connect yet (#317)", 
     expect(item).toHaveAttribute("aria-disabled", "true");
     expect(item).toHaveTextContent("An admin needs to pin the target's host key first.");
     expect(screen.queryByRole("menuitem", { name: /admin app/ })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: /Scan and pin/ })).toBeNull();
   });
 
   it("shows it disabled, saying so, when no target is attached", async () => {

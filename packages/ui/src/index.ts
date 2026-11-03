@@ -38,6 +38,11 @@ export {
 } from "#ui/components/Dialog";
 export { Alert, type AlertProps, Card, CardHeader, Skeleton } from "#ui/components/Feedback";
 export { Field, Label } from "#ui/components/Field";
+export {
+  FingerprintCheck,
+  type FingerprintCheckProps,
+  type FingerprintSubject,
+} from "#ui/components/FingerprintCheck";
 export { Input, inputClasses, Textarea } from "#ui/components/Input";
 export { LongValue, type LongValueProps } from "#ui/components/LongValue";
 export {

@@ -117,7 +117,13 @@ describe("the target editor", () => {
 
   it("loads the user's own target", async () => {
     const d = await loadTargetEditor(get("/targets/mock-target-build1"), "mock-target-build1");
-    expect(d.target).toEqual({ id: "mock-target-build1", scope: "personal", secretCount: 2 });
+    expect(d.target).toEqual({
+      hostKeyFingerprints: [expect.stringMatching(/^SHA256:/)],
+      id: "mock-target-build1",
+      scope: "personal",
+      secretCount: 2,
+      ssh: true,
+    });
     expect(d.draft).toMatchObject({ hostname: "build1.example.org", kind: "linux" });
     expect(d.sharedNames).toEqual([]);
   });
