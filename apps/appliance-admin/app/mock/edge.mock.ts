@@ -48,6 +48,39 @@ export const MOCK_BANNER = `MOCK DATA, not a real box (${MOCK_MARKER})`;
 export { MOCK_INVITE_CODE, MOCK_PASSWORD, MOCK_SETUP_CODE, MOCK_WRONG_CODE } from "@/mock/world";
 
 const REFUSAL_TYPE = "sneakers.appliance.osadmin.v1.SignInRefusal";
+const CERTIFICATE_REFUSAL_TYPE = "sneakers.appliance.osadmin.v1.EmailCertificateRefusal";
+
+/** The certificate a relay presents: the self-signed one on the scenarios' relay host. */
+const relayCertificate = (host: string) =>
+  host === world.MOCK_RELAY_HOST ? world.MOCK_RELAY_CERT : world.MOCK_PUBLIC_RELAY_CERT;
+
+/** A SHA-256 fingerprint in any common form, as the box folds it: colon hex in capitals. */
+const foldFingerprint = (value: string): string | undefined => {
+  const hex = value.replaceAll(/[\s:]/g, "").toUpperCase();
+  if (!/^[0-9A-F]{64}$/.test(hex)) return undefined;
+  return hex.match(/../g)?.join(":");
+};
+
+/** EMAIL_UNTRUSTED or EMAIL_PIN_MISMATCH with its EmailCertificateRefusal detail, as debug JSON. */
+const certificateRefused = (host: string, pinned: string): OsadminError => {
+  const certificate = relayCertificate(host);
+  const message = pinned
+    ? `EMAIL_PIN_MISMATCH (3904): the relay presented ${certificate.sha256}, not the pinned ${pinned}; nothing was sent`
+    : `EMAIL_UNTRUSTED (3903): the relay's certificate for ${host} isn't trusted: x509: certificate signed by unknown authority; nothing was sent`;
+  return new OsadminError("failed_precondition", message, undefined, [
+    {
+      debug: {
+        certificate,
+        pinnedSha256: pinned,
+        reason: pinned
+          ? "it isn't the pinned certificate"
+          : "x509: certificate signed by unknown authority",
+      },
+      type: CERTIFICATE_REFUSAL_TYPE,
+      value: "",
+    },
+  ]);
+};
 
 /** A refusal with a SignInRefusal detail in its JSON debug form, as connect-go sends it. */
 const refused = (
@@ -248,6 +281,7 @@ const NO_RELAY = {
   caPem: "",
   from: "",
   host: "",
+  pinSha256: "",
   port: 587,
   tls: "EMAIL_TLS_STARTTLS",
   username: "",
@@ -606,6 +640,7 @@ const sessionOf = (admin: Admin): Session =>
 const STEP_UP_METHODS = new Set([
   "AccessService/AddAdmin",
   "AccessService/UnrevokeKey",
+  "EmailService/PinEmailCertificate",
   "EmailService/SendTestEmail",
   "EmailService/SetEmail",
   "ImportService/CloseImport",
@@ -1206,12 +1241,41 @@ const route = async (service: string, method: string, body: Record<string, unkno
         state: emailSettings.host ? "set" : "not set",
       };
     }
+    case "EmailService/PinEmailCertificate": {
+      const given = (body.settings as Record<string, unknown> | undefined) ?? emailSettings;
+      const host = String(given.host ?? "");
+      const pin = foldFingerprint(String(body.sha256 ?? ""));
+      if (!pin)
+        throw new OsadminError(
+          "invalid_argument",
+          "EMAIL_INVALID (3901): sha256: a SHA-256 fingerprint is 64 hex digits",
+        );
+      if (given.tls === "EMAIL_TLS_NONE")
+        throw new OsadminError(
+          "invalid_argument",
+          "EMAIL_INVALID (3901): the relay is reached without TLS; there's no certificate to pin",
+        );
+      const held = String(given.pinSha256 ?? "");
+      if (held && held !== pin && foldFingerprint(String(body.replacesSha256 ?? "")) !== held)
+        throw new OsadminError(
+          "invalid_argument",
+          `EMAIL_INVALID (3901): the relay is pinned to ${held}; give that fingerprint again as replaces_sha256 to replace it`,
+        );
+      const certificate = relayCertificate(host);
+      if (certificate.sha256 !== pin) throw certificateRefused(host, pin);
+      return { certificate, settings: { ...given, pinSha256: pin, verify: true } };
+    }
     case "EmailService/SendTestEmail": {
-      const host = String(
-        (body.settings as Record<string, unknown> | undefined)?.host ?? emailSettings.host,
-      );
+      const given = (body.settings as Record<string, unknown> | undefined) ?? emailSettings;
+      const host = String(given.host ?? "");
       if (!host)
         throw new OsadminError("invalid_argument", "EMAIL_INVALID (3901): no relay is set");
+      if (given.tls !== "EMAIL_TLS_NONE" && given.verify === true) {
+        const pinned = String(given.pinSha256 ?? "");
+        if (pinned && pinned !== relayCertificate(host).sha256)
+          throw certificateRefused(host, pinned);
+        if (!pinned && host === world.MOCK_RELAY_HOST) throw certificateRefused(host, "");
+      }
       if (host === "unreachable.example.org")
         throw new OsadminError(
           "failed_precondition",
@@ -2371,6 +2435,8 @@ const MOCK_SCENARIOS = [
   "locked-until-unlocked",
   "manual",
   "email-absent",
+  "email-pin-mismatch",
+  "email-untrusted",
   "mcp-absent",
   "telemetry-absent",
   "telemetry-collector-down",
@@ -2518,6 +2584,19 @@ export const applyMockScenario = (scenario: MockScenario): void => {
     }
     case "email-absent": {
       emailDeclared = false;
+      break;
+    }
+    case "email-pin-mismatch": {
+      emailSettings = {
+        ...NO_RELAY,
+        from: "no-reply@example.org",
+        host: world.MOCK_RELAY_HOST,
+        pinSha256: world.MOCK_RELAY_OLD_SHA256,
+      };
+      break;
+    }
+    case "email-untrusted": {
+      emailSettings = { ...NO_RELAY, from: "no-reply@example.org", host: world.MOCK_RELAY_HOST };
       break;
     }
     case "failed": {

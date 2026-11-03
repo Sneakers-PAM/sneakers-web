@@ -5,6 +5,7 @@ import { StepUpDialog } from "@/components/StepUpDialog";
 import { email } from "@/lib/osadmin/client";
 import { OsadminError } from "@/lib/osadmin/errors";
 import { applyMockScenario } from "@/mock/edge.mock";
+import { MOCK_RELAY_CERT, MOCK_RELAY_HOST, MOCK_RELAY_OLD_SHA256 } from "@/mock/world";
 import Email from "@/routes/email";
 import { renderPage } from "@/test/renderPage";
 import { signInAs } from "@/test/session";
@@ -16,6 +17,11 @@ const fillRelay = async (user: ReturnType<typeof userEvent.setup>) => {
   await user.type(screen.getByLabelText("From address"), "no-reply@sneakers.example.org");
   await user.type(screen.getByLabelText("Username"), "mailer");
   await user.type(screen.getByLabelText("Password"), "relay-pass");
+};
+
+const sendTestTo = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.type(await screen.findByLabelText("Send a test to"), "admin@example.org");
+  await user.click(screen.getByRole("button", { name: "Send test email" }));
 };
 
 describe("Email", () => {
@@ -140,6 +146,122 @@ describe("Email", () => {
     await user.type(screen.getByLabelText("Send a test to"), "admin@example.org");
     await user.click(screen.getByRole("button", { name: "Send test email" }));
     expect(await screen.findByText(/can't be reached/)).toBeInTheDocument();
+  });
+
+  it("shows an untrusted relay's certificate from the test, and pins it on the form", async () => {
+    applyMockScenario("email-untrusted");
+    signInAs("alice");
+    const user = userEvent.setup();
+    const pin = vi.spyOn(email, "pin");
+    renderPage(Email);
+    await sendTestTo(user);
+    const check = within(await screen.findByRole("region", { name: "Relay certificate" }));
+    expect(check.getByText(/certificate isn't trusted/i)).toBeInTheDocument();
+    // Self-signed: the subject is the issuer too.
+    expect(check.getAllByText(MOCK_RELAY_CERT.subject)).toHaveLength(2);
+    expect(check.getByText(MOCK_RELAY_CERT.sha256)).toBeInTheDocument();
+    expect(check.getByText(`${MOCK_RELAY_HOST}:587`)).toBeInTheDocument();
+    expect(check.queryByRole("group", { name: "Pinned now" })).not.toBeInTheDocument();
+    expect(check.queryByLabelText(`Type ${MOCK_RELAY_HOST} to confirm`)).not.toBeInTheDocument();
+    await user.click(check.getByRole("button", { name: "Trust this certificate" }));
+    await vi.waitFor(() => expect(pin).toHaveBeenCalled());
+    expect(pin.mock.calls[0]?.[0]).toMatchObject({
+      settings: { host: MOCK_RELAY_HOST, pinSha256: "" },
+      sha256: MOCK_RELAY_CERT.sha256,
+    });
+    expect(pin.mock.calls[0]?.[0].replacesSha256).toBeUndefined();
+    const pinned = await screen.findByRole("group", { name: "Pinned certificate" });
+    expect(within(pinned).getByText(MOCK_RELAY_CERT.sha256)).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Relay certificate" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Send the test again, then save to keep the pin/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Send test email" }));
+    expect(await screen.findByText(/the relay took the message/)).toBeInTheDocument();
+  });
+
+  it("asks for a fresh code before it pins", async () => {
+    applyMockScenario("email-untrusted");
+    signInAs("alice");
+    const user = userEvent.setup();
+    renderPage(() => (
+      <>
+        <Email />
+        <StepUpDialog />
+      </>
+    ));
+    await sendTestTo(user);
+    const check = within(await screen.findByRole("region", { name: "Relay certificate" }));
+    applyMockScenario("stepup");
+    await user.click(check.getByRole("button", { name: "Trust this certificate" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    await user.type(dialog.getByLabelText("Authenticator code"), "123456");
+    await user.click(dialog.getByRole("button", { name: "Verify code" }));
+    expect(await screen.findByRole("group", { name: "Pinned certificate" })).toBeInTheDocument();
+  });
+
+  it("shows the old and new fingerprints on a changed certificate, and re-pins only once the host is typed", async () => {
+    applyMockScenario("email-pin-mismatch");
+    signInAs("alice");
+    const user = userEvent.setup();
+    const pin = vi.spyOn(email, "pin");
+    renderPage(Email);
+    await sendTestTo(user);
+    const check = within(await screen.findByRole("region", { name: "Relay certificate" }));
+    expect(check.getByText(/different certificate from the one pinned/)).toBeInTheDocument();
+    const old = within(check.getByRole("group", { name: "Pinned now" }));
+    expect(old.getByText(MOCK_RELAY_OLD_SHA256)).toBeInTheDocument();
+    const offered = within(check.getByRole("group", { name: "Offered now" }));
+    expect(offered.getByText(MOCK_RELAY_CERT.sha256)).toBeInTheDocument();
+    const trust = check.getByRole("button", { name: "Trust this certificate" });
+    expect(trust).toBeDisabled();
+    const confirm = check.getByLabelText(`Type ${MOCK_RELAY_HOST} to confirm`);
+    expect(confirm).toHaveAttribute("autocomplete", "off");
+    await user.type(confirm, "mail.example.org");
+    expect(trust).toBeDisabled();
+    await user.clear(confirm);
+    await user.type(confirm, MOCK_RELAY_HOST);
+    expect(trust).toBeEnabled();
+    await user.click(trust);
+    await vi.waitFor(() => expect(pin).toHaveBeenCalled());
+    expect(pin.mock.calls[0]?.[0]).toMatchObject({
+      replacesSha256: MOCK_RELAY_OLD_SHA256,
+      sha256: MOCK_RELAY_CERT.sha256,
+    });
+    const pinned = within(await screen.findByRole("group", { name: "Pinned certificate" }));
+    expect(pinned.getByText(MOCK_RELAY_CERT.sha256)).toBeInTheDocument();
+  });
+
+  it("saves the pin with the rest, and removing it saves none", async () => {
+    applyMockScenario("email-untrusted");
+    signInAs("alice");
+    const user = userEvent.setup();
+    renderPage(Email);
+    await sendTestTo(user);
+    const check = within(await screen.findByRole("region", { name: "Relay certificate" }));
+    await user.click(check.getByRole("button", { name: "Trust this certificate" }));
+    await screen.findByRole("group", { name: "Pinned certificate" });
+    await user.click(screen.getByRole("button", { name: "Save and apply" }));
+    await screen.findByText(/product is applied again/);
+    const saved = await email.get();
+    expect(saved.settings).toMatchObject({ pinSha256: MOCK_RELAY_CERT.sha256, verify: true });
+    await user.click(screen.getByRole("button", { name: "Remove the pin" }));
+    expect(screen.queryByRole("group", { name: "Pinned certificate" })).not.toBeInTheDocument();
+    const set = vi.spyOn(email, "set");
+    await user.click(screen.getByRole("button", { name: "Save and apply" }));
+    await vi.waitFor(() => expect(set).toHaveBeenCalled());
+    const unpinned = await email.get();
+    expect(unpinned.settings.pinSha256).toBe("");
+  });
+
+  it("is refused a new pin that doesn't name the pin it replaces (EMAIL_INVALID)", async () => {
+    applyMockScenario("email-pin-mismatch");
+    signInAs("alice");
+    await expect(email.pin({ sha256: MOCK_RELAY_CERT.sha256 })).rejects.toThrow(/EMAIL_INVALID/);
+    const answer = await email.pin({
+      replacesSha256: MOCK_RELAY_OLD_SHA256.toLowerCase().replaceAll(":", ""),
+      sha256: MOCK_RELAY_CERT.sha256.toLowerCase(),
+    });
+    expect(answer.settings).toMatchObject({ pinSha256: MOCK_RELAY_CERT.sha256, verify: true });
+    expect(answer.certificate.sha256).toBe(MOCK_RELAY_CERT.sha256);
   });
 
   it("asks for a fresh code before it saves", async () => {

@@ -1,3 +1,5 @@
+import type { EmailCertificateRefusal, RelayCertificate } from "@/lib/osadmin/types";
+
 // Connect error handling. A Connect JSON error response is `{ code, message, details? }`
 // with a lower-snake-case code (the Connect RPC protocol's error end-stream shape).
 // Two codes carry their own meaning for this app: `unimplemented` means a page's backend
@@ -163,9 +165,14 @@ const REFUSAL_TYPE = "sneakers.appliance.osadmin.v1.SignInRefusal";
 const base64Bytes = (value: string): Uint8Array =>
   Uint8Array.from(atob(value.replaceAll("-", "+").replaceAll("_", "/")), (c) => c.charCodeAt(0));
 
-/** Reads protobuf wire-format fields: field number to its varints or length-delimited bytes. */
-const readFields = (bytes: Uint8Array): Map<number, bigint | Uint8Array> => {
-  const fields = new Map<number, bigint | Uint8Array>();
+type FieldValue = bigint | Uint8Array;
+
+/** Reads protobuf wire-format fields: field number to every varint or length-delimited value. */
+const readAllFields = (bytes: Uint8Array): Map<number, FieldValue[]> => {
+  const fields = new Map<number, FieldValue[]>();
+  const add = (field: number, value: FieldValue) => {
+    fields.set(field, [...(fields.get(field) ?? []), value]);
+  };
   let at = 0;
   const varint = (): bigint => {
     let result = 0n;
@@ -180,15 +187,22 @@ const readFields = (bytes: Uint8Array): Map<number, bigint | Uint8Array> => {
   while (at < bytes.length) {
     const tag = Number(varint());
     const field = tag >> 3;
-    if ((tag & 7) === 0) fields.set(field, varint());
+    if ((tag & 7) === 0) add(field, varint());
     else if ((tag & 7) === 2) {
       const length = Number(varint());
-      fields.set(field, bytes.slice(at, at + length));
+      add(field, bytes.slice(at, at + length));
       at += length;
     } else break;
   }
   return fields;
 };
+
+/** Reads protobuf wire-format fields: field number to its last varint or length-delimited bytes. */
+const readFields = (bytes: Uint8Array): Map<number, FieldValue> =>
+  new Map([...readAllFields(bytes)].map(([field, values]) => [field, values.at(-1) as FieldValue]));
+
+const text = (value: FieldValue | undefined): string =>
+  value instanceof Uint8Array ? new TextDecoder().decode(value) : "";
 
 const timestampOf = (value: bigint | Uint8Array | undefined): string | undefined => {
   if (!(value instanceof Uint8Array)) return undefined;
@@ -219,6 +233,70 @@ export const refusalOf = (error: unknown): SignInRefusal | undefined => {
       lockedUntil: timestampOf(fields.get(2)),
       lockedUntilUnlocked: fields.get(3) === 1n,
       retryAfter: timestampOf(fields.get(4)),
+    };
+  } catch {
+    return undefined;
+  }
+};
+
+const CERTIFICATE_REFUSAL_TYPE = "sneakers.appliance.osadmin.v1.EmailCertificateRefusal";
+const CERTIFICATE_SYMBOLS = new Set(["EMAIL_PIN_MISMATCH", "EMAIL_UNTRUSTED"]);
+
+const relayCertificateOf = (bytes: Uint8Array | undefined): RelayCertificate => {
+  const fields = readAllFields(bytes ?? new Uint8Array());
+  const one = (field: number) => text(fields.get(field)?.at(-1));
+  return {
+    dnsNames: (fields.get(6) ?? []).map(text),
+    ipAddresses: (fields.get(7) ?? []).map(text),
+    issuer: one(2),
+    notAfter: timestampOf(fields.get(4)?.at(-1)) ?? "",
+    notBefore: timestampOf(fields.get(3)?.at(-1)) ?? "",
+    sha256: one(5),
+    subject: one(1),
+  };
+};
+
+/**
+ * The certificate an `EMAIL_UNTRUSTED` or `EMAIL_PIN_MISMATCH` refusal carries (its
+ * EmailCertificateRefusal detail), from the JSON debug form or its binary value.
+ */
+export const emailCertificateRefusalOf = (error: unknown): EmailCertificateRefusal | undefined => {
+  if (!(error instanceof OsadminError) || !CERTIFICATE_SYMBOLS.has(error.symbol ?? ""))
+    return undefined;
+  const detail = error.details.find((d) => d.type === CERTIFICATE_REFUSAL_TYPE);
+  if (!detail) return undefined;
+  const mismatch = error.symbol === "EMAIL_PIN_MISMATCH";
+  if (detail.debug) {
+    const debug = detail.debug as {
+      certificate?: Partial<Record<keyof RelayCertificate, unknown>>;
+      pinnedSha256?: string;
+      reason?: string;
+    };
+    const c = debug.certificate ?? {};
+    const strings = (value: unknown): string[] => (Array.isArray(value) ? value.map(String) : []);
+    return {
+      certificate: {
+        dnsNames: strings(c.dnsNames),
+        ipAddresses: strings(c.ipAddresses),
+        issuer: String(c.issuer ?? ""),
+        notAfter: String(c.notAfter ?? ""),
+        notBefore: String(c.notBefore ?? ""),
+        sha256: String(c.sha256 ?? ""),
+        subject: String(c.subject ?? ""),
+      },
+      mismatch,
+      pinnedSha256: debug.pinnedSha256 ?? "",
+      reason: debug.reason ?? "",
+    };
+  }
+  try {
+    const fields = readFields(base64Bytes(detail.value));
+    const certificate = fields.get(1);
+    return {
+      certificate: relayCertificateOf(certificate instanceof Uint8Array ? certificate : undefined),
+      mismatch,
+      pinnedSha256: text(fields.get(2)),
+      reason: text(fields.get(3)),
     };
   } catch {
     return undefined;

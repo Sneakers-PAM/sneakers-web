@@ -375,6 +375,15 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   machine API switches (`SetMcp`, step-up; the box restarts the product's MCP stacks), and
   `not in this product` (the product.yaml declares no MCP switch) and `not installed` show no
   switch. The mock's `mcp-absent` state is the product with no MCP switch.
+- **Email's relay pin (`app/routes/email.tsx`).** A test refused with `EMAIL_UNTRUSTED` or
+  `EMAIL_PIN_MISMATCH` (Connect `failed_precondition`) carries an `EmailCertificateRefusal`
+  detail, which `emailCertificateRefusalOf` (`app/lib/osadmin/errors.ts`) reads from its JSON
+  `debug` form or its binary value. The page shows it in place, never as a toast, in the UI kit's
+  `FingerprintCheck` (`tls-certificate`), with "Trust this certificate"
+  (`EmailService.PinEmailCertificate`, step-up), which puts `pinSha256` on the form with
+  verification on and saves nothing. A mismatch shows the old and new fingerprints and needs the
+  relay host typed before the re-pin, which sends the old pin as `replacesSha256`. The mock's
+  relay `MOCK_RELAY_HOST` presents `MOCK_RELAY_CERT` (`app/mock/world.ts`).
 - **Telemetry (`app/routes/telemetry.tsx`, under the product's nav section after Email).**
   `TelemetryService` (sneakers-appliance `docs/product-telemetry.md`): `GetTelemetry.state` is
   `on`, `off`, `not in this product` (no form) or `not installed`. The form sets export on or off,
@@ -429,7 +438,9 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   minutes or until an owner unlocks him), `throttled` (this address has to wait), `first-boot` (no admin yet; the setup code is
   `MOCK_SETUP_CODE`), `setup-admin`, `setup-keys`, `setup-network`, `setup-protection` and
   `setup-finish` (setup part-way, as a reload finds it), `reduced` (no Secure Boot, no TPM),
-  `invited` (carol's invitation, `MOCK_INVITE_CODE`), `telemetry-on`, `telemetry-collector-down`,
+  `invited` (carol's invitation, `MOCK_INVITE_CODE`), `email-untrusted` (the relay's
+  self-signed certificate isn't trusted), `email-pin-mismatch` (the relay's certificate isn't the
+  pinned one), `telemetry-on`, `telemetry-collector-down`,
   `telemetry-failed`, `telemetry-restart-fails`, `telemetry-status-down`, `telemetry-absent`,
   `setup-token-used` (the product's
   one-time setup token was used), `signed-in` (the box still knows this browser), `single-admin`, `reset-pending` and

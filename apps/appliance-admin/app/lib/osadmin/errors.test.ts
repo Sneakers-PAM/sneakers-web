@@ -1,4 +1,5 @@
 import {
+  emailCertificateRefusalOf,
   isNotAvailable,
   isStepUpRequired,
   OsadminError,
@@ -139,6 +140,83 @@ describe("refusalOf", () => {
   it("is undefined without a SignInRefusal detail", async () => {
     expect(refusalOf(await refused([]))).toBeUndefined();
     expect(refusalOf(new Error("x"))).toBeUndefined();
+  });
+});
+
+describe("emailCertificateRefusalOf", () => {
+  const DETAIL = "sneakers.appliance.osadmin.v1.EmailCertificateRefusal";
+  const refused = (message: string, details: unknown[]) =>
+    parseOsadminError(
+      new Response(JSON.stringify({ code: "failed_precondition", details, message }), {
+        status: 400,
+      }),
+    );
+
+  it("reads the certificate, the pin and the reason from the detail's JSON debug form", async () => {
+    const error = await refused("EMAIL_PIN_MISMATCH (3904): the relay presented another", [
+      {
+        debug: {
+          certificate: {
+            dnsNames: ["mail.example.org"],
+            issuer: "CN=mail.example.org",
+            notAfter: "2027-01-01T00:00:00Z",
+            notBefore: "2026-01-01T00:00:00Z",
+            sha256: "AA:BB",
+            subject: "CN=mail.example.org",
+          },
+          pinnedSha256: "CC:DD",
+          reason: "it isn't the pinned certificate",
+        },
+        type: DETAIL,
+        value: "",
+      },
+    ]);
+    expect(emailCertificateRefusalOf(error)).toEqual({
+      certificate: {
+        dnsNames: ["mail.example.org"],
+        ipAddresses: [],
+        issuer: "CN=mail.example.org",
+        notAfter: "2027-01-01T00:00:00Z",
+        notBefore: "2026-01-01T00:00:00Z",
+        sha256: "AA:BB",
+        subject: "CN=mail.example.org",
+      },
+      mismatch: true,
+      pinnedSha256: "CC:DD",
+      reason: "it isn't the pinned certificate",
+    });
+  });
+
+  it("decodes the detail's binary value, repeated names and all, when there's no debug form", async () => {
+    const error = await refused("EMAIL_UNTRUSTED (3903): the relay's certificate isn't trusted", [
+      {
+        type: DETAIL,
+        value:
+          "CjAKBENOPXISBENOPXIaAwjoByIDCNAPKgVBQTpCQjIBcjICcjI6CjE5Mi4wLjIuMjUSBUNDOkREGgtzZWxmLXNpZ25lZA==",
+      },
+    ]);
+    expect(emailCertificateRefusalOf(error)).toEqual({
+      certificate: {
+        dnsNames: ["r", "r2"],
+        ipAddresses: ["192.0.2.25"],
+        issuer: "CN=r",
+        notAfter: new Date(2_000_000).toISOString(),
+        notBefore: new Date(1_000_000).toISOString(),
+        sha256: "AA:BB",
+        subject: "CN=r",
+      },
+      mismatch: false,
+      pinnedSha256: "CC:DD",
+      reason: "self-signed",
+    });
+  });
+
+  it("is undefined for another refusal, or one without the detail", async () => {
+    expect(emailCertificateRefusalOf(await refused("EMAIL_SEND (3902): no", []))).toBeUndefined();
+    expect(
+      emailCertificateRefusalOf(await refused("EMAIL_UNTRUSTED (3903): untrusted", [])),
+    ).toBeUndefined();
+    expect(emailCertificateRefusalOf(new Error("x"))).toBeUndefined();
   });
 });
 

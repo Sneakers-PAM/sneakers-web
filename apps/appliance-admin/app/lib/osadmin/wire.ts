@@ -8,6 +8,8 @@ import type {
   CommitNetworkResponse,
   EmailSettings,
   GetEmailResponse,
+  PinEmailCertificateResponse,
+  RelayCertificate,
   GetTelemetryResponse,
   SetTelemetryResponse,
   TelemetrySettings,
@@ -655,10 +657,28 @@ const emailSettings = (w: Wire<EmailSettings> | undefined): EmailSettings => ({
   caPem: w?.caPem ?? "",
   from: w?.from ?? "",
   host: w?.host ?? "",
+  pinSha256: w?.pinSha256 ?? "",
   port: w?.port ?? 0,
   tls: w?.tls ?? "EMAIL_TLS_UNSPECIFIED",
   username: w?.username ?? "",
   verify: w?.verify ?? false,
+});
+
+export const relayCertificate = (w: Wire<RelayCertificate> | undefined): RelayCertificate => ({
+  dnsNames: list(w?.dnsNames, String),
+  ipAddresses: list(w?.ipAddresses, String),
+  issuer: w?.issuer ?? "",
+  notAfter: w?.notAfter ?? "",
+  notBefore: w?.notBefore ?? "",
+  sha256: w?.sha256 ?? "",
+  subject: w?.subject ?? "",
+});
+
+export const pinEmailCertificate = (
+  w: Wire<PinEmailCertificateResponse>,
+): PinEmailCertificateResponse => ({
+  certificate: relayCertificate(w.certificate),
+  settings: emailSettings(w.settings),
 });
 
 export const getEmail = (w: Wire<GetEmailResponse>): GetEmailResponse => ({

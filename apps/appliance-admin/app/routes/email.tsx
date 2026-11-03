@@ -7,23 +7,31 @@ import {
   Checkbox,
   EmptyState,
   Field,
+  FingerprintCheck,
   Input,
   Label,
+  LongValue,
   PageHeader,
   Segmented,
+  shortDate,
   Switch,
   Textarea,
 } from "@sneakers-web/ui";
 import { useEffect, useState } from "react";
 
-import type { EmailSettings, EmailTls, GetEmailResponse } from "@/lib/osadmin/types";
+import type {
+  EmailCertificateRefusal,
+  EmailSettings,
+  EmailTls,
+  GetEmailResponse,
+} from "@/lib/osadmin/types";
 
 import { NotAvailable } from "@/components/NotAvailable";
 import { PasswordInput } from "@/components/PasswordInput";
 import { noAutofill } from "@/lib/noAutofill";
 import { runAction } from "@/lib/osadmin/action";
 import { email } from "@/lib/osadmin/client";
-import { isNotAvailable } from "@/lib/osadmin/errors";
+import { emailCertificateRefusalOf, isNotAvailable } from "@/lib/osadmin/errors";
 import { useInstalledProduct } from "@/lib/useInstalledProduct";
 
 /** The words shown for each TLS mode, and the port each one usually takes. */
@@ -39,6 +47,13 @@ const TLS_OPTIONS: { hint: string; label: string; port: number; value: EmailTls 
 ];
 
 const UNENCRYPTED_WARNING = "Mail and the relay password are sent unencrypted";
+
+/** A relay certificate the test refused, as the box gave it, and the relay it came from. */
+interface CertificateCheck {
+  host: string;
+  port: number;
+  refusal: EmailCertificateRefusal;
+}
 
 /** Whether mail goes to the relay encrypted and verified. */
 const encrypted = (s: EmailSettings) => s.tls !== "EMAIL_TLS_NONE" && s.verify;
@@ -58,6 +73,9 @@ export default function Email() {
   const [testTo, setTestTo] = useState("");
   const [testAnswer, setTestAnswer] = useState("");
   const [saved, setSaved] = useState(false);
+  const [certificateCheck, setCertificateCheck] = useState<CertificateCheck>();
+  const [typedHost, setTypedHost] = useState("");
+  const [pinnedOnForm, setPinnedOnForm] = useState(false);
 
   const reload = () =>
     void email
@@ -125,13 +143,57 @@ export default function Email() {
         reload();
       },
     });
+  // A certificate refusal stays on the page with the certificate to check, never a toast.
+  const showCertificate = (error: unknown): void => {
+    const refusal = emailCertificateRefusalOf(error);
+    if (!refusal) throw error;
+    setCertificateCheck({ host: settings.host, port: settings.port, refusal });
+    setTypedHost("");
+  };
   const sendTest = () => {
     setTestAnswer("");
+    setCertificateCheck(undefined);
+    setPinnedOnForm(false);
     void runAction(
-      () => email.test({ password: password || undefined, settings, to: testTo.trim() }),
-      { onSuccess: (answer) => setTestAnswer(answer.answer ?? "Sent.") },
+      async () => {
+        try {
+          return await email.test({ password: password || undefined, settings, to: testTo.trim() });
+        } catch (error) {
+          showCertificate(error);
+          return;
+        }
+      },
+      {
+        onSuccess: (answer) => {
+          if (answer) setTestAnswer(answer.answer ?? "Sent.");
+        },
+      },
     );
   };
+  const trust = (sha256: string) =>
+    void runAction(
+      async () => {
+        try {
+          return await email.pin({
+            replacesSha256:
+              form.pinSha256 && form.pinSha256 !== sha256 ? form.pinSha256 : undefined,
+            settings,
+            sha256,
+          });
+        } catch (error) {
+          showCertificate(error);
+          return;
+        }
+      },
+      {
+        onSuccess: (answer) => {
+          if (!answer) return;
+          setForm(answer.settings);
+          setCertificateCheck(undefined);
+          setPinnedOnForm(true);
+        },
+      },
+    );
   const tlsHint = TLS_OPTIONS.find((o) => o.value === form.tls)?.hint;
 
   return (
@@ -210,7 +272,10 @@ export default function Email() {
             <Switch checked={form.verify} onCheckedChange={(verify) => update({ verify })} />
             Verify the certificate
           </Label>
-          <Field hint="Optional: the CA that signed the relay's certificate, PEM." label="Relay CA">
+          <Field
+            hint="Optional: the CA that signed the relay's certificate, PEM. A pinned certificate takes its place."
+            label="Relay CA"
+          >
             <Textarea
               {...noAutofill()}
               onChange={(event) => update({ caPem: event.target.value })}
@@ -228,6 +293,24 @@ export default function Email() {
             }}
             type="file"
           />
+          {form.pinSha256 && (
+            <div aria-label="Pinned certificate" className="flex flex-col gap-2" role="group">
+              <span className="text-[0.875rem] font-bold text-ink">
+                Pinned certificate (SHA-256)
+              </span>
+              <LongValue value={form.pinSha256} />
+              <span className="text-small text-muted">
+                With verification on, the relay must present exactly this certificate, within its
+                dates; the relay CA and the system roots aren&apos;t consulted. Removing the pin and
+                saving goes back to them.
+              </span>
+              <div>
+                <Button onClick={() => update({ pinSha256: "" })} variant="secondary">
+                  Remove the pin
+                </Button>
+              </div>
+            </div>
+          )}
           <Field hint="Empty for a relay that takes mail without signing in." label="Username">
             <Input
               {...noAutofill()}
@@ -301,8 +384,99 @@ export default function Email() {
               Sent: {testAnswer}.
             </p>
           )}
+          {pinnedOnForm && (
+            <p className="m-0 text-small" role="status">
+              The relay&apos;s certificate is pinned on the form, with verification on. Send the
+              test again, then save to keep the pin.
+            </p>
+          )}
+          {certificateCheck && (
+            <RelayCertificateCheck
+              check={certificateCheck}
+              onTrust={trust}
+              onTypedHost={setTypedHost}
+              pinnedNow={certificateCheck.refusal.pinnedSha256 || form.pinSha256}
+              typedHost={typedHost}
+            />
+          )}
         </div>
       </Card>
     </div>
   );
 }
+
+/**
+ * The certificate a relay presented when the test refused it, to compare with a fingerprint got
+ * another way before "Trust this certificate" pins it on the form. A certificate other than the
+ * pinned one shows beside the old fingerprint and needs the relay host typed first.
+ */
+const RelayCertificateCheck = ({
+  check,
+  onTrust,
+  onTypedHost,
+  pinnedNow,
+  typedHost,
+}: {
+  check: CertificateCheck;
+  onTrust: (sha256: string) => void;
+  onTypedHost: (value: string) => void;
+  pinnedNow: string;
+  typedHost: string;
+}) => {
+  const { certificate, reason } = check.refusal;
+  const changed = !!pinnedNow && pinnedNow !== certificate.sha256;
+  const confirmed = !changed || typedHost.trim() === check.host;
+  return (
+    <section aria-label="Relay certificate" className="flex flex-col gap-4">
+      {changed ? (
+        <Alert
+          role="alert"
+          title={`${check.host} now presents a different certificate from the one pinned`}
+          tone="warn"
+        >
+          Nothing was sent. If you weren&apos;t expecting a change, stop and ask the relay&apos;s
+          admin before you pin it.
+        </Alert>
+      ) : (
+        <Alert role="alert" title="The relay's certificate isn't trusted" tone="danger">
+          {reason ? `${reason.charAt(0).toUpperCase()}${reason.slice(1)}. ` : ""}Nothing was sent,
+          and the password wasn&apos;t.
+        </Alert>
+      )}
+      <FingerprintCheck
+        offered={{
+          address: `${check.host}:${String(check.port)}`,
+          fingerprint: certificate.sha256,
+          issuer: certificate.issuer,
+          kind: "tls-certificate",
+          notAfter: shortDate(certificate.notAfter),
+          notBefore: shortDate(certificate.notBefore),
+          sans: [...certificate.dnsNames, ...certificate.ipAddresses],
+          subject: certificate.subject,
+        }}
+        pinned={changed ? [pinnedNow] : []}
+      />
+      {changed && (
+        <Field label={`Type ${check.host} to confirm`}>
+          <Input
+            {...noAutofill()}
+            autoCapitalize="none"
+            mono
+            onChange={(event) => onTypedHost(event.target.value)}
+            spellCheck={false}
+            value={typedHost}
+          />
+        </Field>
+      )}
+      <p className="m-0 text-small text-muted">
+        Trusting it puts its fingerprint on the form with verification on, once the box sees the
+        relay present it again. Nothing is saved until you save.
+      </p>
+      <div>
+        <Button disabled={!confirmed} onClick={() => onTrust(certificate.sha256)}>
+          Trust this certificate
+        </Button>
+      </div>
+    </section>
+  );
+};
