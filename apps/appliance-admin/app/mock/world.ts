@@ -106,6 +106,7 @@ export const KNOWN_HOSTS =
   "@cert-authority appliance.example.org,192.0.2.50 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMOCKHOSTCANOTAREALKEYMOCKHOSTCANOTAREALKEY";
 
 export const ACCESS_POLICY: AccessPolicy = {
+  lockoutMaxFailures: 0,
   lockoutMode: "LOCKOUT_MODE_TIMED",
   rootCodeMinutes: 10,
   rootSessionMinutes: 10,

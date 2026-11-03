@@ -386,6 +386,7 @@ const revokedKey = (w: Wire<RevokedKey>): RevokedKey => ({
 });
 
 const accessPolicy = (w: Wire<AccessPolicy>): AccessPolicy => ({
+  lockoutMaxFailures: w.lockoutMaxFailures ?? 0,
   lockoutMode: w.lockoutMode ?? "LOCKOUT_MODE_UNSPECIFIED",
   rootCodeMinutes: w.rootCodeMinutes ?? 0,
   rootSessionMinutes: w.rootSessionMinutes ?? 0,

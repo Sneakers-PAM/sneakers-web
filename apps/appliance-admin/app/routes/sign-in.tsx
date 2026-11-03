@@ -72,7 +72,10 @@ const SignInHelpDialog = () => (
         <li>
           Use your admin name, your password and the 6-digit code from your authenticator app.
         </li>
-        <li>3 wrong tries in 15 minutes lock the account. An owner can unlock it on Access.</li>
+        <li>
+          5 wrong tries in 15 minutes lock the account, or as few as 3 if an owner set that. An
+          owner can unlock it on Access.
+        </li>
         <li>
           Lost your authenticator? Another owner can reset it. If no admin can sign in, use Recover
           access on the appliance&apos;s console.

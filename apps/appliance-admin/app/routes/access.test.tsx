@@ -560,6 +560,53 @@ describe("Access", () => {
     });
   });
 
+  it("shows the lockout limit at 5 when the box sends the default, and saves 3, 4 or 5", async () => {
+    signInAsOwner();
+    const user = userEvent.setup();
+    renderPage(Access);
+    const settings = within(await screen.findByRole("form", { name: "Access settings" }));
+    const limit = within(
+      settings.getByRole("radiogroup", { name: "Wrong tries before a lockout" }),
+    );
+    expect(limit.getByRole("radio", { name: "5" })).toHaveAttribute("aria-checked", "true");
+    expect(limit.getAllByRole("radio").map((radio) => radio.textContent)).toEqual(["3", "4", "5"]);
+    expect(settings.getByText("After 5 wrong tries in 15 minutes, lock the account")).toBeVisible();
+    await user.click(limit.getByRole("radio", { name: "3" }));
+    expect(settings.getByText("After 3 wrong tries in 15 minutes, lock the account")).toBeVisible();
+    await user.click(settings.getByRole("button", { name: "Save access settings" }));
+    // The toast from the case before can still be on screen.
+    const toasts = await screen.findAllByText("Access settings saved.");
+    expect(toasts.length).toBeGreaterThan(0);
+    const saved = await access.list();
+    expect(saved.accessPolicy).toMatchObject({
+      lockoutMaxFailures: 3,
+      lockoutMode: "LOCKOUT_MODE_TIMED",
+    });
+  });
+
+  it("is refused a lockout limit other than 3, 4, 5 or 0 for the default (ACCESS_POLICY)", async () => {
+    signInAsOwner();
+    for (const lockoutMaxFailures of [1, 2, 6, 10]) {
+      await expect(
+        access.setAccessPolicy({ ...world.ACCESS_POLICY, lockoutMaxFailures }),
+      ).rejects.toThrow(/ACCESS_POLICY/);
+    }
+    await access.setAccessPolicy({ ...world.ACCESS_POLICY, lockoutMaxFailures: 0 });
+    const saved = await access.list();
+    expect(saved.accessPolicy?.lockoutMaxFailures).toBe(0);
+  });
+
+  it("fills the lockout limit the box has saved", async () => {
+    signInAsOwner();
+    await access.setAccessPolicy({ ...world.ACCESS_POLICY, lockoutMaxFailures: 4 });
+    renderPage(Access);
+    const settings = within(await screen.findByRole("form", { name: "Access settings" }));
+    const limit = within(
+      settings.getByRole("radiogroup", { name: "Wrong tries before a lockout" }),
+    );
+    expect(limit.getByRole("radio", { name: "4" })).toHaveAttribute("aria-checked", "true");
+  });
+
   it("hides the access settings from an admin who isn't an owner", async () => {
     signInAs("bob");
     renderPage(Access);

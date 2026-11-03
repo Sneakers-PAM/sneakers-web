@@ -2,8 +2,10 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createRoutesStub } from "react-router";
 
+import { access } from "@/lib/osadmin/client";
 import { getSession, setSession } from "@/lib/osadmin/sessionStore";
 import { applyMockScenario, MOCK_PASSWORD } from "@/mock/edge.mock";
+import * as world from "@/mock/world";
 import SignIn from "@/routes/sign-in";
 import { renderPage } from "@/test/renderPage";
 
@@ -59,10 +61,21 @@ describe("SignIn", () => {
     renderPage(SignIn);
     await fill(user, "alice", "not the password", "123456");
     const alert = await screen.findByRole("alert");
-    expect(within(alert).getByText(/2 tries left before the account locks/)).toBeInTheDocument();
+    expect(within(alert).getByText(/4 tries left before the account locks/)).toBeInTheDocument();
     expect(screen.getByLabelText("Password")).toHaveValue("");
     expect(screen.getByLabelText("Authenticator code")).toHaveValue("");
     expect(screen.getByLabelText("Admin name")).toHaveValue("alice");
+  });
+
+  it("counts the tries left against the lockout limit an owner set", async () => {
+    setSession({ admin: "alice", csrfToken: "test-csrf", role: "ROLE_OWNER" });
+    await access.setAccessPolicy({ ...world.ACCESS_POLICY, lockoutMaxFailures: 3 });
+    setSession(null);
+    const user = userEvent.setup();
+    renderPage(SignIn);
+    await fill(user, "alice", "not the password", "123456");
+    const alert = await screen.findByRole("alert");
+    expect(within(alert).getByText(/2 tries left before the account locks/)).toBeInTheDocument();
   });
 
   it("says until when a locked account stays locked", async () => {
