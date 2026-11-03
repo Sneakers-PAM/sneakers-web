@@ -258,7 +258,15 @@ let emailPassword = "";
 /** The product's product.yaml declares an email section. */
 let emailDeclared = true;
 /** The product's telemetry collector (the Telemetry page): export off, nothing saved. */
-const NO_COLLECTOR = { enabled: false, endpoint: "", logs: false, skipVerify: false } as const;
+const NO_COLLECTOR = {
+  caPem: "",
+  enabled: false,
+  endpoint: "",
+  logs: false,
+  skipVerify: false,
+} as const;
+/** The box's limit on the collector CA's PEM. */
+const TELEMETRY_CA_MAX = 64 << 10;
 /** The collector the telemetry scenarios point at. */
 export const TELEMETRY_ENDPOINT = "https://collector.example.org:4317";
 /** The product's restart order for a telemetry change, as its product.yaml's phases have it. */
@@ -1896,6 +1904,17 @@ const route = async (service: string, method: string, body: Record<string, unkno
           "invalid_argument",
           `TELEMETRY_INVALID (3910): the endpoint "${endpoint}" isn't https://<host>[:<port>]`,
         );
+      const caPem = String(next.caPem ?? "");
+      if (caPem.length > TELEMETRY_CA_MAX)
+        throw new OsadminError(
+          "invalid_argument",
+          "TELEMETRY_INVALID (3910): the collector CA is over 64 KiB",
+        );
+      if (caPem.trim() && !caPem.includes("-----BEGIN CERTIFICATE-----"))
+        throw new OsadminError(
+          "invalid_argument",
+          "TELEMETRY_INVALID (3910): the collector CA holds no PEM certificate",
+        );
       if (next.enabled && endpoint.includes("unreachable.example.org"))
         throw new OsadminError(
           "failed_precondition",
@@ -1904,7 +1923,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
       const was = telemetrySettings;
       // A change to what the services read restarts them; a new endpoint while off doesn't.
       const reads = (t: Record<string, unknown>) =>
-        t.enabled ? JSON.stringify([t.endpoint, t.skipVerify, t.logs]) : "off";
+        t.enabled ? JSON.stringify([t.endpoint, t.skipVerify, t.logs, t.caPem]) : "off";
       const restarting = reads(was) !== reads(next);
       telemetrySettings = next;
       if (restarting) {

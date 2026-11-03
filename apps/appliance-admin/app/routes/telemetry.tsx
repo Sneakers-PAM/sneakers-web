@@ -17,6 +17,7 @@ import {
   TableHead,
   TableHeaderCell,
   TableRow,
+  Textarea,
 } from "@sneakers-web/ui";
 import { useEffect, useState } from "react";
 
@@ -180,6 +181,31 @@ export default function Telemetry() {
             />
             Verify the certificate
           </Label>
+          <Field
+            hint={
+              form.skipVerify
+                ? "The CA isn't used while verification is off."
+                : "Optional: the CA that signed the collector's certificate, PEM, at most 64 KiB. Set, it's trusted in place of the system roots."
+            }
+            label="Collector CA"
+          >
+            <Textarea
+              {...noAutofill()}
+              onChange={(event) => update({ caPem: event.target.value })}
+              placeholder="-----BEGIN CERTIFICATE-----"
+              rows={4}
+              value={form.caPem}
+            />
+          </Field>
+          <input
+            accept=".pem,.crt,.cer"
+            aria-label="Collector CA file"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void file.text().then((caPem) => update({ caPem }));
+            }}
+            type="file"
+          />
           <Label className="flex items-center gap-3">
             <Switch checked={form.logs} onCheckedChange={(logs) => update({ logs })} />
             Export logs

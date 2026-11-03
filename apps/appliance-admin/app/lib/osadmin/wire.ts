@@ -672,6 +672,7 @@ export const getEmail = (w: Wire<GetEmailResponse>): GetEmailResponse => ({
 // ---- telemetry ----
 
 const telemetrySettings = (w: Wire<TelemetrySettings> | undefined): TelemetrySettings => ({
+  caPem: w?.caPem ?? "",
   enabled: w?.enabled ?? false,
   endpoint: w?.endpoint ?? "",
   logs: w?.logs ?? false,

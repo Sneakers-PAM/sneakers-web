@@ -874,6 +874,12 @@ export interface SendTestEmailRequest {
 
 /** Where the installed product's services export traces, metrics and logs over OTLP. */
 export interface TelemetrySettings {
+  /**
+   * The collector's CA, PEM (one or more certificates, at most 64 KiB); empty for none. Set, it's
+   * trusted in place of the system roots. Unused while `skipVerify` is on. One that doesn't parse
+   * is refused with `TELEMETRY_INVALID`.
+   */
+  caPem: string;
   /** Off stops the export and keeps the endpoint. */
   enabled: boolean;
   /** https://<host>[:<port>]. */
