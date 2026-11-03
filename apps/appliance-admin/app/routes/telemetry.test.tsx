@@ -5,6 +5,7 @@ import { StepUpDialog } from "@/components/StepUpDialog";
 import { telemetry } from "@/lib/osadmin/client";
 import { OsadminError } from "@/lib/osadmin/errors";
 import { applyMockScenario, TELEMETRY_ENDPOINT } from "@/mock/edge.mock";
+import { MOCK_INTERNAL_CA_PEM } from "@/mock/mirror.mock";
 import Telemetry, { TELEMETRY_POLL_MS } from "@/routes/telemetry";
 import { renderPage } from "@/test/renderPage";
 import { signInAs } from "@/test/session";
@@ -67,7 +68,13 @@ describe("Telemetry", () => {
     await user.click(screen.getByRole("button", { name: "Save and restart" }));
     await vi.waitFor(() => expect(set).toHaveBeenCalled());
     expect(set.mock.calls[0]?.[0]).toEqual({
-      settings: { enabled: true, endpoint: TELEMETRY_ENDPOINT, logs: true, skipVerify: false },
+      settings: {
+        caPem: "",
+        enabled: true,
+        endpoint: TELEMETRY_ENDPOINT,
+        logs: true,
+        skipVerify: false,
+      },
     });
     const restart = await screen.findByRole("region", { name: "Restart" });
     expect(within(restart).getByText("Restarting")).toBeInTheDocument();
@@ -116,6 +123,70 @@ describe("Telemetry", () => {
     expect(screen.getByText(/No logs leave while verification is off/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Save and restart" }));
     expect(await screen.findByText(/Logs are on but stay on the box/)).toBeInTheDocument();
+  });
+
+  it("saves a pasted collector CA and reads it back from the box", async () => {
+    const user = userEvent.setup();
+    const set = vi.spyOn(telemetry, "set");
+    const { unmount } = renderPage(Telemetry);
+    await turnOn(user);
+    const ca = screen.getByLabelText("Collector CA");
+    expect(ca).toHaveAttribute("autocomplete", "off");
+    await user.click(ca);
+    await user.paste(MOCK_INTERNAL_CA_PEM);
+    await user.click(screen.getByRole("button", { name: "Save and restart" }));
+    expect(await screen.findByRole("region", { name: "Restart" })).toBeInTheDocument();
+    expect(set.mock.calls[0]?.[0].settings.caPem).toBe(MOCK_INTERNAL_CA_PEM);
+    const answer = await telemetry.get();
+    expect(answer.settings.caPem).toBe(MOCK_INTERNAL_CA_PEM);
+    unmount();
+    renderPage(Telemetry);
+    expect(await screen.findByLabelText("Collector CA")).toHaveValue(MOCK_INTERNAL_CA_PEM);
+  });
+
+  it("takes the collector CA from a file", async () => {
+    const user = userEvent.setup();
+    renderPage(Telemetry);
+    await user.upload(
+      await screen.findByLabelText("Collector CA file"),
+      new File([MOCK_INTERNAL_CA_PEM], "ca.pem"),
+    );
+    expect(await screen.findByLabelText("Collector CA")).toHaveValue(MOCK_INTERNAL_CA_PEM);
+  });
+
+  it("says the collector CA isn't used while verification is off", async () => {
+    const user = userEvent.setup();
+    renderPage(Telemetry);
+    await screen.findByLabelText("Collector CA");
+    expect(screen.queryByText(/The CA isn't used while verification is off/)).toBeNull();
+    await user.click(screen.getByRole("switch", { name: "Verify the certificate" }));
+    expect(screen.getByText(/The CA isn't used while verification is off/)).toBeInTheDocument();
+  });
+
+  it("shows the box's refusal of a collector CA that doesn't parse", async () => {
+    const user = userEvent.setup();
+    renderPage(Telemetry);
+    await turnOn(user);
+    await user.type(screen.getByLabelText("Collector CA"), "not a certificate");
+    await user.click(screen.getByRole("button", { name: "Save and restart" }));
+    expect(await screen.findByText(/collector CA holds no PEM certificate/i)).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Restart" })).not.toBeInTheDocument();
+  });
+
+  it("is refused a collector CA over 64 KiB (TELEMETRY_INVALID)", async () => {
+    signInAs("alice");
+    const big = `${MOCK_INTERNAL_CA_PEM}\n`.repeat(Math.ceil(65_537 / MOCK_INTERNAL_CA_PEM.length));
+    await expect(
+      telemetry.set({
+        settings: {
+          caPem: big,
+          enabled: true,
+          endpoint: TELEMETRY_ENDPOINT,
+          logs: false,
+          skipVerify: false,
+        },
+      }),
+    ).rejects.toThrow(/TELEMETRY_INVALID/);
   });
 
   it("shows a failed restart's phase, workload and reason, and retries from there", async () => {

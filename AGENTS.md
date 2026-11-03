@@ -392,7 +392,10 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
 - **Telemetry (`app/routes/telemetry.tsx`, under the product's nav section after Email).**
   `TelemetryService` (sneakers-appliance `docs/product-telemetry.md`): `GetTelemetry.state` is
   `on`, `off`, `not in this product` (no form) or `not installed`. The form sets export on or off,
-  the `https://` endpoint, Verify the certificate (`skipVerify` inverted) and Export logs, and
+  the `https://` endpoint, Verify the certificate (`skipVerify` inverted), the Collector CA
+  (`caPem`, pasted or uploaded PEM like Email's relay CA, at most 64 KiB, trusted in place of the
+  system roots, unused while verification is off, and refused with `TELEMETRY_INVALID` when it
+  doesn't parse) and Export logs, and
   `SetTelemetry` (step-up) answers `restarting`. The Restart card shows `restart` as the box gives
   it (the running phase, done, or the phase, workload and reason it stopped at with a Retry,
   `RetryTelemetryRestart`, step-up), and the Services table each workload's state, or

@@ -69,7 +69,12 @@ them.
 The product's Telemetry page sets the OTLP collector the product's services export to
 (`TelemetryService`, sneakers-appliance `docs/product-telemetry.md`): the Export switch, the
 endpoint (`https://<host>[:<port>]`; the box refuses `http://`, a bare `host:port` and other
-schemes with `TELEMETRY_INVALID`), Verify the certificate (on by default) and Export logs. While
+schemes with `TELEMETRY_INVALID`), Verify the certificate (on by default), the Collector CA and
+Export logs. The Collector CA is for a collector signed by a private CA: pasted or uploaded as PEM
+(one or more certificates, at most 64 KiB), it's trusted in place of the system roots by the save's
+check and by every service (`TelemetrySettings.caPem`, read back from `GetTelemetry.settings`).
+One that doesn't parse is refused with `TELEMETRY_INVALID`, and while verification is off the page
+says it isn't used. While
 verification is off the page warns, as Email does, that traces and metrics go to an unchecked
 collector and that no logs leave; with logs on as well it says they stay on the box
 (`logsHeld`). Saving asks for a fresh code, and the box checks the collector first: one that
