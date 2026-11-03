@@ -132,11 +132,14 @@ Web** (the :8443 pages, no reboot) and **Product** (restarts the product), each 
 colour, its running and previous versions, what the mirror offers for it (full or patch, with the
 size), Fetch with its progress, Verify and stage, Apply and Revert. Below them the **Update
 mirror** card (the source, its status, the last check and Check now) and **Install an update**,
-upload only, for air-gapped boxes. When a check skips a newer release (still being published, or
+upload only, for air-gapped boxes. The Base OS line the box recommends (`UnitOffer.preferred`:
+the newest version's patch on the running train, its full file across trains or when the box
+lacks the memory to rebuild a patch) is picked to begin with and keeps a primary border and a
+"recommended" badge, so it still stands out once another line is picked. When a check skips a newer release (still being published, or
 its index doesn't verify) a note above the cards says which one and why
 (`CheckUpdatesResponse.publishing_note`). After a Base Web update the frame offers a reload. The mock
-states are `web-installed`, `web-staged`, `web-failed`, `web-compat`, `web-updated`, `fetching`
-and `source-builtin`.
+states are `web-installed`, `web-staged`, `web-failed`, `web-compat`, `web-updated`, `fetching`,
+`base-full-preferred` (the full file recommended) and `source-builtin`.
 
 Status and Updates show the running version in a chip in the primary colour, and a staged
 version in a quieter grey chip, next to the words "Running" and "Staged" so the colour is never

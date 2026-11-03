@@ -215,8 +215,11 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   product bundles leaves it out), with ink text on the tinted headers (AA in light and dark).
   Each card shows the running and previous versions, what's staged, what it needs of the other
   units, what the source offers for it, labelled full or patch with its size (`CheckUpdates`:
-  the page asks once when it opens and again on Check now; the line the box marks `preferred`,
-  a fitting patch, is picked to begin with), a Fetch for the picked line with the fetch's
+  the page asks once when it opens and again on Check now; the line the box marks `preferred` is
+  picked to begin with, and on the Base OS card it keeps a `primary` border and a "recommended"
+  badge (`OfferList`'s `markPreferred`): the box marks exactly one Base OS line, the newest
+  version's patch on the running train and its full file across trains or when the box lacks the
+  memory to rebuild a patch), a Fetch for the picked line with the fetch's
   progress (`GetUpgrades.fetchProgress`, asked each second while it runs: the state, the bytes
   and percentage, the speed and the time left), the file panel once the file is in (Verify and
   stage), and Apply, Cancel staged and Revert: Apply (`ApplyUpdate{target}`) on each card's
@@ -422,8 +425,8 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   built-in pages serve), `web-failed` (the installed Base Web fails its load checks, so the
   built-in pages serve and say why), `web-compat` (a held Base Web for Base OS 0.2.x, refused
   with `UPGRADE_COMPAT` and kept), `web-updated` (every answer names newer pages, so the frame
-  offers a reload), `fetching` (a Base OS fetch under way) and `source-builtin` (the built-in
-  source list),
+  offers a reload), `fetching` (a Base OS fetch under way), `base-full-preferred` (the box prefers
+  the Base OS full file, as it does across trains) and `source-builtin` (the built-in source list),
   `stepup` (the next step-up-gated call is refused once, so the
   dialog asks for a code), `locked`, `locked-until-unlocked` (bob is locked out, for 12
   minutes or until an owner unlocks him), `throttled` (this address has to wait), `first-boot` (no admin yet; the setup code is
