@@ -54,7 +54,7 @@
     "@graphql-codegen/typescript-operations": "^6.1.9",
     "@playwright/test": "^1.63.0",
     "@react-router/dev": "^7.18.4",
-    "@sneakers-pam/mock-server": "https://codeload.github.com/Sneakers-PAM/sneakers-mock-server/tar.gz/40212406bc6fe5e138ea24cfe44870a090d8ec7b",
+    "@sneakers-pam/mock-server": "https://codeload.github.com/Sneakers-PAM/sneakers-mock-server/tar.gz/c0fcfcc32c5ba2b799080cbe1d1fff242a6b47aa",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",
