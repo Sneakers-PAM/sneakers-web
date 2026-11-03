@@ -41,6 +41,20 @@ Saving asks for a fresh code and applies the product again; **Send test email** 
 through the settings on the page without saving them. A product that sends no mail gets no form.
 The mock's `email-absent` scenario shows that case.
 
+A relay with a self-signed certificate, or one signed by a CA you'd rather not paste, is trusted by
+its fingerprint. With verification on, a test the box stops because the relay's certificate isn't
+trusted (`EMAIL_UNTRUSTED`) shows, in place, the certificate the relay presented
+(`EmailCertificateRefusal`, in the kit's `FingerprintCheck`): its subject, alternative names,
+issuer, validity dates, SHA-256 and the relay's address, to compare with a fingerprint got from the
+relay's admin. **Trust this certificate** asks for a fresh code and calls `PinEmailCertificate`:
+the box connects again, checks the relay presents that certificate, and answers the form's
+settings with `pinSha256` set and verification on. Nothing is saved until **Save and apply**; the
+form shows the pinned fingerprint, and **Remove the pin** then saving goes back to the relay CA and
+the system roots. A relay whose certificate changed (`EMAIL_PIN_MISMATCH`) shows the pinned and the
+offered fingerprints side by side, and pinning the new one needs the relay host typed first; the
+page sends the old fingerprint again as `replacesSha256`. The mock's `email-untrusted` and
+`email-pin-mismatch` scenarios show both (the relay `mail.internal.example.org`).
+
 No field on the page is filled in by the browser or a password manager: each one carries
 `autocomplete="off"` (`new-password` on the password) and the 1Password, LastPass and Bitwarden
 ignore attributes (`app/lib/noAutofill.ts`), so the admin's own sign-in never lands in the relay's

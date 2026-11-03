@@ -837,14 +837,61 @@ export type EmailTls =
 
 /** The product's mail relay, without its password, which the box never sends back. */
 export interface EmailSettings {
+  /** The relay's CA; read only while verification is on, and a pin takes its place. */
   caPem: string;
   from: string;
   /** Empty for no relay: the product sends no mail. */
   host: string;
+  /**
+   * The relay's certificate pinned by its SHA-256 fingerprint, colon hex in capitals; empty for
+   * no pin. With verification on, the relay must present exactly this certificate, within its
+   * dates, in place of a chain to the system roots or `caPem`.
+   */
+  pinSha256: string;
   port: number;
   tls: EmailTls;
   username: string;
   verify: boolean;
+}
+
+/** The certificate a relay presented. */
+export interface RelayCertificate {
+  dnsNames: string[];
+  ipAddresses: string[];
+  issuer: string;
+  notAfter: string;
+  notBefore: string;
+  /** Colon hex in capitals. */
+  sha256: string;
+  subject: string;
+}
+
+/**
+ * The detail of `EMAIL_UNTRUSTED` and `EMAIL_PIN_MISMATCH`: the certificate the relay presented,
+ * to check against one got another way and pin with `PinEmailCertificate`.
+ */
+export interface EmailCertificateRefusal {
+  certificate: RelayCertificate;
+  /** `EMAIL_PIN_MISMATCH`: the relay presented another certificate than the pinned one. */
+  mismatch: boolean;
+  /** The pin the certificate was held to (the old fingerprint on a mismatch); empty for none. */
+  pinnedSha256: string;
+  reason: string;
+}
+
+export interface PinEmailCertificateRequest {
+  /** The pin the settings hold now, given again to replace it; needed only to replace one. */
+  replacesSha256?: string;
+  /** The form's settings; absent for the saved ones. */
+  settings?: EmailSettings;
+  /** The fingerprint to pin, as the refusal gave it. */
+  sha256: string;
+}
+
+/** The settings given with `pinSha256` set and verification on; nothing is saved. */
+export interface PinEmailCertificateResponse {
+  certificate: RelayCertificate;
+  settings: EmailSettings;
 }
 
 export interface GetEmailResponse {

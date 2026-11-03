@@ -17,6 +17,7 @@ import type {
   ProductVersion,
   Quorum,
   RecoveryKey,
+  RelayCertificate,
   RevokedKey,
   Session,
   UpgradeEvent,
@@ -528,3 +529,34 @@ export const UPGRADE_HISTORY: UpgradeEvent[] = [
     version: "0.1.0-lab.3",
   },
 ];
+
+/** The mail relay the email-untrusted and email-pin-mismatch scenarios point at. */
+export const MOCK_RELAY_HOST = "mail.internal.example.org";
+
+/** The self-signed certificate that relay presents. */
+export const MOCK_RELAY_CERT: RelayCertificate = {
+  dnsNames: [MOCK_RELAY_HOST],
+  ipAddresses: ["192.0.2.25"],
+  issuer: `CN=${MOCK_RELAY_HOST}`,
+  notAfter: "2027-06-30T00:00:00Z",
+  notBefore: "2026-07-01T00:00:00Z",
+  sha256:
+    "64:BF:E2:AF:91:9D:87:0B:91:73:52:D4:69:B9:F3:2E:E5:EC:21:04:0F:E8:43:17:BE:7F:AC:BB:E0:53:55:36",
+  subject: `CN=${MOCK_RELAY_HOST}`,
+};
+
+/** The fingerprint email-pin-mismatch's settings were pinned to before the relay's changed. */
+export const MOCK_RELAY_OLD_SHA256 =
+  "9D:54:75:58:F5:9E:7D:C9:F1:6D:FF:73:C0:22:CB:74:70:03:0F:E8:42:65:4E:1F:30:F3:81:D7:85:F1:DE:07";
+
+/** The certificate any other relay presents: one the system roots trust. */
+export const MOCK_PUBLIC_RELAY_CERT: RelayCertificate = {
+  dnsNames: ["relay.example.org"],
+  ipAddresses: [],
+  issuer: "CN=Example Public CA",
+  notAfter: "2027-06-30T00:00:00Z",
+  notBefore: "2026-07-01T00:00:00Z",
+  sha256:
+    "3C:1A:0F:72:5E:9B:44:D8:21:6C:A0:BF:13:7E:59:C2:88:04:DA:6F:31:B5:E7:90:4A:2D:C6:18:F3:5B:0E:A7",
+  subject: "CN=relay.example.org",
+};

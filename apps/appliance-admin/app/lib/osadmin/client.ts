@@ -23,6 +23,8 @@ import type {
   GetBackupsResponse,
   GetCertificateStoreResponse,
   GetEmailResponse,
+  PinEmailCertificateRequest,
+  PinEmailCertificateResponse,
   GetExposedValueResponse,
   GetImportResponse,
   GetMcpResponse,
@@ -374,6 +376,17 @@ export const mcp = {
 
 export const email = {
   get: () => call<GetEmailResponse>("EmailService", "GetEmail", {}, wire.getEmail),
+  /**
+   * Checks the relay presents the certificate with `sha256` now and answers the settings pinned
+   * to it, with verification on. Nothing is saved; `set` saves the pin with the rest.
+   */
+  pin: (request: PinEmailCertificateRequest) =>
+    call<PinEmailCertificateResponse>(
+      "EmailService",
+      "PinEmailCertificate",
+      request,
+      wire.pinEmailCertificate,
+    ),
   set: (request: SetEmailRequest) =>
     call<Record<string, never>>("EmailService", "SetEmail", request),
   test: (request: SendTestEmailRequest) =>
