@@ -35,6 +35,7 @@ describe("CopyDiagnostics", () => {
     writeText = vi.fn(async () => {});
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(data, { status: 200 })));
+    // oxlint-disable-next-line unicorn/no-document-cookie -- the test seeds the cookie the diagnostics must not leak
     document.cookie = "mock_sneakers_sid=SID-SECRET";
   });
   afterEach(() => vi.unstubAllGlobals());

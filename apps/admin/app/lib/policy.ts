@@ -86,8 +86,8 @@ export const examplePassword = (r: PolicyRules, rand: () => number = random): nu
   ];
   while (chars.length < length) chars.push(pick(any, rand));
   for (let index = chars.length - 1; index > 0; index--) {
-    const j = Math.floor(rand() * (index + 1));
-    [chars[index], chars[j]] = [chars[j] as string, chars[index] as string];
+    const index_ = Math.floor(rand() * (index + 1));
+    [chars[index], chars[index_]] = [chars[index_] as string, chars[index] as string];
   }
   const start = { any: "", digit: p.digit, letter: p.lower + p.upper, symbol: p.symbol }[
     r.startClass

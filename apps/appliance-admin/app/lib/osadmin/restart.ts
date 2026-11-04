@@ -38,5 +38,5 @@ export const boxAnswer = async (
  * the page going dead.
  */
 export const goToSignIn = (): void => {
-  window.location.assign("/");
+  globalThis.location.assign("/");
 };

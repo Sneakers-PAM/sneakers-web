@@ -14,18 +14,18 @@ interface ActionOptions<T> {
 }
 
 const attempt = async <T>(
-  fn: () => Promise<T>,
+  function_: () => Promise<T>,
   options: ActionOptions<T> | undefined,
   steppedUp: boolean,
 ): Promise<StepUpFollowUp | undefined> => {
   try {
-    const result = await fn();
+    const result = await function_();
     options?.onSuccess?.(result);
     if (options?.successMessage) toast(options.successMessage);
     return steppedUp ? options?.afterStepUp?.(result) : undefined;
   } catch (error) {
     if (isStepUpRequired(error)) {
-      requestStepUp(() => attempt(fn, options, true));
+      requestStepUp(() => attempt(function_, options, true));
       return;
     }
     if (isNotAvailable(error)) {
@@ -42,8 +42,8 @@ const attempt = async <T>(
  * approved, and an unimplemented backend says plainly that the page isn't available yet.
  */
 export const runAction = async <T>(
-  fn: () => Promise<T>,
+  function_: () => Promise<T>,
   options?: ActionOptions<T>,
 ): Promise<void> => {
-  await attempt(fn, options, false);
+  await attempt(function_, options, false);
 };

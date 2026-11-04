@@ -2510,7 +2510,10 @@ const MOCK_SCENARIOS = [
 ] as const;
 
 export type MockScenario =
-  (typeof MOCK_SCENARIOS)[number] | CertificateScenario | MirrorScenario | units.UnitScenario;
+  | (typeof MOCK_SCENARIOS)[number]
+  | CertificateScenario
+  | MirrorScenario
+  | units.UnitScenario;
 
 /** A fresh box: no admin, no recovery key, setup not started. */
 const firstBoot = () => {

@@ -6,14 +6,14 @@ import {
   parseOsadminError,
   plainMessage,
   reasonOf,
-  validationChecksOf,
   refusalOf,
+  validationChecksOf,
 } from "@/lib/osadmin/errors";
 
 describe("parseOsadminError", () => {
   it("reads the Connect code and message from a JSON error body", async () => {
-    const response = new Response(
-      JSON.stringify({ code: "unimplemented", message: "not built yet" }),
+    const response = Response.json(
+      { code: "unimplemented", message: "not built yet" },
       {
         status: 501,
       },
@@ -24,11 +24,11 @@ describe("parseOsadminError", () => {
   });
 
   it("pulls the go-apperr symbol out of the message", async () => {
-    const response = new Response(
-      JSON.stringify({
+    const response = Response.json(
+      {
         code: "permission_denied",
         message: "ACCESS_STEPUP_REQUIRED: sign in again",
-      }),
+      },
       { status: 403 },
     );
     const error = await parseOsadminError(response);
@@ -75,8 +75,8 @@ describe("isStepUpRequired", () => {
 
 describe("a refused certificate", () => {
   it("reads the ValidationReport detail and the reason after the symbol", async () => {
-    const response = new Response(
-      JSON.stringify({
+    const response = Response.json(
+      {
         code: "failed_precondition",
         details: [
           {
@@ -86,7 +86,7 @@ describe("a refused certificate", () => {
           },
         ],
         message: "TLS_NAMES (3806): the certificate covers www.example.org only",
-      }),
+      },
       { status: 400 },
     );
     const error = await parseOsadminError(response);
@@ -106,8 +106,8 @@ describe("refusalOf", () => {
   const REFUSAL = "sneakers.appliance.osadmin.v1.SignInRefusal";
   const refused = (details: unknown[]) =>
     parseOsadminError(
-      new Response(
-        JSON.stringify({ code: "unauthenticated", details, message: "SIGNIN_REFUSED" }),
+      Response.json(
+        { code: "unauthenticated", details, message: "SIGNIN_REFUSED" },
         {
           status: 401,
         },
@@ -147,9 +147,12 @@ describe("emailCertificateRefusalOf", () => {
   const DETAIL = "sneakers.appliance.osadmin.v1.EmailCertificateRefusal";
   const refused = (message: string, details: unknown[]) =>
     parseOsadminError(
-      new Response(JSON.stringify({ code: "failed_precondition", details, message }), {
-        status: 400,
-      }),
+      Response.json(
+        { code: "failed_precondition", details, message },
+        {
+          status: 400,
+        },
+      ),
     );
 
   it("reads the certificate, the pin and the reason from the detail's JSON debug form", async () => {

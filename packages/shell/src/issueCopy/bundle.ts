@@ -72,6 +72,7 @@ export const buildIssueCopyBundle = (input: IssueCopyInput): IssueCopyBundle => 
   // eslint-disable-next-line perfectionist/sort-objects -- the schema v1 wire order (v, then product) is a fixed external contract, not a style choice.
   const bundle = { v: 1, product: "sneakers" } as IssueCopyBundle;
   // Bracket form only here, so a leak scanner's gTLD heuristic ("app" is a real TLD) can't read this as a host name.
+  // oxlint-disable-next-line unicorn/no-immediate-mutation -- the bracket form is deliberate, see above
   bundle["app"] = scrub(appName);
   bundle.sha = scrub(commitSha);
   const route = text(input.route);

@@ -28,7 +28,7 @@ describe("useReadyMarker", () => {
       { children: [{ Component: Page, path: "/status" }], Component: Root, path: "/" },
     ]);
     render(<Stub initialEntries={["/status"]} />);
-    await act(async () => {});
+    await act(() => Promise.resolve());
     expect(ready()).toBeUndefined();
 
     await act(async () => answer());
@@ -46,7 +46,7 @@ describe("useReadyMarker", () => {
       { children: [{ Component: Page, path: "/logs" }], Component: Root, path: "/" },
     ]);
     render(<Stub initialEntries={["/logs"]} />);
-    await act(async () => {});
+    await act(() => Promise.resolve());
     expect(ready()).toBe("/logs");
   });
 });

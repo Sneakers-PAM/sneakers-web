@@ -5,8 +5,6 @@
 // (0.1.0-lab.sneakers.6), a release candidate (0.1.0-rc.1) and a stable release (0.1.0).
 // Nothing here knows what a box is; it just reads a string.
 
-export type VersionChannel = "lab" | "rc" | "stable";
-
 export interface ParsedVersion {
   /** The build's own label: a lab build's letter (plus a number for a rebuild), an RC's
    * number as "rc1", or undefined for a stable release, which has no build beyond its line. */
@@ -24,6 +22,8 @@ export interface ParsedVersion {
   raw: string;
 }
 
+export type VersionChannel = "lab" | "rc" | "stable";
+
 const CORE = /^\d+\.\d+\.\d+/;
 const LAB_CHANNEL = /-lab\b/;
 const RC = /-rc\.(\d+)\b/;
@@ -39,7 +39,7 @@ const LAB_LABEL = /-lab\.([a-zA-Z][\w.]*)/;
  * A version's parts, or null when it doesn't even start with a semver core -- a caller falls
  * back to the raw string then, rather than guessing at a shape that isn't a version at all.
  */
-export const parseVersion = (version: string): ParsedVersion | null => {
+export const parseVersion = (version: string): null | ParsedVersion => {
   const core = CORE.exec(version)?.[0];
   if (!core) return null;
   const channel: VersionChannel = LAB_CHANNEL.test(version)
@@ -56,8 +56,10 @@ export const parseVersion = (version: string): ParsedVersion | null => {
   const dated = DATED_BUILD.exec(version)?.[1];
   const rc = RC.exec(version)?.[1];
   const build =
-    dated ?? (channel === "lab" ? LAB_LABEL.exec(version)?.[1] : undefined) ?? (rc ? `rc${rc}` : undefined);
-  return { build, channel, commit, builtAt, line, raw: version };
+    dated ??
+    (channel === "lab" ? LAB_LABEL.exec(version)?.[1] : undefined) ??
+    (rc ? `rc${rc}` : undefined);
+  return { build, builtAt, channel, commit, line, raw: version };
 };
 
 /**
@@ -67,5 +69,5 @@ export const parseVersion = (version: string): ParsedVersion | null => {
  */
 export const shortName = (version: string): string => {
   const parsed = parseVersion(version);
-  return parsed ? parsed.build ?? parsed.line : version;
+  return parsed ? (parsed.build ?? parsed.line) : version;
 };

@@ -1,6 +1,7 @@
+import type { GetStatusResponse } from "@/lib/osadmin/types";
+
 import { buildApplianceReport, buildApplianceReportText } from "@/lib/diagnostics/report";
 import { OsadminError } from "@/lib/osadmin/errors";
-import type { GetStatusResponse } from "@/lib/osadmin/types";
 
 const status: GetStatusResponse = {
   channel: "stable",
@@ -14,9 +15,9 @@ const status: GetStatusResponse = {
   managementAddresses: ["192.0.2.10"],
   ntpSynced: true,
   phase: "normal",
-  protection: "PROTECTION_FULL",
   previousSlot: "",
   previousVersion: "",
+  protection: "PROTECTION_FULL",
   protectionReason: "",
   runningVersion: "0.1.0",
   stagedVersion: "0.2.0",
@@ -111,7 +112,7 @@ describe("buildApplianceReport", () => {
     expect(text).toContain(
       "Box: couldn't be read (unavailable: the appliance services are unavailable; try again shortly)",
     );
-    expect(JSON.parse(text.split("```json\n")[1]!.split("\n```")[0]!)).toEqual(report);
+    expect(JSON.parse(text.split("```json\n", 2)[1]!.split("\n```", 1)[0]!)).toEqual(report);
   });
 
   it("names an error that isn't the box's as unknown, with its message", () => {
@@ -136,7 +137,7 @@ describe("buildApplianceReport", () => {
   });
 
   it("is an empty list when the box leaves health out of the reply", () => {
-    const { health, ...rest } = status;
+    const { health: _health, ...rest } = status;
     const report = buildApplianceReport({ admin: null, status: rest as GetStatusResponse });
     expect(report.health).toEqual([]);
   });
@@ -155,7 +156,7 @@ describe("buildApplianceReportText", () => {
     expect(text).toContain("netd: ok");
     expect(text).toContain("backupd: disk full");
     expect(text.toLowerCase()).not.toContain("gateway");
-    expect(JSON.parse(text.split("```json\n")[1]!.split("\n```")[0]!)).toEqual(report);
+    expect(JSON.parse(text.split("```json\n", 2)[1]!.split("\n```", 1)[0]!)).toEqual(report);
   });
 
   it("adds the page, the problem, the time and the browser for a problem screen", () => {
@@ -175,6 +176,6 @@ describe("buildApplianceReportText", () => {
     expect(text).toContain("Page: /access");
     expect(text).toContain("Problem: Page crashed: TypeError");
     expect(text).toContain("Browser: ExampleBrowser/1.0");
-    expect(JSON.parse(text.split("```json\n")[1]!.split("\n```")[0]!)).toEqual(report);
+    expect(JSON.parse(text.split("```json\n", 2)[1]!.split("\n```", 1)[0]!)).toEqual(report);
   });
 });

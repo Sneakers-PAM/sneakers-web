@@ -24,7 +24,8 @@ export interface MfaPosture {
 }
 
 export type ResetResult =
-  { ok: false; reason: "invalid_code" | "unavailable" | "weak_password" } | { ok: true };
+  | { ok: false; reason: "invalid_code" | "unavailable" | "weak_password" }
+  | { ok: true };
 
 export type SecondFactor = "email" | "passkey" | "totp";
 

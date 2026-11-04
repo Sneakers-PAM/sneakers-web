@@ -21,7 +21,7 @@ export const folderActions = (folders: NavFolder[], folder: NavFolder): FolderAc
     { action: "rename", label: "Rename…" },
     !root && { action: "move", label: "Move…" },
     at > 0 && { action: "up", label: "Move up" },
-    at >= 0 && at < siblings.length - 1 && { action: "down", label: "Move down" },
+    at !== -1 && at < siblings.length - 1 && { action: "down", label: "Move down" },
     { action: "sharing", label: "Manage access", split: true },
     !root && { action: "delete", label: "Delete…", split: true, tone: "danger" },
   ];

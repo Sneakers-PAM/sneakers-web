@@ -1,0 +1,107 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "extends": [
+    "./node_modules/@bugs5382/node-oxlint-config/configs/base.json",
+    "./node_modules/@bugs5382/node-oxlint-config/configs/a11y.json",
+    "./node_modules/@bugs5382/node-oxlint-config/configs/testing.json"
+  ],
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/dist-mock/**",
+    "**/build/**",
+    "**/build-mock/**",
+    "**/.react-router/**",
+    "**/coverage/**",
+    "**/src/generated/**",
+    ".schemas/**",
+    "playwright-report/**",
+    "test-results/**"
+  ],
+  "settings": {
+    "react": {
+      "version": "19.3"
+    }
+  },
+  "overrides": [
+    {
+      "files": ["**/*"],
+      "rules": {
+        "perfectionist/sort-interfaces": "off",
+        "unicorn/consistent-function-scoping": "off",
+        "unicorn/number-literal-case": "off"
+      }
+    },
+    {
+      "files": ["**/*.{ts,tsx}"],
+      "rules": {
+        "react/rules-of-hooks": "error",
+        "react/exhaustive-deps": "warn",
+        "react/only-export-components": "off"
+      }
+    },
+    {
+      "files": ["e2e/**/*.ts"],
+      "rules": {
+        "testing-library/await-async-events": "off",
+        "testing-library/await-async-queries": "off",
+        "testing-library/await-async-utils": "off",
+        "testing-library/no-await-sync-events": "off",
+        "testing-library/no-await-sync-queries": "off",
+        "testing-library/no-container": "off",
+        "testing-library/no-debugging-utils": "off",
+        "testing-library/no-dom-import": "off",
+        "testing-library/no-global-regexp-flag-in-query": "off",
+        "testing-library/no-manual-cleanup": "off",
+        "testing-library/no-node-access": "off",
+        "testing-library/no-promise-in-fire-event": "off",
+        "testing-library/no-render-in-lifecycle": "off",
+        "testing-library/no-unnecessary-act": "off",
+        "testing-library/no-wait-for-multiple-assertions": "off",
+        "testing-library/no-wait-for-side-effects": "off",
+        "testing-library/no-wait-for-snapshot": "off",
+        "testing-library/prefer-find-by": "off",
+        "testing-library/prefer-presence-queries": "off",
+        "testing-library/prefer-query-by-disappearance": "off",
+        "testing-library/prefer-screen-queries": "off",
+        "testing-library/render-result-naming-convention": "off"
+      }
+    },
+    {
+      "files": [
+        "apps/*/app/routes/**/*.{ts,tsx}",
+        "apps/*/app/{root,routes,entry.server}.{ts,tsx}",
+        "packages/api-client/codegen.ts"
+      ],
+      "rules": {
+        "import/no-default-export": "off"
+      }
+    }
+  ],
+  "rules": {
+    "unicorn/filename-case": [
+      "error",
+      {
+        "cases": {
+          "camelCase": true,
+          "kebabCase": true,
+          "pascalCase": true
+        }
+      }
+    ],
+    "unicorn/no-nested-ternary": "off",
+    "unicorn/no-null": "off",
+    "unicorn-js/prevent-abbreviations": [
+      "error",
+      {
+        "allowList": {
+          "env": true,
+          "ImportMetaEnv": true,
+          "Props": true,
+          "props": true,
+          "ref": true,
+          "Ref": true
+        }
+      }
+    ]
+  }
+}

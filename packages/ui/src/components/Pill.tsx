@@ -34,7 +34,12 @@ export const pillVariants = cva(
 );
 
 export type HeartbeatStatus =
-  "drift" | "none" | "unknown" | "unreachable" | "untrusted" | "verified";
+  | "drift"
+  | "none"
+  | "unknown"
+  | "unreachable"
+  | "untrusted"
+  | "verified";
 
 export interface PillProps extends VariantProps<typeof pillVariants> {
   children: ReactNode;
