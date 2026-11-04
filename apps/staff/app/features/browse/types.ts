@@ -12,7 +12,8 @@ export interface BrowseData {
 }
 
 export type BrowseResult =
-  { done: string; intent: string; ok: true } | { intent: string; ok: false; refusal: Refusal };
+  | { done: string; intent: string; ok: true }
+  | { intent: string; ok: false; refusal: Refusal };
 
 export type BrowseSecret = BrowseSecretsQuery["secretsInFolder"][number];
 

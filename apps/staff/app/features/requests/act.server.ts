@@ -6,7 +6,8 @@ const log = createLogger("requests");
 
 /** What a requests or checkouts action answers: done (with a note for the toast), or the refusal. */
 export type ActResult =
-  { done: string; intent: string; ok: true } | { intent: string; ok: false; refusal: Refusal };
+  | { done: string; intent: string; ok: true }
+  | { intent: string; ok: false; refusal: Refusal };
 
 /**
  * Run one form intent as the signed-in user. A gateway refusal comes back as data, so the

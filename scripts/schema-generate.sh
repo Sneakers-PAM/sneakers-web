@@ -32,4 +32,4 @@ cd "$root/packages/api-client"
 npx graphql-codegen --config codegen.ts
 # Only the typed documents are used; the preset's string-lookup helper is dropped.
 rm -f src/generated/gql.ts src/generated/index.ts
-npx prettier --write --log-level warn src/generated
+npx oxfmt src/generated

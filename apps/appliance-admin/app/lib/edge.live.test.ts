@@ -147,7 +147,7 @@ describe("live edge request when the box can't be reached", () => {
   it("says the appliance can't be reached instead of the browser's network error", async () => {
     const error: unknown = await edge
       .request("NetworkService", "ConfirmNetwork", {})
-      .catch((e: unknown) => e);
+      .catch((error_: unknown) => error_);
     expect(error).toBeInstanceOf(OsadminError);
     expect((error as OsadminError).code).toBe("unavailable");
     expect((error as OsadminError).message).toBe("The appliance can't be reached at this address.");
@@ -187,12 +187,14 @@ describe("the support bundle", () => {
 
   it("names the file itself when the box doesn't", async () => {
     answer("the bundle", { headers: { "Content-Type": "application/zip" }, status: 200 });
-    expect((await edge.exportSupportBundle()).fileName).toBe("support-bundle.zip");
+    const bundle = await edge.exportSupportBundle();
+    expect(bundle.fileName).toBe("support-bundle.zip");
   });
 
   it("doesn't call an older box's text a zip when it names no file", async () => {
     answer("the bundle", { headers: { "Content-Type": "text/plain" }, status: 200 });
-    expect((await edge.exportSupportBundle()).fileName).toBe("support-bundle.txt");
+    const bundle = await edge.exportSupportBundle();
+    expect(bundle.fileName).toBe("support-bundle.txt");
   });
 
   it("reads a 404 as an older box", async () => {

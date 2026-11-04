@@ -853,7 +853,7 @@ WebSocket from the browser.
   gateway's `appliance` field (`ApplianceStatusDocument`) alongside the unread count. A query
   failure (an older gateway, a blip) falls back to both banners off, the same as a plain install.
 - The maintenance banner shows while `appliance.maintenance` is true, with `appliance.
-maintenanceReason` when the appliance gave one. The MCP notice shows when `appliance.mcp` is
+  maintenanceReason` when the appliance gave one. The MCP notice shows when `appliance.mcp` is
   `"off"` (it's also `"on"` or `"degraded"`; only off has copy today).
 - The mock gateway answers with `mockAppliance.current` (its `handlers/graphql.ts`, re-exported from
   `@sneakers-pam/mock-server/in-process`), which resets to a plain install

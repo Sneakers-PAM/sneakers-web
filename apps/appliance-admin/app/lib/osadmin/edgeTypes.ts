@@ -8,18 +8,6 @@ export interface UploadOptions {
 /** What an upload the page cancelled rejects with. */
 export const UPLOAD_CANCELLED = "UPLOAD_CANCELLED: the upload was cancelled";
 
-export interface QuickLoginUser {
-  id: string;
-  label: string;
-  note: string;
-}
-
-/** A support bundle as the box wrote it. */
-export interface SupportBundle {
-  blob: Blob;
-  fileName: string;
-}
-
 /**
  * The network edge an app build talks to: the live osadmin Connect API, or the in-memory
  * mock transport for local work and tests. Chosen once, by the Vite alias, at build time.
@@ -47,4 +35,16 @@ export interface Edge {
     onProgress?: (fraction: number) => void,
     options?: UploadOptions,
   ): Promise<{ uploadId: string }>;
+}
+
+export interface QuickLoginUser {
+  id: string;
+  label: string;
+  note: string;
+}
+
+/** A support bundle as the box wrote it. */
+export interface SupportBundle {
+  blob: Blob;
+  fileName: string;
 }

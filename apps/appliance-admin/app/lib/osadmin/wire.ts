@@ -5,17 +5,6 @@
 // guard a list or a string. `Wire<T>` is the answer as sent, with every field optional at every
 // depth; returning `T` from it makes the compiler name any required field left without a default.
 import type {
-  CommitNetworkResponse,
-  EmailSettings,
-  GetEmailResponse,
-  PinEmailCertificateResponse,
-  RelayCertificate,
-  GetTelemetryResponse,
-  SetTelemetryResponse,
-  TelemetrySettings,
-  TelemetryWorkload,
-  GetImportResponse,
-  ImportRun,
   AccessPolicy,
   AcmeState,
   ActiveSession,
@@ -27,31 +16,36 @@ import type {
   BackupSet,
   BaseWebStatus,
   CertEndpoint,
-  CheckUpdatesResponse,
   CheckPasswordResponse,
+  CheckUpdatesResponse,
+  CommitNetworkResponse,
   Component,
   DataPath,
   Disk,
   DiskCleanup,
   DiskCleanupCategory,
   Elevation,
+  EmailSettings,
   ExposedValue,
   FactoryReset,
   FetchProgress,
   GenerateRecoveryKeyResponse,
   GetBackupsResponse,
   GetCertificateStoreResponse,
+  GetEmailResponse,
   GetExposedValueResponse,
+  GetImportResponse,
   GetMcpResponse,
   GetNetworkResponse,
   GetPhaseResponse,
   GetPowerResponse,
   GetSetupResponse,
   GetStatusResponse,
+  GetTelemetryResponse,
   GetUpgradesResponse,
-  MirrorStatus,
   HeldUpload,
   HostKey,
+  ImportRun,
   Invitation,
   IssueRootShellCodeResponse,
   IssueSshKeyResponse,
@@ -63,36 +57,42 @@ import type {
   ListModulesResponse,
   ListProductVersionsResponse,
   ListSessionsResponse,
+  MirrorStatus,
   NetdCheck,
   NetdSettings,
   NetworkChange,
   PendingCsr,
+  PinEmailCertificateResponse,
   ProductSlots,
   ProductVersion,
   ProtectionNotice,
   Quorum,
   RecoveryKey,
   RedeemCodeResponse,
+  RelayCertificate,
   RevokedKey,
   RunChecksResponse,
   Session,
+  SetTelemetryResponse,
+  SetupStep,
   StagedReview,
   StageNetworkResponse,
-  SetupStep,
   StoredCertificate,
+  TelemetrySettings,
+  TelemetryWorkload,
+  TlsChange,
   TotpEnrolment,
+  TrustedCa,
   UnitOffer,
   UpdatePackage,
+  UpdateTrust,
   UpgradeEvent,
   UpgradePolicy,
   UpgradeProgress,
   UpgradeStep,
   ValidationCheck,
   Volume,
-  TlsChange,
   Warning,
-  TrustedCa,
-  UpdateTrust,
 } from "@/lib/osadmin/types";
 
 export type Wire<T> = T extends readonly (infer U)[]
@@ -396,12 +396,12 @@ const accessPolicy = (w: Wire<AccessPolicy>): AccessPolicy => ({
 export const listAdmins = (w: Wire<ListAdminsResponse>): ListAdminsResponse => ({
   accessPolicy: optional(w.accessPolicy, accessPolicy),
   admins: list(w.admins, admin),
+  hostCa: optional(w.hostCa, hostKey),
   hostKeys: list(w.hostKeys, hostKey),
+  knownHosts: w.knownHosts ?? "",
   quorum: optional(w.quorum, quorum),
   revokedKeys: list(w.revokedKeys, revokedKey),
   rootKey: optional(w.rootKey, hostKey),
-  hostCa: optional(w.hostCa, hostKey),
-  knownHosts: w.knownHosts ?? "",
   userCaPublicKey: w.userCaPublicKey ?? "",
 });
 
@@ -427,6 +427,8 @@ export const issueSshKey = (w: Wire<IssueSshKeyResponse>): IssueSshKeyResponse =
   certificateFileName: w.certificateFileName ?? "",
   fileName: w.fileName ?? "",
   key: key(w.key ?? {}),
+  knownHosts: w.knownHosts ?? "",
+  knownHostsFileName: w.knownHostsFileName ?? "",
   pem: w.pem ?? "",
   pemFileName: w.pemFileName ?? "",
   ppk: w.ppk ?? "",
@@ -435,8 +437,6 @@ export const issueSshKey = (w: Wire<IssueSshKeyResponse>): IssueSshKeyResponse =
   publicKey: w.publicKey ?? "",
   publicKeyFileName: w.publicKeyFileName ?? "",
   sshCommand: w.sshCommand ?? "",
-  knownHosts: w.knownHosts ?? "",
-  knownHostsFileName: w.knownHostsFileName ?? "",
   userCaPublicKey: w.userCaPublicKey ?? "",
 });
 
@@ -493,8 +493,8 @@ export const getNetwork = (w: Wire<GetNetworkResponse>): GetNetworkResponse => (
   learntNtp: texts(w.learntNtp),
   learntSearch: texts(w.learntSearch),
   managementAddresses: texts(w.managementAddresses),
-  ntpServers: texts(w.ntpServers),
   ntpOffsetMs: w.ntpOffsetMs ?? "",
+  ntpServers: texts(w.ntpServers),
   ntpSynced: w.ntpSynced ?? false,
   pending: w.pending ?? false,
   ...(w.pendingChangeId ? { pendingChangeId: w.pendingChangeId } : {}),
@@ -654,7 +654,7 @@ export const getMcp = (w: Wire<GetMcpResponse>): GetMcpResponse => ({
 
 // ---- email ----
 
-const emailSettings = (w: Wire<EmailSettings> | undefined): EmailSettings => ({
+const emailSettings = (w: undefined | Wire<EmailSettings>): EmailSettings => ({
   caPem: w?.caPem ?? "",
   from: w?.from ?? "",
   host: w?.host ?? "",
@@ -665,7 +665,7 @@ const emailSettings = (w: Wire<EmailSettings> | undefined): EmailSettings => ({
   verify: w?.verify ?? false,
 });
 
-export const relayCertificate = (w: Wire<RelayCertificate> | undefined): RelayCertificate => ({
+export const relayCertificate = (w: undefined | Wire<RelayCertificate>): RelayCertificate => ({
   dnsNames: list(w?.dnsNames, String),
   ipAddresses: list(w?.ipAddresses, String),
   issuer: w?.issuer ?? "",
@@ -692,7 +692,7 @@ export const getEmail = (w: Wire<GetEmailResponse>): GetEmailResponse => ({
 
 // ---- telemetry ----
 
-const telemetrySettings = (w: Wire<TelemetrySettings> | undefined): TelemetrySettings => ({
+const telemetrySettings = (w: undefined | Wire<TelemetrySettings>): TelemetrySettings => ({
   caPem: w?.caPem ?? "",
   enabled: w?.enabled ?? false,
   endpoint: w?.endpoint ?? "",
@@ -909,6 +909,7 @@ const upgradeEvent = (w: Wire<UpgradeEvent>): UpgradeEvent => ({
 
 const mirrorStatus = (w: Wire<MirrorStatus>): MirrorStatus => ({
   ...w,
+  builtinUrls: texts(w.builtinUrls),
   checked: w.checked ?? false,
   code: w.code ?? "",
   customCa: w.customCa ?? false,
@@ -917,18 +918,17 @@ const mirrorStatus = (w: Wire<MirrorStatus>): MirrorStatus => ({
   ok: w.ok ?? false,
   pinMatched: w.pinMatched ?? false,
   pinned: w.pinned ?? false,
-  scheme: w.scheme ?? "",
-  builtinUrls: texts(w.builtinUrls),
-  source: w.source ?? "",
-  url: w.url ?? "",
   releaseChannel: w.releaseChannel ?? "",
   releaseChannelDefault: w.releaseChannelDefault ?? false,
   releaseRepo: w.releaseRepo ?? "",
-  releaseTag: w.releaseTag ?? "",
   releaseRepoOverrideAllowed: w.releaseRepoOverrideAllowed ?? false,
+  releaseTag: w.releaseTag ?? "",
+  scheme: w.scheme ?? "",
   serverIssuer: w.serverIssuer ?? "",
   serverSha256: w.serverSha256 ?? "",
   serverSubject: w.serverSubject ?? "",
+  source: w.source ?? "",
+  url: w.url ?? "",
 });
 
 const upgradeStep = (w: Wire<UpgradeStep>): UpgradeStep => ({
@@ -966,9 +966,9 @@ export const getUpgrades = (w: Wire<GetUpgradesResponse>): GetUpgradesResponse =
   baseWeb: optional(w.baseWeb, baseWebStatus),
   failedVersion: w.failedVersion ?? "",
   fetchProgress: optional(w.fetchProgress, fetchProgress),
-  lastCheck: optional(w.lastCheck, checkUpdates),
   heldUpload: optional(w.heldUpload, heldUpload),
   history: list(w.history, upgradeEvent),
+  lastCheck: optional(w.lastCheck, checkUpdates),
   mirrorStatus: optional(w.mirrorStatus, mirrorStatus),
   nextStageRemoves: texts(w.nextStageRemoves),
   policy: optional(w.policy, upgradePolicy),

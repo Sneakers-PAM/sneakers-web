@@ -5,21 +5,14 @@ import type { Component, GetStatusResponse, Role } from "@/lib/osadmin/types";
 import { OsadminError } from "@/lib/osadmin/errors";
 
 export interface ApplianceDiagnosticsReport {
-  admin: null | { name: string; role: string };
+  admin: { name: string; role: string } | null;
   app: { commit: string; name: string; version: string };
-  box: null | { protection: string; secureBoot: string; slot: string; version: string };
+  box: { protection: string; secureBoot: string; slot: string; version: string } | null;
   /** Why Status couldn't be read: the box's Connect code and message; null when it answered. */
-  boxError: null | { code: string; message: string };
+  boxError: { code: string; message: string } | null;
   /** Where and when, for a report copied from a problem screen; About leaves it out. */
   context?: ApplianceReportContextOut;
   health: Component[];
-}
-
-interface ApplianceReportContextOut {
-  browser: string;
-  page: string;
-  problem: null | Problem;
-  time: { local: string; timeZone: string; utc: string };
 }
 
 /** What a problem screen adds: the page, the problem it showed, the time and the browser. */
@@ -32,11 +25,18 @@ export interface ApplianceReportContext {
 }
 
 export interface ApplianceReportInput {
-  admin: null | { name: string; role: Role };
+  admin: { name: string; role: Role } | null;
   context?: ApplianceReportContext;
   status: GetStatusResponse | null;
   /** What reading Status threw, when it did. */
   statusError?: unknown;
+}
+
+interface ApplianceReportContextOut {
+  browser: string;
+  page: string;
+  problem: null | Problem;
+  time: { local: string; timeZone: string; utc: string };
 }
 
 const errorOf = (error: unknown): { code: string; message: string } => {

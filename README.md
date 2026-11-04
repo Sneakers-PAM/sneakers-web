@@ -20,7 +20,7 @@ npm run mock            # just the mock server, on http://127.0.0.1:5171 (contro
 npm run dev:admin       # admin console; dev:admin:mock for its mock build
 npm run dev:appliance-admin:mock   # appliance admin against its in-memory mock transport
 npm test                # vitest
-npm run lint            # eslint + prettier
+npm run lint            # oxlint
 npm run typecheck
 npm run check           # everything CI runs, including both builds and the no-mock check
 ```

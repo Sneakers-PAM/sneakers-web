@@ -3,37 +3,402 @@
 // There is no generated client yet; this app calls the Connect JSON protocol directly
 // (see client.ts) against these shapes.
 
-export type Role = "ROLE_ADMIN" | "ROLE_OWNER" | "ROLE_UNSPECIFIED";
+export interface AccessPolicy {
+  /**
+   * The consecutive failures in 15 minutes that lock an account: 3, 4 or 5, and 0 for the
+   * default of 5. A wrong password and a wrong code count toward the same limit. Any other value
+   * is refused (`ACCESS_POLICY`).
+   */
+  lockoutMaxFailures: number;
+  lockoutMode: LockoutMode;
+  /** How long a root-shell code works, 1 to 60 minutes (default 10). */
+  rootCodeMinutes: number;
+  /** The longest a root shell stays open, 1 to 60 minutes (default 10). */
+  rootSessionMinutes: number;
+  /** An issued SSH key's default validity, 1 to 1825 days (default 365). */
+  sshKeyValidDays: number;
+}
 
 // ---- signin ----
 
-export interface Session {
-  admin: string;
-  csrfToken: string;
-  expires?: string;
-  idleExpires?: string;
-  /** Things to tell the admin once after signing in, such as a console Recover access. */
-  notices?: string[];
-  role: Role;
-  /** On the root-operator roster: may get root-shell codes. */
-  rootOperator?: boolean;
-  signedIn?: string;
-  /** Until when sensitive actions go ahead without a fresh TOTP code (StepUp). */
-  stepUpUntil?: string;
+export interface AcmeState {
+  available: boolean;
+  reason?: string;
 }
 
-export interface SignInResponse {
-  session: Session;
+/** A live session a power action would end, or ListSessions/EndSession can end on its own. */
+export interface ActiveSession {
+  admin: string;
+  /** Names the session for EndSession. Not the session's cookie. */
+  id: string;
+  kind: SessionKind;
+  signedIn?: string;
+  sourceAddress: string;
 }
 
 // ---- setup ----
 
-export interface RecoveryKey {
+export interface AddedCertificate {
+  certificate: StoredCertificate;
+  checks: ValidationCheck[];
+}
+
+export interface AddonModule {
+  active: boolean;
+  name: string;
+  version: string;
+}
+
+export interface Admin {
+  created?: string;
+  createdBy: string;
+  /** False while an invitation is open: no password and authenticator yet. */
+  credentialsSet?: boolean;
+  failedAttempts?: number;
+  /** When an open invitation's code stops working. */
+  inviteExpires?: string;
+  keys: Key[];
+  lastSignIn?: string;
+  /** When a timed lockout ends. */
+  lockedUntil?: string;
+  /** Locked until an owner unlocks the account. */
+  lockedUntilUnlocked?: boolean;
+  name: string;
+  passwordChanged?: string;
+  role: Role;
+  /** On the root-operator roster. */
+  rootOperator?: boolean;
+  totpAdded?: string;
+  uid: number;
+}
+
+export interface AuditEvent {
+  action: string;
+  actor: string;
+  code: string;
+  detail: Record<string, string>;
+  keyFingerprint: string;
+  outcome: "ok" | "refused";
+  sourceAddress: string;
+  target: string;
+  time?: string;
+}
+
+export interface BackupPolicy {
+  retentionDays: number;
+  schedule: string;
+  targets: string[];
+}
+
+export interface BackupSet {
+  id: string;
+  sizeBytes: string;
+  taken?: string;
+  target: string;
+}
+
+/** The Base Web unit: which pages :8443 serves, and its slots. */
+export interface BaseWebStatus {
+  builtinVersion: string;
+  /** There's a Base Web to revert: to previousVersion, or with none to the built-in pages. */
+  canRevert: boolean;
+  /** What the current link names, served or not. */
+  currentVersion: string;
+  /** Whether the running Base OS is in requiresBaseOs. */
+  fits: boolean;
+  /** The slot a revert goes back to; empty when a revert goes to the built-in pages. */
+  previousVersion: string;
+  /** Why the built-in pages serve, or why the last switch didn't take. */
+  reason: string;
+  /** What the current Base Web needs of the Base OS, such as "0.3.0 to before 0.4.0". */
+  requiresBaseOs: string;
+  /** The served pages' version; the built-in pages carry the running Base OS's. */
+  runningVersion: string;
+  /** a or b; empty for the built-in pages. */
+  slot: string;
+  /** slot or built-in. */
+  source: string;
+  stagedVersion: string;
+}
+
+export interface CertEndpoint {
+  available: boolean;
+  certificateId?: string;
+  expires?: string;
+  id: string;
+  name: string;
+  names?: string[];
+  servingFingerprint?: string;
+  source?: EndpointSource;
+  state: EndpointState;
+  stateDetail?: string;
+  unavailableReason?: string;
+}
+
+export interface Certificate {
+  expires?: string;
   fingerprint: string;
+  issuer: string;
+  names: string[];
+  subject: string;
+}
+
+// ---- status ----
+
+export type CertificateSource =
+  | "CERTIFICATE_SOURCE_ACME"
+  | "CERTIFICATE_SOURCE_CSR_SIGNED"
+  | "CERTIFICATE_SOURCE_SELF_SIGNED"
+  | "CERTIFICATE_SOURCE_UNSPECIFIED"
+  | "CERTIFICATE_SOURCE_UPLOADED";
+
+export interface CheckPasswordResponse {
+  breached?: boolean;
+  /** One plain sentence when ok is false. */
+  message?: string;
+  minLength: number;
+  ok?: boolean;
+  tooShort?: boolean;
+}
+
+export type CheckState =
+  | "CHECK_STATE_FAILED"
+  | "CHECK_STATE_OK"
+  | "CHECK_STATE_UNSPECIFIED"
+  | "CHECK_STATE_WARN";
+
+/** Check now's answer: what the source offers for each unit. */
+export interface CheckUpdatesResponse {
+  baseOs: UnitOffer[];
+  baseWeb: UnitOffer[];
+  /** A newer Base Web the running Base OS doesn't fit, and the Base OS it needs. */
+  baseWebWaits: string;
+  checkedAt?: string;
+  indexFormat: number;
+  product: UnitOffer[];
+  /** The installed product version itself, when the source has it: a reinstall keeps the data. */
+  productReinstall?: UnitOffer;
+  /** Each newer release the check skipped and why; empty when the newest one is used. */
+  publishingNote: string;
+  /** mirror, builtin or direct, and its address. */
+  source: string;
+  url: string;
+}
+
+/** A one-time code's purpose: the console's setup code, an invitation, or Recover access. */
+export type CodeKind =
+  | "CODE_KIND_INVITE"
+  | "CODE_KIND_RECOVER"
+  | "CODE_KIND_SETUP"
+  | "CODE_KIND_UNSPECIFIED";
+
+export interface CommitNetworkResponse {
+  review: StagedReview;
+  /** The gateways that answered; empty when the change set no new gateway to test. */
+  testedGateways: string[];
+}
+
+export interface Component {
+  detail: string;
+  name: string;
+  ok: boolean;
+}
+
+/** One of the product's data paths the box watches for growth. */
+export interface DataPath {
+  growthBytesPerDay: number;
   label: string;
-  set?: string;
-  setBy: string;
-  type: string;
+  name: string;
+  sizeBytes: number;
+  /** The write-ahead log's size and the size it shouldn't pass; both 0 when it declares none. */
+  walBytes: number;
+  walWarnBytes: number;
+}
+
+export interface Disk {
+  growthBytesPerDay: number;
+  path: string;
+  totalBytes: number;
+  usedBytes: number;
+}
+
+/** One run of the disk cleanup. */
+export interface DiskCleanup {
+  /** The admin who asked, or disk-guard. */
+  actor: string;
+  categories: DiskCleanupCategory[];
+  freedBytes: number;
+  time?: string;
+  /** timer (the hourly run), alert (a volume passed 80%) or admin. */
+  trigger: string;
+}
+
+/** One step of a cleanup run: pod-logs, os-audit, images, updates, tmp or wal (check only). */
+export interface DiskCleanupCategory {
+  error: string;
+  freedBytes: number;
+  name: string;
+  note: string;
+}
+
+/** A volume's alert level: a warning from 80% used, critical from 90%, each clearing 5 points
+ * below where it starts. */
+export type DiskLevel =
+  | "DISK_LEVEL_CRITICAL"
+  | "DISK_LEVEL_OK"
+  | "DISK_LEVEL_UNSPECIFIED"
+  | "DISK_LEVEL_WARNING";
+
+/** One root shell: its challenge, its code and its session. */
+export interface Elevation {
+  admin: string;
+  approved?: string;
+  /** The root operator the code was issued to. */
+  approvedBy?: string;
+  ended?: string;
+  /** exit, idle, time-box, terminated or expired. */
+  endReason?: string;
+  id: string;
+  /** The SSH key the login used. */
+  keyFingerprint: string;
+  /** The session limit the code carries. */
+  minutes: number;
+  reason: string;
+  /** When the SSH menu showed the challenge. */
+  requested?: string;
+  sourceAddress: string;
+  started?: string;
+  state: ElevationState;
+}
+
+/**
+ * An owner's override of an open elevated shell on Apply or Revert: the session is ended,
+ * audited with the reason, and the update goes ahead once its end is reported.
+ */
+export interface ElevationOverride {
+  /** Typed by the owner: the session's admin, a space and the request id ("bob E-7KQ2"). */
+  confirm: string;
+  elevationId: string;
+  reason: string;
+}
+
+/** issued: a code is out; active: the shell is open; ended or expired after. */
+export type ElevationState = "active" | "ended" | "expired" | "issued";
+
+/**
+ * The detail of `EMAIL_UNTRUSTED` and `EMAIL_PIN_MISMATCH`: the certificate the relay presented,
+ * to check against one got another way and pin with `PinEmailCertificate`.
+ */
+export interface EmailCertificateRefusal {
+  certificate: RelayCertificate;
+  /** `EMAIL_PIN_MISMATCH`: the relay presented another certificate than the pinned one. */
+  mismatch: boolean;
+  /** The pin the certificate was held to (the old fingerprint on a mismatch); empty for none. */
+  pinnedSha256: string;
+  reason: string;
+}
+
+// ---- access ----
+
+/** The product's mail relay, without its password, which the box never sends back. */
+export interface EmailSettings {
+  /** The relay's CA; read only while verification is on, and a pin takes its place. */
+  caPem: string;
+  from: string;
+  /** Empty for no relay: the product sends no mail. */
+  host: string;
+  /**
+   * The relay's certificate pinned by its SHA-256 fingerprint, colon hex in capitals; empty for
+   * no pin. With verification on, the relay must present exactly this certificate, within its
+   * dates, in place of a chain to the system roots or `caPem`.
+   */
+  pinSha256: string;
+  port: number;
+  tls: EmailTls;
+  username: string;
+  verify: boolean;
+}
+
+/** How the connection to the product's mail relay is protected. */
+export type EmailTls =
+  | "EMAIL_TLS_IMPLICIT"
+  | "EMAIL_TLS_NONE"
+  | "EMAIL_TLS_STARTTLS"
+  | "EMAIL_TLS_UNSPECIFIED";
+
+export type EndpointSource =
+  | "ENDPOINT_SOURCE_ACME"
+  | "ENDPOINT_SOURCE_ASSIGNED"
+  | "ENDPOINT_SOURCE_SELF_SIGNED";
+
+export type EndpointState =
+  | "ENDPOINT_STATE_EXPIRED"
+  | "ENDPOINT_STATE_EXPIRING"
+  | "ENDPOINT_STATE_NAMES_NOT_COVERED"
+  | "ENDPOINT_STATE_OK"
+  | "ENDPOINT_STATE_SELF_SIGNED"
+  | "ENDPOINT_STATE_UNAVAILABLE"
+  | "ENDPOINT_STATE_UNSPECIFIED";
+
+/** One value the installed product's bundle lets owners and admins read without a root shell. */
+export interface ExposedValue {
+  /** True once a one-time value was used; it isn't shown again. */
+  consumed: boolean;
+  label: string;
+  /** The product page that takes the value; empty when the product names none. */
+  link: string;
+  /** The command word: "<product> <name>" in the closed shell. */
+  name: string;
+  oneTime: boolean;
+  roles: Role[];
+}
+
+export interface FactoryReset {
+  approvals: string[];
+  expires?: string;
+  id: string;
+  members: string[];
+  required: number;
+  runsAt?: string;
+  started?: string;
+  startedBy: string;
+  state:
+    | "FACTORY_RESET_STATE_COUNTDOWN"
+    | "FACTORY_RESET_STATE_PENDING"
+    | "FACTORY_RESET_STATE_UNSPECIFIED";
+}
+
+/** A fetch of one .bin, while it runs and after. */
+export interface FetchProgress {
+  bytesPerSecond: string;
+  code: string;
+  /** int64s, so strings. */
+  doneBytes: string;
+  error: string;
+  etaSeconds: string;
+  fileName: string;
+  source: string;
+  startedAt?: string;
+  /** querying, downloading, verifying, done or failed. */
+  state: "" | "done" | "downloading" | "failed" | "querying" | "verifying";
+  target?: UpdateTarget;
+  totalBytes: string;
+  updatedAt?: string;
+  uploadId: string;
+  /** The downloaded file's signature, channel and SHA-256 checked out. */
+  verified: boolean;
+}
+
+export interface GenerateCsrRequest {
+  commonName?: string;
+  country?: string;
+  keyType: KeyType;
+  locality?: string;
+  /** At most one extra name; wildcards are refused. */
+  names: string[];
+  organization?: string;
+  organizationalUnit?: string;
+  province?: string;
 }
 
 /** A recovery key the box made: the private key is in this answer once and never kept. */
@@ -47,25 +412,120 @@ export interface GenerateRecoveryKeyResponse {
   recoveryKey: RecoveryKey;
 }
 
-/** A one-time code's purpose: the console's setup code, an invitation, or Recover access. */
-export type CodeKind =
-  "CODE_KIND_INVITE" | "CODE_KIND_RECOVER" | "CODE_KIND_SETUP" | "CODE_KIND_UNSPECIFIED";
+export interface GetBackupsResponse {
+  policy?: BackupPolicy;
+  sets: BackupSet[];
+}
 
-export type SetupStepKind =
-  | "SETUP_STEP_KIND_ADMIN"
-  | "SETUP_STEP_KIND_CODE"
-  | "SETUP_STEP_KIND_NETWORK"
-  | "SETUP_STEP_KIND_PROTECTION"
-  | "SETUP_STEP_KIND_RECOVERY_KEYS"
-  | "SETUP_STEP_KIND_SIGN_IN"
-  | "SETUP_STEP_KIND_UNSPECIFIED";
+// ---- root shell ----
 
-export interface SetupStep {
-  done?: boolean;
-  kind: SetupStepKind;
-  /** 1 to 6. */
-  number: number;
-  optional?: boolean;
+export interface GetCertificateStoreResponse {
+  acme?: AcmeState;
+  certificates: StoredCertificate[];
+  csrs?: PendingCsr[];
+  endpoints: CertEndpoint[];
+  /** The update mirror's trust; left out when none is set. */
+  updateTrust?: UpdateTrust;
+}
+
+// ---- elevation (root shells) ----
+
+export interface GetEmailResponse {
+  /** False while TLS or certificate verification is off. */
+  encrypted: boolean;
+  label: string;
+  passwordSet: boolean;
+  settings: EmailSettings;
+  /** "not installed", "not in this product", "not set" or "set". */
+  state: string;
+}
+
+export interface GetExposedValueResponse {
+  entry?: ExposedValue;
+  productTitle: string;
+  /** Empty once a one-time value was used. */
+  value: string;
+}
+
+export interface GetImportResponse {
+  available: boolean;
+  files: ImportFile[];
+  imported: boolean;
+  importedAt: string;
+  importedBundle: string;
+  importedMode: string;
+  label: string;
+  open: boolean;
+  reason: string;
+  recipient: string;
+  runs: ImportRun[];
+  setupDone: boolean;
+}
+
+// ---- network ----
+
+export interface GetMcpResponse {
+  /** What a starting or failed MCP waits for, in the box's words. */
+  detail?: string;
+  machineApiEnabled: boolean;
+  mcpEnabled: boolean;
+  /** While MCP is on: how far the product has come up with it. Empty while it's off. */
+  readiness?: "" | "failed" | "ready" | "starting";
+  state: string;
+}
+
+export interface GetNetworkResponse {
+  /** The most recent change that waited for a confirmation was undone; lastChangeId names it. */
+  lastChangeReverted?: boolean;
+  /** It was undone because the box stopped or restarted inside its window. */
+  lastChangeRevertedAtStart?: boolean;
+  lastChangeId?: string;
+  /** What DHCP and router advertisements gave the box, management interface first; the
+   * resolver and the clock use them where the settings name none. */
+  learntDns?: string[];
+  learntNtp?: string[];
+  learntSearch?: string[];
+  managementAddresses: string[];
+  /** The servers the clock asks now: the settings', else DHCP's, else the image's pool. */
+  ntpServers?: string[];
+  ntpOffsetMs: string;
+  ntpSynced: boolean;
+  pending: boolean;
+  /** The pending change's id, for the audit log; not secret. */
+  pendingChangeId?: string;
+  /** What ConfirmNetwork takes; sent to owner sessions only, so a reload can still confirm. */
+  pendingToken?: string;
+  /** Seconds until the pending change reverts. */
+  revertSecondsLeft?: number;
+  serviceAddresses: string[];
+  settings?: NetdSettings;
+  /** What StageNetwork recorded; absent when nothing is staged, and on a base from before it. */
+  staged?: NetdSettings;
+  /** What CommitNetwork takes for it. */
+  stagedId?: string;
+  stagedReview?: StagedReview;
+}
+
+/** StatusService.GetPhase: "firstboot" until setup's Finish, then "normal". */
+export interface GetPhaseResponse {
+  /** A failed product's step, such as phase:identity, while state is "failed"; "" otherwise. */
+  failedPhase?: string;
+  /** Why it failed, "<the step's label>: <why>", while state is "failed"; "" otherwise. */
+  failedReason?: string;
+  phase: string;
+  /** What the box is doing, as the product edge's box-state page says it: running, starting,
+   * rebooting, shutting-down, updating, maintenance or failed (the product failed to start). */
+  state?: string;
+  /** An update's steps while one runs and for 15 minutes after, for the restart page before
+   * anyone signs in: the steps' ids, labels and states only, with no version, detail or code. */
+  upgradeProgress?: UpgradeProgress;
+}
+
+export interface GetPowerResponse {
+  factoryReset?: FactoryReset;
+  factoryResetAvailable: boolean;
+  factoryResetUnavailableReason: string;
+  sessions: ActiveSession[];
 }
 
 export interface GetSetupResponse {
@@ -89,196 +549,6 @@ export interface GetSetupResponse {
   singleAdminAcknowledged: boolean;
   singleAdminWarning: boolean;
   steps?: SetupStep[];
-}
-
-export interface RedeemCodeResponse {
-  admin?: string;
-  /** The X-CSRF-Token for the code session's calls that change something. */
-  csrfToken?: string;
-  existingOwners?: string[];
-  expires?: string;
-  kind: CodeKind;
-}
-
-export interface CheckPasswordResponse {
-  breached?: boolean;
-  /** One plain sentence when ok is false. */
-  message?: string;
-  minLength: number;
-  ok?: boolean;
-  tooShort?: boolean;
-}
-
-/** A new authenticator secret, shown once. */
-export interface TotpEnrolment {
-  account: string;
-  algorithm: string;
-  digits: number;
-  expires?: string;
-  id: string;
-  issuer: string;
-  periodSeconds: number;
-  /** Base32, for typing; shown in groups of four. */
-  secret: string;
-  /** The otpauth:// URI for the QR code. */
-  uri: string;
-}
-
-// ---- status ----
-
-export type Protection = "PROTECTION_FULL" | "PROTECTION_REDUCED" | "PROTECTION_UNSPECIFIED";
-
-export type WarningKind =
-  | "WARNING_KIND_AUDIT_ARCHIVE"
-  | "WARNING_KIND_CONSOLE_RECOVERY"
-  | "WARNING_KIND_DATA_WAL"
-  | "WARNING_KIND_DISK_GROWTH"
-  | "WARNING_KIND_DISK_SPACE"
-  | "WARNING_KIND_EXPOSURE"
-  | "WARNING_KIND_FACTORY_RESET"
-  | "WARNING_KIND_NETWORK_PENDING"
-  | "WARNING_KIND_NETWORK_REVERTED"
-  | "WARNING_KIND_NTP_UNSYNCED"
-  | "WARNING_KIND_REDUCED_PROTECTION"
-  | "WARNING_KIND_SELF_SIGNED_TLS"
-  | "WARNING_KIND_TLS_CHANGED"
-  | "WARNING_KIND_TLS_EXPIRED"
-  | "WARNING_KIND_TLS_EXPIRING"
-  | "WARNING_KIND_TLS_NAMES"
-  | "WARNING_KIND_UNSPECIFIED";
-
-export interface Warning {
-  /** Needs action now, such as a volume 90% full; the mock leaves it out when it's false. */
-  critical?: boolean;
-  detail: string;
-  kind: WarningKind;
-}
-
-/** A change to the box's own self-signed certificate, which Status carries for 7 days. */
-export interface TlsChange {
-  at?: string;
-  newFingerprint: string;
-  oldFingerprint: string;
-  /** addresses, hostname or expiring. */
-  reason: string;
-  /** True when newFingerprint is the certificate the box had before, put back. */
-  restored: boolean;
-}
-
-/** Who hid the reduced-protection notice for every admin, and when. */
-export interface ProtectionNotice {
-  hidden: boolean;
-  hiddenAt?: string;
-  hiddenBy: string;
-}
-
-export interface Component {
-  detail: string;
-  name: string;
-  ok: boolean;
-}
-
-export interface Disk {
-  growthBytesPerDay: number;
-  path: string;
-  totalBytes: number;
-  usedBytes: number;
-}
-
-/** A volume's alert level: a warning from 80% used, critical from 90%, each clearing 5 points
- * below where it starts. */
-export type DiskLevel =
-  "DISK_LEVEL_CRITICAL" | "DISK_LEVEL_OK" | "DISK_LEVEL_UNSPECIFIED" | "DISK_LEVEL_WARNING";
-
-/** One of the box's volumes, as the disk guard reads it. */
-export interface Volume {
-  label: string;
-  level: DiskLevel;
-  /** When the level began. */
-  levelSince?: string;
-  /** state, data or backup. */
-  name: string;
-  path: string;
-  percent: number;
-  /** The volume this one is on when it isn't a filesystem of its own; it has no alert then. */
-  sharedWith: string;
-  /** What's usable: used plus available. */
-  totalBytes: number;
-  usedBytes: number;
-}
-
-/** One of the product's data paths the box watches for growth. */
-export interface DataPath {
-  growthBytesPerDay: number;
-  label: string;
-  name: string;
-  sizeBytes: number;
-  /** The write-ahead log's size and the size it shouldn't pass; both 0 when it declares none. */
-  walBytes: number;
-  walWarnBytes: number;
-}
-
-/** One step of a cleanup run: pod-logs, os-audit, images, updates, tmp or wal (check only). */
-export interface DiskCleanupCategory {
-  error: string;
-  freedBytes: number;
-  name: string;
-  note: string;
-}
-
-/** One run of the disk cleanup. */
-export interface DiskCleanup {
-  /** The admin who asked, or disk-guard. */
-  actor: string;
-  categories: DiskCleanupCategory[];
-  freedBytes: number;
-  time?: string;
-  /** timer (the hourly run), alert (a volume passed 80%) or admin. */
-  trigger: string;
-}
-
-export interface FactoryReset {
-  approvals: string[];
-  expires?: string;
-  id: string;
-  members: string[];
-  required: number;
-  runsAt?: string;
-  started?: string;
-  startedBy: string;
-  state:
-    | "FACTORY_RESET_STATE_COUNTDOWN"
-    | "FACTORY_RESET_STATE_PENDING"
-    | "FACTORY_RESET_STATE_UNSPECIFIED";
-}
-
-/** StatusService.GetPhase: "firstboot" until setup's Finish, then "normal". */
-export interface GetPhaseResponse {
-  /** A failed product's step, such as phase:identity, while state is "failed"; "" otherwise. */
-  failedPhase?: string;
-  /** Why it failed, "<the step's label>: <why>", while state is "failed"; "" otherwise. */
-  failedReason?: string;
-  phase: string;
-  /** What the box is doing, as the product edge's box-state page says it: running, starting,
-   * rebooting, shutting-down, updating, maintenance or failed (the product failed to start). */
-  state?: string;
-  /** An update's steps while one runs and for 15 minutes after, for the restart page before
-   * anyone signs in: the steps' ids, labels and states only, with no version, detail or code. */
-  upgradeProgress?: UpgradeProgress;
-}
-
-/** The network change window, as GetStatus gives it so every page can show it. */
-export interface NetworkChange {
-  /** Names the pending change in the audit. */
-  changeId: string;
-  /** The last change that waited was undone; lastChangeId names it. */
-  lastReverted: boolean;
-  /** It was undone because the box stopped or restarted inside its window. */
-  lastRevertedAtStart: boolean;
-  lastChangeId: string;
-  /** A change waits for ConfirmNetwork. */
-  pending: boolean;
-  revertSecondsLeft: number;
 }
 
 export interface GetStatusResponse {
@@ -334,634 +604,6 @@ export interface GetStatusResponse {
   warnings?: Warning[];
 }
 
-// ---- access ----
-
-/** An SSH key the box issued to an admin: an ed25519 key with a certificate from the root key. */
-export interface Key {
-  added?: string;
-  addedBy: string;
-  /** The label the admin gave it. */
-  comment: string;
-  fingerprint: string;
-  lastUsed?: string;
-  /** The certificate's serial, the one the revocation list names. */
-  serial?: string;
-  type: string;
-  /** When the certificate stops working. */
-  validBefore?: string;
-  via: string;
-}
-
-export interface Admin {
-  created?: string;
-  createdBy: string;
-  /** False while an invitation is open: no password and authenticator yet. */
-  credentialsSet?: boolean;
-  failedAttempts?: number;
-  /** When an open invitation's code stops working. */
-  inviteExpires?: string;
-  keys: Key[];
-  lastSignIn?: string;
-  /** When a timed lockout ends. */
-  lockedUntil?: string;
-  /** Locked until an owner unlocks the account. */
-  lockedUntilUnlocked?: boolean;
-  name: string;
-  passwordChanged?: string;
-  role: Role;
-  /** On the root-operator roster. */
-  rootOperator?: boolean;
-  totpAdded?: string;
-  uid: number;
-}
-
-export interface HostKey {
-  fingerprint: string;
-  type: string;
-}
-
-/**
- * The root-operator roster: who may open the root shell, and whose approvals count for a
- * factory reset.
- */
-export interface Quorum {
-  configured: boolean;
-  members: string[];
-  required: number;
-}
-
-/** A removed login key, on sshd's revocation list until an owner un-revokes it. */
-export interface RevokedKey {
-  /** Who the key belonged to. */
-  admin: string;
-  fingerprint: string;
-  revoked?: string;
-  /** Who removed the key or its admin: an admin's name, or "console". */
-  revokedBy?: string;
-  type: string;
-}
-
-/** What `lockoutMaxFailures` consecutive failures in 15 minutes do (NIST SP 800-53 AC-7). */
-export type LockoutMode =
-  "LOCKOUT_MODE_TIMED" | "LOCKOUT_MODE_UNSPECIFIED" | "LOCKOUT_MODE_UNTIL_UNLOCKED";
-
-export interface AccessPolicy {
-  /**
-   * The consecutive failures in 15 minutes that lock an account: 3, 4 or 5, and 0 for the
-   * default of 5. A wrong password and a wrong code count toward the same limit. Any other value
-   * is refused (`ACCESS_POLICY`).
-   */
-  lockoutMaxFailures: number;
-  lockoutMode: LockoutMode;
-  /** How long a root-shell code works, 1 to 60 minutes (default 10). */
-  rootCodeMinutes: number;
-  /** The longest a root shell stays open, 1 to 60 minutes (default 10). */
-  rootSessionMinutes: number;
-  /** An issued SSH key's default validity, 1 to 1825 days (default 365). */
-  sshKeyValidDays: number;
-}
-
-export interface ListAdminsResponse {
-  accessPolicy?: AccessPolicy;
-  admins: Admin[];
-  hostKeys: HostKey[];
-  quorum?: Quorum;
-  /** Empty lists are left out of the JSON. */
-  revokedKeys?: RevokedKey[];
-  /** The box's root key (it never leaves the box): its type and fingerprint. */
-  rootKey?: HostKey;
-  /** The box's SSH host CA, which signs sshd's host certificate: its type and fingerprint. */
-  hostCa?: HostKey;
-  /** The "@cert-authority <names> <host CA key>" line for a client's known_hosts. */
-  knownHosts: string;
-  /** The root key's public half: the user CA sshd trusts (an authorized_keys line). */
-  userCaPublicKey: string;
-}
-
-/** A one-time code for an admin to set a password and an authenticator. Shown once. */
-export interface Invitation {
-  admin: string;
-  /** XXXX-XXXX. */
-  code: string;
-  expires?: string;
-}
-
-export interface IssueSshKeyResponse {
-  /** The OpenSSH certificate line, saved next to the key as certificateFileName. */
-  certificate: string;
-  /** Unique per key (by label or serial): <fileName>-cert.pub. */
-  certificateFileName: string;
-  /** A unique name for the private key file (id_ed25519_<admin>_sneakers_<serial>), so a
-   * browser never adds " (1)" and the key, certificate and .ppk names always pair. */
-  fileName: string;
-  key: Key;
-  /** The PuTTY PPK v3 text with the certificate already embedded: the recommended download for
-   * PuTTY 0.78+ and MobaXterm 25.1+. */
-  ppk: string;
-  /** <fileName>.ppk. */
-  ppkFileName: string;
-  /** PEM PKCS#8 ("PRIVATE KEY"), for tools that take neither the OpenSSH nor the PuTTY form. It
-   * carries no certificate, so it pairs with certificateFileName. Shown once. */
-  pem: string;
-  /** <fileName>.pem. */
-  pemFileName: string;
-  /** The OpenSSH private key, shown once and never kept by the box. */
-  privateKey: string;
-  publicKey: string;
-  /** <fileName>.pub; the same public key goes with all three private-key forms. */
-  publicKeyFileName: string;
-  /** The exact OpenSSH command, with the certificate file named: `ssh -i <fileName> -o
-   * CertificateFile=<certificateFileName> <admin>@<box>`. */
-  sshCommand: string;
-  /** A known_hosts line trusting the box's host CA for its host name and management addresses
-   * ("@cert-authority <names> <host CA key>"), so the first login has no host key prompt. */
-  knownHosts: string;
-  /** known_hosts_<box>, for knownHosts. */
-  knownHostsFileName: string;
-  /** The box's user CA (its root key's public half), which signed the certificate. */
-  userCaPublicKey: string;
-}
-
-// ---- root shell ----
-
-export interface IssueRootShellCodeResponse {
-  /** XXXX-XXXX, typed into the SSH session; it works once, for this challenge only. */
-  code: string;
-  expires?: string;
-  /** How long the root shell may stay open. */
-  sessionMinutes: number;
-  /** The SSH client the challenge came from, to check. */
-  sourceAddress: string;
-}
-
-// ---- elevation (root shells) ----
-
-/** issued: a code is out; active: the shell is open; ended or expired after. */
-export type ElevationState = "active" | "ended" | "expired" | "issued";
-
-/** One root shell: its challenge, its code and its session. */
-export interface Elevation {
-  admin: string;
-  approved?: string;
-  /** The root operator the code was issued to. */
-  approvedBy?: string;
-  ended?: string;
-  /** exit, idle, time-box, terminated or expired. */
-  endReason?: string;
-  id: string;
-  /** The SSH key the login used. */
-  keyFingerprint: string;
-  /** The session limit the code carries. */
-  minutes: number;
-  reason: string;
-  /** When the SSH menu showed the challenge. */
-  requested?: string;
-  sourceAddress: string;
-  started?: string;
-  state: ElevationState;
-}
-
-export interface ListElevationsResponse {
-  elevations: Elevation[];
-}
-
-// ---- network ----
-
-export type Ipv4Mode =
-  "IPV4_MODE_DHCP" | "IPV4_MODE_OFF" | "IPV4_MODE_STATIC" | "IPV4_MODE_UNSPECIFIED";
-
-export type Ipv6Mode =
-  | "IPV6_MODE_DHCPV6"
-  | "IPV6_MODE_OFF"
-  | "IPV6_MODE_SLAAC"
-  | "IPV6_MODE_STATIC"
-  | "IPV6_MODE_UNSPECIFIED";
-
-export interface NetdIpv4 {
-  /** A prefix such as 192.0.2.10/24, in static mode only. */
-  address?: string;
-  gateway?: string;
-  mode?: Ipv4Mode;
-}
-
-export interface NetdIpv6 {
-  /** A prefix such as 2001:db8::10/64, in static mode only. */
-  address?: string;
-  gateway?: string;
-  mode?: Ipv6Mode;
-}
-
-export interface NetdInterface {
-  ipv4?: NetdIpv4;
-  ipv6?: NetdIpv6;
-  name?: string;
-}
-
-/** netd's settings as the proto has them; a stage sends the whole set back. */
-export interface NetdSettings {
-  allowList: string[];
-  cluster?: { pods?: string; services?: string };
-  dns: string[];
-  hostname: string;
-  httpsProxy?: string;
-  management?: NetdInterface;
-  ntp: string[];
-  search: string[];
-  /** Absent when one NIC carries both roles. */
-  service?: NetdInterface;
-  timeZone?: string;
-}
-
-/** What a commit of the staged settings does, shown before it runs. */
-export interface StagedReview {
-  /** The allow-list changes, which can shut out the session that commits it. */
-  changesAllowList: boolean;
-  /** The management address moves, so a session on the old one drops. That's expected. */
-  movesManagement: boolean;
-  /** The static address to reconnect to; empty when DHCP or SLAAC gives it. */
-  newAddress: string;
-  /** The box makes a new self-signed :8443 certificate. */
-  newCertificate: boolean;
-  /** The admin page at newAddress. */
-  newUrl: string;
-}
-
-export type CheckState =
-  "CHECK_STATE_FAILED" | "CHECK_STATE_OK" | "CHECK_STATE_UNSPECIFIED" | "CHECK_STATE_WARN";
-
-/** One connectivity check. Proto3 JSON leaves out defaults, so an absent state is unspecified. */
-export interface NetdCheck {
-  /** The NET_* symbol when the check isn't ok. */
-  code?: string;
-  detail?: string;
-  /** link, address, gateway, dns or ntp. */
-  name: string;
-  /** False for the checks setup can't continue past. */
-  skippable?: boolean;
-  state?: CheckState;
-}
-
-export interface GetNetworkResponse {
-  /** The most recent change that waited for a confirmation was undone; lastChangeId names it. */
-  lastChangeReverted?: boolean;
-  /** It was undone because the box stopped or restarted inside its window. */
-  lastChangeRevertedAtStart?: boolean;
-  lastChangeId?: string;
-  /** What DHCP and router advertisements gave the box, management interface first; the
-   * resolver and the clock use them where the settings name none. */
-  learntDns?: string[];
-  learntNtp?: string[];
-  learntSearch?: string[];
-  managementAddresses: string[];
-  /** The servers the clock asks now: the settings', else DHCP's, else the image's pool. */
-  ntpServers?: string[];
-  ntpOffsetMs: string;
-  ntpSynced: boolean;
-  pending: boolean;
-  /** The pending change's id, for the audit log; not secret. */
-  pendingChangeId?: string;
-  /** What ConfirmNetwork takes; sent to owner sessions only, so a reload can still confirm. */
-  pendingToken?: string;
-  /** Seconds until the pending change reverts. */
-  revertSecondsLeft?: number;
-  serviceAddresses: string[];
-  settings?: NetdSettings;
-  /** What StageNetwork recorded; absent when nothing is staged, and on a base from before it. */
-  staged?: NetdSettings;
-  /** What CommitNetwork takes for it. */
-  stagedId?: string;
-  stagedReview?: StagedReview;
-}
-
-export interface StageNetworkResponse {
-  review: StagedReview;
-  /** What CommitNetwork takes. */
-  stagedId: string;
-}
-
-export interface CommitNetworkResponse {
-  review: StagedReview;
-  /** The gateways that answered; empty when the change set no new gateway to test. */
-  testedGateways: string[];
-}
-
-export interface RunChecksResponse {
-  checks: NetdCheck[];
-}
-
-// ---- tls ----
-
-export interface Certificate {
-  expires?: string;
-  fingerprint: string;
-  issuer: string;
-  names: string[];
-  subject: string;
-}
-
-export type CertificateSource =
-  | "CERTIFICATE_SOURCE_ACME"
-  | "CERTIFICATE_SOURCE_CSR_SIGNED"
-  | "CERTIFICATE_SOURCE_SELF_SIGNED"
-  | "CERTIFICATE_SOURCE_UNSPECIFIED"
-  | "CERTIFICATE_SOURCE_UPLOADED";
-
-/** A certificate in the box's store; its key stays sealed on the box. */
-export interface StoredCertificate {
-  added?: string;
-  certificatePem: string;
-  /** Each certificate's subject, the leaf first. */
-  chain: string[];
-  csrId?: string;
-  fingerprint: string;
-  id: string;
-  issuer: string;
-  keyType: string;
-  names: string[];
-  notAfter: string;
-  notBefore: string;
-  source: CertificateSource;
-  subject: string;
-  /** The endpoint ids that serve it. */
-  usedBy?: string[];
-}
-
-export interface PendingCsr {
-  created?: string;
-  csrPem: string;
-  id: string;
-  keyType: string;
-  names: string[];
-  subject: string;
-}
-
-export type EndpointSource =
-  "ENDPOINT_SOURCE_ACME" | "ENDPOINT_SOURCE_ASSIGNED" | "ENDPOINT_SOURCE_SELF_SIGNED";
-
-export type EndpointState =
-  | "ENDPOINT_STATE_EXPIRED"
-  | "ENDPOINT_STATE_EXPIRING"
-  | "ENDPOINT_STATE_NAMES_NOT_COVERED"
-  | "ENDPOINT_STATE_OK"
-  | "ENDPOINT_STATE_SELF_SIGNED"
-  | "ENDPOINT_STATE_UNAVAILABLE"
-  | "ENDPOINT_STATE_UNSPECIFIED";
-
-export interface CertEndpoint {
-  available: boolean;
-  certificateId?: string;
-  expires?: string;
-  id: string;
-  name: string;
-  names?: string[];
-  servingFingerprint?: string;
-  source?: EndpointSource;
-  state: EndpointState;
-  stateDetail?: string;
-  unavailableReason?: string;
-}
-
-export interface AcmeState {
-  available: boolean;
-  reason?: string;
-}
-
-export interface ValidationCheck {
-  detail: string;
-  /** key, usage, chain, names or validity. */
-  name: string;
-  passed: boolean;
-}
-
-export interface GetCertificateStoreResponse {
-  acme?: AcmeState;
-  certificates: StoredCertificate[];
-  csrs?: PendingCsr[];
-  endpoints: CertEndpoint[];
-  /** The update mirror's trust; left out when none is set. */
-  updateTrust?: UpdateTrust;
-}
-
-/** One CA certificate in the update trust. */
-export interface TrustedCa {
-  issuer: string;
-  notAfter?: string;
-  /** Colon hex. */
-  sha256: string;
-  subject: string;
-}
-
-/**
- * What an https:// update mirror is checked against beyond the system roots, for the mirror's
- * fetches only: private CAs, and an optional pin on its server certificate.
- */
-export interface UpdateTrust {
-  cas: TrustedCa[];
-  /** Colon hex in capitals; empty when there's no pin. */
-  pinSha256: string;
-  setAt?: string;
-  setBy: string;
-}
-
-/** The key a CSR is made with; RSA 4096 is the default. */
-export type KeyType =
-  "KEY_TYPE_ECDSA_P256" | "KEY_TYPE_ECDSA_P384" | "KEY_TYPE_RSA_3072" | "KEY_TYPE_RSA_4096";
-
-export interface GenerateCsrRequest {
-  commonName?: string;
-  country?: string;
-  keyType: KeyType;
-  locality?: string;
-  /** At most one extra name; wildcards are refused. */
-  names: string[];
-  organization?: string;
-  organizationalUnit?: string;
-  province?: string;
-}
-
-export interface ImportCertificateRequest {
-  certificatePem?: string;
-  chainPem?: string;
-  keyPem?: string;
-  /** The PFX file, base64. */
-  pkcs12?: string;
-  pkcs12Password?: string;
-  rootPem?: string;
-}
-
-export interface AddedCertificate {
-  certificate: StoredCertificate;
-  checks: ValidationCheck[];
-}
-
-// ---- product ----
-
-/** One value the installed product's bundle lets owners and admins read without a root shell. */
-export interface ExposedValue {
-  /** True once a one-time value was used; it isn't shown again. */
-  consumed: boolean;
-  label: string;
-  /** The product page that takes the value; empty when the product names none. */
-  link: string;
-  /** The command word: "<product> <name>" in the closed shell. */
-  name: string;
-  oneTime: boolean;
-  roles: Role[];
-}
-
-export interface ListExposedValuesResponse {
-  /** The installed product's command word; empty with no product. */
-  product: string;
-  productTitle: string;
-  values: ExposedValue[];
-}
-
-export interface GetExposedValueResponse {
-  entry?: ExposedValue;
-  productTitle: string;
-  /** Empty once a one-time value was used. */
-  value: string;
-}
-
-// ---- mcp ----
-
-export interface GetMcpResponse {
-  /** What a starting or failed MCP waits for, in the box's words. */
-  detail?: string;
-  machineApiEnabled: boolean;
-  mcpEnabled: boolean;
-  /** While MCP is on: how far the product has come up with it. Empty while it's off. */
-  readiness?: "" | "failed" | "ready" | "starting";
-  state: string;
-}
-
-// ---- email ----
-
-/** How the connection to the product's mail relay is protected. */
-export type EmailTls =
-  "EMAIL_TLS_IMPLICIT" | "EMAIL_TLS_NONE" | "EMAIL_TLS_STARTTLS" | "EMAIL_TLS_UNSPECIFIED";
-
-/** The product's mail relay, without its password, which the box never sends back. */
-export interface EmailSettings {
-  /** The relay's CA; read only while verification is on, and a pin takes its place. */
-  caPem: string;
-  from: string;
-  /** Empty for no relay: the product sends no mail. */
-  host: string;
-  /**
-   * The relay's certificate pinned by its SHA-256 fingerprint, colon hex in capitals; empty for
-   * no pin. With verification on, the relay must present exactly this certificate, within its
-   * dates, in place of a chain to the system roots or `caPem`.
-   */
-  pinSha256: string;
-  port: number;
-  tls: EmailTls;
-  username: string;
-  verify: boolean;
-}
-
-/** The certificate a relay presented. */
-export interface RelayCertificate {
-  dnsNames: string[];
-  ipAddresses: string[];
-  issuer: string;
-  notAfter: string;
-  notBefore: string;
-  /** Colon hex in capitals. */
-  sha256: string;
-  subject: string;
-}
-
-/**
- * The detail of `EMAIL_UNTRUSTED` and `EMAIL_PIN_MISMATCH`: the certificate the relay presented,
- * to check against one got another way and pin with `PinEmailCertificate`.
- */
-export interface EmailCertificateRefusal {
-  certificate: RelayCertificate;
-  /** `EMAIL_PIN_MISMATCH`: the relay presented another certificate than the pinned one. */
-  mismatch: boolean;
-  /** The pin the certificate was held to (the old fingerprint on a mismatch); empty for none. */
-  pinnedSha256: string;
-  reason: string;
-}
-
-export interface PinEmailCertificateRequest {
-  /** The pin the settings hold now, given again to replace it; needed only to replace one. */
-  replacesSha256?: string;
-  /** The form's settings; absent for the saved ones. */
-  settings?: EmailSettings;
-  /** The fingerprint to pin, as the refusal gave it. */
-  sha256: string;
-}
-
-/** The settings given with `pinSha256` set and verification on; nothing is saved. */
-export interface PinEmailCertificateResponse {
-  certificate: RelayCertificate;
-  settings: EmailSettings;
-}
-
-export interface GetEmailResponse {
-  /** False while TLS or certificate verification is off. */
-  encrypted: boolean;
-  label: string;
-  passwordSet: boolean;
-  settings: EmailSettings;
-  /** "not installed", "not in this product", "not set" or "set". */
-  state: string;
-}
-
-export interface SetEmailRequest {
-  elevationOverride?: ElevationOverride;
-  /** Absent keeps the saved password; empty clears it. */
-  password?: string;
-  settings: EmailSettings;
-}
-
-export interface SendTestEmailRequest {
-  password?: string;
-  settings?: EmailSettings;
-  to: string;
-}
-
-// ---- telemetry ----
-
-/** Where the installed product's services export traces, metrics and logs over OTLP. */
-export interface TelemetrySettings {
-  /**
-   * The collector's CA, PEM (one or more certificates, at most 64 KiB); empty for none. Set, it's
-   * trusted in place of the system roots. Unused while `skipVerify` is on. One that doesn't parse
-   * is refused with `TELEMETRY_INVALID`.
-   */
-  caPem: string;
-  /** Off stops the export and keeps the endpoint. */
-  enabled: boolean;
-  /** https://<host>[:<port>]. */
-  endpoint: string;
-  /** Logs as well as traces and metrics. */
-  logs: boolean;
-  /** Skips the collector's CA and certificate checks; no logs leave while it's on. */
-  skipVerify: boolean;
-}
-
-/** One service's export state. */
-export interface TelemetryWorkload {
-  name: string;
-  /** "sending", "issue", "off" or "unknown". */
-  state: string;
-}
-
-/** The last restart for a change. */
-export interface TelemetryRestart {
-  /** The phase it's at, or stopped at. */
-  phase: string;
-  /** "none", "running", "done" or "failed". */
-  state: string;
-  /** Why it stopped; later phases keep the old settings until a retry. */
-  why: string;
-  /** The workload it stopped at. */
-  workload: string;
-}
-
 export interface GetTelemetryResponse {
   label: string;
   /** Logs are switched on but stay on the box, because the collector isn't verified. */
@@ -973,374 +615,6 @@ export interface GetTelemetryResponse {
   /** Set when the services' states couldn't be read. */
   statusError: string;
   workloads: TelemetryWorkload[];
-}
-
-export interface SetTelemetryRequest {
-  elevationOverride?: ElevationOverride;
-  settings: TelemetrySettings;
-}
-
-export interface SetTelemetryResponse {
-  /** The settings changed what the services read, so they restart. */
-  restarting: boolean;
-}
-
-// ---- import ----
-
-/** One file of the open import: bundle, mapping, sheet or types. */
-export interface ImportFile {
-  kind: string;
-  size: number;
-  uploadedAt: string;
-}
-
-/** One sneakers-migrate step the box ran as a Job, and how it went. */
-export interface ImportRun {
-  exitCode: number;
-  finishedAt: string;
-  job: string;
-  output: string;
-  ownerEmail: string;
-  ownerPasswordWaiting: boolean;
-  /**
-   * Why a failed step ended, when it didn't write its exit code and the box read it from the
-   * step's Job ("the review step ran out of memory (limit 4Gi)"); empty otherwise.
-   */
-  reason: string;
-  rehearsal: boolean;
-  report: string;
-  startedAt: string;
-  /** running, passed or failed. */
-  state: string;
-  /** review, convert, check, import or verify. */
-  step: string;
-  template: string;
-  wipe: boolean;
-}
-
-export interface GetImportResponse {
-  available: boolean;
-  files: ImportFile[];
-  imported: boolean;
-  importedAt: string;
-  importedBundle: string;
-  importedMode: string;
-  label: string;
-  open: boolean;
-  reason: string;
-  recipient: string;
-  runs: ImportRun[];
-  setupDone: boolean;
-}
-
-export interface RunImportStepRequest {
-  newFolderParent?: string;
-  ownerEmail?: string;
-  personal?: string;
-  rehearsal?: boolean;
-  step: string;
-  wipe?: boolean;
-}
-
-// ---- backup ----
-
-export interface BackupSet {
-  id: string;
-  sizeBytes: string;
-  taken?: string;
-  target: string;
-}
-
-export interface BackupPolicy {
-  retentionDays: number;
-  schedule: string;
-  targets: string[];
-}
-
-export interface GetBackupsResponse {
-  policy?: BackupPolicy;
-  sets: BackupSet[];
-}
-
-// ---- upgrade ----
-
-export interface UpgradePolicy {
-  /** Fetch from the release source when no mirror is set or the mirror fails. Off by default. */
-  direct?: boolean;
-  /** The internal source the .bin files are fetched from, an http:// or https:// base; every .bin
-   * is checked by its signature either way. Empty, with direct off, means air-gapped. */
-  mirrorUrl: string;
-  /** automatic applies a staged release inside the daily window; manual waits for an owner. */
-  mode: "automatic" | "manual";
-  windowMinutes: number;
-  /** HH:MM local. */
-  windowStart: string;
-  /**
-   * Where updates come from: builtin (the list compiled into the root: the release download
-   * location, or a lab build's mirror), manual (mirrorUrl) or none (upload only). The box always
-   * answers it filled in; a box from before the source leaves it out.
-   */
-  source?: UpdateSource;
-  /**
-   * The channel the GitHub source follows: stable, or rc (the newest rc or stable release). Empty
-   * is the build's default (rc on a pre-release build); left out of a save, the box keeps its own.
-   */
-  releaseChannel?: ReleaseChannel | "";
-  /** A lab build's GitHub repository override (owner/name); a production box refuses it. */
-  releaseRepo?: string;
-}
-
-export type UpdateSource = "builtin" | "manual" | "none";
-
-export type ReleaseChannel = "rc" | "stable";
-
-/**
- * What an update changes, one of the three update units: the Base OS (the root image, its slots
- * and a reboot), the Base Web (the :8443 pages, switched in place) or the product bundle.
- */
-export type UpdateTarget =
-  | "UPDATE_TARGET_BASE"
-  | "UPDATE_TARGET_BASE_WEB"
-  | "UPDATE_TARGET_PRODUCT"
-  | "UPDATE_TARGET_UNSPECIFIED";
-
-/** The Base Web unit: which pages :8443 serves, and its slots. */
-export interface BaseWebStatus {
-  builtinVersion: string;
-  /** There's a Base Web to revert: to previousVersion, or with none to the built-in pages. */
-  canRevert: boolean;
-  /** What the current link names, served or not. */
-  currentVersion: string;
-  /** Whether the running Base OS is in requiresBaseOs. */
-  fits: boolean;
-  /** The slot a revert goes back to; empty when a revert goes to the built-in pages. */
-  previousVersion: string;
-  /** Why the built-in pages serve, or why the last switch didn't take. */
-  reason: string;
-  /** What the current Base Web needs of the Base OS, such as "0.3.0 to before 0.4.0". */
-  requiresBaseOs: string;
-  /** The served pages' version; the built-in pages carry the running Base OS's. */
-  runningVersion: string;
-  /** a or b; empty for the built-in pages. */
-  slot: string;
-  /** slot or built-in. */
-  source: string;
-  stagedVersion: string;
-}
-
-/** One file the source offers for a unit. */
-export interface UnitOffer {
-  bases: string[];
-  commit: string;
-  /** What FetchUpdate takes. */
-  fileName: string;
-  /** The Base Web a Base OS release ships with; empty for one from before the rule. */
-  includesBaseWeb: string;
-  kind: "full" | "patch";
-  /** What the file needs of the Base OS, such as "0.3.0 to before 0.4.0". */
-  needs: string;
-  /** What taking it means for the other units. */
-  note: string;
-  /** A Base OS outside the installed product's range: staging it needs the owner's override. */
-  outsideProductRange: boolean;
-  /** The line to take: the newest Base OS's patch when it fits, else its full file. */
-  preferred: boolean;
-  productRange: string;
-  /** int64, so a string. */
-  size: string;
-  target?: UpdateTarget;
-  version: string;
-}
-
-/** Check now's answer: what the source offers for each unit. */
-export interface CheckUpdatesResponse {
-  baseOs: UnitOffer[];
-  baseWeb: UnitOffer[];
-  /** A newer Base Web the running Base OS doesn't fit, and the Base OS it needs. */
-  baseWebWaits: string;
-  checkedAt?: string;
-  indexFormat: number;
-  product: UnitOffer[];
-  /** The installed product version itself, when the source has it: a reinstall keeps the data. */
-  productReinstall?: UnitOffer;
-  /** Each newer release the check skipped and why; empty when the newest one is used. */
-  publishingNote: string;
-  /** mirror, builtin or direct, and its address. */
-  source: string;
-  url: string;
-}
-
-/** A fetch of one .bin, while it runs and after. */
-export interface FetchProgress {
-  bytesPerSecond: string;
-  code: string;
-  /** int64s, so strings. */
-  doneBytes: string;
-  error: string;
-  etaSeconds: string;
-  fileName: string;
-  source: string;
-  startedAt?: string;
-  /** querying, downloading, verifying, done or failed. */
-  state: "" | "done" | "downloading" | "failed" | "querying" | "verifying";
-  target?: UpdateTarget;
-  totalBytes: string;
-  updatedAt?: string;
-  uploadId: string;
-  /** The downloaded file's signature, channel and SHA-256 checked out. */
-  verified: boolean;
-}
-
-/** The product bundle's slots (k0s, its images and the product) on the state volume. */
-export interface ProductSlots {
-  /** Empty before the first install. */
-  installedVersion?: string;
-  /**
-   * The installed product's name for people, such as "Sneakers"; empty with no product. The nav
-   * shows the product's own section under it.
-   */
-  name?: string;
-  /** The slot a revert goes back to; empty when there is none. */
-  previousVersion?: string;
-  /** The installed product's base range, such as "0.2.0 to 0.3.0"; fits says whether the
-   * running Base OS is in it. */
-  fits?: boolean;
-  requiresBaseOs?: string;
-  /** The box is finishing a cut-off reset by itself; nothing is asked of an owner. */
-  resetFinishing?: boolean;
-  /** A reset was cut off part-way: that the box is finishing it, or why the product can't start
-   * and how to finish it. Empty otherwise, and left out by a box from before it. */
-  resetNote?: string;
-  /** The product services (k0s) are running. */
-  running?: boolean;
-  stagedVersion?: string;
-}
-
-/** One product bundle a source offers. */
-export interface ProductVersion {
-  arch: string;
-  /** The exact base versions a bundle sealed before the base range existed fits. */
-  bases: string[];
-  channel: string;
-  /** What FetchUpdate takes, such as sneakers-product-0.2.0-amd64.bin. */
-  fileName: string;
-  /** The bundle's base range, inclusive; maxBase is empty with no maximum, and both are empty
-   * for a bundle that names exact bases only. */
-  maxBase: string;
-  minBase: string;
-  size: string;
-  /** mirror or direct: where the index came from. */
-  source: string;
-  version: string;
-}
-
-export interface ListProductVersionsResponse {
-  /** The running base they were matched against. */
-  baseVersion: string;
-  /** Newest first. Empty lists are left out of the JSON. */
-  versions?: ProductVersion[];
-}
-
-/** A verified .bin's signed header, as StageUpdate returns it. */
-export interface UpdatePackage {
-  arch: string;
-  bases: string[];
-  channel: string;
-  /** A Base OS patch's full release, which the box takes when the patch doesn't apply. */
-  fullBin?: string;
-  /** The Base Web a Base OS release ships with. */
-  includesBaseWeb?: string;
-  /** upload, mirror or direct. */
-  source?: string;
-  kind: "full" | "patch";
-  /** A product bundle's base range, as in ProductVersion. */
-  maxBase: string;
-  minBase: string;
-  sha256: string;
-  size: string;
-  target?: UpdateTarget;
-  uploadId: string;
-  version: string;
-}
-
-export type UpgradeStepState =
-  | "UPGRADE_STEP_STATE_ACTIVE"
-  | "UPGRADE_STEP_STATE_DONE"
-  | "UPGRADE_STEP_STATE_FAILED"
-  | "UPGRADE_STEP_STATE_PENDING"
-  | "UPGRADE_STEP_STATE_UNSPECIFIED";
-
-/** One step of a stage, apply or revert. */
-export interface UpgradeStep {
-  /** What an active step is doing or waiting for, or why a failed step failed. */
-  detail: string;
-  /** Bytes written of totalBytes where the step has a progress (the root image going into the
-   * slot); int64, so a string. totalBytes is "0" otherwise. */
-  doneBytes: string;
-  /** verify, stage, switch, reboot, health or mark_good for a base release; verify, stage,
-   * switch, restart, k0s, images, manifests, pods or edge for a product bundle (restart on,
-   * osadmin's own ticks carry a product apply or revert the rest of the way, sneakers-appliance
-   * #218). A step can go back (a pod that comes up then falls over), so read each step's own
-   * state and never assume the order. */
-  id: string;
-  /** The step as the screens show it, such as "Staging into slot B" or "Pulling the product's
-   * images"; the server's own wording, shown as given. */
-  label: string;
-  state: UpgradeStepState;
-  totalBytes: string;
-}
-
-/** The box's last stage, apply or revert, step by step. A base apply's steps after the reboot
- * (checking health, marking good) come from the release the box booted. */
-export interface UpgradeProgress {
-  action: "" | "apply" | "revert" | "stage";
-  /** The failure's code, such as UPGRADE_SIGNATURE, when a step failed with one. */
-  code: string;
-  failed: boolean;
-  inProgress: boolean;
-  startedAt?: string;
-  /** In order: done, then the active or failed one, then pending. */
-  steps: UpgradeStep[];
-  target?: UpdateTarget;
-  updatedAt?: string;
-  /** The release staged or applied, or the one a revert goes back to. */
-  version: string;
-}
-
-export interface UpgradeEvent {
-  /** reinstall is an apply of the installed product version; reset removed the product. */
-  action: "apply" | "discard" | "fetch" | "reinstall" | "reset" | "revert" | "stage";
-  actor: string;
-  code: string;
-  detail: string;
-  outcome: "failed" | "ok";
-  target?: UpdateTarget;
-  time?: string;
-  version: string;
-}
-
-/**
- * An owner's override of an open elevated shell on Apply or Revert: the session is ended,
- * audited with the reason, and the update goes ahead once its end is reported.
- */
-export interface ElevationOverride {
-  /** Typed by the owner: the session's admin, a space and the request id ("bob E-7KQ2"). */
-  confirm: string;
-  elevationId: string;
-  reason: string;
-}
-
-/** A received or fetched .bin not yet staged or discarded; while one is held the box refuses a
- * new upload or fetch (UPGRADE_BUSY). */
-export interface HeldUpload {
-  /** The name the browser sent with the upload, or the fetched file's; empty when none. */
-  fileName: string;
-  receivedAt?: string;
-  /** int64, so a string. */
-  size: string;
-  /** upload, mirror or direct. */
-  source: string;
-  uploadId: string;
 }
 
 export interface GetUpgradesResponse {
@@ -1391,6 +665,214 @@ export interface GetUpgradesResponse {
   stagedIncludesBaseWeb: string;
 }
 
+/** A received or fetched .bin not yet staged or discarded; while one is held the box refuses a
+ * new upload or fetch (UPGRADE_BUSY). */
+export interface HeldUpload {
+  /** The name the browser sent with the upload, or the fetched file's; empty when none. */
+  fileName: string;
+  receivedAt?: string;
+  /** int64, so a string. */
+  size: string;
+  /** upload, mirror or direct. */
+  source: string;
+  uploadId: string;
+}
+
+export interface HostKey {
+  fingerprint: string;
+  type: string;
+}
+
+export interface ImportCertificateRequest {
+  certificatePem?: string;
+  chainPem?: string;
+  keyPem?: string;
+  /** The PFX file, base64. */
+  pkcs12?: string;
+  pkcs12Password?: string;
+  rootPem?: string;
+}
+
+/** One file of the open import: bundle, mapping, sheet or types. */
+export interface ImportFile {
+  kind: string;
+  size: number;
+  uploadedAt: string;
+}
+
+/** One sneakers-migrate step the box ran as a Job, and how it went. */
+export interface ImportRun {
+  exitCode: number;
+  finishedAt: string;
+  job: string;
+  output: string;
+  ownerEmail: string;
+  ownerPasswordWaiting: boolean;
+  /**
+   * Why a failed step ended, when it didn't write its exit code and the box read it from the
+   * step's Job ("the review step ran out of memory (limit 4Gi)"); empty otherwise.
+   */
+  reason: string;
+  rehearsal: boolean;
+  report: string;
+  startedAt: string;
+  /** running, passed or failed. */
+  state: string;
+  /** review, convert, check, import or verify. */
+  step: string;
+  template: string;
+  wipe: boolean;
+}
+
+// ---- tls ----
+
+/** A one-time code for an admin to set a password and an authenticator. Shown once. */
+export interface Invitation {
+  admin: string;
+  /** XXXX-XXXX. */
+  code: string;
+  expires?: string;
+}
+
+export type Ipv4Mode =
+  | "IPV4_MODE_DHCP"
+  | "IPV4_MODE_OFF"
+  | "IPV4_MODE_STATIC"
+  | "IPV4_MODE_UNSPECIFIED";
+
+export type Ipv6Mode =
+  | "IPV6_MODE_DHCPV6"
+  | "IPV6_MODE_OFF"
+  | "IPV6_MODE_SLAAC"
+  | "IPV6_MODE_STATIC"
+  | "IPV6_MODE_UNSPECIFIED";
+
+export interface IssueRootShellCodeResponse {
+  /** XXXX-XXXX, typed into the SSH session; it works once, for this challenge only. */
+  code: string;
+  expires?: string;
+  /** How long the root shell may stay open. */
+  sessionMinutes: number;
+  /** The SSH client the challenge came from, to check. */
+  sourceAddress: string;
+}
+
+export interface IssueSshKeyResponse {
+  /** The OpenSSH certificate line, saved next to the key as certificateFileName. */
+  certificate: string;
+  /** Unique per key (by label or serial): <fileName>-cert.pub. */
+  certificateFileName: string;
+  /** A unique name for the private key file (id_ed25519_<admin>_sneakers_<serial>), so a
+   * browser never adds " (1)" and the key, certificate and .ppk names always pair. */
+  fileName: string;
+  key: Key;
+  /** The PuTTY PPK v3 text with the certificate already embedded: the recommended download for
+   * PuTTY 0.78+ and MobaXterm 25.1+. */
+  ppk: string;
+  /** <fileName>.ppk. */
+  ppkFileName: string;
+  /** PEM PKCS#8 ("PRIVATE KEY"), for tools that take neither the OpenSSH nor the PuTTY form. It
+   * carries no certificate, so it pairs with certificateFileName. Shown once. */
+  pem: string;
+  /** <fileName>.pem. */
+  pemFileName: string;
+  /** The OpenSSH private key, shown once and never kept by the box. */
+  privateKey: string;
+  publicKey: string;
+  /** <fileName>.pub; the same public key goes with all three private-key forms. */
+  publicKeyFileName: string;
+  /** The exact OpenSSH command, with the certificate file named: `ssh -i <fileName> -o
+   * CertificateFile=<certificateFileName> <admin>@<box>`. */
+  sshCommand: string;
+  /** A known_hosts line trusting the box's host CA for its host name and management addresses
+   * ("@cert-authority <names> <host CA key>"), so the first login has no host key prompt. */
+  knownHosts: string;
+  /** known_hosts_<box>, for knownHosts. */
+  knownHostsFileName: string;
+  /** The box's user CA (its root key's public half), which signed the certificate. */
+  userCaPublicKey: string;
+}
+
+/** An SSH key the box issued to an admin: an ed25519 key with a certificate from the root key. */
+export interface Key {
+  added?: string;
+  addedBy: string;
+  /** The label the admin gave it. */
+  comment: string;
+  fingerprint: string;
+  lastUsed?: string;
+  /** The certificate's serial, the one the revocation list names. */
+  serial?: string;
+  type: string;
+  /** When the certificate stops working. */
+  validBefore?: string;
+  via: string;
+}
+
+/** The key a CSR is made with; RSA 4096 is the default. */
+export type KeyType =
+  | "KEY_TYPE_ECDSA_P256"
+  | "KEY_TYPE_ECDSA_P384"
+  | "KEY_TYPE_RSA_3072"
+  | "KEY_TYPE_RSA_4096";
+
+export interface ListAdminsResponse {
+  accessPolicy?: AccessPolicy;
+  admins: Admin[];
+  hostKeys: HostKey[];
+  quorum?: Quorum;
+  /** Empty lists are left out of the JSON. */
+  revokedKeys?: RevokedKey[];
+  /** The box's root key (it never leaves the box): its type and fingerprint. */
+  rootKey?: HostKey;
+  /** The box's SSH host CA, which signs sshd's host certificate: its type and fingerprint. */
+  hostCa?: HostKey;
+  /** The "@cert-authority <names> <host CA key>" line for a client's known_hosts. */
+  knownHosts: string;
+  /** The root key's public half: the user CA sshd trusts (an authorized_keys line). */
+  userCaPublicKey: string;
+}
+
+export interface ListElevationsResponse {
+  elevations: Elevation[];
+}
+
+export interface ListEventsResponse {
+  chainError: string;
+  chainOk: boolean;
+  events: AuditEvent[];
+  nextPageToken: string;
+}
+
+export interface ListExposedValuesResponse {
+  /** The installed product's command word; empty with no product. */
+  product: string;
+  productTitle: string;
+  values: ExposedValue[];
+}
+
+export interface ListModulesResponse {
+  available: AddonModule[];
+  platform: string;
+}
+
+export interface ListProductVersionsResponse {
+  /** The running base they were matched against. */
+  baseVersion: string;
+  /** Newest first. Empty lists are left out of the JSON. */
+  versions?: ProductVersion[];
+}
+
+export interface ListSessionsResponse {
+  sessions: ActiveSession[];
+}
+
+/** What `lockoutMaxFailures` consecutive failures in 15 minutes do (NIST SP 800-53 AC-7). */
+export type LockoutMode =
+  | "LOCKOUT_MODE_TIMED"
+  | "LOCKOUT_MODE_UNSPECIFIED"
+  | "LOCKOUT_MODE_UNTIL_UNLOCKED";
+
 /**
  * How the box reaches the mirror and how its last fetch went. The box keeps it in memory, so
  * `checked` is false after a restart until the next mirror fetch.
@@ -1435,41 +917,242 @@ export interface MirrorStatus {
   serverSubject: string;
 }
 
-// ---- modules ----
+// ---- product ----
 
-export interface AddonModule {
-  active: boolean;
+/** One connectivity check. Proto3 JSON leaves out defaults, so an absent state is unspecified. */
+export interface NetdCheck {
+  /** The NET_* symbol when the check isn't ok. */
+  code?: string;
+  detail?: string;
+  /** link, address, gateway, dns or ntp. */
   name: string;
+  /** False for the checks setup can't continue past. */
+  skippable?: boolean;
+  state?: CheckState;
+}
+
+export interface NetdInterface {
+  ipv4?: NetdIpv4;
+  ipv6?: NetdIpv6;
+  name?: string;
+}
+
+export interface NetdIpv4 {
+  /** A prefix such as 192.0.2.10/24, in static mode only. */
+  address?: string;
+  gateway?: string;
+  mode?: Ipv4Mode;
+}
+
+// ---- mcp ----
+
+export interface NetdIpv6 {
+  /** A prefix such as 2001:db8::10/64, in static mode only. */
+  address?: string;
+  gateway?: string;
+  mode?: Ipv6Mode;
+}
+
+// ---- email ----
+
+/** netd's settings as the proto has them; a stage sends the whole set back. */
+export interface NetdSettings {
+  allowList: string[];
+  cluster?: { pods?: string; services?: string };
+  dns: string[];
+  hostname: string;
+  httpsProxy?: string;
+  management?: NetdInterface;
+  ntp: string[];
+  search: string[];
+  /** Absent when one NIC carries both roles. */
+  service?: NetdInterface;
+  timeZone?: string;
+}
+
+/** The network change window, as GetStatus gives it so every page can show it. */
+export interface NetworkChange {
+  /** Names the pending change in the audit. */
+  changeId: string;
+  /** The last change that waited was undone; lastChangeId names it. */
+  lastReverted: boolean;
+  /** It was undone because the box stopped or restarted inside its window. */
+  lastRevertedAtStart: boolean;
+  lastChangeId: string;
+  /** A change waits for ConfirmNetwork. */
+  pending: boolean;
+  revertSecondsLeft: number;
+}
+
+export interface PendingCsr {
+  created?: string;
+  csrPem: string;
+  id: string;
+  keyType: string;
+  names: string[];
+  subject: string;
+}
+
+export interface PinEmailCertificateRequest {
+  /** The pin the settings hold now, given again to replace it; needed only to replace one. */
+  replacesSha256?: string;
+  /** The form's settings; absent for the saved ones. */
+  settings?: EmailSettings;
+  /** The fingerprint to pin, as the refusal gave it. */
+  sha256: string;
+}
+
+/** The settings given with `pinSha256` set and verification on; nothing is saved. */
+export interface PinEmailCertificateResponse {
+  certificate: RelayCertificate;
+  settings: EmailSettings;
+}
+
+/** The product bundle's slots (k0s, its images and the product) on the state volume. */
+export interface ProductSlots {
+  /** Empty before the first install. */
+  installedVersion?: string;
+  /**
+   * The installed product's name for people, such as "Sneakers"; empty with no product. The nav
+   * shows the product's own section under it.
+   */
+  name?: string;
+  /** The slot a revert goes back to; empty when there is none. */
+  previousVersion?: string;
+  /** The installed product's base range, such as "0.2.0 to 0.3.0"; fits says whether the
+   * running Base OS is in it. */
+  fits?: boolean;
+  requiresBaseOs?: string;
+  /** The box is finishing a cut-off reset by itself; nothing is asked of an owner. */
+  resetFinishing?: boolean;
+  /** A reset was cut off part-way: that the box is finishing it, or why the product can't start
+   * and how to finish it. Empty otherwise, and left out by a box from before it. */
+  resetNote?: string;
+  /** The product services (k0s) are running. */
+  running?: boolean;
+  stagedVersion?: string;
+}
+
+/** One product bundle a source offers. */
+export interface ProductVersion {
+  arch: string;
+  /** The exact base versions a bundle sealed before the base range existed fits. */
+  bases: string[];
+  channel: string;
+  /** What FetchUpdate takes, such as sneakers-product-0.2.0-amd64.bin. */
+  fileName: string;
+  /** The bundle's base range, inclusive; maxBase is empty with no maximum, and both are empty
+   * for a bundle that names exact bases only. */
+  maxBase: string;
+  minBase: string;
+  size: string;
+  /** mirror or direct: where the index came from. */
+  source: string;
   version: string;
 }
 
-export interface ListModulesResponse {
-  available: AddonModule[];
-  platform: string;
+export type Protection = "PROTECTION_FULL" | "PROTECTION_REDUCED" | "PROTECTION_UNSPECIFIED";
+
+/** Who hid the reduced-protection notice for every admin, and when. */
+export interface ProtectionNotice {
+  hidden: boolean;
+  hiddenAt?: string;
+  hiddenBy: string;
 }
 
-// ---- audit ----
+// ---- telemetry ----
 
-export interface AuditEvent {
-  action: string;
-  actor: string;
-  code: string;
-  detail: Record<string, string>;
-  keyFingerprint: string;
-  outcome: "ok" | "refused";
-  sourceAddress: string;
-  target: string;
-  time?: string;
+/**
+ * The root-operator roster: who may open the root shell, and whose approvals count for a
+ * factory reset.
+ */
+export interface Quorum {
+  configured: boolean;
+  members: string[];
+  required: number;
 }
 
-export interface ListEventsResponse {
-  chainError: string;
-  chainOk: boolean;
-  events: AuditEvent[];
-  nextPageToken: string;
+export interface RecoveryKey {
+  fingerprint: string;
+  label: string;
+  set?: string;
+  setBy: string;
+  type: string;
 }
 
-// ---- power ----
+export interface RedeemCodeResponse {
+  admin?: string;
+  /** The X-CSRF-Token for the code session's calls that change something. */
+  csrfToken?: string;
+  existingOwners?: string[];
+  expires?: string;
+  kind: CodeKind;
+}
+
+/** The certificate a relay presented. */
+export interface RelayCertificate {
+  dnsNames: string[];
+  ipAddresses: string[];
+  issuer: string;
+  notAfter: string;
+  notBefore: string;
+  /** Colon hex in capitals. */
+  sha256: string;
+  subject: string;
+}
+
+export type ReleaseChannel = "rc" | "stable";
+
+/** A removed login key, on sshd's revocation list until an owner un-revokes it. */
+export interface RevokedKey {
+  /** Who the key belonged to. */
+  admin: string;
+  fingerprint: string;
+  revoked?: string;
+  /** Who removed the key or its admin: an admin's name, or "console". */
+  revokedBy?: string;
+  type: string;
+}
+
+// ---- import ----
+
+export type Role = "ROLE_ADMIN" | "ROLE_OWNER" | "ROLE_UNSPECIFIED";
+
+export interface RunChecksResponse {
+  checks: NetdCheck[];
+}
+
+export interface RunImportStepRequest {
+  newFolderParent?: string;
+  ownerEmail?: string;
+  personal?: string;
+  rehearsal?: boolean;
+  step: string;
+  wipe?: boolean;
+}
+
+export interface SendTestEmailRequest {
+  password?: string;
+  settings?: EmailSettings;
+  to: string;
+}
+
+// ---- backup ----
+
+export interface Session {
+  admin: string;
+  csrfToken: string;
+  expires?: string;
+  idleExpires?: string;
+  /** Things to tell the admin once after signing in, such as a console Recover access. */
+  notices?: string[];
+  role: Role;
+  /** On the root-operator roster: may get root-shell codes. */
+  rootOperator?: boolean;
+  signedIn?: string;
+  /** Until when sensitive actions go ahead without a fresh TOTP code (StepUp). */
+  stepUpUntil?: string;
+}
 
 export type SessionKind =
   | "SESSION_KIND_BROWSER"
@@ -1477,23 +1160,362 @@ export type SessionKind =
   | "SESSION_KIND_SSH"
   | "SESSION_KIND_UNSPECIFIED";
 
-/** A live session a power action would end, or ListSessions/EndSession can end on its own. */
-export interface ActiveSession {
-  admin: string;
-  /** Names the session for EndSession. Not the session's cookie. */
+export interface SetEmailRequest {
+  elevationOverride?: ElevationOverride;
+  /** Absent keeps the saved password; empty clears it. */
+  password?: string;
+  settings: EmailSettings;
+}
+
+// ---- upgrade ----
+
+export interface SetTelemetryRequest {
+  elevationOverride?: ElevationOverride;
+  settings: TelemetrySettings;
+}
+
+export interface SetTelemetryResponse {
+  /** The settings changed what the services read, so they restart. */
+  restarting: boolean;
+}
+
+export interface SetupStep {
+  done?: boolean;
+  kind: SetupStepKind;
+  /** 1 to 6. */
+  number: number;
+  optional?: boolean;
+}
+
+export type SetupStepKind =
+  | "SETUP_STEP_KIND_ADMIN"
+  | "SETUP_STEP_KIND_CODE"
+  | "SETUP_STEP_KIND_NETWORK"
+  | "SETUP_STEP_KIND_PROTECTION"
+  | "SETUP_STEP_KIND_RECOVERY_KEYS"
+  | "SETUP_STEP_KIND_SIGN_IN"
+  | "SETUP_STEP_KIND_UNSPECIFIED";
+
+export interface SignInResponse {
+  session: Session;
+}
+
+/** What a commit of the staged settings does, shown before it runs. */
+export interface StagedReview {
+  /** The allow-list changes, which can shut out the session that commits it. */
+  changesAllowList: boolean;
+  /** The management address moves, so a session on the old one drops. That's expected. */
+  movesManagement: boolean;
+  /** The static address to reconnect to; empty when DHCP or SLAAC gives it. */
+  newAddress: string;
+  /** The box makes a new self-signed :8443 certificate. */
+  newCertificate: boolean;
+  /** The admin page at newAddress. */
+  newUrl: string;
+}
+
+export interface StageNetworkResponse {
+  review: StagedReview;
+  /** What CommitNetwork takes. */
+  stagedId: string;
+}
+
+/** A certificate in the box's store; its key stays sealed on the box. */
+export interface StoredCertificate {
+  added?: string;
+  certificatePem: string;
+  /** Each certificate's subject, the leaf first. */
+  chain: string[];
+  csrId?: string;
+  fingerprint: string;
   id: string;
-  kind: SessionKind;
-  signedIn?: string;
-  sourceAddress: string;
+  issuer: string;
+  keyType: string;
+  names: string[];
+  notAfter: string;
+  notBefore: string;
+  source: CertificateSource;
+  subject: string;
+  /** The endpoint ids that serve it. */
+  usedBy?: string[];
 }
 
-export interface ListSessionsResponse {
-  sessions: ActiveSession[];
+/** The last restart for a change. */
+export interface TelemetryRestart {
+  /** The phase it's at, or stopped at. */
+  phase: string;
+  /** "none", "running", "done" or "failed". */
+  state: string;
+  /** Why it stopped; later phases keep the old settings until a retry. */
+  why: string;
+  /** The workload it stopped at. */
+  workload: string;
 }
 
-export interface GetPowerResponse {
-  factoryReset?: FactoryReset;
-  factoryResetAvailable: boolean;
-  factoryResetUnavailableReason: string;
-  sessions: ActiveSession[];
+/** Where the installed product's services export traces, metrics and logs over OTLP. */
+export interface TelemetrySettings {
+  /**
+   * The collector's CA, PEM (one or more certificates, at most 64 KiB); empty for none. Set, it's
+   * trusted in place of the system roots. Unused while `skipVerify` is on. One that doesn't parse
+   * is refused with `TELEMETRY_INVALID`.
+   */
+  caPem: string;
+  /** Off stops the export and keeps the endpoint. */
+  enabled: boolean;
+  /** https://<host>[:<port>]. */
+  endpoint: string;
+  /** Logs as well as traces and metrics. */
+  logs: boolean;
+  /** Skips the collector's CA and certificate checks; no logs leave while it's on. */
+  skipVerify: boolean;
 }
+
+/** One service's export state. */
+export interface TelemetryWorkload {
+  name: string;
+  /** "sending", "issue", "off" or "unknown". */
+  state: string;
+}
+
+/** A change to the box's own self-signed certificate, which Status carries for 7 days. */
+export interface TlsChange {
+  at?: string;
+  newFingerprint: string;
+  oldFingerprint: string;
+  /** addresses, hostname or expiring. */
+  reason: string;
+  /** True when newFingerprint is the certificate the box had before, put back. */
+  restored: boolean;
+}
+
+/** A new authenticator secret, shown once. */
+export interface TotpEnrolment {
+  account: string;
+  algorithm: string;
+  digits: number;
+  expires?: string;
+  id: string;
+  issuer: string;
+  periodSeconds: number;
+  /** Base32, for typing; shown in groups of four. */
+  secret: string;
+  /** The otpauth:// URI for the QR code. */
+  uri: string;
+}
+
+/** One CA certificate in the update trust. */
+export interface TrustedCa {
+  issuer: string;
+  notAfter?: string;
+  /** Colon hex. */
+  sha256: string;
+  subject: string;
+}
+
+/** One file the source offers for a unit. */
+export interface UnitOffer {
+  bases: string[];
+  commit: string;
+  /** What FetchUpdate takes. */
+  fileName: string;
+  /** The Base Web a Base OS release ships with; empty for one from before the rule. */
+  includesBaseWeb: string;
+  kind: "full" | "patch";
+  /** What the file needs of the Base OS, such as "0.3.0 to before 0.4.0". */
+  needs: string;
+  /** What taking it means for the other units. */
+  note: string;
+  /** A Base OS outside the installed product's range: staging it needs the owner's override. */
+  outsideProductRange: boolean;
+  /** The line to take: the newest Base OS's patch when it fits, else its full file. */
+  preferred: boolean;
+  productRange: string;
+  /** int64, so a string. */
+  size: string;
+  target?: UpdateTarget;
+  version: string;
+}
+
+/** A verified .bin's signed header, as StageUpdate returns it. */
+export interface UpdatePackage {
+  arch: string;
+  bases: string[];
+  channel: string;
+  /** A Base OS patch's full release, which the box takes when the patch doesn't apply. */
+  fullBin?: string;
+  /** The Base Web a Base OS release ships with. */
+  includesBaseWeb?: string;
+  /** upload, mirror or direct. */
+  source?: string;
+  kind: "full" | "patch";
+  /** A product bundle's base range, as in ProductVersion. */
+  maxBase: string;
+  minBase: string;
+  sha256: string;
+  size: string;
+  target?: UpdateTarget;
+  uploadId: string;
+  version: string;
+}
+
+export type UpdateSource = "builtin" | "manual" | "none";
+
+/**
+ * What an update changes, one of the three update units: the Base OS (the root image, its slots
+ * and a reboot), the Base Web (the :8443 pages, switched in place) or the product bundle.
+ */
+export type UpdateTarget =
+  | "UPDATE_TARGET_BASE_WEB"
+  | "UPDATE_TARGET_BASE"
+  | "UPDATE_TARGET_PRODUCT"
+  | "UPDATE_TARGET_UNSPECIFIED";
+
+/**
+ * What an https:// update mirror is checked against beyond the system roots, for the mirror's
+ * fetches only: private CAs, and an optional pin on its server certificate.
+ */
+export interface UpdateTrust {
+  cas: TrustedCa[];
+  /** Colon hex in capitals; empty when there's no pin. */
+  pinSha256: string;
+  setAt?: string;
+  setBy: string;
+}
+
+export interface UpgradeEvent {
+  /** reinstall is an apply of the installed product version; reset removed the product. */
+  action: "apply" | "discard" | "fetch" | "reinstall" | "reset" | "revert" | "stage";
+  actor: string;
+  code: string;
+  detail: string;
+  outcome: "failed" | "ok";
+  target?: UpdateTarget;
+  time?: string;
+  version: string;
+}
+
+// ---- modules ----
+
+export interface UpgradePolicy {
+  /** Fetch from the release source when no mirror is set or the mirror fails. Off by default. */
+  direct?: boolean;
+  /** The internal source the .bin files are fetched from, an http:// or https:// base; every .bin
+   * is checked by its signature either way. Empty, with direct off, means air-gapped. */
+  mirrorUrl: string;
+  /** automatic applies a staged release inside the daily window; manual waits for an owner. */
+  mode: "automatic" | "manual";
+  windowMinutes: number;
+  /** HH:MM local. */
+  windowStart: string;
+  /**
+   * Where updates come from: builtin (the list compiled into the root: the release download
+   * location, or a lab build's mirror), manual (mirrorUrl) or none (upload only). The box always
+   * answers it filled in; a box from before the source leaves it out.
+   */
+  source?: UpdateSource;
+  /**
+   * The channel the GitHub source follows: stable, or rc (the newest rc or stable release). Empty
+   * is the build's default (rc on a pre-release build); left out of a save, the box keeps its own.
+   */
+  releaseChannel?: "" | ReleaseChannel;
+  /** A lab build's GitHub repository override (owner/name); a production box refuses it. */
+  releaseRepo?: string;
+}
+
+/** The box's last stage, apply or revert, step by step. A base apply's steps after the reboot
+ * (checking health, marking good) come from the release the box booted. */
+export interface UpgradeProgress {
+  action: "" | "apply" | "revert" | "stage";
+  /** The failure's code, such as UPGRADE_SIGNATURE, when a step failed with one. */
+  code: string;
+  failed: boolean;
+  inProgress: boolean;
+  startedAt?: string;
+  /** In order: done, then the active or failed one, then pending. */
+  steps: UpgradeStep[];
+  target?: UpdateTarget;
+  updatedAt?: string;
+  /** The release staged or applied, or the one a revert goes back to. */
+  version: string;
+}
+
+// ---- audit ----
+
+/** One step of a stage, apply or revert. */
+export interface UpgradeStep {
+  /** What an active step is doing or waiting for, or why a failed step failed. */
+  detail: string;
+  /** Bytes written of totalBytes where the step has a progress (the root image going into the
+   * slot); int64, so a string. totalBytes is "0" otherwise. */
+  doneBytes: string;
+  /** verify, stage, switch, reboot, health or mark_good for a base release; verify, stage,
+   * switch, restart, k0s, images, manifests, pods or edge for a product bundle (restart on,
+   * osadmin's own ticks carry a product apply or revert the rest of the way, sneakers-appliance
+   * #218). A step can go back (a pod that comes up then falls over), so read each step's own
+   * state and never assume the order. */
+  id: string;
+  /** The step as the screens show it, such as "Staging into slot B" or "Pulling the product's
+   * images"; the server's own wording, shown as given. */
+  label: string;
+  state: UpgradeStepState;
+  totalBytes: string;
+}
+
+export type UpgradeStepState =
+  | "UPGRADE_STEP_STATE_ACTIVE"
+  | "UPGRADE_STEP_STATE_DONE"
+  | "UPGRADE_STEP_STATE_FAILED"
+  | "UPGRADE_STEP_STATE_PENDING"
+  | "UPGRADE_STEP_STATE_UNSPECIFIED";
+
+// ---- power ----
+
+export interface ValidationCheck {
+  detail: string;
+  /** key, usage, chain, names or validity. */
+  name: string;
+  passed: boolean;
+}
+
+/** One of the box's volumes, as the disk guard reads it. */
+export interface Volume {
+  label: string;
+  level: DiskLevel;
+  /** When the level began. */
+  levelSince?: string;
+  /** state, data or backup. */
+  name: string;
+  path: string;
+  percent: number;
+  /** The volume this one is on when it isn't a filesystem of its own; it has no alert then. */
+  sharedWith: string;
+  /** What's usable: used plus available. */
+  totalBytes: number;
+  usedBytes: number;
+}
+
+export interface Warning {
+  /** Needs action now, such as a volume 90% full; the mock leaves it out when it's false. */
+  critical?: boolean;
+  detail: string;
+  kind: WarningKind;
+}
+
+export type WarningKind =
+  | "WARNING_KIND_AUDIT_ARCHIVE"
+  | "WARNING_KIND_CONSOLE_RECOVERY"
+  | "WARNING_KIND_DATA_WAL"
+  | "WARNING_KIND_DISK_GROWTH"
+  | "WARNING_KIND_DISK_SPACE"
+  | "WARNING_KIND_EXPOSURE"
+  | "WARNING_KIND_FACTORY_RESET"
+  | "WARNING_KIND_NETWORK_PENDING"
+  | "WARNING_KIND_NETWORK_REVERTED"
+  | "WARNING_KIND_NTP_UNSYNCED"
+  | "WARNING_KIND_REDUCED_PROTECTION"
+  | "WARNING_KIND_SELF_SIGNED_TLS"
+  | "WARNING_KIND_TLS_CHANGED"
+  | "WARNING_KIND_TLS_EXPIRED"
+  | "WARNING_KIND_TLS_EXPIRING"
+  | "WARNING_KIND_TLS_NAMES"
+  | "WARNING_KIND_UNSPECIFIED";

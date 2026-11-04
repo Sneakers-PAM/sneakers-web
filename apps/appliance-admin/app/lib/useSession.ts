@@ -1,7 +1,8 @@
 import { useSyncExternalStore } from "react";
 
-import { getSession, isStepUpFresh, subscribeSession } from "@/lib/osadmin/sessionStore";
 import type { Session } from "@/lib/osadmin/types";
+
+import { getSession, isStepUpFresh, subscribeSession } from "@/lib/osadmin/sessionStore";
 
 export interface SessionInfo {
   isOwner: boolean;

@@ -52,7 +52,8 @@ export const activeFolderId = (
 ): string | undefined => {
   if (folderIdParameter) return folderIdParameter;
   const secretData = matches.find((m) => m.id === SECRET_ROUTE_ID)?.data as
-    { folderPath?: { id: string }[]; ok?: boolean } | undefined;
+    | { folderPath?: { id: string }[]; ok?: boolean }
+    | undefined;
   return secretData?.ok ? secretData.folderPath?.at(-1)?.id : undefined;
 };
 

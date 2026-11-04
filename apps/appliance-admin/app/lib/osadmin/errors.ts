@@ -96,7 +96,8 @@ export const validationChecksOf = (
 ): { detail: string; name: string; passed: boolean }[] => {
   if (!(error instanceof OsadminError)) return [];
   const report = error.details.find((d) => d.type === VALIDATION_REPORT)?.debug as
-    { checks?: { detail?: string; name?: string; passed?: boolean }[] } | undefined;
+    | { checks?: { detail?: string; name?: string; passed?: boolean }[] }
+    | undefined;
   return (report?.checks ?? []).map((c) => ({
     detail: c.detail ?? "",
     name: c.name ?? "",
@@ -163,7 +164,10 @@ export interface SignInRefusal {
 const REFUSAL_TYPE = "sneakers.appliance.osadmin.v1.SignInRefusal";
 
 const base64Bytes = (value: string): Uint8Array =>
-  Uint8Array.from(atob(value.replaceAll("-", "+").replaceAll("_", "/")), (c) => c.charCodeAt(0));
+  Uint8Array.from(
+    atob(value.replaceAll("-", "+").replaceAll("_", "/")),
+    (c) => c.codePointAt(0) as number,
+  );
 
 type FieldValue = bigint | Uint8Array;
 
@@ -246,8 +250,8 @@ const relayCertificateOf = (bytes: Uint8Array | undefined): RelayCertificate => 
   const fields = readAllFields(bytes ?? new Uint8Array());
   const one = (field: number) => text(fields.get(field)?.at(-1));
   return {
-    dnsNames: (fields.get(6) ?? []).map(text),
-    ipAddresses: (fields.get(7) ?? []).map(text),
+    dnsNames: (fields.get(6) ?? []).map((value) => text(value)),
+    ipAddresses: (fields.get(7) ?? []).map((value) => text(value)),
     issuer: one(2),
     notAfter: timestampOf(fields.get(4)?.at(-1)) ?? "",
     notBefore: timestampOf(fields.get(3)?.at(-1)) ?? "",

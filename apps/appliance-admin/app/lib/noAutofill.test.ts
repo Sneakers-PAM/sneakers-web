@@ -23,12 +23,16 @@ const SIGN_IN_FIELDS: Record<string, string[]> = {
 const FIELD = /<(Input|PasswordInput|Textarea|input|textarea)\b((?:=>|[^>])*?)\/?>/gs;
 const NOT_TYPED_INTO = /type="(checkbox|file|hidden|radio)"/;
 
+const propsOf = (match: RegExpMatchArray) => match[2] ?? "";
+
 const fieldsMissingIt = () =>
   Object.entries(sources).flatMap(([file, source]) =>
     [...source.matchAll(FIELD)]
-      .filter(([, , props = ""]) => !NOT_TYPED_INTO.test(props) && !/\breadOnly\b/.test(props))
-      .filter(([, , props = ""]) => !props.includes("noAutofill("))
-      .filter(([, , props = ""]) => !(SIGN_IN_FIELDS[file] ?? []).some((m) => props.includes(m)))
+      .filter(
+        (match) => !NOT_TYPED_INTO.test(propsOf(match)) && !/\breadOnly\b/.test(propsOf(match)),
+      )
+      .filter((match) => !propsOf(match).includes("noAutofill("))
+      .filter((match) => !(SIGN_IN_FIELDS[file] ?? []).some((m) => propsOf(match).includes(m)))
       .map((match) => {
         const line = source.slice(0, match.index).split("\n").length;
         return `${file.replace("../", "app/")}:${line} <${match[1]}>`;

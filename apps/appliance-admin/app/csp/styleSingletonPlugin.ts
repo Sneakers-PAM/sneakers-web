@@ -16,7 +16,7 @@ export const cspSafeStyleSingleton = (): Plugin => {
   let swapped = false;
   return {
     // Vite hands a hook its plugin context as `this`.
-    /* eslint-disable unicorn/no-this-outside-of-class */
+    /* eslint-disable unicorn-js/no-this-outside-of-class */
     buildEnd(error) {
       if (!error && this.environment.name === "client" && !swapped) {
         this.error(

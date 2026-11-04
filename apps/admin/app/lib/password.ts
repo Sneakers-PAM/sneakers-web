@@ -22,8 +22,8 @@ export const randomPassword = (length = 16): string => {
   for (let index = 4; index < length; index++) chars.push(pick(ALL, r[index] as number));
   // Fisher-Yates with the remaining random words, so the classes aren't always up front.
   for (let index = chars.length - 1; index > 0; index--) {
-    const j = (r[index] as number) % (index + 1);
-    [chars[index], chars[j]] = [chars[j] as string, chars[index] as string];
+    const index_ = (r[index] as number) % (index + 1);
+    [chars[index], chars[index_]] = [chars[index_] as string, chars[index] as string];
   }
   return chars.join("");
 };

@@ -79,7 +79,11 @@ const trustOf = (cas: TrustedCa[], pin = ""): UpdateTrust => ({
 
 /** The mirror scenarios, for the gallery and the tests; each sets the policy's mirror URL too. */
 export type MirrorScenario =
-  "mirror-custom-ca" | "mirror-http" | "mirror-https" | "mirror-pin-mismatch" | "mirror-wrong-ca";
+  | "mirror-custom-ca"
+  | "mirror-http"
+  | "mirror-https"
+  | "mirror-pin-mismatch"
+  | "mirror-wrong-ca";
 
 export const MIRROR_SCENARIOS: MirrorScenario[] = [
   "mirror-custom-ca",

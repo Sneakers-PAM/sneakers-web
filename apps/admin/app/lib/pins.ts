@@ -1,14 +1,14 @@
 /** The key types OpenSSH writes in known_hosts and authorized_keys. */
-const TYPES = [
-  "ssh-ed25519",
-  "ssh-rsa",
+const TYPES = new Set([
   "ecdsa-sha2-nistp256",
   "ecdsa-sha2-nistp384",
   "ecdsa-sha2-nistp521",
-];
+  "ssh-ed25519",
+  "ssh-rsa",
+]);
 
 /** Also the security-key types, which all start with "sk-". */
-const knownType = (type: string) => TYPES.includes(type) || type.startsWith("sk-");
+const knownType = (type: string) => TYPES.has(type) || type.startsWith("sk-");
 
 /** What's wrong with each pinned key line, as sentences naming the line. Empty means all good. */
 export const pinProblems = (text: string): string[] =>

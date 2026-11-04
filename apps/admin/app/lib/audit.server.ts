@@ -13,8 +13,8 @@ export interface AuditFilters {
   when: "24h" | "30d" | "7d" | "all" | "custom";
 }
 
-const SHOWS = new Set(["25", "50", "100", "all"]);
-const WHENS = new Set(["24h", "7d", "30d", "all", "custom"]);
+const SHOWS = new Set(["100", "25", "50", "all"]);
+const WHENS = new Set(["24h", "30d", "7d", "all", "custom"]);
 
 /**
  * The API filters by actor, subject and hidden actions, not by time. With a date range the

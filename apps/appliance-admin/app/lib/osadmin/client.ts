@@ -3,18 +3,14 @@
 import { edge } from "@sneakers-web/edge";
 
 import type {
-  CommitNetworkResponse,
   AccessPolicy,
-  ActiveSession,
-  Admin,
-  AddonModule,
-  BackupPolicy,
-  BackupSet,
   AddedCertificate,
+  Admin,
+  BackupPolicy,
   CertEndpoint,
   CheckPasswordResponse,
   CheckUpdatesResponse,
-  Certificate,
+  CommitNetworkResponse,
   DiskCleanup,
   ElevationOverride,
   FactoryReset,
@@ -23,8 +19,6 @@ import type {
   GetBackupsResponse,
   GetCertificateStoreResponse,
   GetEmailResponse,
-  PinEmailCertificateRequest,
-  PinEmailCertificateResponse,
   GetExposedValueResponse,
   GetImportResponse,
   GetMcpResponse,
@@ -41,36 +35,38 @@ import type {
   IssueSshKeyResponse,
   ListAdminsResponse,
   ListElevationsResponse,
-  ListProductVersionsResponse,
   ListEventsResponse,
   ListExposedValuesResponse,
   ListModulesResponse,
+  ListProductVersionsResponse,
   ListSessionsResponse,
   NetdSettings,
   PendingCsr,
+  PinEmailCertificateRequest,
+  PinEmailCertificateResponse,
   RecoveryKey,
   RedeemCodeResponse,
   RunChecksResponse,
+  RunImportStepRequest,
+  SendTestEmailRequest,
   Session,
-  StageNetworkResponse,
+  SetEmailRequest,
+  SetTelemetryRequest,
+  SetTelemetryResponse,
   SetupStepKind,
   SignInResponse,
+  StageNetworkResponse,
   TotpEnrolment,
   UpdatePackage,
   UpdateTarget,
   UpdateTrust,
   UpgradePolicy,
-  RunImportStepRequest,
-  SendTestEmailRequest,
-  SetEmailRequest,
-  SetTelemetryRequest,
-  SetTelemetryResponse,
 } from "@/lib/osadmin/types";
-
-import * as wire from "@/lib/osadmin/wire";
 import type { Wire } from "@/lib/osadmin/wire";
+
 import { OsadminError, symbolOf } from "@/lib/osadmin/errors";
 import { csrfToken } from "@/lib/osadmin/sessionStore";
+import * as wire from "@/lib/osadmin/wire";
 import { trackRequest } from "@/lib/readiness";
 
 /**
@@ -112,6 +108,16 @@ export const setup = {
   /** Marks the optional network step or the read-only protection step as seen. */
   acknowledgeStep: (step: SetupStepKind) =>
     call<Record<string, never>>("SetupService", "AcknowledgeStep", { step }),
+  addRecoveryKey: (publicKey: string, label: string) =>
+    call<{ recoveryKey: RecoveryKey }>(
+      "SetupService",
+      "AddRecoveryKey",
+      {
+        label,
+        publicKey,
+      },
+      wire.withRecoveryKey,
+    ),
   /** Checks the name and password, and returns a new TOTP secret; nothing is stored yet. */
   beginCredentials: (admin: string, password: string) =>
     call<{ totp: TotpEnrolment }>(
@@ -136,16 +142,6 @@ export const setup = {
       { enrolmentId, totpCode },
       wire.withSession,
     ),
-  addRecoveryKey: (publicKey: string, label: string) =>
-    call<{ recoveryKey: RecoveryKey }>(
-      "SetupService",
-      "AddRecoveryKey",
-      {
-        label,
-        publicKey,
-      },
-      wire.withRecoveryKey,
-    ),
   downloadEscrow: () =>
     call<{ content: string; fileName: string }>("SetupService", "DownloadEscrow", {}, wire.escrow),
   finish: () => call<{ productSetupUrl: string }>("SetupService", "Finish", {}, wire.finish),
@@ -169,20 +165,20 @@ export const setup = {
 };
 
 export const status = {
-  get: () => call<GetStatusResponse>("StatusService", "GetStatus", {}, wire.getStatus),
-  /** Public: "firstboot" until setup is done, then "normal". */
-  getPhase: () => call<GetPhaseResponse>("StatusService", "GetPhase", {}, wire.getPhase),
-  setSecureBoot: (on: boolean, confirmHostname: string) =>
-    call<Record<string, never>>("StatusService", "SetSecureBoot", { confirmHostname, on }),
   /** Runs the disk cleanup now (a step-up); answers what each step freed. */
   cleanUpDisk: () =>
     call<{ cleanup: DiskCleanup }>("StatusService", "CleanUpDisk", {}, wire.withCleanup),
+  get: () => call<GetStatusResponse>("StatusService", "GetStatus", {}, wire.getStatus),
+  /** Public: "firstboot" until setup is done, then "normal". */
+  getPhase: () => call<GetPhaseResponse>("StatusService", "GetPhase", {}, wire.getPhase),
   /**
    * Hides the reduced-protection notice for every admin, for the reason it was shown with;
    * `hidden` is false when the box's protection changed since.
    */
   hideProtectionNotice: (reason: string) =>
     call<{ hidden?: boolean }>("StatusService", "HideProtectionNotice", { reason }),
+  setSecureBoot: (on: boolean, confirmHostname: string) =>
+    call<Record<string, never>>("StatusService", "SetSecureBoot", { confirmHostname, on }),
 };
 
 export const access = {
@@ -302,6 +298,8 @@ export const tls = {
       },
       wire.withEndpoint,
     ),
+  /** Removes the update trust: the mirror is checked against the system roots alone. */
+  clearUpdateTrust: () => call<Record<string, never>>("TlsService", "ClearUpdateTrust", {}),
   completeCsr: (csrId: string, certificatePem: string, chainPem = "", rootPem = "") =>
     call<AddedCertificate>(
       "TlsService",
@@ -329,8 +327,6 @@ export const tls = {
   /** A PFX (pkcs12, base64, with its password) or PEM; the password is never stored. */
   importCertificate: (request: ImportCertificateRequest) =>
     call<AddedCertificate>("TlsService", "ImportCertificate", request, wire.addedCertificate),
-  /** Removes the update trust: the mirror is checked against the system roots alone. */
-  clearUpdateTrust: () => call<Record<string, never>>("TlsService", "ClearUpdateTrust", {}),
   revert: (endpointId: string) =>
     call<{ endpoint: CertEndpoint }>(
       "TlsService",
@@ -462,6 +458,12 @@ export const upgrade = {
   /** Check now: the index read again from the policy's source, and each unit's offers. */
   checkUpdates: () =>
     call<CheckUpdatesResponse>("UpgradeService", "CheckUpdates", {}, wire.checkUpdates),
+  /**
+   * Drops a held upload by id, or with none unstages the staged release of target (the base
+   * release's boot entry, or the product's staged slot). Owner, no code.
+   */
+  discard: (uploadId: string, target: UpdateTarget = "UPDATE_TARGET_UNSPECIFIED") =>
+    call<{ version?: string }>("UpgradeService", "DiscardUpdate", { target, uploadId }),
   /** A base .bin or a product bundle, from the mirror, then the release source if allowed. */
   fetch: (fileName: string) =>
     call<{ source?: string; uploadId: string }>(
@@ -500,12 +502,6 @@ export const upgrade = {
       { uploadId },
       wire.stageUpdate,
     ),
-  /**
-   * Drops a held upload by id, or with none unstages the staged release of target (the base
-   * release's boot entry, or the product's staged slot). Owner, no code.
-   */
-  discard: (uploadId: string, target: UpdateTarget = "UPDATE_TARGET_UNSPECIFIED") =>
-    call<{ version?: string }>("UpgradeService", "DiscardUpdate", { target, uploadId }),
   upload: (file: File, onProgress?: (fraction: number) => void, signal?: AbortSignal) =>
     edge.upload(file, onProgress, { fileName: file.name, signal }),
 };
@@ -559,4 +555,4 @@ export const power = {
     ),
 };
 
-export type { ActiveSession, AddonModule, BackupSet, Certificate };
+export type { ActiveSession, AddonModule, BackupSet, Certificate } from "@/lib/osadmin/types";

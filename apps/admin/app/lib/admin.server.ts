@@ -1,12 +1,13 @@
 import type { GatewayClient } from "@sneakers-web/api-client";
 
-import { refusalOf, type Refusal } from "@sneakers-web/shell";
+import { type Refusal, refusalOf } from "@sneakers-web/shell";
 import { guard, requireUser, type SessionUser } from "@sneakers-web/shell/server";
 import { data } from "react-router";
 
 /** What every admin action answers: done (with a note for the toast), or the refusal. */
 export type ActionResult =
-  { done: string; intent: string; ok: true } | { intent: string; ok: false; refusal: Refusal };
+  | { done: string; intent: string; ok: true }
+  | { intent: string; ok: false; refusal: Refusal };
 
 /**
  * Load a page's data as the signed-in user. A refusal (not a site admin, a missing item)
