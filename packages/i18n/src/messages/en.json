@@ -1,0 +1,15 @@
+{
+  "gate.connecting": "Connecting…",
+  "gate.notFound.body": "That page doesn't exist, or it moved. Check the address, or start from the top.",
+  "gate.notFound.problem": "Page not found",
+  "gate.notFound.start": "Go to the start",
+  "gate.notFound.title": "Nothing here",
+  "gate.notSetUp.body": "Sneakers-PAM is installed but has no administrator. Ask whoever runs it in your organisation to finish setup.",
+  "gate.notSetUp.hint": "Nothing to do here for now.",
+  "gate.notSetUp.title": "Not set up yet",
+  "gate.offline.body": "Sneakers-PAM is not answering. Check your connection or VPN. If others can sign in, the server may be restarting.",
+  "gate.offline.retry": "Retry",
+  "gate.offline.retrying": "Retrying…",
+  "gate.offline.status": "Tried at {time}. {retrying, select, true {Trying again now.} other {Next automatic try in {seconds, number} s.}}",
+  "gate.offline.title": "Can't reach the server"
+}

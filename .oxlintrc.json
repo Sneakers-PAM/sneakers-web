@@ -40,6 +40,12 @@
       }
     },
     {
+      "files": ["packages/shell/src/gate/Screens.tsx"],
+      "rules": {
+        "react/jsx-no-literals": "error"
+      }
+    },
+    {
       "files": ["e2e/**/*.ts"],
       "rules": {
         "testing-library/await-async-events": "off",

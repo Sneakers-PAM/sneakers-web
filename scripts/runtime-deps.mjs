@@ -13,7 +13,13 @@ if (!["admin", "staff"].includes(app) || !["live", "mock"].includes(edge)) {
   process.exit(2);
 }
 
-const workspaces = [`apps/${app}`, "packages/api-client", "packages/shell", "packages/ui"];
+const workspaces = [
+  `apps/${app}`,
+  "packages/api-client",
+  "packages/i18n",
+  "packages/shell",
+  "packages/ui",
+];
 
 const edit = (file, change) => {
   const json = JSON.parse(readFileSync(file, "utf8"));

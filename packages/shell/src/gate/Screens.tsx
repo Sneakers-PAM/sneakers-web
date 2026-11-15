@@ -1,4 +1,5 @@
-import { Button, clockTime, SneakerLoader, Spinner } from "@sneakers-web/ui";
+import { useFormat, useT } from "@sneakers-web/i18n";
+import { Button, SneakerLoader, Spinner } from "@sneakers-web/ui";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 
@@ -9,24 +10,29 @@ import { EdgeBanner } from "#shell/layout/EdgeBanner";
 export const AUTO_RETRY_SECONDS = 20;
 
 /** G-01: shown while the app reaches the gateway again. */
-export const ConnectingScreen = () => (
-  <div className="flex min-h-dvh flex-col bg-sunken">
-    <EdgeBanner />
-    <main className="flex flex-1 flex-col items-center justify-center gap-5.5" role="status">
-      <SneakerLoader hole="var(--color-sunken)" size={120} />
-      <div className="flex items-center gap-3 text-[1.0625rem] font-bold">
-        <Spinner />
-        Connecting…
-      </div>
-    </main>
-  </div>
-);
+export const ConnectingScreen = () => {
+  const t = useT();
+  return (
+    <div className="flex min-h-dvh flex-col bg-sunken">
+      <EdgeBanner />
+      <main className="flex flex-1 flex-col items-center justify-center gap-5.5" role="status">
+        <SneakerLoader hole="var(--color-sunken)" size={120} />
+        <div className="flex items-center gap-3 text-[1.0625rem] font-bold">
+          <Spinner />
+          {t("gate.connecting")}
+        </div>
+      </main>
+    </div>
+  );
+};
 
 /**
  * G-02: the gateway didn't answer. It tries again on its own every 20 seconds (a reload,
  * so it works the same before and after the page's scripts load).
  */
 export const OfflineScreen = () => {
+  const t = useT();
+  const format = useFormat();
   const [triedAt] = useState(() => new Date());
   const [left, setLeft] = useState(AUTO_RETRY_SECONDS);
   const [retrying, setRetrying] = useState(false);
@@ -44,55 +50,55 @@ export const OfflineScreen = () => {
   return (
     <CenteredFrame>
       <meta content={String(AUTO_RETRY_SECONDS)} httpEquiv="refresh" />
-      <FrameTitle
-        body="Sneakers-PAM is not answering. Check your connection or VPN. If others can sign in, the server may be restarting."
-        title="Can't reach the server"
-      />
+      <FrameTitle body={t("gate.offline.body")} title={t("gate.offline.title")} />
       <div className="flex gap-2.5">
         <Button
           loading={retrying}
-          loadingLabel="Retrying…"
+          loadingLabel={t("gate.offline.retrying")}
           onClick={() => {
             setRetrying(true);
             globalThis.location.reload();
           }}
           size="lg"
         >
-          Retry
+          {t("gate.offline.retry")}
         </Button>
-        <CopyDiagnostics problem={{ message: "Can't reach the server" }} size="lg" />
+        <CopyDiagnostics problem={{ message: t("gate.offline.title") }} size="lg" />
       </div>
       <span aria-live="polite" className="text-small leading-[1.4] text-muted">
-        Tried at {clockTime(triedAt)}.{" "}
-        {retrying ? "Trying again now." : `Next automatic try in ${left} s.`}
+        {t("gate.offline.status", {
+          retrying: String(retrying),
+          seconds: left,
+          time: format.time(triedAt),
+        })}
       </span>
     </CenteredFrame>
   );
 };
 
 /** G-03: installed, but nobody has finished setup. Deliberately doesn't link the setup page. */
-export const NotSetUpScreen = () => (
-  <CenteredFrame>
-    <FrameTitle
-      body="Sneakers-PAM is installed but has no administrator. Ask whoever runs it in your organisation to finish setup."
-      title="Not set up yet"
-    />
-    <span className="text-[0.875rem] leading-[1.45] text-muted">Nothing to do here for now.</span>
-  </CenteredFrame>
-);
+export const NotSetUpScreen = () => {
+  const t = useT();
+  return (
+    <CenteredFrame>
+      <FrameTitle body={t("gate.notSetUp.body")} title={t("gate.notSetUp.title")} />
+      <span className="text-[0.875rem] leading-[1.45] text-muted">{t("gate.notSetUp.hint")}</span>
+    </CenteredFrame>
+  );
+};
 
 /** A link that leads nowhere. */
-export const NotFoundScreen = () => (
-  <CenteredFrame>
-    <FrameTitle
-      body="That page doesn't exist, or it moved. Check the address, or start from the top."
-      title="Nothing here"
-    />
-    <div className="flex flex-wrap gap-2.5">
-      <Button asChild>
-        <Link to="/">Go to the start</Link>
-      </Button>
-      <CopyDiagnostics problem={{ message: "Page not found" }} size="md" />
-    </div>
-  </CenteredFrame>
-);
+export const NotFoundScreen = () => {
+  const t = useT();
+  return (
+    <CenteredFrame>
+      <FrameTitle body={t("gate.notFound.body")} title={t("gate.notFound.title")} />
+      <div className="flex flex-wrap gap-2.5">
+        <Button asChild>
+          <Link to="/">{t("gate.notFound.start")}</Link>
+        </Button>
+        <CopyDiagnostics problem={{ message: t("gate.notFound.problem") }} size="md" />
+      </div>
+    </CenteredFrame>
+  );
+};

@@ -12,6 +12,7 @@
   "dependencies": {
     "@react-router/node": "^7.18.4",
     "@sneakers-web/api-client": "*",
+    "@sneakers-web/i18n": "*",
     "@sneakers-web/ui": "*",
     "isbot": "^5.2.2",
     "lucide-react": "^1.49.0",

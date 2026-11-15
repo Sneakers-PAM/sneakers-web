@@ -25,6 +25,7 @@
       "#ui/*": ["./packages/ui/src/*"],
       "#api/*": ["./packages/api-client/src/*"],
       "#shell/*": ["./packages/shell/src/*"],
+      "#i18n/*": ["./packages/i18n/src/*"],
       "#gw/*": ["./node_modules/@sneakers-pam/mock-server/packages/gateway-client/src/*"],
       "#mock/*": ["./node_modules/@sneakers-pam/mock-server/packages/mock-gateway/src/*"],
       "@sneakers-pam/gateway-client": [

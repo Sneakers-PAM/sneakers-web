@@ -465,6 +465,36 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   gate a second way (unlike staff/admin's build-flag variant): `edge.quickLogin` only exists on
   the mock edge, and the sign-in page only renders the control when `edge.mode === "mock"`.
 
+## Internationalisation (#248, #249)
+
+English only for now, but every user-facing string is moving into a message catalogue so a
+language can be added without touching the pages. The pieces live in `packages/i18n`
+(`@sneakers-web/i18n`, built on FormatJS `react-intl`, pinned exactly):
+
+- **Messages.** `src/messages/en.json` is a flat id-to-ICU-message map, bundled with the code (never
+  fetched), so the server render, the hydration and the appliance admin's strict CSP all see the
+  same text. In a component: `const t = useT(); t("gate.notFound.title")`, with values for ICU
+  arguments, plurals and selects (`t("gate.offline.status", { retrying: "true", seconds: 12,
+  time })`). Ids are typed from the catalogue, so a misspelt id fails to type-check. One sentence is
+  one message: never build a sentence from pieces. With no provider (an error boundary, a bare
+  test) `useT` still gives English.
+- **Formats.** Dates, times, relative times, sizes and numbers go through `useFormat()` (or the
+  `format*` functions with a locale), which use `Intl`, never a hand-built string or a fixed locale.
+- **Locale seam.** `localeFromRequest` (request) feeds the root loader's `locale` (server render),
+  which reaches the client as loader data, so all three agree. It answers `en` today and has no
+  picker. `Document` sets `lang` and `dir` from it (`htmlAttributes`) and mounts `I18nProvider`. The
+  appliance admin's SPA gives `DEFAULT_LOCALE` in its own root data.
+- **Guard.** A file moves to the catalogue by being listed in the `.oxlintrc.json` override that
+  turns on `react/jsx-no-literals`. `packages/i18n/src/guard` also fails a listed file with a
+  user-facing JSX prop (`title`, `label`, `body`, `hint`, `aria-label` and so on) set to a literal,
+  which the lint rule can't see. The list only grows; the last step makes it every file.
+- **Adding a package.** The Dockerfile and `scripts/runtime-deps.mjs` list the workspace packages by
+  hand: a new one goes in both, and in each app's `tsconfig.json` paths (and the appliance admin's
+  Vite and Vitest aliases) if it has a `#name` alias.
+- **Where it is.** Done: the framework, `Document` and the shell's gate screens (`gate/Screens.tsx`).
+  The rest moves area by area, one PR each. Logical CSS properties (`ms-`, `ps-`, `text-start`
+  instead of `ml-`, `pl-`, `text-left`) come with those PRs and in their own sweep.
+
 ## Public gateway routes the web apps never claim (#411)
 
 The gateway answers `GET /.well-known/sneakers` (the phone apps' discovery document) and

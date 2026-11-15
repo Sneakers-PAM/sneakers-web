@@ -29,3 +29,14 @@ describe("the root loader's box-state poller switch", () => {
     expect(await boxPoller()).toBe(false);
   });
 });
+
+describe("the root loader's locale", () => {
+  it("gives the locale the page is rendered in, English by default", async () => {
+    const data = await rootLoader({
+      context: {},
+      params: {},
+      request: appRequest("/sign-in"),
+    } as never);
+    expect(data.locale).toBe("en");
+  });
+});

@@ -1,3 +1,4 @@
+import { DEFAULT_LOCALE } from "@sneakers-web/i18n";
 import { DEFAULT_DISPLAY } from "@sneakers-web/ui";
 import { useRouteLoaderData } from "react-router";
 
@@ -16,6 +17,7 @@ const FALLBACK: RootData = {
   },
   developmentUiIssueCopy: false,
   display: DEFAULT_DISPLAY,
+  locale: DEFAULT_LOCALE,
   needsSetup: false,
   storagePrefix: "",
 };

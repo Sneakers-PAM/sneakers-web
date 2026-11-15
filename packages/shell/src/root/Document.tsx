@@ -1,4 +1,5 @@
 import { setLogLevel } from "@sneakers-web/api-client";
+import { htmlAttributes, I18nProvider } from "@sneakers-web/i18n";
 import {
   DEFAULT_DISPLAY,
   displayClassName,
@@ -55,12 +56,14 @@ export const BoxPoller = () => {
  * the display cookie, so the first paint is already in the right theme.
  */
 export const Document = ({ children }: { children: ReactNode }) => {
-  const { display } = useRootData();
+  const { display, locale } = useRootData();
+  const { dir, lang } = htmlAttributes(locale);
   const nonce = useNonce();
   return (
     <html
       className={displayClassName(display)}
-      lang="en"
+      dir={dir}
+      lang={lang}
       // The stylesheet's default is 1; leaving the attribute off then keeps the appliance
       // admin's prerendered shell inside a `default-src 'self'` CSP.
       style={
@@ -78,7 +81,7 @@ export const Document = ({ children }: { children: ReactNode }) => {
         <BoxPoller />
       </head>
       <body>
-        {children}
+        <I18nProvider locale={locale}>{children}</I18nProvider>
         <ScrollRestoration nonce={nonce} />
         <Scripts nonce={nonce} />
       </body>
