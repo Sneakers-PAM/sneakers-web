@@ -145,6 +145,10 @@ const localTime = (now: Date, timeZone: string): string => {
 export const shortCommit = (commit: string): string =>
   /^[0-9a-f]{8,64}$/i.test(commit) ? commit.slice(0, 7) : commit;
 
+/** A build commit worth showing: third-party parts have none of ours, and the gateway says "unknown". */
+export const knownCommit = (commit: null | string | undefined): null | string =>
+  commit && commit.trim().toLowerCase() !== "unknown" ? commit : null;
+
 const dependency = (d: RawDependency): DependencyEntry => {
   const out: DependencyEntry = { name: scrub(d.name), required: d.required, state: scrub(d.state) };
   if (d.error) out.error = scrub(d.error);
@@ -155,7 +159,7 @@ const dependency = (d: RawDependency): DependencyEntry => {
 const entry = (c: null | RawComponent | undefined): ComponentEntry | null => {
   if (!c) return null;
   const out: ComponentEntry = {
-    commit: c.commit ? shortCommit(scrub(c.commit)) : null,
+    commit: knownCommit(c.commit) ? shortCommit(scrub(c.commit as string)) : null,
     name: scrub(c.name),
     status: scrub(c.status),
     version: c.version ? scrub(c.version) : null,

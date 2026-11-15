@@ -28,7 +28,10 @@ const onBox: DiagnosticsData = {
       component("connector", "0.1.0", "c0c0c0c"),
       component("connector", "0.1.0", "c0c0c0c"),
     ],
-    thirdParty: [component("kubernetes", "v1.36.4+k0s", "")],
+    thirdParty: [
+      component("kubernetes", "v1.36.4+k0s", ""),
+      component("kratos", "v1.3.1", "unknown"),
+    ],
     traceId: "1111",
   },
 };
@@ -58,6 +61,8 @@ describe("AboutDialog", () => {
     expect(within(dialog).getByText("0.1.0 (1d1d1d1)")).toBeInTheDocument();
     expect(within(dialog).getAllByText("0.1.0 (c0c0c0c)")).toHaveLength(2);
     expect(within(dialog).getByText("v1.36.4+k0s")).toBeInTheDocument();
+    expect(within(dialog).getByText("v1.3.1")).toBeInTheDocument();
+    expect(within(dialog).queryByText(/\(unknown\)/)).toBeNull();
     expect(within(dialog).queryByText(/not appliance/)).not.toBeInTheDocument();
   });
 

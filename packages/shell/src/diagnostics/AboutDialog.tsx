@@ -14,6 +14,7 @@ import {
   featureText,
   inUse,
   isFeature,
+  knownCommit,
   NOT_CONFIGURED,
   productText,
   shortCommit,
@@ -33,7 +34,8 @@ import { CopyDiagnostics, DiagnosticsUrl } from "#shell/diagnostics/CopyDiagnost
 
 const buildOf = (c: ComponentLike): string => {
   const version = c.version ?? "unknown";
-  return c.commit ? `${version} (${shortCommit(c.commit)})` : version;
+  const commit = knownCommit(c.commit);
+  return commit ? `${version} (${shortCommit(commit)})` : version;
 };
 
 const versionOf = (c: ComponentLike): string => {
