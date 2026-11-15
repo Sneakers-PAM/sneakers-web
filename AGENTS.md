@@ -375,7 +375,7 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   fetch, verify and stage, then "Apply the reinstall", whose dialog says the product keeps its
   data. The box audits it as `product.reinstall` and the history lists it as `reinstall`; the
   closed shell's `sneakers reinstall` is the same over SSH.
-- **MCP (`app/routes/mcp.tsx`, under the product's nav section).** `GetMcp.state` is one of
+- **MCP (`app/components/McpCard.tsx`, a card on Home; #190 folded the MCP page into it).** `GetMcp.state` is one of
   osadmin's words, each shown as a badge and one sentence: `on` and `off` show the MCP and
   machine API switches (`SetMcp`, step-up; the box restarts the product's MCP stacks), and
   `not in this product` (the product.yaml declares no MCP switch) and `not installed` show no

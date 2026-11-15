@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import type { GetStatusResponse, WarningKind } from "@/lib/osadmin/types";
 
 import { DiskCard } from "@/components/DiskCard";
+import { McpCard } from "@/components/McpCard";
 import { ProductValues } from "@/components/ProductValues";
 import { ReducedProtectionNotice } from "@/components/ProtectionNotice";
 import { ResetCountdown } from "@/components/ResetCountdown";
@@ -166,6 +167,7 @@ export default function Home() {
           </div>
           <DiskCard data={data} onCleaned={reload} />
           <ProductValues />
+          <McpCard />
           <Card>
             <CardHeader title="Health" />
             <div className="flex flex-wrap gap-2 p-5.5">

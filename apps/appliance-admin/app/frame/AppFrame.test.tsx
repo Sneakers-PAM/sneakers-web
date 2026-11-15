@@ -154,11 +154,13 @@ describe("AppFrame", () => {
       setSession({ admin: "alice", csrfToken: "c", role: "ROLE_OWNER" });
     });
 
-    it("puts MCP in a section named after the installed product, not in the base nav", async () => {
+    it("puts Email in a section named after the installed product, and MCP in no nav at all", async () => {
       stub("/home");
       const productNav = await screen.findByRole("navigation", { name: "Sneakers" });
-      expect(within(productNav).getByRole("link", { name: "MCP" })).toBeInTheDocument();
+      expect(within(productNav).getByRole("link", { name: "Email" })).toBeInTheDocument();
+      expect(within(productNav).queryByRole("link", { name: "MCP" })).not.toBeInTheDocument();
       const base = screen.getByRole("navigation", { name: "Appliance" });
+      expect(within(base).queryByRole("link", { name: "Email" })).not.toBeInTheDocument();
       expect(within(base).queryByRole("link", { name: "MCP" })).not.toBeInTheDocument();
       expect(within(base).getByRole("link", { name: "Network" })).toBeInTheDocument();
     });
@@ -186,7 +188,7 @@ describe("AppFrame", () => {
       });
       stub("/home");
       const productNav = await screen.findByRole("navigation", { name: "Otherproduct" });
-      expect(within(productNav).getByRole("link", { name: "MCP" })).toBeInTheDocument();
+      expect(within(productNav).getByRole("link", { name: "Email" })).toBeInTheDocument();
       expect(screen.queryByRole("navigation", { name: "Sneakers" })).not.toBeInTheDocument();
     });
 

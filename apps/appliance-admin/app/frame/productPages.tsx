@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { Activity, Import, Mail, Network } from "lucide-react";
+import { Activity, Import, Mail } from "lucide-react";
 
 /** A page that belongs to the installed product, not to the base appliance. */
 export interface ProductPage {
@@ -14,7 +14,6 @@ export interface ProductPage {
  * and only while one is installed; the base sections never list them.
  */
 export const productPages: ProductPage[] = [
-  { icon: <Network />, label: "MCP", to: "/mcp" },
   { icon: <Mail />, label: "Email", to: "/email" },
   { icon: <Activity />, label: "Telemetry", to: "/telemetry" },
   { icon: <Import />, label: "Import", to: "/import" },

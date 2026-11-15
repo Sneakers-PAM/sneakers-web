@@ -1,17 +1,17 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import { MCP_POLL_MS, McpCard } from "@/components/McpCard";
 import { StepUpDialog } from "@/components/StepUpDialog";
-import { mcp } from "@/lib/osadmin/client";
+import { mcp, upgrade } from "@/lib/osadmin/client";
 import { OsadminError } from "@/lib/osadmin/errors";
 import { applyMockScenario } from "@/mock/edge.mock";
-import Mcp, { MCP_POLL_MS } from "@/routes/mcp";
 import { renderPage } from "@/test/renderPage";
 import { signInAs } from "@/test/session";
 
-describe("Mcp", () => {
+describe("McpCard", () => {
   it("shows MCP on and the machine API off", async () => {
-    renderPage(Mcp);
+    renderPage(McpCard);
     const headings = await screen.findAllByText("MCP");
     expect(headings.length).toBeGreaterThan(0);
     expect(screen.getByRole("switch", { name: "MCP on" })).toBeChecked();
@@ -19,7 +19,7 @@ describe("Mcp", () => {
   });
 
   it("shows one MCP heading, not the page title and a card heading repeating it", async () => {
-    renderPage(Mcp);
+    renderPage(McpCard);
     await screen.findByRole("switch", { name: "MCP on" });
     expect(screen.getAllByRole("heading", { name: "MCP" })).toHaveLength(1);
   });
@@ -28,13 +28,13 @@ describe("Mcp", () => {
     vi.spyOn(mcp, "get").mockRejectedValueOnce(
       new OsadminError("unimplemented", "McpService isn't on this box"),
     );
-    renderPage(Mcp);
+    renderPage(McpCard);
     expect(await screen.findByText("MCP: not available in this release")).toBeInTheDocument();
   });
 
   it("turns MCP off", async () => {
     const user = userEvent.setup();
-    renderPage(Mcp);
+    renderPage(McpCard);
     await screen.findAllByText("MCP");
     await user.click(screen.getByRole("switch", { name: "MCP on" }));
     await vi.waitFor(() => expect(screen.getByText(/MCP is off/)).toBeInTheDocument());
@@ -42,13 +42,13 @@ describe("Mcp", () => {
   });
 
   it("says in words what the box's MCP state means", async () => {
-    renderPage(Mcp);
+    renderPage(McpCard);
     expect(await screen.findByText(/MCP is on: agents can reach/)).toBeInTheDocument();
   });
 
   it("has no switch when the product has no MCP server", async () => {
     applyMockScenario("mcp-absent");
-    renderPage(Mcp);
+    renderPage(McpCard);
     expect(await screen.findByText(/Sneakers has no MCP server/)).toBeInTheDocument();
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();
   });
@@ -59,7 +59,7 @@ describe("Mcp", () => {
       mcpEnabled: false,
       state: "not installed",
     });
-    renderPage(Mcp);
+    renderPage(McpCard);
     expect(await screen.findByText(/MCP isn't installed on this box/)).toBeInTheDocument();
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();
   });
@@ -70,7 +70,7 @@ describe("Mcp", () => {
     const user = userEvent.setup();
     renderPage(() => (
       <>
-        <Mcp />
+        <McpCard />
         <StepUpDialog />
       </>
     ));
@@ -81,12 +81,6 @@ describe("Mcp", () => {
     await vi.waitFor(() => expect(screen.getByText(/MCP is off/)).toBeInTheDocument());
   });
 
-  it("sits under the installed product's name", async () => {
-    renderPage(Mcp);
-    await screen.findByRole("switch", { name: "MCP on" });
-    expect(screen.getByText("Sneakers")).toBeInTheDocument();
-  });
-
   it("follows a switch made elsewhere (the closed shell) while it's open", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
@@ -95,7 +89,7 @@ describe("Mcp", () => {
         mcpEnabled: false,
         state: "off",
       });
-      renderPage(Mcp);
+      renderPage(McpCard);
       expect(await screen.findByText(/MCP is off/)).toBeInTheDocument();
       get.mockResolvedValue({ machineApiEnabled: true, mcpEnabled: true, state: "on" });
       await vi.advanceTimersByTimeAsync(MCP_POLL_MS);
@@ -106,14 +100,17 @@ describe("Mcp", () => {
     }
   });
 
-  it("has nothing to show, and doesn't name MCP, with no product installed", async () => {
+  it("shows nothing, and doesn't name MCP, with no product installed", async () => {
     applyMockScenario("no-product");
     const get = vi.spyOn(mcp, "get");
-    renderPage(Mcp);
-    expect(await screen.findByText("Nothing here")).toBeInTheDocument();
+    const product = vi.spyOn(upgrade, "get");
+    renderPage(McpCard);
+    await vi.waitFor(() => expect(product).toHaveBeenCalled());
+    await vi.waitFor(() => expect(product).toHaveResolved());
     expect(screen.queryByText(/mcp/i)).not.toBeInTheDocument();
     expect(get).not.toHaveBeenCalled();
   });
+
   it("shows MCP starting, with what the product waits for, until it's ready", async () => {
     vi.spyOn(mcp, "get").mockResolvedValue({
       detail: "Rolling out (13 of 14 ready): waiting for sneakers/sneakers-mcp",
@@ -122,7 +119,7 @@ describe("Mcp", () => {
       readiness: "starting",
       state: "on",
     });
-    renderPage(Mcp);
+    renderPage(McpCard);
     expect(await screen.findByText("Starting")).toBeInTheDocument();
     expect(screen.getByText(/waiting for sneakers\/sneakers-mcp/)).toBeInTheDocument();
     expect(screen.queryByText(/MCP is on: agents can reach/)).not.toBeInTheDocument();
@@ -137,7 +134,7 @@ describe("Mcp", () => {
       readiness: "failed",
       state: "on",
     });
-    renderPage(Mcp);
+    renderPage(McpCard);
     expect(await screen.findByText("Failed")).toBeInTheDocument();
     expect(screen.getByText(/isn't ready with it after 1m30s/)).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "MCP on" })).toBeChecked();
@@ -150,7 +147,7 @@ describe("Mcp", () => {
       readiness: "ready",
       state: "on",
     });
-    renderPage(Mcp);
+    renderPage(McpCard);
     expect(await screen.findByText(/MCP is on: agents can reach/)).toBeInTheDocument();
     expect(screen.getByText("On")).toBeInTheDocument();
   });
