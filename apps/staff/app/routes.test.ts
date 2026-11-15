@@ -69,4 +69,11 @@ describe("the staff route table", () => {
       ["routes/target.tsx", ["/targets/new", "/targets/:id"]],
     ]);
   });
+
+  it("claims neither the gateway's discovery route nor its share links", () => {
+    // The gateway answers these itself, outside any sign-in, and the edge sends them past this
+    // app (Sneakers-PAM/sneakers-web#411).
+    expect(paths.filter((p) => p === "/share" || p.startsWith("/share/"))).toEqual([]);
+    expect(paths.filter((p) => p.startsWith("/.well-known"))).toEqual([]);
+  });
 });
