@@ -11,6 +11,13 @@ const Root = () => {
 
 const ready = () => document.documentElement.dataset.appReady;
 
+const Page = () => {
+  useEffect(() => {
+    trackRequest(Promise.reject(new Error("down"))).catch(() => {});
+  }, []);
+  return <p>page</p>;
+};
+
 describe("useReadyMarker", () => {
   afterEach(() => {
     delete document.documentElement.dataset.appReady;
@@ -36,12 +43,6 @@ describe("useReadyMarker", () => {
   });
 
   it("counts a failed request as answered", async () => {
-    const Page = () => {
-      useEffect(() => {
-        trackRequest(Promise.reject(new Error("down"))).catch(() => {});
-      }, []);
-      return <p>page</p>;
-    };
     const Stub = createRoutesStub([
       { children: [{ Component: Page, path: "/logs" }], Component: Root, path: "/" },
     ]);

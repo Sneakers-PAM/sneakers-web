@@ -26,8 +26,6 @@
     {
       "files": ["**/*"],
       "rules": {
-        "perfectionist/sort-interfaces": "off",
-        "unicorn/consistent-function-scoping": "off",
         "unicorn/number-literal-case": "off"
       }
     },

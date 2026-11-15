@@ -78,6 +78,15 @@ const bundleError = (error: unknown): string => {
   return error instanceof Error ? error.message : "The support bundle didn't download.";
 };
 
+const exportLog = () =>
+  void audit
+    .exportLog()
+    .then((blob) => {
+      download(blob, "audit-log.jsonl");
+      toast("Audit log exported.");
+    })
+    .catch(() => toast("The audit log didn't export. Try again."));
+
 export default function Logs() {
   const [data, setData] = useState<ListEventsResponse>();
   const [bundling, setBundling] = useState(false);
@@ -97,15 +106,6 @@ export default function Logs() {
       .catch((error: unknown) => setBundleRefusal(bundleError(error)))
       .finally(() => setBundling(false));
   };
-
-  const exportLog = () =>
-    void audit
-      .exportLog()
-      .then((blob) => {
-        download(blob, "audit-log.jsonl");
-        toast("Audit log exported.");
-      })
-      .catch(() => toast("The audit log didn't export. Try again."));
 
   if (!data) return null;
 

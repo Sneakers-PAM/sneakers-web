@@ -154,10 +154,10 @@ describe("live edge request when the box can't be reached", () => {
   });
 });
 
-describe("the support bundle", () => {
-  const answer = (body: BodyInit | null, init: ResponseInit) =>
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(body, init));
+const answer = (body: BodyInit | null, init: ResponseInit) =>
+  vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(body, init));
 
+describe("the support bundle", () => {
   it("gives the zip and the file name the box chose", async () => {
     const spy = answer("the bundle", {
       headers: {

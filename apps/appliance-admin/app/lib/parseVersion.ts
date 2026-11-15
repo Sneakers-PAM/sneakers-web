@@ -9,11 +9,11 @@ export interface ParsedVersion {
   /** The build's own label: a lab build's letter (plus a number for a rebuild), an RC's
    * number as "rc1", or undefined for a stable release, which has no build beyond its line. */
   build?: string;
+  /** When a dated lab build was made, as an ISO 8601 UTC instant. */
+  builtAt?: string;
   channel: VersionChannel;
   /** The short commit hash a lab build was cut from, when the version names one. */
   commit?: string;
-  /** When a dated lab build was made, as an ISO 8601 UTC instant. */
-  builtAt?: string;
   /** The release line this build belongs to: the semver core, with "-lab" appended for a lab
    * build so a placeholder line (Base OS and Base Web both ship lab builds as "0.0.0") reads
    * as what it is. */

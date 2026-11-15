@@ -39,6 +39,20 @@ const currentStep = (scope: HTMLElement) =>
     .getAllByRole("listitem")
     .find((item) => item.getAttribute("aria-current") === "step")?.textContent;
 
+const ids = async () => {
+  const response = await upgrade.get();
+  return response.upgradeProgress?.steps ?? [];
+};
+
+const until = async (id: string) => {
+  for (let tick = 0; tick < 10; tick++) {
+    const steps = await ids();
+    const active = steps.find((step) => step.state === "UPGRADE_STEP_STATE_ACTIVE");
+    if (active?.id === id) return active;
+  }
+  throw new Error(`never reached ${id}`);
+};
+
 describe("Updates", () => {
   beforeEach(() => signInAs("alice"));
 
@@ -927,18 +941,6 @@ describe("Updates", () => {
       applyMockScenario("product-staged");
       signInAs("alice");
       await upgrade.apply("123456", undefined, "UPDATE_TARGET_PRODUCT");
-      const ids = async () => {
-        const response = await upgrade.get();
-        return response.upgradeProgress?.steps ?? [];
-      };
-      const until = async (id: string) => {
-        for (let tick = 0; tick < 10; tick++) {
-          const steps = await ids();
-          const active = steps.find((step) => step.state === "UPGRADE_STEP_STATE_ACTIVE");
-          if (active?.id === id) return active;
-        }
-        throw new Error(`never reached ${id}`);
-      };
       const images = await until("images");
       expect(images.detail).toBe("3 of 7 images imported");
       const pods = await until("pods");

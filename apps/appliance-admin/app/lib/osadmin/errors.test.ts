@@ -102,20 +102,21 @@ describe("a refused certificate", () => {
   });
 });
 
+const refusedSignIn = (details: unknown[]) =>
+  parseOsadminError(
+    Response.json(
+      { code: "unauthenticated", details, message: "SIGNIN_REFUSED" },
+      {
+        status: 401,
+      },
+    ),
+  );
+
 describe("refusalOf", () => {
   const REFUSAL = "sneakers.appliance.osadmin.v1.SignInRefusal";
-  const refused = (details: unknown[]) =>
-    parseOsadminError(
-      Response.json(
-        { code: "unauthenticated", details, message: "SIGNIN_REFUSED" },
-        {
-          status: 401,
-        },
-      ),
-    );
 
   it("reads the SignInRefusal detail's JSON debug form", async () => {
-    const error = await refused([
+    const error = await refusedSignIn([
       {
         debug: { attemptsLeft: 2, lockedUntil: "2026-10-07T14:33:00Z" },
         type: REFUSAL,
@@ -131,32 +132,33 @@ describe("refusalOf", () => {
   });
 
   it("decodes the detail's binary value when there's no debug form", async () => {
-    const error = await refused([{ type: REFUSAL, value: "CAIYAQ" }]);
+    const error = await refusedSignIn([{ type: REFUSAL, value: "CAIYAQ" }]);
     expect(refusalOf(error)).toMatchObject({ attemptsLeft: 2, lockedUntilUnlocked: true });
-    const timed = await refused([{ type: REFUSAL, value: "IgMI6Ac" }]);
+    const timed = await refusedSignIn([{ type: REFUSAL, value: "IgMI6Ac" }]);
     expect(refusalOf(timed)?.retryAfter).toBe(new Date(1_000_000).toISOString());
   });
 
   it("is undefined without a SignInRefusal detail", async () => {
-    expect(refusalOf(await refused([]))).toBeUndefined();
+    expect(refusalOf(await refusedSignIn([]))).toBeUndefined();
     expect(refusalOf(new Error("x"))).toBeUndefined();
   });
 });
 
+const refusedEmail = (message: string, details: unknown[]) =>
+  parseOsadminError(
+    Response.json(
+      { code: "failed_precondition", details, message },
+      {
+        status: 400,
+      },
+    ),
+  );
+
 describe("emailCertificateRefusalOf", () => {
   const DETAIL = "sneakers.appliance.osadmin.v1.EmailCertificateRefusal";
-  const refused = (message: string, details: unknown[]) =>
-    parseOsadminError(
-      Response.json(
-        { code: "failed_precondition", details, message },
-        {
-          status: 400,
-        },
-      ),
-    );
 
   it("reads the certificate, the pin and the reason from the detail's JSON debug form", async () => {
-    const error = await refused("EMAIL_PIN_MISMATCH (3904): the relay presented another", [
+    const error = await refusedEmail("EMAIL_PIN_MISMATCH (3904): the relay presented another", [
       {
         debug: {
           certificate: {
@@ -191,13 +193,16 @@ describe("emailCertificateRefusalOf", () => {
   });
 
   it("decodes the detail's binary value, repeated names and all, when there's no debug form", async () => {
-    const error = await refused("EMAIL_UNTRUSTED (3903): the relay's certificate isn't trusted", [
-      {
-        type: DETAIL,
-        value:
-          "CjAKBENOPXISBENOPXIaAwjoByIDCNAPKgVBQTpCQjIBcjICcjI6CjE5Mi4wLjIuMjUSBUNDOkREGgtzZWxmLXNpZ25lZA==",
-      },
-    ]);
+    const error = await refusedEmail(
+      "EMAIL_UNTRUSTED (3903): the relay's certificate isn't trusted",
+      [
+        {
+          type: DETAIL,
+          value:
+            "CjAKBENOPXISBENOPXIaAwjoByIDCNAPKgVBQTpCQjIBcjICcjI6CjE5Mi4wLjIuMjUSBUNDOkREGgtzZWxmLXNpZ25lZA==",
+        },
+      ],
+    );
     expect(emailCertificateRefusalOf(error)).toEqual({
       certificate: {
         dnsNames: ["r", "r2"],
@@ -215,9 +220,11 @@ describe("emailCertificateRefusalOf", () => {
   });
 
   it("is undefined for another refusal, or one without the detail", async () => {
-    expect(emailCertificateRefusalOf(await refused("EMAIL_SEND (3902): no", []))).toBeUndefined();
     expect(
-      emailCertificateRefusalOf(await refused("EMAIL_UNTRUSTED (3903): untrusted", [])),
+      emailCertificateRefusalOf(await refusedEmail("EMAIL_SEND (3902): no", [])),
+    ).toBeUndefined();
+    expect(
+      emailCertificateRefusalOf(await refusedEmail("EMAIL_UNTRUSTED (3903): untrusted", [])),
     ).toBeUndefined();
     expect(emailCertificateRefusalOf(new Error("x"))).toBeUndefined();
   });

@@ -361,25 +361,26 @@ describe("browse at an iPad Pro 13 width", () => {
   });
 });
 
+const frameAs = (user: string) => {
+  const cookie = sessionCookie(user);
+  const Stub = createRoutesStub([
+    {
+      children: [{ Component: () => <h1>Dashboard</h1>, index: true }],
+      Component: () => (
+        <ProblemActions>
+          <StaffFrame />
+        </ProblemActions>
+      ),
+      id: "routes/frame",
+      loader: withCookie(cookie, frameLoader),
+    },
+  ]);
+  render(<Stub initialEntries={["/"]} />);
+  return cookie;
+};
+
 describe("StaffFrame break-glass", () => {
   onDesktop();
-  const frameAs = (user: string) => {
-    const cookie = sessionCookie(user);
-    const Stub = createRoutesStub([
-      {
-        children: [{ Component: () => <h1>Dashboard</h1>, index: true }],
-        Component: () => (
-          <ProblemActions>
-            <StaffFrame />
-          </ProblemActions>
-        ),
-        id: "routes/frame",
-        loader: withCookie(cookie, frameLoader),
-      },
-    ]);
-    render(<Stub initialEntries={["/"]} />);
-    return cookie;
-  };
 
   it("offers site admins the Break glass entry point", async () => {
     frameAs("mock-user-alice");
