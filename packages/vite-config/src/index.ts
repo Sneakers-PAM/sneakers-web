@@ -134,8 +134,13 @@ export interface AppOptions {
   port: number;
 }
 
-/** Gateway routes the browser itself goes to (single sign-on is a full-page redirect). */
-const BROWSER_GATEWAY_ROUTES = ["/auth/sso"];
+/**
+ * Gateway routes the browser itself goes to: single sign-on is a full-page redirect, and the
+ * gateway answers the discovery route and the share links itself, outside any sign-in. On a box
+ * the ingress sends these past the web app; the app has no route for them. The last two are
+ * patterns so they take only those paths, not a page such as /sharing.
+ */
+const BROWSER_GATEWAY_ROUTES = ["/auth/sso", String.raw`^/\.well-known/sneakers$`, "^/share/"];
 
 /**
  * The live dev server's proxy: the gateway routes the browser goes to itself, and the SSH

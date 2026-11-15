@@ -37,10 +37,25 @@ describe("the app commit", () => {
 
 describe("the dev server's proxy", () => {
   it("sends single sign-on to the gateway and the terminal's WebSocket to the SSH broker", () => {
-    expect(developmentProxy({})).toEqual({
-      "/auth/sso": { target: "http://localhost:9100" },
-      "/ssh": { target: "http://localhost:9097", ws: true },
-    });
+    const proxy = developmentProxy({});
+    expect(proxy["/auth/sso"]).toEqual({ target: "http://localhost:9100" });
+    expect(proxy["/ssh"]).toEqual({ target: "http://localhost:9097", ws: true });
+  });
+
+  it("sends the public discovery route and the share-link routes to the gateway", () => {
+    const proxy = developmentProxy({ GATEWAY_URL: "http://gw:1" });
+    expect(proxy[String.raw`^/\.well-known/sneakers$`]).toEqual({ target: "http://gw:1" });
+    expect(proxy["^/share/"]).toEqual({ target: "http://gw:1" });
+  });
+
+  it("matches only those paths, not the app's own pages that start the same way", () => {
+    const keys = Object.keys(developmentProxy({})).filter((k) => k.startsWith("^"));
+    const matches = (path: string) => keys.some((k) => new RegExp(k).test(path));
+    expect(matches("/.well-known/sneakers")).toBe(true);
+    expect(matches("/share/abc123")).toBe(true);
+    expect(matches("/.well-known/sneakers-other")).toBe(false);
+    expect(matches("/sharing")).toBe(false);
+    expect(matches("/secret/s-1/sharing")).toBe(false);
   });
 
   it("takes the gateway's and the broker's addresses from the environment", () => {

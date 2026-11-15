@@ -10,6 +10,7 @@ import {
   TableHead,
   TableHeaderCell,
   TableRow,
+  toast,
 } from "@sneakers-web/ui";
 import { useEffect, useState } from "react";
 
@@ -89,10 +90,22 @@ export default function Logs() {
     setBundleRefusal("");
     void audit
       .exportSupportBundle()
-      .then(({ blob, fileName }) => download(blob, fileName))
+      .then(({ blob, fileName }) => {
+        download(blob, fileName);
+        toast("Support bundle downloaded.");
+      })
       .catch((error: unknown) => setBundleRefusal(bundleError(error)))
       .finally(() => setBundling(false));
   };
+
+  const exportLog = () =>
+    void audit
+      .exportLog()
+      .then((blob) => {
+        download(blob, "audit-log.jsonl");
+        toast("Audit log exported.");
+      })
+      .catch(() => toast("The audit log didn't export. Try again."));
 
   if (!data) return null;
 
@@ -100,10 +113,7 @@ export default function Logs() {
     <div className="flex flex-col gap-5 p-5.5">
       <PageHeader
         actions={
-          <Button
-            onClick={() => void audit.exportLog().then((blob) => download(blob, "audit-log.jsonl"))}
-            variant="secondary"
-          >
+          <Button onClick={exportLog} variant="secondary">
             Export
           </Button>
         }

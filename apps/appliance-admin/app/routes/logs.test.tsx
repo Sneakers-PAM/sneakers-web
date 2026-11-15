@@ -1,3 +1,4 @@
+import { toast } from "@sneakers-web/ui";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -14,6 +15,9 @@ const openBundle = async (user: ReturnType<typeof userEvent.setup>) => {
 };
 
 describe("Logs", () => {
+  // A toast from one test would otherwise still be on screen in the next.
+  afterEach(() => void toast.dismiss());
+
   it("lists the audit events and keeps the support bundle behind Advanced", async () => {
     const user = userEvent.setup();
     renderPage(Logs);
@@ -35,6 +39,36 @@ describe("Logs", () => {
       "support-bundle-box1-20261030T120000Z.zip",
     );
     expect(screen.getByRole("button", { name: "Download support bundle" })).toBeEnabled();
+  });
+
+  it("confirms with a toast once the support bundle is saved", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:support-bundle");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await user.click(await openBundle(user));
+    expect(await screen.findByText("Support bundle downloaded.")).toBeInTheDocument();
+  });
+
+  it("confirms with a toast once the audit log is exported", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:audit-log");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    renderPage(Logs);
+    await screen.findByText("Logs and audit");
+    await user.click(screen.getByRole("button", { name: "Export" }));
+    expect(await screen.findByText("Audit log exported.")).toBeInTheDocument();
+    expect((click.mock.contexts[0] as HTMLAnchorElement).download).toBe("audit-log.jsonl");
+  });
+
+  it("says in a toast when the audit log can't be exported", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(audit, "exportLog").mockRejectedValueOnce(new Error("boom"));
+    renderPage(Logs);
+    await screen.findByText("Logs and audit");
+    await user.click(screen.getByRole("button", { name: "Export" }));
+    expect(await screen.findByText("The audit log didn't export. Try again.")).toBeInTheDocument();
   });
 
   it("holds the button while the box writes the bundle", async () => {
