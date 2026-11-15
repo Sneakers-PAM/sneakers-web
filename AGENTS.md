@@ -465,6 +465,17 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   gate a second way (unlike staff/admin's build-flag variant): `edge.quickLogin` only exists on
   the mock edge, and the sign-in page only renders the control when `edge.mode === "mock"`.
 
+## Public gateway routes the web apps never claim (#411)
+
+The gateway answers `GET /.well-known/sneakers` (the phone apps' discovery document) and
+`GET`, `HEAD` and `POST /share/{token}` (one-time share links) itself, outside any sign-in, with
+its own `Cache-Control`, `X-Robots-Tag`, `Referrer-Policy` and content security policy. On a box
+the ingress sends both past the web apps (the gateway chart's `ingress.paths`), so neither app has
+a route for them and none may be added: a route here would sit in front of the gateway's
+response, or turn a share link into a sign-in redirect. The route-table tests fail if one is
+added. The live dev server proxies the same two paths to `GATEWAY_URL` (`developmentProxy` in
+`packages/vite-config`), by pattern, so a page such as `/sharing` is unaffected.
+
 ## Dev quick login
 
 A "Dev quick login" dropdown (DEV badge) under the username field signs in as a test user in
