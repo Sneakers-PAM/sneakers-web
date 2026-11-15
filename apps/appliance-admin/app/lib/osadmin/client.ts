@@ -8,6 +8,8 @@ import type {
   Admin,
   BackupPolicy,
   CertEndpoint,
+  CheckEmailCodeRequest,
+  CheckEmailCodeResponse,
   CheckPasswordResponse,
   CheckUpdatesResponse,
   CommitNetworkResponse,
@@ -371,6 +373,8 @@ export const mcp = {
 };
 
 export const email = {
+  checkCode: (request: CheckEmailCodeRequest) =>
+    call<CheckEmailCodeResponse>("EmailService", "CheckEmailCode", request),
   get: () => call<GetEmailResponse>("EmailService", "GetEmail", {}, wire.getEmail),
   /**
    * Checks the relay presents the certificate with `sha256` now and answers the settings pinned
