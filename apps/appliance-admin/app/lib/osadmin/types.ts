@@ -167,6 +167,18 @@ export interface CheckEmailCodeResponse {
   validUntil: string;
 }
 
+export interface CheckHostnameResponse {
+  addresses?: HostnameAddress[];
+  /** The NET_* symbol when the result isn't a match. */
+  code?: string;
+  /** The name as the box keeps it: lower case, no final dot. */
+  hostname: string;
+  managementAddresses?: string[];
+  /** One plain sentence about the result. */
+  message?: string;
+  result: HostnameCheck;
+}
+
 export interface CheckPasswordResponse {
   breached?: boolean;
   /** One plain sentence when ok is false. */
@@ -286,6 +298,8 @@ export interface Elevation {
   state: ElevationState;
 }
 
+// ---- access ----
+
 /**
  * An owner's override of an open elevated shell on Apply or Revert: the session is ended,
  * audited with the reason, and the update goes ahead once its end is reported.
@@ -296,8 +310,6 @@ export interface ElevationOverride {
   elevationId: string;
   reason: string;
 }
-
-// ---- access ----
 
 /** issued: a code is out; active: the shell is open; ended or expired after. */
 export type ElevationState = "active" | "ended" | "expired" | "issued";
@@ -404,6 +416,8 @@ export interface FetchProgress {
   verified: boolean;
 }
 
+// ---- root shell ----
+
 export interface GenerateCsrRequest {
   commonName?: string;
   country?: string;
@@ -416,7 +430,7 @@ export interface GenerateCsrRequest {
   province?: string;
 }
 
-// ---- root shell ----
+// ---- elevation (root shells) ----
 
 /** A recovery key the box made: the private key is in this answer once and never kept. */
 export interface GenerateRecoveryKeyResponse {
@@ -428,8 +442,6 @@ export interface GenerateRecoveryKeyResponse {
   publicKey: string;
   recoveryKey: RecoveryKey;
 }
-
-// ---- elevation (root shells) ----
 
 export interface GetBackupsResponse {
   policy?: BackupPolicy;
@@ -445,6 +457,8 @@ export interface GetCertificateStoreResponse {
   updateTrust?: UpdateTrust;
 }
 
+// ---- network ----
+
 export interface GetEmailResponse {
   /** False while TLS or certificate verification is off. */
   encrypted: boolean;
@@ -454,8 +468,6 @@ export interface GetEmailResponse {
   /** "not installed", "not in this product", "not set" or "set". */
   state: string;
 }
-
-// ---- network ----
 
 export interface GetExposedValueResponse {
   entry?: ExposedValue;
@@ -555,6 +567,8 @@ export interface GetSetupResponse {
   done: boolean;
   escrowFile: string;
   firstAdmin?: string;
+  /** The host name the box keeps now; empty when DHCP or nothing named it. */
+  hostname?: string;
   maxRecoveryKeys: number;
   productSetupUrl: string;
   /** Empty lists are left out of the JSON. */
@@ -698,6 +712,20 @@ export interface HostKey {
   type: string;
 }
 
+export interface HostnameAddress {
+  address: string;
+  /** It's one of the box's management addresses. */
+  thisBox?: boolean;
+}
+
+/** What the box's own DNS servers say about a host name (SetupService.CheckHostname). */
+export type HostnameCheck =
+  | "HOSTNAME_CHECK_DNS_DOWN"
+  | "HOSTNAME_CHECK_ELSEWHERE"
+  | "HOSTNAME_CHECK_MATCH"
+  | "HOSTNAME_CHECK_NOT_FOUND"
+  | "HOSTNAME_CHECK_UNSPECIFIED";
+
 export interface ImportCertificateRequest {
   certificatePem?: string;
   chainPem?: string;
@@ -708,14 +736,14 @@ export interface ImportCertificateRequest {
   rootPem?: string;
 }
 
-// ---- tls ----
-
 /** One file of the open import: bundle, mapping, sheet or types. */
 export interface ImportFile {
   kind: string;
   size: number;
   uploadedAt: string;
 }
+
+// ---- tls ----
 
 /** One sneakers-migrate step the box ran as a Job, and how it went. */
 export interface ImportRun {
@@ -882,13 +910,13 @@ export interface ListSessionsResponse {
   sessions: ActiveSession[];
 }
 
-// ---- product ----
-
 /** What `lockoutMaxFailures` consecutive failures in 15 minutes do (NIST SP 800-53 AC-7). */
 export type LockoutMode =
   | "LOCKOUT_MODE_TIMED"
   | "LOCKOUT_MODE_UNSPECIFIED"
   | "LOCKOUT_MODE_UNTIL_UNLOCKED";
+
+// ---- product ----
 
 /**
  * How the box reaches the mirror and how its last fetch went. The box keeps it in memory, so
@@ -946,15 +974,13 @@ export interface NetdCheck {
   state?: CheckState;
 }
 
-// ---- mcp ----
-
 export interface NetdInterface {
   ipv4?: NetdIpv4;
   ipv6?: NetdIpv6;
   name?: string;
 }
 
-// ---- email ----
+// ---- mcp ----
 
 export interface NetdIpv4 {
   /** A prefix such as 192.0.2.10/24, in static mode only. */
@@ -962,6 +988,8 @@ export interface NetdIpv4 {
   gateway?: string;
   mode?: Ipv4Mode;
 }
+
+// ---- email ----
 
 export interface NetdIpv6 {
   /** A prefix such as 2001:db8::10/64, in static mode only. */
@@ -1066,9 +1094,9 @@ export interface ProductVersion {
   version: string;
 }
 
-// ---- telemetry ----
-
 export type Protection = "PROTECTION_FULL" | "PROTECTION_REDUCED" | "PROTECTION_UNSPECIFIED";
+
+// ---- telemetry ----
 
 /** Who hid the reduced-protection notice for every admin, and when. */
 export interface ProtectionNotice {
@@ -1116,9 +1144,9 @@ export interface RelayCertificate {
   subject: string;
 }
 
-// ---- import ----
-
 export type ReleaseChannel = "rc" | "stable";
+
+// ---- import ----
 
 /** A removed login key, on sshd's revocation list until an owner un-revokes it. */
 export interface RevokedKey {
@@ -1152,8 +1180,6 @@ export interface SendTestEmailRequest {
   to: string;
 }
 
-// ---- backup ----
-
 export interface Session {
   admin: string;
   csrfToken: string;
@@ -1169,6 +1195,8 @@ export interface Session {
   stepUpUntil?: string;
 }
 
+// ---- backup ----
+
 export type SessionKind =
   | "SESSION_KIND_BROWSER"
   | "SESSION_KIND_ELEVATED"
@@ -1180,6 +1208,18 @@ export interface SetEmailRequest {
   /** Absent keeps the saved password; empty clears it. */
   password?: string;
   settings: EmailSettings;
+}
+
+export interface SetHostnameResponse {
+  /** The SHA-256 fingerprint of the certificate :8443 serves now, made for the name. */
+  fingerprint: string;
+  handoffCode: string;
+  handoffExpires?: string;
+  hostname: string;
+  /** The name the settings held before; empty when DHCP or nothing named the box. */
+  previous?: string;
+  /** Where the page goes: https://<hostname>:8443/setup with the code in the fragment. */
+  url: string;
 }
 
 // ---- upgrade ----
