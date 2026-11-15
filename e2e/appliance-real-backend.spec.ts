@@ -20,7 +20,6 @@ const navigate = (page: Page, to: string) =>
 // never throw a console or page error.
 const UNAVAILABLE = [
   { heading: "Backups", name: "Backups", route: "/backups" },
-  { heading: "MCP", name: "MCP", route: "/mcp" },
   { heading: "Add-on modules", name: "Add-on modules", route: "/modules" },
 ] as const;
 

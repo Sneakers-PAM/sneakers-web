@@ -17,6 +17,20 @@ const line = (text: RegExp | string) =>
   );
 
 describe("Home", () => {
+  it("has the MCP status and its switch, since MCP has no page of its own", async () => {
+    renderPage(Home);
+    expect(await screen.findByRole("switch", { name: "MCP on" })).toBeChecked();
+    expect(screen.getByRole("heading", { name: "MCP" })).toBeInTheDocument();
+  });
+
+  it("leaves MCP out with no product installed", async () => {
+    applyMockScenario("no-product");
+    renderPage(Home);
+    await screen.findByText("Status");
+    expect(screen.queryByRole("switch", { name: "MCP on" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/mcp/i)).not.toBeInTheDocument();
+  });
+
   it("shows the version, protection and a TLS warning", async () => {
     renderPage(Home);
     expect(await screen.findByText("Status")).toBeInTheDocument();

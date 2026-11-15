@@ -14,7 +14,6 @@ export default [
     route("root-shell", "routes/root-shell.tsx"),
     route("certificates", "routes/certificates.tsx"),
     route("backups", "routes/backups.tsx"),
-    route("mcp", "routes/mcp.tsx"),
     route("email", "routes/email.tsx"),
     route("telemetry", "routes/telemetry.tsx"),
     route("import", "routes/import.tsx"),
