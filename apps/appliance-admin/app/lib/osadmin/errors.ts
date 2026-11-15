@@ -264,6 +264,8 @@ const relayCertificateOf = (bytes: Uint8Array | undefined): RelayCertificate => 
  * The certificate an `EMAIL_UNTRUSTED` or `EMAIL_PIN_MISMATCH` refusal carries (its
  * EmailCertificateRefusal detail), from the JSON debug form or its binary value.
  */
+const strings = (value: unknown): string[] => (Array.isArray(value) ? value.map(String) : []);
+
 export const emailCertificateRefusalOf = (error: unknown): EmailCertificateRefusal | undefined => {
   if (!(error instanceof OsadminError) || !CERTIFICATE_SYMBOLS.has(error.symbol ?? ""))
     return undefined;
@@ -277,7 +279,6 @@ export const emailCertificateRefusalOf = (error: unknown): EmailCertificateRefus
       reason?: string;
     };
     const c = debug.certificate ?? {};
-    const strings = (value: unknown): string[] => (Array.isArray(value) ? value.map(String) : []);
     return {
       certificate: {
         dnsNames: strings(c.dnsNames),

@@ -475,20 +475,20 @@ export interface GetMcpResponse {
 }
 
 export interface GetNetworkResponse {
+  lastChangeId?: string;
   /** The most recent change that waited for a confirmation was undone; lastChangeId names it. */
   lastChangeReverted?: boolean;
   /** It was undone because the box stopped or restarted inside its window. */
   lastChangeRevertedAtStart?: boolean;
-  lastChangeId?: string;
   /** What DHCP and router advertisements gave the box, management interface first; the
    * resolver and the clock use them where the settings name none. */
   learntDns?: string[];
   learntNtp?: string[];
   learntSearch?: string[];
   managementAddresses: string[];
+  ntpOffsetMs: string;
   /** The servers the clock asks now: the settings', else DHCP's, else the image's pool. */
   ntpServers?: string[];
-  ntpOffsetMs: string;
   ntpSynced: boolean;
   pending: boolean;
   /** The pending change's id, for the audit log; not secret. */
@@ -530,10 +530,10 @@ export interface GetPowerResponse {
 
 export interface GetSetupResponse {
   adminCount: number;
-  /** The code session's kind; unset for a signed-in admin. */
-  codeKind?: CodeKind;
   /** The admin an invitation or Recover access code is for; empty when the name is chosen. */
   codeAdmin?: string;
+  /** The code session's kind; unset for a signed-in admin. */
+  codeKind?: CodeKind;
   codeSessionExpires?: string;
   /** The first step not done, 1 to 6; 0 once setup is done. */
   current?: number;
@@ -554,12 +554,16 @@ export interface GetSetupResponse {
 export interface GetStatusResponse {
   channel: string;
   custodyMode: string;
+  /** The product's data paths; left out by a box from before the disk guard, or with none. */
+  dataPaths?: DataPath[];
   disk?: Disk;
   factoryReset?: FactoryReset;
   failedVersion: string;
   /** Empty lists are left out of the JSON: a box with no dependency to report leaves this out. */
   health?: Component[];
   hostname: string;
+  /** The disk cleanup's last run since the box's services started; left out before the first. */
+  lastCleanup?: DiskCleanup;
   managementAddresses: string[];
   /** The network change waiting for its confirmation, and how the last one ended; left out by a
    * box from before it. */
@@ -594,10 +598,6 @@ export interface GetStatusResponse {
   /** The last stage, apply or revert, step by step; left out when the box has made none. */
   upgradeProgress?: UpgradeProgress;
   version: string;
-  /** The product's data paths; left out by a box from before the disk guard, or with none. */
-  dataPaths?: DataPath[];
-  /** The disk cleanup's last run since the box's services started; left out before the first. */
-  lastCleanup?: DiskCleanup;
   /** Each volume with its alert level; left out by a box from before the disk guard. */
   volumes?: Volume[];
   /** Empty lists are left out of the JSON: a box with nothing to warn about leaves this out. */
@@ -621,13 +621,24 @@ export interface GetUpgradesResponse {
   /** The elevated shells open now; Apply and Revert are refused while there is one. */
   activeElevations?: Elevation[];
   airGapped: boolean;
+  /** For a staged Base OS whose built-in pages the installed Base Web doesn't fit: what the box
+   * serves after the reboot. */
+  baseOsNote: string;
+  /** The Base Web unit; left out by a box from before the units. */
+  baseWeb?: BaseWebStatus;
   /** This build has a release source to fetch from directly (production builds). */
   directAvailable?: boolean;
   failedVersion: string;
+  /** The last fetch, while it runs and after. */
+  fetchProgress?: FetchProgress;
   /** The file waiting to be verified or cancelled; left out when there's none. */
   heldUpload?: HeldUpload;
   /** Empty lists are left out of the JSON: a box with no update event yet leaves this out. */
   history?: UpgradeEvent[];
+  /** The last Check now since osadmin started. */
+  lastCheck?: CheckUpdatesResponse;
+  /** The mirror's transport and its last fetch; left out when no mirror is set. */
+  mirrorStatus?: MirrorStatus;
   /** The base releases staging a base update removes, with their files: the revert target, or a
    * staged release. Staging writes over the other slot, so they go at the stage, not the apply. */
   nextStageRemoves: string[];
@@ -639,30 +650,19 @@ export interface GetUpgradesResponse {
   previousVersion: string;
   /** The product bundle's slots; left out by a box from before product bundles. */
   product?: ProductSlots;
+  /** True while an upload or fetch is coming in. */
+  receiving: boolean;
   /** When an admin reverted the base release: the release reverted from, who, and when. */
   revertedAt?: string;
   revertedBy?: string;
   revertedVersion?: string;
-  /** True while an upload or fetch is coming in. */
-  receiving: boolean;
   runningVersion: string;
-  stagedVersion: string;
-  /** The last stage, apply or revert, step by step; left out when the box has made none. */
-  upgradeProgress?: UpgradeProgress;
-  /** The mirror's transport and its last fetch; left out when no mirror is set. */
-  mirrorStatus?: MirrorStatus;
-  /** The Base Web unit; left out by a box from before the units. */
-  baseWeb?: BaseWebStatus;
-  /** The last Check now since osadmin started. */
-  lastCheck?: CheckUpdatesResponse;
-  /** The last fetch, while it runs and after. */
-  fetchProgress?: FetchProgress;
-  /** For a staged Base OS whose built-in pages the installed Base Web doesn't fit: what the box
-   * serves after the reboot. */
-  baseOsNote: string;
   /** The Base Web the staged Base OS ships with; empty with none staged, or for a release from
    * before the rule. */
   stagedIncludesBaseWeb: string;
+  stagedVersion: string;
+  /** The last stage, apply or revert, step by step; left out when the box has made none. */
+  upgradeProgress?: UpgradeProgress;
 }
 
 /** A received or fetched .bin not yet staged or discarded; while one is held the box refuses a
@@ -766,16 +766,21 @@ export interface IssueSshKeyResponse {
    * browser never adds " (1)" and the key, certificate and .ppk names always pair. */
   fileName: string;
   key: Key;
-  /** The PuTTY PPK v3 text with the certificate already embedded: the recommended download for
-   * PuTTY 0.78+ and MobaXterm 25.1+. */
-  ppk: string;
-  /** <fileName>.ppk. */
-  ppkFileName: string;
+  /** A known_hosts line trusting the box's host CA for its host name and management addresses
+   * ("@cert-authority <names> <host CA key>"), so the first login has no host key prompt. */
+  knownHosts: string;
+  /** known_hosts_<box>, for knownHosts. */
+  knownHostsFileName: string;
   /** PEM PKCS#8 ("PRIVATE KEY"), for tools that take neither the OpenSSH nor the PuTTY form. It
    * carries no certificate, so it pairs with certificateFileName. Shown once. */
   pem: string;
   /** <fileName>.pem. */
   pemFileName: string;
+  /** The PuTTY PPK v3 text with the certificate already embedded: the recommended download for
+   * PuTTY 0.78+ and MobaXterm 25.1+. */
+  ppk: string;
+  /** <fileName>.ppk. */
+  ppkFileName: string;
   /** The OpenSSH private key, shown once and never kept by the box. */
   privateKey: string;
   publicKey: string;
@@ -784,11 +789,6 @@ export interface IssueSshKeyResponse {
   /** The exact OpenSSH command, with the certificate file named: `ssh -i <fileName> -o
    * CertificateFile=<certificateFileName> <admin>@<box>`. */
   sshCommand: string;
-  /** A known_hosts line trusting the box's host CA for its host name and management addresses
-   * ("@cert-authority <names> <host CA key>"), so the first login has no host key prompt. */
-  knownHosts: string;
-  /** known_hosts_<box>, for knownHosts. */
-  knownHostsFileName: string;
   /** The box's user CA (its root key's public half), which signed the certificate. */
   userCaPublicKey: string;
 }
@@ -819,16 +819,16 @@ export type KeyType =
 export interface ListAdminsResponse {
   accessPolicy?: AccessPolicy;
   admins: Admin[];
+  /** The box's SSH host CA, which signs sshd's host certificate: its type and fingerprint. */
+  hostCa?: HostKey;
   hostKeys: HostKey[];
+  /** The "@cert-authority <names> <host CA key>" line for a client's known_hosts. */
+  knownHosts: string;
   quorum?: Quorum;
   /** Empty lists are left out of the JSON. */
   revokedKeys?: RevokedKey[];
   /** The box's root key (it never leaves the box): its type and fingerprint. */
   rootKey?: HostKey;
-  /** The box's SSH host CA, which signs sshd's host certificate: its type and fingerprint. */
-  hostCa?: HostKey;
-  /** The "@cert-authority <names> <host CA key>" line for a client's known_hosts. */
-  knownHosts: string;
   /** The root key's public half: the user CA sshd trusts (an authorized_keys line). */
   userCaPublicKey: string;
 }
@@ -878,6 +878,9 @@ export type LockoutMode =
  * `checked` is false after a restart until the next mirror fetch.
  */
 export interface MirrorStatus {
+  /** The policy's source (builtin or manual), the mirror this status is about, and the
+   * built-in list in order. */
+  builtinUrls: string[];
   checked: boolean;
   checkedAt?: string;
   /** The last fetch's refusal: its code (UPGRADE_MIRROR_UNTRUSTED, UPGRADE_MIRROR_PIN,
@@ -892,13 +895,7 @@ export interface MirrorStatus {
   pinMatched: boolean;
   /** The update trust pins the server certificate. */
   pinned: boolean;
-  /** http or https. */
-  scheme: string;
-  /** The policy's source (builtin or manual), the mirror this status is about, and the
-   * built-in list in order. */
-  builtinUrls: string[];
-  source: string;
-  url: string;
+  rateLimitedUntil?: string;
   /** The GitHub source: the channel in effect and whether it's the build's default, the
    * repository (empty when the build has none), the release last picked, when the releases list
    * was read, the rate limit's end while it's used up, and whether this build may override the
@@ -906,15 +903,18 @@ export interface MirrorStatus {
   releaseChannel: string;
   releaseChannelDefault: boolean;
   releaseRepo: string;
-  releaseTag: string;
-  releasesCheckedAt?: string;
-  rateLimitedUntil?: string;
   releaseRepoOverrideAllowed: boolean;
+  releasesCheckedAt?: string;
+  releaseTag: string;
+  /** http or https. */
+  scheme: string;
   /** The server certificate the last HTTPS fetch was presented with, refused or not. */
   serverIssuer: string;
   serverNotAfter?: string;
   serverSha256: string;
   serverSubject: string;
+  source: string;
+  url: string;
 }
 
 // ---- product ----
@@ -974,11 +974,11 @@ export interface NetdSettings {
 export interface NetworkChange {
   /** Names the pending change in the audit. */
   changeId: string;
+  lastChangeId: string;
   /** The last change that waited was undone; lastChangeId names it. */
   lastReverted: boolean;
   /** It was undone because the box stopped or restarted inside its window. */
   lastRevertedAtStart: boolean;
-  lastChangeId: string;
   /** A change waits for ConfirmNetwork. */
   pending: boolean;
   revertSecondsLeft: number;
@@ -1010,6 +1010,9 @@ export interface PinEmailCertificateResponse {
 
 /** The product bundle's slots (k0s, its images and the product) on the state volume. */
 export interface ProductSlots {
+  /** The installed product's base range, such as "0.2.0 to 0.3.0"; fits says whether the
+   * running Base OS is in it. */
+  fits?: boolean;
   /** Empty before the first install. */
   installedVersion?: string;
   /**
@@ -1019,9 +1022,6 @@ export interface ProductSlots {
   name?: string;
   /** The slot a revert goes back to; empty when there is none. */
   previousVersion?: string;
-  /** The installed product's base range, such as "0.2.0 to 0.3.0"; fits says whether the
-   * running Base OS is in it. */
-  fits?: boolean;
   requiresBaseOs?: string;
   /** The box is finishing a cut-off reset by itself; nothing is asked of an owner. */
   resetFinishing?: boolean;
@@ -1345,14 +1345,14 @@ export interface UpdatePackage {
   fullBin?: string;
   /** The Base Web a Base OS release ships with. */
   includesBaseWeb?: string;
-  /** upload, mirror or direct. */
-  source?: string;
   kind: "full" | "patch";
   /** A product bundle's base range, as in ProductVersion. */
   maxBase: string;
   minBase: string;
   sha256: string;
   size: string;
+  /** upload, mirror or direct. */
+  source?: string;
   target?: UpdateTarget;
   uploadId: string;
   version: string;
@@ -1404,15 +1404,6 @@ export interface UpgradePolicy {
   mirrorUrl: string;
   /** automatic applies a staged release inside the daily window; manual waits for an owner. */
   mode: "automatic" | "manual";
-  windowMinutes: number;
-  /** HH:MM local. */
-  windowStart: string;
-  /**
-   * Where updates come from: builtin (the list compiled into the root: the release download
-   * location, or a lab build's mirror), manual (mirrorUrl) or none (upload only). The box always
-   * answers it filled in; a box from before the source leaves it out.
-   */
-  source?: UpdateSource;
   /**
    * The channel the GitHub source follows: stable, or rc (the newest rc or stable release). Empty
    * is the build's default (rc on a pre-release build); left out of a save, the box keeps its own.
@@ -1420,6 +1411,15 @@ export interface UpgradePolicy {
   releaseChannel?: "" | ReleaseChannel;
   /** A lab build's GitHub repository override (owner/name); a production box refuses it. */
   releaseRepo?: string;
+  /**
+   * Where updates come from: builtin (the list compiled into the root: the release download
+   * location, or a lab build's mirror), manual (mirrorUrl) or none (upload only). The box always
+   * answers it filled in; a box from before the source leaves it out.
+   */
+  source?: UpdateSource;
+  windowMinutes: number;
+  /** HH:MM local. */
+  windowStart: string;
 }
 
 /** The box's last stage, apply or revert, step by step. A base apply's steps after the reboot

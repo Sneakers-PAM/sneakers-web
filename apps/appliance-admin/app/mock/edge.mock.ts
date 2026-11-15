@@ -974,6 +974,16 @@ const approveReset = (actor: string, id: string) => {
   return reset;
 };
 
+const notStaged = () =>
+  new OsadminError("failed_precondition", "UPGRADE_NOT_STAGED: no release is staged");
+
+// A change to what the services read restarts them; a new endpoint while off doesn't.
+const reads = (t: Record<string, unknown>) =>
+  t.enabled ? JSON.stringify([t.endpoint, t.skipVerify, t.logs, t.caPem]) : "off";
+
+const validRange = (value: number, max: number) =>
+  Number.isInteger(value) && value >= 1 && value <= max;
+
 const route = async (service: string, method: string, body: Record<string, unknown>) => {
   const key = `${service}/${method}`;
   if (stepUpOnce && STEP_UP_METHODS.has(key)) {
@@ -1158,12 +1168,10 @@ const route = async (service: string, method: string, body: Record<string, unkno
     }
     case "AccessService/SetAccessPolicy": {
       const policy = body.policy as AccessPolicy;
-      const inRange = (value: number, max: number) =>
-        Number.isInteger(value) && value >= 1 && value <= max;
       if (
-        !inRange(policy.rootCodeMinutes, 60) ||
-        !inRange(policy.rootSessionMinutes, 60) ||
-        !inRange(policy.sshKeyValidDays, 1825)
+        !validRange(policy.rootCodeMinutes, 60) ||
+        !validRange(policy.rootSessionMinutes, 60) ||
+        !validRange(policy.sshKeyValidDays, 1825)
       )
         throw new OsadminError(
           "invalid_argument",
@@ -1992,9 +2000,6 @@ const route = async (service: string, method: string, body: Record<string, unkno
           `TELEMETRY_UNREACHABLE (3911): the collector at ${endpoint} didn't answer a TLS handshake: connection refused; nothing was saved`,
         );
       const was = telemetrySettings;
-      // A change to what the services read restarts them; a new endpoint while off doesn't.
-      const reads = (t: Record<string, unknown>) =>
-        t.enabled ? JSON.stringify([t.endpoint, t.skipVerify, t.logs, t.caPem]) : "off";
       const restarting = reads(was) !== reads(next);
       telemetrySettings = next;
       if (restarting) {
@@ -2112,8 +2117,6 @@ const route = async (service: string, method: string, body: Record<string, unkno
         historyEntry("discard", "", "", `upload ${uploadId}`);
         return {};
       }
-      const notStaged = () =>
-        new OsadminError("failed_precondition", "UPGRADE_NOT_STAGED: no release is staged");
       if (body.target === "UPDATE_TARGET_BASE_WEB") {
         const version = units.unstageWeb();
         if (!version) throw notStaged();

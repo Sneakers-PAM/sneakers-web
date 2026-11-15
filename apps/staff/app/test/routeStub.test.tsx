@@ -7,6 +7,8 @@ import { renderRoute } from "@/test/routeStub";
 
 withMockGateway();
 
+const Page = () => <p>{useLoaderData<string>()}</p>;
+
 describe("renderRoute", () => {
   it("renders a page inside the real frame loader, signed in as Alice by default", async () => {
     renderRoute("/", { Component: Home, path: "/" });
@@ -14,7 +16,6 @@ describe("renderRoute", () => {
   });
 
   it("signs in as whoever the test names, and sends the cookie to the page's own loader", async () => {
-    const Page = () => <p>{useLoaderData<string>()}</p>;
     renderRoute(
       "/who",
       {

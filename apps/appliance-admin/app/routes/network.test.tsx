@@ -32,6 +32,9 @@ const unreachable = () => {
   );
 };
 
+const row = (name: string) =>
+  within(screen.getAllByRole("row").find((r) => within(r).queryByText(name))!);
+
 describe("Network", () => {
   afterEach(() => vi.restoreAllMocks());
 
@@ -274,8 +277,6 @@ describe("Network", () => {
     await screen.findByText("Network");
     await user.click(screen.getByRole("button", { name: "Run checks" }));
     await screen.findByText("link");
-    const row = (name: string) =>
-      within(screen.getAllByRole("row").find((r) => within(r).queryByText(name))!);
     expect(row("link").getByText("OK")).toHaveClass("bg-ok-soft");
     expect(row("ntp").getByText("Warning")).toHaveClass("bg-warn-soft");
     expect(row("dns").getByText("Failed")).toHaveClass("bg-danger-soft");

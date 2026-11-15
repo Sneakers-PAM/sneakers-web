@@ -6,11 +6,12 @@ import { applyMockScenario } from "@/mock/edge.mock";
 import Import from "@/routes/import";
 import { renderPage } from "@/test/renderPage";
 
+const note = () => screen.getByRole("region", { name: "The audit trail stays on the old box" });
+
 describe("Import", () => {
   it("says what an import leaves behind and refuses, before it's opened and while it's open", async () => {
     const user = userEvent.setup();
     renderPage(Import);
-    const note = () => screen.getByRole("region", { name: "The audit trail stays on the old box" });
     await screen.findByRole("button", { name: "Open an import" });
     expect(note()).toHaveTextContent(/one record of the import, naming the box it came from/);
     expect(note()).toHaveTextContent(/format 1\.x .*refused/);

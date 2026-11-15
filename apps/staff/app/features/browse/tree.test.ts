@@ -100,6 +100,8 @@ describe("where a new folder can be created", () => {
   });
 });
 
+const ids = (destinations: { folder: NavFolder }[]) => destinations.map((d) => d.folder.id);
+
 describe("the personal folder root", () => {
   const personal = (id: string, name: string, parentId: null | string = null) =>
     ({
@@ -113,7 +115,6 @@ describe("the personal folder root", () => {
     personal("p-keys", "Keys", "p-root"),
     folder("f-platform", "Platform", true),
   ];
-  const ids = (destinations: { folder: NavFolder }[]) => destinations.map((d) => d.folder.id);
   const platform = folders[3] as NavFolder;
   const lab = folders[1] as NavFolder;
 

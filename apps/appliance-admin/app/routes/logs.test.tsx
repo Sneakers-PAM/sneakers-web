@@ -14,6 +14,9 @@ const openBundle = async (user: ReturnType<typeof userEvent.setup>) => {
   return screen.getByRole("button", { name: "Download support bundle" });
 };
 
+const row = (target: string) =>
+  within(screen.getAllByRole("row").find((r) => within(r).queryByText(target))!);
+
 describe("Logs", () => {
   // A toast from one test would otherwise still be on screen in the next.
   afterEach(() => void toast.dismiss());
@@ -101,8 +104,6 @@ describe("Logs", () => {
   it("names targets in words and shows the ids and the rest of the detail", async () => {
     renderPage(Logs);
     await screen.findByText("Logs and audit");
-    const row = (target: string) =>
-      within(screen.getAllByRole("row").find((r) => within(r).queryByText(target))!);
     expect(row("*.example.org").getByText("tls.certificate.remove")).toBeInTheDocument();
     expect(row("*.example.org").getByText("Certificate")).toBeInTheDocument();
     expect(row("*.example.org").getByText("c-7f3a9e")).toHaveClass("font-mono");

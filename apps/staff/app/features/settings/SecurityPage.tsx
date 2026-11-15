@@ -53,6 +53,9 @@ const useAnswer = (
 };
 
 /** U-17: the signed-in user's own sign-in methods. */
+const post = (fetcher: ReturnType<typeof useFetcher>, fields: Record<string, string>) =>
+  void fetcher.submit(fields, { method: "post" });
+
 export const SecurityPage = () => {
   const { email, factors, listed, setup } = useLoaderData<SecurityData>();
   const stepUp = useStepUp();
@@ -69,8 +72,6 @@ export const SecurityPage = () => {
   const passkeys = factors.filter((f) => f.kind === "passkey");
   const emailOn = factors.some((f) => f.kind === "email");
 
-  const post = (fetcher: ReturnType<typeof useFetcher>, fields: Record<string, string>) =>
-    void fetcher.submit(fields, { method: "post" });
   const remove = () => post(remover, { intent: "remove-totp" });
   const begin = () => post(starter, { intent: "totp-begin" });
   const beginPasskey = () => post(passkey, { intent: "passkey-begin" });
