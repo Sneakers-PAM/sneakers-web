@@ -6,6 +6,7 @@ import type {
 } from "react-router";
 
 import { edge } from "@sneakers-web/edge";
+import { DEFAULT_LOCALE } from "@sneakers-web/i18n";
 import {
   DiagnosticsCopierProvider,
   Document,
@@ -56,6 +57,7 @@ const rootData = (): RootData => ({
   },
   developmentUiIssueCopy: edge.mode === "mock",
   display: parseDisplay(localStorage.getItem(DISPLAY_KEY)),
+  locale: DEFAULT_LOCALE,
   needsSetup: false,
   storagePrefix: edge.mode === "mock" ? "mock:" : "",
 });

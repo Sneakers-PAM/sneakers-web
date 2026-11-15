@@ -87,6 +87,7 @@ export const sharedAliases = (edgeModule: string): Record<string, string> => ({
   "@sneakers-web/edge.server": edgeModule,
   "#api": source("api-client"),
   "#gw": mockSource("gateway-client"),
+  "#i18n": source("i18n"),
   "#mock": mockSource("mock-gateway"),
   "#shell": source("shell"),
   "#ui": source("ui"),

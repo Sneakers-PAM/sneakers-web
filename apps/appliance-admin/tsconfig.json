@@ -6,6 +6,7 @@
       "@/*": ["./app/*"],
       "#ui/*": ["../../packages/ui/src/*"],
       "#api/*": ["../../packages/api-client/src/*"],
+      "#i18n/*": ["../../packages/i18n/src/*"],
       "#shell/*": ["../../packages/shell/src/*"],
       "@sneakers-web/edge": ["./app/lib/edge.live.ts"],
       "@sneakers-web/edge.server": ["../../packages/api-client/src/edge/live.server.ts"]

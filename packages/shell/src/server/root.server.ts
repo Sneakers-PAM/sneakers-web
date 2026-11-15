@@ -8,6 +8,7 @@ import {
   setLogLevel,
 } from "@sneakers-web/api-client";
 import { edge } from "@sneakers-web/edge.server";
+import { type Locale, localeFromRequest } from "@sneakers-web/i18n";
 import { type DisplaySettings, parseDisplay } from "@sneakers-web/ui";
 
 import { needsSetup } from "#shell/server/session.server";
@@ -36,6 +37,8 @@ export interface RootData {
   /** The dev-only UI issue copy item's gate; see `developmentUiIssueCopy` above. */
   developmentUiIssueCopy: boolean;
   display: DisplaySettings;
+  /** The locale the page is rendered in, on the server and again on the client. */
+  locale: Locale;
   needsSetup: boolean;
   storagePrefix: string;
 }
@@ -47,6 +50,7 @@ export const rootLoader = async ({ request }: LoaderFunctionArgs): Promise<RootD
   config: publicConfigFrom(process.env, __APP_VERSION__),
   developmentUiIssueCopy: developmentUiIssueCopy(),
   display: parseDisplay(readCookie(request.headers.get("Cookie"), displayCookie())),
+  locale: localeFromRequest(request),
   needsSetup: await needsSetup(request),
   storagePrefix: edge.storagePrefix,
 });

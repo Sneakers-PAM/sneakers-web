@@ -31,6 +31,7 @@ COPY .npmrc package.json package-lock.json ./
 COPY apps/staff/package.json apps/staff/
 COPY apps/admin/package.json apps/admin/
 COPY packages/api-client/package.json packages/api-client/
+COPY packages/i18n/package.json packages/i18n/
 COPY packages/shell/package.json packages/shell/
 COPY packages/ui/package.json packages/ui/
 COPY packages/vite-config/package.json packages/vite-config/
@@ -51,6 +52,7 @@ COPY package.json package-lock.json ./
 COPY scripts/runtime-deps.mjs scripts/
 COPY apps/${APP}/package.json apps/${APP}/
 COPY packages/api-client/package.json packages/api-client/
+COPY packages/i18n/package.json packages/i18n/
 COPY packages/shell/package.json packages/shell/
 COPY packages/ui/package.json packages/ui/
 RUN --mount=type=cache,target=/tmp/npm-cache node scripts/runtime-deps.mjs "$APP" "$EDGE" \

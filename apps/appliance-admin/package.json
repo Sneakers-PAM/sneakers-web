@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {
+    "@sneakers-web/i18n": "*",
     "@sneakers-web/shell": "*",
     "@sneakers-web/ui": "*",
     "lucide-react": "^1.49.0",

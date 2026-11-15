@@ -18,6 +18,7 @@ export default defineConfig({
       "@": path.join(import.meta.dirname, "app"),
       "@sneakers-web/edge": path.join(import.meta.dirname, "app/mock/edge.mock.ts"),
       "#api": path.join(root, "packages/api-client/src"),
+      "#i18n": path.join(root, "packages/i18n/src"),
       "#shell": path.join(root, "packages/shell/src"),
       "#ui": path.join(root, "packages/ui/src"),
     },
