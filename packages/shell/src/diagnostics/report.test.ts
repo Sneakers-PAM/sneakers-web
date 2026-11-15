@@ -51,6 +51,30 @@ const withFeatures = (mcpStatus: string) =>
     url: "https://pam.example.org/",
     userAgent: "UA",
   });
+
+describe("third-party builds", () => {
+  it("drops an unknown commit instead of printing (unknown)", () => {
+    const { json, text } = buildReport({
+      data: {
+        ...data,
+        gateway: {
+          ...data.gateway!,
+          thirdParty: [{ ...component("kratos", "v1.3.1"), commit: "unknown" }],
+        },
+      },
+      now: at,
+      timeZone: "UTC",
+      url: "https://pam.example.org/",
+      userAgent: "UA",
+    });
+    expect(json.thirdParty).toContainEqual(
+      expect.objectContaining({ commit: null, version: "v1.3.1" }),
+    );
+    expect(text).toContain("kratos: v1.3.1");
+    expect(text).not.toContain("(unknown)");
+  });
+});
+
 describe("buildReport", () => {
   it("names the product once and, on the appliance, the box", () => {
     const onBox: DiagnosticsData = {
