@@ -380,11 +380,17 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   machine API switches (`SetMcp`, step-up; the box restarts the product's MCP stacks), and
   `not in this product` (the product.yaml declares no MCP switch) and `not installed` show no
   switch. The mock's `mcp-absent` state is the product with no MCP switch.
-- **The test email's code (`EmailService.CheckEmailCode`, #320).** `SendTestEmail` mails a 6-digit
-  code; `email.checkCode` (step-up) takes it back with the same settings and password and answers
-  `validUntil`. Refusals: `EMAIL_CODE_WRONG` (`invalid_argument`, the fifth wrong try drops the code),
-  `EMAIL_CODE_EXPIRED` (`failed_precondition`, none waiting for these settings and password), and
-  `EMAIL_NOT_TESTED` from `SetEmail`. The mock's code is `MOCK_EMAIL_CODE`.
+- **The test email's code (`EmailService.CheckEmailCode`, #320).** The box saves a relay only
+  after a test email proved it. `SendTestEmail` mails a 6-digit code; the Email page then shows
+  "Code from the test email", and `email.checkCode` (step-up) takes it back with the same settings
+  and password and answers `validUntil` (ten minutes; the code and the pass are each good once per
+  test and the pass isn't used up by a save). `SetEmail` is refused with `EMAIL_NOT_TESTED` unless a
+  fresh pass holds for exactly the settings and password being saved, so any edit after the code
+  needs a new test; an empty host (mail off) needs none. The page doesn't try to predict the pass
+  (the box's saved password counts as the typed one), it shows a hint and lets the box refuse.
+  Other refusals: `EMAIL_CODE_WRONG` (`invalid_argument`; the fifth wrong try drops the code) and
+  `EMAIL_CODE_EXPIRED` (`failed_precondition`). The mock keeps the same rules; its code is
+  `MOCK_EMAIL_CODE`.
 - **Email's relay pin (`app/routes/email.tsx`).** A test refused with `EMAIL_UNTRUSTED` or
   `EMAIL_PIN_MISMATCH` (Connect `failed_precondition`) carries an `EmailCertificateRefusal`
   detail, which `emailCertificateRefusalOf` (`app/lib/osadmin/errors.ts`) reads from its JSON

@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { StepUpDialog } from "@/components/StepUpDialog";
 import { email } from "@/lib/osadmin/client";
 import { OsadminError } from "@/lib/osadmin/errors";
-import { applyMockScenario } from "@/mock/edge.mock";
+import { applyMockScenario, MOCK_EMAIL_CODE } from "@/mock/edge.mock";
 import { MOCK_RELAY_CERT, MOCK_RELAY_HOST, MOCK_RELAY_OLD_SHA256 } from "@/mock/world";
 import Email from "@/routes/email";
 import { renderPage } from "@/test/renderPage";
@@ -24,7 +24,84 @@ const sendTestTo = async (user: ReturnType<typeof userEvent.setup>) => {
   await user.click(screen.getByRole("button", { name: "Send test email" }));
 };
 
+const sendTestThenFindDialog = async (user: ReturnType<typeof userEvent.setup>) => {
+  await sendTestTo(user);
+  return screen.findByRole("dialog");
+};
+
+/** Sends the test email, types the code from it and checks it: the pass a save needs (#320). */
+const passTest = async (user: ReturnType<typeof userEvent.setup>) => {
+  const to = await screen.findByLabelText("Send a test to");
+  await user.clear(to);
+  await sendTestTo(user);
+  await user.type(await screen.findByLabelText("Code from the test email"), MOCK_EMAIL_CODE);
+  await user.click(screen.getByRole("button", { name: "Check code" }));
+  await screen.findByText(/Code accepted/);
+};
+
 describe("Email", () => {
+  it("asks for the code only once a test email has gone out, and takes a right one", async () => {
+    const user = userEvent.setup();
+    const check = vi.spyOn(email, "checkCode");
+    renderPage(Email);
+    await fillRelay(user);
+    expect(screen.queryByLabelText("Code from the test email")).not.toBeInTheDocument();
+    await sendTestTo(user);
+    await user.type(await screen.findByLabelText("Code from the test email"), MOCK_EMAIL_CODE);
+    await user.click(screen.getByRole("button", { name: "Check code" }));
+    expect(
+      await screen.findByText(/Code accepted: these settings can be saved/),
+    ).toBeInTheDocument();
+    expect(check.mock.calls[0]?.[0]).toMatchObject({
+      code: MOCK_EMAIL_CODE,
+      password: "relay-pass",
+      settings: { host: "relay.example.org" },
+    });
+  });
+
+  it("says a wrong code is wrong and leaves the form as it was", async () => {
+    const user = userEvent.setup();
+    renderPage(Email);
+    await fillRelay(user);
+    await sendTestTo(user);
+    await user.type(await screen.findByLabelText("Code from the test email"), "000000");
+    await user.click(screen.getByRole("button", { name: "Check code" }));
+    expect(await screen.findByText(/isn't the code the test email carried/)).toBeInTheDocument();
+    expect(screen.queryByText(/Code accepted/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Relay host")).toHaveValue("relay.example.org");
+  });
+
+  it("tells why a save is refused until a test email's code has passed", async () => {
+    const user = userEvent.setup();
+    renderPage(Email);
+    await fillRelay(user);
+    expect(screen.getByText(/Saving a relay needs a test first/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save and apply" }));
+    expect(await screen.findAllByText(/haven't passed a test email/)).not.toHaveLength(0);
+    expect(screen.queryByText(/product is applied again/)).not.toBeInTheDocument();
+  });
+
+  it("needs a new test once a setting changes after the code", async () => {
+    const user = userEvent.setup();
+    renderPage(Email);
+    await fillRelay(user);
+    await passTest(user);
+    await user.clear(screen.getByLabelText("Port"));
+    await user.type(screen.getByLabelText("Port"), "2525");
+    await user.click(screen.getByRole("button", { name: "Save and apply" }));
+    expect(await screen.findAllByText(/haven't passed a test email/)).not.toHaveLength(0);
+    expect(screen.queryByText(/product is applied again/)).not.toBeInTheDocument();
+  });
+
+  it("saves with no relay, which turns mail off, without a test", async () => {
+    const user = userEvent.setup();
+    renderPage(Email);
+    await screen.findByLabelText("Relay host");
+    expect(screen.queryByText(/Saving a relay needs a test first/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save and apply" }));
+    expect(await screen.findByText(/product is applied again/)).toBeInTheDocument();
+  });
+
   it("starts with no relay, STARTTLS on 587 and verification on, and no warning", async () => {
     renderPage(Email);
     expect(await screen.findByLabelText("Relay host")).toHaveValue("");
@@ -72,6 +149,7 @@ describe("Email", () => {
     const set = vi.spyOn(email, "set");
     renderPage(Email);
     await fillRelay(user);
+    await passTest(user);
     await user.click(screen.getByRole("button", { name: "Save and apply" }));
     await vi.waitFor(() => expect(set).toHaveBeenCalled());
     expect(set.mock.calls[0]?.[0]).toMatchObject({
@@ -94,13 +172,16 @@ describe("Email", () => {
     const user = userEvent.setup();
     renderPage(Email);
     await fillRelay(user);
+    await passTest(user);
     await user.click(screen.getByRole("button", { name: "Save and apply" }));
     await screen.findByText(/A password is saved/);
     const set = vi.spyOn(email, "set");
+    await passTest(user);
     await user.click(screen.getByRole("button", { name: "Save and apply" }));
     await vi.waitFor(() => expect(set).toHaveBeenCalled());
     expect(set.mock.calls[0]?.[0].password).toBeUndefined();
     await user.click(screen.getByRole("checkbox", { name: "Clear the saved password" }));
+    await passTest(user);
     await user.click(screen.getByRole("button", { name: "Save and apply" }));
     await vi.waitFor(() => expect(set).toHaveBeenCalledTimes(2));
     expect(set.mock.calls[1]?.[0].password).toBe("");
@@ -119,6 +200,7 @@ describe("Email", () => {
     renderPage(Email);
     await user.type(await screen.findByLabelText("Relay host"), "relay.example.org");
     await user.type(screen.getByLabelText("From address"), "Mailer");
+    await passTest(user);
     await user.click(screen.getByRole("button", { name: "Save and apply" }));
     expect(await screen.findByText(/isn't a plain email address/)).toBeInTheDocument();
   });
@@ -239,6 +321,7 @@ describe("Email", () => {
     const check = within(await screen.findByRole("region", { name: "Relay certificate" }));
     await user.click(check.getByRole("button", { name: "Trust this certificate" }));
     await screen.findByRole("group", { name: "Pinned certificate" });
+    await passTest(user);
     await user.click(screen.getByRole("button", { name: "Save and apply" }));
     await screen.findByText(/product is applied again/);
     const saved = await email.get();
@@ -246,6 +329,9 @@ describe("Email", () => {
     await user.click(screen.getByRole("button", { name: "Remove the pin" }));
     expect(screen.queryByRole("group", { name: "Pinned certificate" })).not.toBeInTheDocument();
     const set = vi.spyOn(email, "set");
+    // Without the pin the relay's certificate is untrusted again, so the test needs verification off.
+    await user.click(screen.getByRole("switch", { name: "Verify the certificate" }));
+    await passTest(user);
     await user.click(screen.getByRole("button", { name: "Save and apply" }));
     await vi.waitFor(() => expect(set).toHaveBeenCalled());
     const unpinned = await email.get();
@@ -264,7 +350,7 @@ describe("Email", () => {
     expect(answer.certificate.sha256).toBe(MOCK_RELAY_CERT.sha256);
   });
 
-  it("asks for a fresh code before it saves", async () => {
+  it("asks for a fresh code before it checks the test email's code", async () => {
     signInAs("alice");
     applyMockScenario("stepup");
     const user = userEvent.setup();
@@ -275,10 +361,13 @@ describe("Email", () => {
       </>
     ));
     await fillRelay(user);
-    await user.click(screen.getByRole("button", { name: "Save and apply" }));
-    const dialog = within(await screen.findByRole("dialog"));
+    const dialog = within(await sendTestThenFindDialog(user));
     await user.type(dialog.getByLabelText("Authenticator code"), "123456");
     await user.click(dialog.getByRole("button", { name: "Verify code" }));
+    await user.type(await screen.findByLabelText("Code from the test email"), MOCK_EMAIL_CODE);
+    await user.click(screen.getByRole("button", { name: "Check code" }));
+    await screen.findByText(/Code accepted/);
+    await user.click(screen.getByRole("button", { name: "Save and apply" }));
     expect(await screen.findByText(/A password is saved/)).toBeInTheDocument();
   });
 
