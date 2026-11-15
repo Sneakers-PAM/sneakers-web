@@ -93,6 +93,18 @@ describe("Email", () => {
     expect(screen.queryByText(/product is applied again/)).not.toBeInTheDocument();
   });
 
+  it("stops saying the code was accepted once a setting changes after it", async () => {
+    const user = userEvent.setup();
+    renderPage(Email);
+    await fillRelay(user);
+    await passTest(user);
+    expect(screen.queryByText(/Saving a relay needs a test first/)).not.toBeInTheDocument();
+    await user.clear(screen.getByLabelText("Port"));
+    await user.type(screen.getByLabelText("Port"), "2525");
+    expect(screen.queryByText(/Code accepted/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Saving a relay needs a test first/)).toBeInTheDocument();
+  });
+
   it("saves with no relay, which turns mail off, without a test", async () => {
     const user = userEvent.setup();
     renderPage(Email);

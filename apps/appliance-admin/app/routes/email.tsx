@@ -74,7 +74,7 @@ export default function Email() {
   const [testAnswer, setTestAnswer] = useState("");
   const [codeAsked, setCodeAsked] = useState(false);
   const [code, setCode] = useState("");
-  const [passUntil, setPassUntil] = useState("");
+  const [pass, setPass] = useState<{ key: string; until: string }>();
   const [saved, setSaved] = useState(false);
   const [certificateCheck, setCertificateCheck] = useState<CertificateCheck>();
   const [typedHost, setTypedHost] = useState("");
@@ -156,7 +156,7 @@ export default function Email() {
   const sendTest = () => {
     setTestAnswer("");
     setCodeAsked(false);
-    setPassUntil("");
+    setPass(undefined);
     setCertificateCheck(undefined);
     setPinnedOnForm(false);
     void runAction(
@@ -178,6 +178,10 @@ export default function Email() {
       },
     );
   };
+  // The pass holds only for the settings and password it was earned for: any edit after the
+  // code ends it, as the box would refuse the save (#320).
+  const passKey = JSON.stringify([settings, typedPassword()]);
+  const passUntil = pass?.key === passKey ? pass.until : "";
   // The code from the test email, for exactly the settings and password it was sent with; the
   // box records the pass and refuses a save without one (#320).
   const checkCode = () =>
@@ -185,7 +189,7 @@ export default function Email() {
       () => email.checkCode({ code: code.trim(), password: typedPassword(), settings }),
       {
         onSuccess: (answer) => {
-          setPassUntil(answer.validUntil);
+          setPass({ key: passKey, until: answer.validUntil });
           setCode("");
         },
       },
