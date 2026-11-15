@@ -18,6 +18,12 @@ describe("Mcp", () => {
     expect(screen.getByRole("switch", { name: "Machine API on" })).not.toBeChecked();
   });
 
+  it("shows one MCP heading, not the page title and a card heading repeating it", async () => {
+    renderPage(Mcp);
+    await screen.findByRole("switch", { name: "MCP on" });
+    expect(screen.getAllByRole("heading", { name: "MCP" })).toHaveLength(1);
+  });
+
   it("says it isn't available when the box's MCP backend isn't there", async () => {
     vi.spyOn(mcp, "get").mockRejectedValueOnce(
       new OsadminError("unimplemented", "McpService isn't on this box"),

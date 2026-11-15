@@ -64,7 +64,7 @@ export default function Mcp() {
         <CardHeader
           aside={<Badge tone={look.tone}>{look.label}</Badge>}
           subtitle="The product's MCP server, for agents. Switching it needs a fresh code."
-          title="MCP"
+          title="Status"
         />
         <div className="flex flex-col gap-4 p-5.5">
           <p className="m-0 text-small">{look.sentence}</p>
