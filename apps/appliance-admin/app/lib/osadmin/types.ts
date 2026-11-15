@@ -152,6 +152,21 @@ export type CertificateSource =
   | "CERTIFICATE_SOURCE_UNSPECIFIED"
   | "CERTIFICATE_SOURCE_UPLOADED";
 
+/**
+ * The code from the test email, with the settings and password the test was sent with (the
+ * saved ones when absent); a match records a pass for exactly those.
+ */
+export interface CheckEmailCodeRequest {
+  code: string;
+  password?: string;
+  settings?: EmailSettings;
+}
+
+/** When the pass the code earned runs out (ten minutes on). */
+export interface CheckEmailCodeResponse {
+  validUntil: string;
+}
+
 export interface CheckPasswordResponse {
   breached?: boolean;
   /** One plain sentence when ok is false. */
@@ -282,6 +297,8 @@ export interface ElevationOverride {
   reason: string;
 }
 
+// ---- access ----
+
 /** issued: a code is out; active: the shell is open; ended or expired after. */
 export type ElevationState = "active" | "ended" | "expired" | "issued";
 
@@ -297,8 +314,6 @@ export interface EmailCertificateRefusal {
   pinnedSha256: string;
   reason: string;
 }
-
-// ---- access ----
 
 /** The product's mail relay, without its password, which the box never sends back. */
 export interface EmailSettings {
@@ -401,6 +416,8 @@ export interface GenerateCsrRequest {
   province?: string;
 }
 
+// ---- root shell ----
+
 /** A recovery key the box made: the private key is in this answer once and never kept. */
 export interface GenerateRecoveryKeyResponse {
   /** A suggested name for the private key file. */
@@ -412,12 +429,12 @@ export interface GenerateRecoveryKeyResponse {
   recoveryKey: RecoveryKey;
 }
 
+// ---- elevation (root shells) ----
+
 export interface GetBackupsResponse {
   policy?: BackupPolicy;
   sets: BackupSet[];
 }
-
-// ---- root shell ----
 
 export interface GetCertificateStoreResponse {
   acme?: AcmeState;
@@ -428,8 +445,6 @@ export interface GetCertificateStoreResponse {
   updateTrust?: UpdateTrust;
 }
 
-// ---- elevation (root shells) ----
-
 export interface GetEmailResponse {
   /** False while TLS or certificate verification is off. */
   encrypted: boolean;
@@ -439,6 +454,8 @@ export interface GetEmailResponse {
   /** "not installed", "not in this product", "not set" or "set". */
   state: string;
 }
+
+// ---- network ----
 
 export interface GetExposedValueResponse {
   entry?: ExposedValue;
@@ -461,8 +478,6 @@ export interface GetImportResponse {
   runs: ImportRun[];
   setupDone: boolean;
 }
-
-// ---- network ----
 
 export interface GetMcpResponse {
   /** What a starting or failed MCP waits for, in the box's words. */
@@ -693,6 +708,8 @@ export interface ImportCertificateRequest {
   rootPem?: string;
 }
 
+// ---- tls ----
+
 /** One file of the open import: bundle, mapping, sheet or types. */
 export interface ImportFile {
   kind: string;
@@ -723,8 +740,6 @@ export interface ImportRun {
   template: string;
   wipe: boolean;
 }
-
-// ---- tls ----
 
 /** A one-time code for an admin to set a password and an authenticator. Shown once. */
 export interface Invitation {
@@ -867,6 +882,8 @@ export interface ListSessionsResponse {
   sessions: ActiveSession[];
 }
 
+// ---- product ----
+
 /** What `lockoutMaxFailures` consecutive failures in 15 minutes do (NIST SP 800-53 AC-7). */
 export type LockoutMode =
   | "LOCKOUT_MODE_TIMED"
@@ -917,8 +934,6 @@ export interface MirrorStatus {
   url: string;
 }
 
-// ---- product ----
-
 /** One connectivity check. Proto3 JSON leaves out defaults, so an absent state is unspecified. */
 export interface NetdCheck {
   /** The NET_* symbol when the check isn't ok. */
@@ -931,11 +946,15 @@ export interface NetdCheck {
   state?: CheckState;
 }
 
+// ---- mcp ----
+
 export interface NetdInterface {
   ipv4?: NetdIpv4;
   ipv6?: NetdIpv6;
   name?: string;
 }
+
+// ---- email ----
 
 export interface NetdIpv4 {
   /** A prefix such as 192.0.2.10/24, in static mode only. */
@@ -944,16 +963,12 @@ export interface NetdIpv4 {
   mode?: Ipv4Mode;
 }
 
-// ---- mcp ----
-
 export interface NetdIpv6 {
   /** A prefix such as 2001:db8::10/64, in static mode only. */
   address?: string;
   gateway?: string;
   mode?: Ipv6Mode;
 }
-
-// ---- email ----
 
 /** netd's settings as the proto has them; a stage sends the whole set back. */
 export interface NetdSettings {
@@ -1051,6 +1066,8 @@ export interface ProductVersion {
   version: string;
 }
 
+// ---- telemetry ----
+
 export type Protection = "PROTECTION_FULL" | "PROTECTION_REDUCED" | "PROTECTION_UNSPECIFIED";
 
 /** Who hid the reduced-protection notice for every admin, and when. */
@@ -1059,8 +1076,6 @@ export interface ProtectionNotice {
   hiddenAt?: string;
   hiddenBy: string;
 }
-
-// ---- telemetry ----
 
 /**
  * The root-operator roster: who may open the root shell, and whose approvals count for a
@@ -1101,6 +1116,8 @@ export interface RelayCertificate {
   subject: string;
 }
 
+// ---- import ----
+
 export type ReleaseChannel = "rc" | "stable";
 
 /** A removed login key, on sshd's revocation list until an owner un-revokes it. */
@@ -1113,8 +1130,6 @@ export interface RevokedKey {
   revokedBy?: string;
   type: string;
 }
-
-// ---- import ----
 
 export type Role = "ROLE_ADMIN" | "ROLE_OWNER" | "ROLE_UNSPECIFIED";
 

@@ -292,6 +292,18 @@ const NO_RELAY = {
 } as const;
 let emailSettings: Record<string, unknown> = { ...NO_RELAY };
 let emailPassword = "";
+
+/** The six digits the mock's test email carries; the box draws a new one for each test. */
+export const MOCK_EMAIL_CODE = "482913";
+const EMAIL_CODE_MINUTES = 10;
+const EMAIL_CODE_TRIES = 5;
+
+/** What the box binds a code to: exactly these settings and this password, in any key order. */
+const emailProofKey = (settings: Record<string, unknown>, password: string) =>
+  JSON.stringify([Object.entries(settings).toSorted(([a], [b]) => a.localeCompare(b)), password]);
+
+/** The code a test email sent and not yet used up, and how many wrong tries it has had. */
+let pendingEmailCode: { key: string; tries: number } | null = null;
 /** The product's product.yaml declares an email section. */
 let emailDeclared = true;
 /** The product's telemetry collector (the Telemetry page): export off, nothing saved. */
@@ -650,6 +662,7 @@ const sessionOf = (admin: Admin): Session =>
 const STEP_UP_METHODS = new Set([
   "AccessService/AddAdmin",
   "AccessService/UnrevokeKey",
+  "EmailService/CheckEmailCode",
   "EmailService/PinEmailCertificate",
   "EmailService/SendTestEmail",
   "EmailService/SetEmail",
@@ -1253,6 +1266,26 @@ const route = async (service: string, method: string, body: Record<string, unkno
       if (elevation) elevation.state = "ended";
       return {};
     }
+    case "EmailService/CheckEmailCode": {
+      const given = (body.settings as Record<string, unknown> | undefined) ?? emailSettings;
+      const key = emailProofKey(given, String(body.password ?? emailPassword));
+      if (pendingEmailCode?.key !== key)
+        throw new OsadminError(
+          "failed_precondition",
+          "EMAIL_CODE_EXPIRED (3907): no code is waiting for these settings and password; send the test email again",
+        );
+      if (body.code !== MOCK_EMAIL_CODE) {
+        pendingEmailCode.tries += 1;
+        if (pendingEmailCode.tries >= EMAIL_CODE_TRIES) pendingEmailCode = null;
+        throw new OsadminError(
+          "invalid_argument",
+          "EMAIL_CODE_WRONG (3906): that isn't the code the test email carried",
+        );
+      }
+      pendingEmailCode = null;
+      const until = Date.now() + EMAIL_CODE_MINUTES * 60_000;
+      return { validUntil: new Date(until).toISOString() };
+    }
     case "EmailService/GetEmail": {
       if (!product.installedVersion) return { settings: { ...NO_RELAY }, state: "not installed" };
       if (!emailDeclared) return { settings: { ...NO_RELAY }, state: "not in this product" };
@@ -1304,6 +1337,10 @@ const route = async (service: string, method: string, body: Record<string, unkno
           "failed_precondition",
           "EMAIL_SEND (3902): the relay unreachable.example.org:587 can't be reached: connection refused",
         );
+      pendingEmailCode = {
+        key: emailProofKey(given, String(body.password ?? emailPassword)),
+        tries: 0,
+      };
       return { answer: "the relay took the message" };
     }
     case "EmailService/SetEmail": {
@@ -2975,6 +3012,7 @@ export const resetMockWorld = (): void => {
   factoryReset = undefined;
   emailSettings = { ...NO_RELAY };
   emailPassword = "";
+  pendingEmailCode = null;
   emailDeclared = true;
   telemetrySettings = { ...NO_COLLECTOR };
   telemetryDeclared = true;
