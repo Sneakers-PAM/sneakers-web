@@ -72,6 +72,9 @@ export default function Email() {
   const [clearPassword, setClearPassword] = useState(false);
   const [testTo, setTestTo] = useState("");
   const [testAnswer, setTestAnswer] = useState("");
+  const [codeAsked, setCodeAsked] = useState(false);
+  const [code, setCode] = useState("");
+  const [passUntil, setPassUntil] = useState("");
   const [saved, setSaved] = useState(false);
   const [certificateCheck, setCertificateCheck] = useState<CertificateCheck>();
   const [typedHost, setTypedHost] = useState("");
@@ -152,12 +155,14 @@ export default function Email() {
   };
   const sendTest = () => {
     setTestAnswer("");
+    setCodeAsked(false);
+    setPassUntil("");
     setCertificateCheck(undefined);
     setPinnedOnForm(false);
     void runAction(
       async () => {
         try {
-          return await email.test({ password: password || undefined, settings, to: testTo.trim() });
+          return await email.test({ password: typedPassword(), settings, to: testTo.trim() });
         } catch (error) {
           showCertificate(error);
           return;
@@ -165,11 +170,26 @@ export default function Email() {
       },
       {
         onSuccess: (answer) => {
-          if (answer) setTestAnswer(answer.answer ?? "Sent.");
+          if (!answer) return;
+          setTestAnswer(answer.answer ?? "Sent.");
+          setCodeAsked(true);
+          setCode("");
         },
       },
     );
   };
+  // The code from the test email, for exactly the settings and password it was sent with; the
+  // box records the pass and refuses a save without one (#320).
+  const checkCode = () =>
+    void runAction(
+      () => email.checkCode({ code: code.trim(), password: typedPassword(), settings }),
+      {
+        onSuccess: (answer) => {
+          setPassUntil(answer.validUntil);
+          setCode("");
+        },
+      },
+    );
   const trust = (sha256: string) =>
     void runAction(
       async () => {
@@ -345,6 +365,12 @@ export default function Email() {
               Clear the saved password
             </Label>
           )}
+          {settings.host && !passUntil && (
+            <p className="m-0 text-small text-muted">
+              Saving a relay needs a test first: send the test email below, then type the code it
+              carries. Changing anything after that needs a new test.
+            </p>
+          )}
           {saved && (
             <p className="m-0 text-small" role="status">
               Saved: the product is applied again with the new settings, and its mail sender
@@ -358,7 +384,7 @@ export default function Email() {
       </Card>
       <Card>
         <CardHeader
-          subtitle="Sends one short message through the settings above (with the saved password unless you typed one). Nothing is saved."
+          subtitle="Sends one short message with a 6-digit code through the settings above (with the saved password unless you typed one). Nothing is saved until the code is checked and you save."
           title="Test email"
         />
         <div className="flex flex-col gap-4 p-5.5">
@@ -382,6 +408,40 @@ export default function Email() {
           {testAnswer && (
             <p className="m-0 text-small" role="status">
               Sent: {testAnswer}.
+            </p>
+          )}
+          {codeAsked && (
+            <form
+              className="flex flex-col gap-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                checkCode();
+              }}
+            >
+              <Field
+                hint="Six digits, good for ten minutes. A wrong code five times drops it; send the test again."
+                label="Code from the test email"
+              >
+                <Input
+                  {...noAutofill("one-time-code")}
+                  inputMode="numeric"
+                  maxLength={6}
+                  mono
+                  onChange={(event) => setCode(event.target.value.trim())}
+                  value={code}
+                />
+              </Field>
+              <div>
+                <Button disabled={code.length !== 6} type="submit" variant="secondary">
+                  Check code
+                </Button>
+              </div>
+            </form>
+          )}
+          {passUntil && (
+            <p className="m-0 text-small" role="status">
+              Code accepted: these settings can be saved until{" "}
+              {new Date(passUntil).toLocaleTimeString()}. Changing anything needs a new test.
             </p>
           )}
           {pinnedOnForm && (

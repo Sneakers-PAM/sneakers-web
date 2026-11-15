@@ -304,6 +304,8 @@ const emailProofKey = (settings: Record<string, unknown>, password: string) =>
 
 /** The code a test email sent and not yet used up, and how many wrong tries it has had. */
 let pendingEmailCode: { key: string; tries: number } | null = null;
+/** The pass a right code earned; SetEmail needs a fresh one for exactly what it saves. */
+let emailPass: { key: string; until: number } | null = null;
 /** The product's product.yaml declares an email section. */
 let emailDeclared = true;
 /** The product's telemetry collector (the Telemetry page): export off, nothing saved. */
@@ -1284,6 +1286,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
       }
       pendingEmailCode = null;
       const until = Date.now() + EMAIL_CODE_MINUTES * 60_000;
+      emailPass = { key, until };
       return { validUntil: new Date(until).toISOString() };
     }
     case "EmailService/GetEmail": {
@@ -1354,6 +1357,17 @@ const route = async (service: string, method: string, body: Record<string, unkno
         throw new OsadminError(
           "invalid_argument",
           `EMAIL_INVALID (3901): the from address "${String(next.from ?? "")}" isn't a plain email address`,
+        );
+      // A relay needs a fresh pass for exactly these settings and this password; no host (mail
+      // off) needs none. The pass isn't used up by a save.
+      if (
+        next.host &&
+        (emailPass?.key !== emailProofKey(next, String(body.password ?? emailPassword)) ||
+          emailPass.until < Date.now())
+      )
+        throw new OsadminError(
+          "failed_precondition",
+          "EMAIL_NOT_TESTED (3905): these settings haven't passed a test email: send the test, then type the code from it",
         );
       emailSettings = { ...next };
       if (typeof body.password === "string") emailPassword = body.password;
@@ -3013,6 +3027,7 @@ export const resetMockWorld = (): void => {
   emailSettings = { ...NO_RELAY };
   emailPassword = "";
   pendingEmailCode = null;
+  emailPass = null;
   emailDeclared = true;
   telemetrySettings = { ...NO_COLLECTOR };
   telemetryDeclared = true;
