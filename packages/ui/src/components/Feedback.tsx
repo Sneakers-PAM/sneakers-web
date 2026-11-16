@@ -97,11 +97,14 @@ export const CardHeader = ({
 }) => {
   return (
     <div
-      className={cn("flex items-baseline gap-3 border-b border-border px-5.5 py-4.5", className)}
+      className={cn(
+        "flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border px-5.5 py-4.5",
+        className,
+      )}
     >
-      <h2 className="m-0 font-display text-[1.25rem] leading-none font-bold">{title}</h2>
-      {subtitle && <span className="text-[0.875rem] text-muted">{subtitle}</span>}
-      {aside && <div className="ml-auto">{aside}</div>}
+      <h2 className="m-0 shrink-0 font-display text-[1.25rem] leading-none font-bold">{title}</h2>
+      {subtitle && <span className="min-w-0 text-[0.875rem] text-muted">{subtitle}</span>}
+      {aside && <div className="ml-auto shrink-0">{aside}</div>}
     </div>
   );
 };
