@@ -497,6 +497,7 @@ export type SecuritySettingsFieldsFragment = {
   requireMfaForReveal: boolean;
   mfaMaxAgeSeconds: number;
   restrictTopLevelFolders: boolean;
+  disabledMcpTools: Array<string>;
 };
 
 export type AdminSecretTypesQueryVariables = Exact<{ [key: string]: never }>;
@@ -688,6 +689,7 @@ export type AdminPoliciesQuery = {
     requireMfaForReveal: boolean;
     mfaMaxAgeSeconds: number;
     restrictTopLevelFolders: boolean;
+    disabledMcpTools: Array<string>;
   };
 };
 
@@ -735,6 +737,7 @@ export type AdminUpdateSecuritySettingsMutation = {
     requireMfaForReveal: boolean;
     mfaMaxAgeSeconds: number;
     restrictTopLevelFolders: boolean;
+    disabledMcpTools: Array<string>;
   };
 };
 
@@ -3320,6 +3323,7 @@ export const SecuritySettingsFieldsFragmentDoc = new TypedDocumentString(
   requireMfaForReveal
   mfaMaxAgeSeconds
   restrictTopLevelFolders
+  disabledMcpTools
 }
     `,
   { fragmentName: "SecuritySettingsFields" },
@@ -4233,6 +4237,7 @@ fragment SecuritySettingsFields on SecuritySettings {
   requireMfaForReveal
   mfaMaxAgeSeconds
   restrictTopLevelFolders
+  disabledMcpTools
 }`) as unknown as TypedDocumentString<AdminPoliciesQuery, AdminPoliciesQueryVariables>;
 export const AdminSavePasswordPolicyDocument = new TypedDocumentString(`
     mutation AdminSavePasswordPolicy($input: PasswordPolicyInput!) {
@@ -4283,6 +4288,7 @@ export const AdminUpdateSecuritySettingsDocument = new TypedDocumentString(`
   requireMfaForReveal
   mfaMaxAgeSeconds
   restrictTopLevelFolders
+  disabledMcpTools
 }`) as unknown as TypedDocumentString<
   AdminUpdateSecuritySettingsMutation,
   AdminUpdateSecuritySettingsMutationVariables

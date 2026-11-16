@@ -12,6 +12,7 @@ import { useFetcher, useLoaderData } from "react-router";
 import { Panel, SettingRow, useResultToast } from "@/components/Admin";
 import { PageError } from "@/components/PageError";
 import { adminAct, adminLoad, text } from "@/lib/admin.server";
+import { MCP_TOOLS, withTool } from "@/lib/mcpTools";
 import { mfaWindow } from "@/lib/mfaWindow";
 
 export const loader = ({ request }: LoaderFunctionArgs) =>
@@ -39,6 +40,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       input[key] = text(form, "on") === "true";
       note = `Saved · ${SWITCHES[key]} ${input[key] ? "on" : "off"}.`;
     }
+    if (intent === "mcp-tool" || intent === "mcp-all-on") {
+      // Start from what the box has now, so a switch another admin flipped since this page
+      // loaded isn't undone by this one.
+      if (intent === "mcp-all-on") {
+        input.disabledMcpTools = [];
+        note = "Saved · every MCP tool is on.";
+      } else {
+        const name = text(form, "name");
+        if (!name) throw new Error("unknown tool");
+        const on = text(form, "on") === "true";
+        const now = await gw.gql(AdminPoliciesDocument);
+        input.disabledMcpTools = withTool(now.securitySettings.disabledMcpTools, name, on);
+        note = `Saved · ${name} ${on ? "on" : "off"}.`;
+      }
+    }
     if (intent === "limits") {
       input.requestHistoryRetentionDays = Number(text(form, "retention"));
       input.sessionTtlSeconds = Number(text(form, "sessionMinutes")) * 60;
@@ -57,6 +73,18 @@ const Settings = () => {
   useResultToast(fetcher.data);
   const limits = useFetcher<typeof action>();
   useResultToast(limits.data);
+  const tools = useFetcher<typeof action>();
+  useResultToast(tools.data);
+  const known = new Set(MCP_TOOLS.map((t) => t.name));
+  // A tool already off that this page doesn't list still gets a switch, so it can be turned on.
+  const listed = [
+    ...MCP_TOOLS,
+    ...security.disabledMcpTools
+      .filter((name) => !known.has(name))
+      .map((name) => ({ description: "Not a tool this page knows.", name })),
+  ];
+  const setTool = (name: string, on: boolean) =>
+    void tools.submit({ intent: "mcp-tool", name, on: String(on) }, { method: "post" });
   const flip = (key: keyof typeof SWITCHES, on: boolean) =>
     void fetcher.submit({ intent: "switch", key, on: String(on) }, { method: "post" });
   const [minutes, setMinutes] = useState(
@@ -189,6 +217,41 @@ const Settings = () => {
             </Button>
           </limits.Form>
         </div>
+      </Panel>
+      <Panel className="max-w-[40rem]" title="MCP tools">
+        <section aria-label="MCP tools" className="flex flex-col gap-4">
+          <p className="m-0 text-small text-muted">
+            Switch off a tool and it isn&apos;t offered to agents and is refused if called, naming
+            this setting. All are on by default. Only an admin can change this, and the change is
+            audited with the old and new list.
+          </p>
+          {listed.map(({ description, name }) => (
+            <SettingRow
+              body={description}
+              control={
+                <Switch
+                  aria-labelledby={`mcp-${name}`}
+                  checked={!security.disabledMcpTools.includes(name)}
+                  onCheckedChange={(on) => setTool(name, on)}
+                />
+              }
+              id={`mcp-${name}`}
+              key={name}
+              title={<span className="font-mono text-small">{name}</span>}
+            />
+          ))}
+          <Button
+            className="self-end"
+            disabled={security.disabledMcpTools.length === 0}
+            loading={tools.state !== "idle" && tools.formData?.get("intent") === "mcp-all-on"}
+            loadingLabel="Saving…"
+            onClick={() => void tools.submit({ intent: "mcp-all-on" }, { method: "post" })}
+            size="sm"
+            variant="secondary"
+          >
+            Turn every tool on
+          </Button>
+        </section>
       </Panel>
     </div>
   );

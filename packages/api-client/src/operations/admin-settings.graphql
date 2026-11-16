@@ -50,6 +50,7 @@ fragment SecuritySettingsFields on SecuritySettings {
   requireMfaForReveal
   mfaMaxAgeSeconds
   restrictTopLevelFolders
+  disabledMcpTools
 }
 
 query AdminSecretTypes {
