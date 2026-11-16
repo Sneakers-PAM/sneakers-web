@@ -148,6 +148,7 @@ export type SecretUseRefusal =
 export type SecuritySettingsInput = {
   allowApiForSensitive?: boolean | null | undefined;
   defaultPasswordPolicyId?: string | null | undefined;
+  disabledMcpTools?: Array<string> | null | undefined;
   requestHistoryRetentionDays?: number | null | undefined;
   requireMfaForReveal?: boolean | null | undefined;
   requireMfaForSensitiveCheckout?: boolean | null | undefined;
@@ -2371,6 +2372,20 @@ export type SecretVersionsQuery = {
     fieldKeys: Array<string>;
     changedFieldKeys: Array<string>;
     changeLabel: string | null;
+  }>;
+};
+
+export type SecretMovesQueryVariables = Exact<{
+  secretId: string;
+}>;
+
+export type SecretMovesQuery = {
+  secretMoves: Array<{
+    movedBy: string;
+    movedByName: string;
+    movedAt: string;
+    fromFolderId: string;
+    toFolderId: string;
   }>;
 };
 
@@ -5835,6 +5850,17 @@ export const SecretVersionsDocument = new TypedDocumentString(`
   }
 }
     `) as unknown as TypedDocumentString<SecretVersionsQuery, SecretVersionsQueryVariables>;
+export const SecretMovesDocument = new TypedDocumentString(`
+    query SecretMoves($secretId: ID!) {
+  secretMoves(secretId: $secretId) {
+    movedBy
+    movedByName
+    movedAt
+    fromFolderId
+    toFolderId
+  }
+}
+    `) as unknown as TypedDocumentString<SecretMovesQuery, SecretMovesQueryVariables>;
 export const SecretRevealDocument = new TypedDocumentString(`
     mutation SecretReveal($id: ID!, $fieldKey: String!) {
   revealSecretField(id: $id, fieldKey: $fieldKey)

@@ -504,7 +504,9 @@ export const SecretPage = ({ page }: { page: Page }) => {
             {isDatabase && <DatabaseConnectionCard fields={fields} />}
             {history && (
               <HistoryCard
+                folderNames={page.folderNames}
                 locked={lockedReason}
+                moves={page.moves}
                 recovery={page.recovery}
                 type={type}
                 versions={history}

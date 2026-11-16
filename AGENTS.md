@@ -1115,3 +1115,8 @@ Follow the logging rules in `CLAUDE.md`. In short:
   rotation-capable secret won't rotate (turned off, no target, or a target with no connection);
   the Details card shows "Not rotating" with that reason and no next-rotation date, and the
   Automation card says it needs a target with a connection.
+- The secret page's History shows versions and folder moves on one timeline. Moves come from
+  `secretMoves` (the gateway reads them from the audit trail, behind the same check as
+  `secretVersions`); a move never adds a version. A folder the reader can't see is named "a folder
+  you can't see", never by id. The mock records a move wherever it changes a secret's folder
+  (`recordMove` in `handlers/staff/moves.ts`).
