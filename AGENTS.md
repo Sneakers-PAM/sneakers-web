@@ -205,6 +205,18 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   page. `unimplemented` on Stage (an older base; `parseOsadminError` reads a bare 404 as that)
   shows what to do instead. `SetNetwork` is no longer called; `ConfirmNetwork` stays for a change
   that waits in its window, which only an allow-list reset from the console or SSH makes now.
+- **Setup's host name (`app/features/setup/NetworkStep.tsx`, appliance#176).** Step 4 takes the
+  box's host name: `CheckHostname` looks it up in the box's own DNS (match, elsewhere, not found
+  or DNS down; it changes nothing), then `SetHostname` keeps it at once (no confirm window) with a
+  fresh authenticator code for that call (`code_each_call`, not the step-up dialog) and answers
+  with a one-time handoff code and the new `url`. The page goes there (`goToNewName`), because the
+  name is another origin and the session can't come along; `setup.tsx` reads `#handoff=<code>`,
+  clears it from the address at once, and `RedeemHandoff` swaps it for a session. A code works
+  once and lasts 2 minutes; a used or expired one shows the box's "That link has expired" and the
+  page carries on as signed out. Both calls are owner-only and setup-only (`SETUP_STEP_DONE` once
+  the step is acknowledged, `SETUP_INCOMPLETE` before it). The mock decides the check by the name's
+  first label (`elsewhere`, `missing`, `nodns`; anything else matches) and its handoff `url` is on
+  the page's own origin so the whole round trip runs in a browser.
 - **Updates (`app/routes/updates.tsx`).** One flow for the three update units
   (sneakers-appliance spec 7), each in its own card, side by side from the `desktop` breakpoint
   in this order (stacked below it): **Base OS** (the root image, its two slots and a reboot;

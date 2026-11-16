@@ -10,6 +10,7 @@ import type {
   CertEndpoint,
   CheckEmailCodeRequest,
   CheckEmailCodeResponse,
+  CheckHostnameResponse,
   CheckPasswordResponse,
   CheckUpdatesResponse,
   CommitNetworkResponse,
@@ -53,6 +54,7 @@ import type {
   SendTestEmailRequest,
   Session,
   SetEmailRequest,
+  SetHostnameResponse,
   SetTelemetryRequest,
   SetTelemetryResponse,
   SetupStepKind,
@@ -90,6 +92,9 @@ const call = <Result>(
 export const signIn = {
   getSession: () =>
     call<{ session?: Session }>("SignInService", "GetSession", {}, wire.maybeSession),
+  /** Public: swaps the one-time code SetHostname gave for a session at the new name. */
+  redeemHandoff: (code: string) =>
+    call<SignInResponse>("SignInService", "RedeemHandoff", { code }, wire.withSession),
   /** The name, the password and a code from the admin's authenticator. */
   signIn: (admin: string, password: string, totpCode: string) =>
     call<SignInResponse>(
@@ -128,6 +133,9 @@ export const setup = {
       { admin, password },
       wire.withTotp,
     ),
+  /** What the box's DNS says about a host name; nothing is changed. */
+  checkHostname: (hostname: string) =>
+    call<CheckHostnameResponse>("SetupService", "CheckHostname", { hostname }),
   /** Whether a password would be taken (12+ characters, not breached); nothing is stored. */
   checkPassword: (password: string, admin: string) =>
     call<CheckPasswordResponse>(
@@ -164,6 +172,12 @@ export const setup = {
     call<RedeemCodeResponse>("SetupService", "RedeemCode", { code }, wire.redeemCode),
   removeRecoveryKey: (fingerprint: string) =>
     call<Record<string, never>>("SetupService", "RemoveRecoveryKey", { fingerprint }),
+  /**
+   * Keeps the name at once (no confirm window) with a fresh authenticator code for this call,
+   * and answers with the one-time handoff code for the new name.
+   */
+  setHostname: (hostname: string, totpCode: string) =>
+    call<SetHostnameResponse>("SetupService", "SetHostname", { hostname, totpCode }),
 };
 
 export const status = {

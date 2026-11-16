@@ -1,5 +1,5 @@
 import { CenteredFrame, FrameTitle } from "@sneakers-web/shell";
-import { Button, Spinner } from "@sneakers-web/ui";
+import { Alert, Button, Spinner } from "@sneakers-web/ui";
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router";
 
@@ -17,6 +17,8 @@ import { SetupComplete } from "@/features/setup/SetupComplete";
 import { SetupProgress, STEP_TITLES } from "@/features/setup/SetupProgress";
 import { runAction } from "@/lib/osadmin/action";
 import { setup, signIn } from "@/lib/osadmin/client";
+import { plainMessage } from "@/lib/osadmin/errors";
+import { handoffCodeFrom } from "@/lib/osadmin/handoff";
 import { setSession } from "@/lib/osadmin/sessionStore";
 import { getPhase } from "@/lib/phase";
 import { useSession } from "@/lib/useSession";
@@ -77,6 +79,7 @@ export default function Setup() {
   const navigate = useNavigate();
   const [view, setView] = useState<View>({ kind: "loading" });
   const [data, setData] = useState<GetSetupResponse>();
+  const [notice, setNotice] = useState("");
 
   const load = (next?: (response: GetSetupResponse) => View) =>
     setup
@@ -93,12 +96,17 @@ export default function Setup() {
       );
 
   useEffect(() => {
-    void signIn
-      .getSession()
+    // Arriving from the host name step: the one-time handoff code in the fragment signs this
+    // origin in, once, and leaves the address at once so it can't be reused or shared.
+    const code = handoffCodeFrom(globalThis.location.hash);
+    if (code) globalThis.history.replaceState(null, "", globalThis.location.pathname);
+    void (code ? signIn.redeemHandoff(code) : signIn.getSession())
       .then((response) => {
         if (response.session) setSession(response.session);
       })
-      .catch(() => {})
+      .catch((error: unknown) => {
+        if (code) setNotice(plainMessage(error));
+      })
       .finally(() => void load());
   }, []);
 
@@ -116,6 +124,7 @@ export default function Setup() {
 
   return (
     <CenteredFrame className="max-w-160">
+      {notice && <Alert tone="warn">{notice}</Alert>}
       {view.kind === "loading" && (
         <div className="flex justify-center py-6">
           <Spinner />

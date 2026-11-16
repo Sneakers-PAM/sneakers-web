@@ -3,14 +3,16 @@ import userEvent from "@testing-library/user-event";
 import { createRoutesStub } from "react-router";
 
 import { SetupComplete } from "@/features/setup/SetupComplete";
-import { setup } from "@/lib/osadmin/client";
+import { setup, signIn } from "@/lib/osadmin/client";
 import { OsadminError } from "@/lib/osadmin/errors";
-import { csrfToken, getSession } from "@/lib/osadmin/sessionStore";
+import * as handoff from "@/lib/osadmin/handoff";
+import { csrfToken, getSession, setSession } from "@/lib/osadmin/sessionStore";
 import {
   applyMockScenario,
   MOCK_INVITE_CODE,
   MOCK_PASSWORD,
   MOCK_SETUP_CODE,
+  MOCK_WRONG_CODE,
 } from "@/mock/edge.mock";
 import Setup from "@/routes/setup";
 
@@ -419,3 +421,135 @@ describe("Setup", () => {
     expectsNoAutofill(screen.getByLabelText("Label"), "off");
   });
 });
+
+/** Takes the browser's session from the mock's cookie, as a page load does. */
+const signInAlice = async () => {
+  const { session } = await signIn.getSession();
+  setSession(session ?? null);
+};
+
+const typeName = async (user: User, name: string) => {
+  await user.type(await screen.findByLabelText("Host name"), name);
+  await user.click(screen.getByRole("button", { name: "Check name" }));
+};
+
+/** The box's name was set from a signed-in page; the new name's page has no session yet. */
+const setNameThenLeave = async () => {
+  applyMockScenario("setup-network");
+  await signInAlice();
+  const set = await setup.setHostname("box.example.org", "482913");
+  setSession(null);
+  return set;
+};
+
+describe("Setup, the host name at the network step", () => {
+  beforeEach(() => {
+    vi.spyOn(handoff, "goToNewName").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    globalThis.history.replaceState(null, "", "/");
+  });
+
+  it("checks a name against the box's DNS before it can be set", async () => {
+    applyMockScenario("setup-network");
+    const user = userEvent.setup();
+    open();
+    expect(await screen.findByRole("button", { name: "Set host name" })).toBeDisabled();
+    await typeName(user, "box.example.org");
+    expect(await screen.findByText(/points at this box/)).toBeInTheDocument();
+    expect(screen.getByText("192.0.2.50")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Set host name" })).toBeDisabled();
+  });
+
+  it("says when the name points elsewhere or nowhere, and keeps Set host name off", async () => {
+    applyMockScenario("setup-network");
+    const user = userEvent.setup();
+    open();
+    await typeName(user, "elsewhere.example.org");
+    expect(await screen.findByText(/points at other addresses/)).toBeInTheDocument();
+    await user.clear(screen.getByLabelText("Host name"));
+    await typeName(user, "missing.example.org");
+    expect(await screen.findByText(/isn't in the box's DNS/)).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Authenticator code"), "482913");
+    expect(screen.getByRole("button", { name: "Set host name" })).toBeDisabled();
+  });
+
+  it("is only taken at the network step: the box refuses it once the step is done", async () => {
+    applyMockScenario("setup-protection");
+    await signInAlice();
+    await expect(setup.checkHostname("box.example.org")).rejects.toThrow(/SETUP_STEP_DONE/);
+    await expect(setup.setHostname("box.example.org", "482913")).rejects.toThrow(/SETUP_STEP_DONE/);
+    applyMockScenario("setup-network");
+    await expect(setup.checkHostname("box.example.org")).resolves.toMatchObject({
+      result: "HOSTNAME_CHECK_MATCH",
+    });
+  });
+
+  it("refuses a name that isn't fully qualified", async () => {
+    applyMockScenario("setup-network");
+    const user = userEvent.setup();
+    open();
+    await typeName(user, "box");
+    expect(await screen.findByText(/fully qualified/)).toBeInTheDocument();
+  });
+
+  it("drops a check once the name is edited", async () => {
+    applyMockScenario("setup-network");
+    const user = userEvent.setup();
+    open();
+    await typeName(user, "box.example.org");
+    await screen.findByText(/points at this box/);
+    await user.type(screen.getByLabelText("Host name"), "x");
+    expect(screen.queryByText(/points at this box/)).not.toBeInTheDocument();
+  });
+
+  it("refuses a wrong authenticator code and does not move the page", async () => {
+    applyMockScenario("setup-network");
+    const user = userEvent.setup();
+    open();
+    await typeName(user, "box.example.org");
+    await screen.findByText(/points at this box/);
+    await user.type(screen.getByLabelText("Authenticator code"), MOCK_WRONG_CODE);
+    await user.click(screen.getByRole("button", { name: "Set host name" }));
+    expect(await screen.findByText(/That code didn't work/)).toBeInTheDocument();
+    expect(handoff.goToNewName).not.toHaveBeenCalled();
+  });
+
+  it("sets the name with a fresh code, then carries the page to the new name", async () => {
+    applyMockScenario("setup-network");
+    const user = userEvent.setup();
+    open();
+    await typeName(user, "box.example.org");
+    await screen.findByText(/points at this box/);
+    await user.type(screen.getByLabelText("Authenticator code"), "482913");
+    await user.click(screen.getByRole("button", { name: "Set host name" }));
+    await vi.waitFor(() => expect(handoff.goToNewName).toHaveBeenCalledTimes(1));
+    const url = vi.mocked(handoff.goToNewName).mock.calls[0]![0];
+    expect(url).toContain("/setup#handoff=");
+  });
+
+  it("signs the page in from the handoff link, once, and leaves the code out of the address", async () => {
+    const set = await setNameThenLeave();
+    const code = handoff.handoffCodeFrom(new URL(set.url).hash);
+    expect(code).toBeTruthy();
+    globalThis.history.replaceState(null, "", `/setup#handoff=${code}`);
+    open();
+    expect(await screen.findByText("Step 4 of 6: Network (optional)")).toBeInTheDocument();
+    expect(getSession()?.admin).toBe("alice");
+    expect(globalThis.location.hash).toBe("");
+  });
+
+  it("says so when the handoff link was used already", async () => {
+    const set = await setNameThenLeave();
+    const code = handoff.handoffCodeFrom(new URL(set.url).hash)!;
+    await signInRedeem(code);
+    globalThis.history.replaceState(null, "", `/setup#handoff=${code}`);
+    open();
+    expect(await screen.findByText(/That link has expired/)).toBeInTheDocument();
+    expect(globalThis.location.hash).toBe("");
+  });
+});
+
+const signInRedeem = (code: string) => signIn.redeemHandoff(code);

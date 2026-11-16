@@ -197,6 +197,76 @@ const setupSteps = () => {
   return { current: setupDone ? 0 : open + 1, steps };
 };
 
+/** One-time handoff codes SetHostname gave out: 2 minutes, used once. */
+const handoffs = new Map<string, { admin: string; until: number }>();
+const HANDOFF_MINUTES = 2;
+let handoffCounter = 0;
+
+/** The setup-only, owner-only gate both host name calls share. */
+const setupHostnameGate = () => {
+  const session = getSession();
+  if (!session) throw new OsadminError("unauthenticated", "ACCESS_UNAUTHENTICATED: sign in first");
+  if (!isOwner(session.admin)) throw new OsadminError("permission_denied", "ACCESS_FORBIDDEN");
+  if (setupDone) throw new OsadminError("failed_precondition", "SETUP_DONE: setup is done");
+  if (networkSeen)
+    throw new OsadminError(
+      "failed_precondition",
+      "SETUP_STEP_DONE: the network step is done; change the host name on Network",
+    );
+  if (recoveryKeys.length === 0)
+    throw new OsadminError(
+      "failed_precondition",
+      "SETUP_INCOMPLETE: finish the earlier steps first; the host name is the network step's",
+    );
+  return session;
+};
+
+/**
+ * What the box's DNS says about a name, by its first label: "elsewhere" points at other
+ * addresses, "missing" isn't there, "nodns" gets no answer, anything else is this box.
+ */
+const hostnameVerdict = (raw: string) => {
+  const name = raw.trim().toLowerCase().replace(/\.$/, "");
+  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(name))
+    throw new OsadminError(
+      "invalid_argument",
+      "NET_INVALID (3401): the host name must be a fully qualified name, such as appliance.example.org",
+    );
+  const own = (networkSettings.management?.ipv4?.address ?? "").split("/", 1)[0] ?? "";
+  const first = name.split(".", 1)[0];
+  const base = { hostname: name, managementAddresses: [own] };
+  if (first === "nodns")
+    return {
+      ...base,
+      addresses: [],
+      code: "NET_DNS",
+      message: "None of the box's DNS servers answered.",
+      result: "HOSTNAME_CHECK_DNS_DOWN" as const,
+    };
+  if (first === "missing")
+    return {
+      ...base,
+      addresses: [],
+      code: "NET_NAME_NOT_FOUND",
+      message: `${name} isn't in the box's DNS, or has no A or AAAA record.`,
+      result: "HOSTNAME_CHECK_NOT_FOUND" as const,
+    };
+  if (first === "elsewhere")
+    return {
+      ...base,
+      addresses: [{ address: "192.0.2.99" }],
+      code: "NET_NAME_ELSEWHERE",
+      message: `${name} points at other addresses, not this box's.`,
+      result: "HOSTNAME_CHECK_ELSEWHERE" as const,
+    };
+  return {
+    ...base,
+    addresses: [{ address: own, thisBox: true }],
+    message: `${name} points at this box.`,
+    result: "HOSTNAME_CHECK_MATCH" as const,
+  };
+};
+
 let networkPending: { id: string; settings: NetdSettings; token: string; until: number } | null =
   null;
 /** How the last change that waited ended, as netd reports it after a revert or a confirm. */
@@ -1674,6 +1744,19 @@ const route = async (service: string, method: string, body: Record<string, unkno
       if (body.step === "SETUP_STEP_KIND_PROTECTION") protectionSeen = true;
       return {};
     }
+    case "SetupService/AddRecoveryKey": {
+      if (recoveryKeys.length >= 3)
+        throw new OsadminError("invalid_argument", "ACCESS_RECOVERY_KEY_LIMIT");
+      const key = {
+        fingerprint: `SHA256:mock${recoveryKeys.length}`,
+        label: (body.label as string) || "",
+        set: new Date().toISOString(),
+        setBy: "alice",
+        type: "ssh-ed25519",
+      };
+      recoveryKeys.push(key);
+      return { recoveryKey: key };
+    }
     case "SetupService/BeginCredentials": {
       if (!codeSession)
         throw new OsadminError("unauthenticated", "ACCESS_UNAUTHENTICATED: enter a code first");
@@ -1795,6 +1878,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
         done: setupDone,
         escrowFile: recoveryKeys.length > 0 ? "escrow-20261007.age" : "",
         firstAdmin: admins[0]?.name ?? "",
+        hostname: networkSettings.hostname,
         maxRecoveryKeys: 3,
         productSetupUrl: "https://sneakers.example.org/setup",
         recoveryKeys,
@@ -1827,18 +1911,9 @@ const route = async (service: string, method: string, body: Record<string, unkno
       codeTries = Math.max(0, codeTries - 1);
       throw refused("SETUP_CODE: the code is wrong or used up", { attemptsLeft: codeTries });
     }
-    case "SetupService/AddRecoveryKey": {
-      if (recoveryKeys.length >= 3)
-        throw new OsadminError("invalid_argument", "ACCESS_RECOVERY_KEY_LIMIT");
-      const key = {
-        fingerprint: `SHA256:mock${recoveryKeys.length}`,
-        label: (body.label as string) || "",
-        set: new Date().toISOString(),
-        setBy: "alice",
-        type: "ssh-ed25519",
-      };
-      recoveryKeys.push(key);
-      return { recoveryKey: key };
+    case "SetupService/CheckHostname": {
+      setupHostnameGate();
+      return hostnameVerdict(String(body.hostname ?? ""));
     }
     case "SetupService/RemoveRecoveryKey": {
       if (recoveryKeys.length <= 1)
@@ -1846,6 +1921,31 @@ const route = async (service: string, method: string, body: Record<string, unkno
       const index = recoveryKeys.findIndex((k) => k.fingerprint === body.fingerprint);
       if (index !== -1) recoveryKeys.splice(index, 1);
       return {};
+    }
+    case "SetupService/SetHostname": {
+      const session = setupHostnameGate();
+      checkCredentials(session.admin, null, String(body.totpCode ?? ""));
+      const verdict = hostnameVerdict(String(body.hostname ?? ""));
+      if (verdict.result !== "HOSTNAME_CHECK_MATCH")
+        throw new OsadminError(
+          "failed_precondition",
+          `${verdict.code ?? "NET_INVALID"}: ${verdict.message}`,
+        );
+      const previous = networkSettings.hostname;
+      networkSettings = { ...networkSettings, hostname: verdict.hostname };
+      handoffCounter += 1;
+      const code = `HANDOFF-${String(handoffCounter).padStart(4, "0")}`;
+      const until = Date.now() + HANDOFF_MINUTES * 60_000;
+      handoffs.set(code, { admin: session.admin, until });
+      const origin = globalThis.location?.origin ?? "https://box.example.org:8443";
+      return {
+        fingerprint: "AB:CD:EF:01:23:45:67:89",
+        handoffCode: code,
+        handoffExpires: new Date(until).toISOString(),
+        hostname: verdict.hostname,
+        previous,
+        url: `${origin}/setup#handoff=${code}`,
+      };
     }
     case "SignInService/GetSession": {
       advanceProgress();
@@ -1856,6 +1956,19 @@ const route = async (service: string, method: string, body: Record<string, unkno
         cookieSession = null;
       }
       return { session: cookieSession ?? undefined };
+    }
+    case "SignInService/RedeemHandoff": {
+      const code = String(body.code ?? "");
+      const held = handoffs.get(code);
+      handoffs.delete(code);
+      const admin = held && held.until > Date.now() ? findAdmin(held.admin) : undefined;
+      if (!admin)
+        throw new OsadminError(
+          "unauthenticated",
+          "SETUP_HANDOFF (3505): That link has expired. Sign in to carry on.",
+        );
+      cookieSession = sessionOf(admin);
+      return { session: cookieSession };
     }
     case "SignInService/SignIn": {
       const name = String(body.admin ?? "").trim();
@@ -3008,6 +3121,7 @@ export const resetMockWorld = (): void => {
   enrolments.clear();
   codeTries = 5;
   networkSeen = false;
+  handoffs.clear();
   protectionSeen = false;
   signedInOnce = true;
   custodyMode = "tpm";
