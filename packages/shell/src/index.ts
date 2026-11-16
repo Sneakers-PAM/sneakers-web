@@ -77,3 +77,8 @@ export {
   HostKeyPinDialog,
   type HostKeyPinDialogProps,
 } from "#shell/targets/HostKeyPinDialog";
+export {
+  TLS_CERT_PIN_ROUTE,
+  TlsCertPinDialog,
+  type TlsCertPinDialogProps,
+} from "#shell/targets/TlsCertPinDialog";

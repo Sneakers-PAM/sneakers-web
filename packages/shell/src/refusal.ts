@@ -63,6 +63,8 @@ const BY_REASON: Record<string, string> = {
   CHECKOUT_LEASE_HELD: "Someone has this secret checked out. Try again after it's checked in.",
   CHECKOUT_NO_ACCESS: "You can't check this secret out. Ask for access first.",
   CHECKOUT_TYPE_DISABLED: "This kind of secret can't be checked out.",
+  CONNECTOR_UNAVAILABLE:
+    "The connector that reads the target's certificate isn't reachable. Try again in a moment.",
   GROUP_ID_REQUIRED: "A group rule needs the group itself. Pick the group from the list again.",
   MFA_LAST_FACTOR:
     "Your administrator requires a second factor. Add another one before removing this one.",
@@ -74,6 +76,16 @@ const BY_REASON: Record<string, string> = {
   ROTATION_IN_PROGRESS: "The secret is being rotated. Try again when the rotation finishes.",
   SELF_APPROVAL: "You can't decide your own request. Another approver has to.",
   STEP_UP_REQUIRED: "Confirm it's you with a fresh second factor, then try again.",
+  TARGET_NO_TLS_CONNECTION:
+    "This target has no TLS connection, so there is no certificate to pin. Add a connection that uses TLS first.",
+  TLS_CERT_CHANGED:
+    "The target no longer sends that certificate. Scan again and check the new one before you pin it.",
+  TLS_CERT_FINGERPRINT_INVALID:
+    "That isn't a SHA-256 fingerprint. Scan again and pin from the list.",
+  TLS_CERT_NOT_PINNABLE:
+    "Pinning that certificate alone wouldn't let the box trust the target. Pin the target's own certificate instead.",
+  TLS_CERT_PIN_NOT_ADMIN: "TLS certificates on a shared target are pinned by a site admin.",
+  TLS_CERT_PIN_NOT_OWNER: "TLS certificates on a personal target are pinned by its owner.",
   TOP_LEVEL_FOLDERS_RESTRICTED:
     "Only site admins can create top-level folders, because Restrict top-level folders to admins is on. Pick a folder you manage instead.",
 };

@@ -809,6 +809,7 @@ export type TargetFieldsFragment = {
   secretCount: number;
   ownerUserId: string | null;
   sshHostKeys: Array<string>;
+  tlsCertPins: Array<string>;
 };
 
 export type AdminConnectionsQueryVariables = Exact<{ [key: string]: never }>;
@@ -865,8 +866,15 @@ export type AdminTargetsQuery = {
     secretCount: number;
     ownerUserId: string | null;
     sshHostKeys: Array<string>;
+    tlsCertPins: Array<string>;
   }>;
-  connections: Array<{ id: string; name: string; protocol: string; port: number | null }>;
+  connections: Array<{
+    id: string;
+    name: string;
+    protocol: string;
+    port: number | null;
+    useTls: boolean | null;
+  }>;
 };
 
 export type AdminSaveTargetMutationVariables = Exact<{
@@ -886,6 +894,7 @@ export type AdminSaveTargetMutation = {
     secretCount: number;
     ownerUserId: string | null;
     sshHostKeys: Array<string>;
+    tlsCertPins: Array<string>;
   };
 };
 
@@ -2995,6 +3004,7 @@ export type TargetsTargetFieldsFragment = {
   secretCount: number;
   ownerUserId: string | null;
   sshHostKeys: Array<string>;
+  tlsCertPins: Array<string>;
   connections: Array<{ connectionId: string; isDefault: boolean }>;
 };
 
@@ -3003,6 +3013,7 @@ export type TargetsConnectionFieldsFragment = {
   name: string;
   protocol: string;
   port: number | null;
+  useTls: boolean | null;
   description: string | null;
 };
 
@@ -3021,6 +3032,7 @@ export type TargetsListQuery = {
     secretCount: number;
     ownerUserId: string | null;
     sshHostKeys: Array<string>;
+    tlsCertPins: Array<string>;
     connections: Array<{ connectionId: string; isDefault: boolean }>;
   }>;
   connections: Array<{
@@ -3028,6 +3040,7 @@ export type TargetsListQuery = {
     name: string;
     protocol: string;
     port: number | null;
+    useTls: boolean | null;
     description: string | null;
   }>;
 };
@@ -3049,6 +3062,7 @@ export type TargetsSaveMutation = {
     secretCount: number;
     ownerUserId: string | null;
     sshHostKeys: Array<string>;
+    tlsCertPins: Array<string>;
     connections: Array<{ connectionId: string; isDefault: boolean }>;
   };
 };
@@ -3129,6 +3143,46 @@ export type TargetsPinHostKeyMutationVariables = Exact<{
 
 export type TargetsPinHostKeyMutation = {
   pinTargetHostKey: { id: string; sshHostKeys: Array<string> };
+};
+
+export type TargetsScanTlsCertificateQueryVariables = Exact<{
+  targetId: string;
+}>;
+
+export type TargetsScanTlsCertificateQuery = {
+  scanTargetTlsCertificate: {
+    targetId: string;
+    address: string;
+    serverName: string;
+    tlsVersion: string;
+    systemTrusted: boolean;
+    systemTrustDetail: string | null;
+    hostNameMatches: boolean;
+    chain: Array<{
+      subject: string;
+      commonName: string;
+      dnsNames: Array<string>;
+      ipAddresses: Array<string>;
+      issuer: string;
+      notBefore: string | null;
+      notAfter: string | null;
+      fingerprint: string;
+      serialNumber: string;
+      isCa: boolean;
+      selfSigned: boolean;
+      pinnable: boolean;
+      pinned: boolean;
+    }>;
+  };
+};
+
+export type TargetsPinTlsCertificateMutationVariables = Exact<{
+  targetId: string;
+  fingerprint: string;
+}>;
+
+export type TargetsPinTlsCertificateMutation = {
+  pinTargetTlsCertificate: { id: string; tlsCertPins: Array<string> };
 };
 
 export class TypedDocumentString<TResult, TVariables>
@@ -3314,6 +3368,7 @@ export const TargetFieldsFragmentDoc = new TypedDocumentString(
   secretCount
   ownerUserId
   sshHostKeys
+  tlsCertPins
 }
     `,
   { fragmentName: "TargetFields" },
@@ -3681,6 +3736,7 @@ export const TargetsTargetFieldsFragmentDoc = new TypedDocumentString(
   secretCount
   ownerUserId
   sshHostKeys
+  tlsCertPins
 }
     `,
   { fragmentName: "TargetsTargetFields" },
@@ -3692,6 +3748,7 @@ export const TargetsConnectionFieldsFragmentDoc = new TypedDocumentString(
   name
   protocol
   port
+  useTls
   description
 }
     `,
@@ -4340,6 +4397,7 @@ export const AdminTargetsDocument = new TypedDocumentString(`
     name
     protocol
     port
+    useTls
   }
 }
     fragment TargetFields on Target {
@@ -4354,6 +4412,7 @@ export const AdminTargetsDocument = new TypedDocumentString(`
   secretCount
   ownerUserId
   sshHostKeys
+  tlsCertPins
 }`) as unknown as TypedDocumentString<AdminTargetsQuery, AdminTargetsQueryVariables>;
 export const AdminSaveTargetDocument = new TypedDocumentString(`
     mutation AdminSaveTarget($input: TargetInput!) {
@@ -4373,6 +4432,7 @@ export const AdminSaveTargetDocument = new TypedDocumentString(`
   secretCount
   ownerUserId
   sshHostKeys
+  tlsCertPins
 }`) as unknown as TypedDocumentString<AdminSaveTargetMutation, AdminSaveTargetMutationVariables>;
 export const AdminDeleteTargetDocument = new TypedDocumentString(`
     mutation AdminDeleteTarget($id: ID!) {
@@ -6488,12 +6548,14 @@ export const TargetsListDocument = new TypedDocumentString(`
   secretCount
   ownerUserId
   sshHostKeys
+  tlsCertPins
 }
 fragment TargetsConnectionFields on Connection {
   id
   name
   protocol
   port
+  useTls
   description
 }`) as unknown as TypedDocumentString<TargetsListQuery, TargetsListQueryVariables>;
 export const TargetsSaveDocument = new TypedDocumentString(`
@@ -6518,6 +6580,7 @@ export const TargetsSaveDocument = new TypedDocumentString(`
   secretCount
   ownerUserId
   sshHostKeys
+  tlsCertPins
 }`) as unknown as TypedDocumentString<TargetsSaveMutation, TargetsSaveMutationVariables>;
 export const TargetsDeleteDocument = new TypedDocumentString(`
     mutation TargetsDelete($id: ID!) {
@@ -6608,4 +6671,46 @@ export const TargetsPinHostKeyDocument = new TypedDocumentString(`
     `) as unknown as TypedDocumentString<
   TargetsPinHostKeyMutation,
   TargetsPinHostKeyMutationVariables
+>;
+export const TargetsScanTlsCertificateDocument = new TypedDocumentString(`
+    query TargetsScanTlsCertificate($targetId: ID!) {
+  scanTargetTlsCertificate(targetId: $targetId) {
+    targetId
+    address
+    serverName
+    tlsVersion
+    systemTrusted
+    systemTrustDetail
+    hostNameMatches
+    chain {
+      subject
+      commonName
+      dnsNames
+      ipAddresses
+      issuer
+      notBefore
+      notAfter
+      fingerprint
+      serialNumber
+      isCa
+      selfSigned
+      pinnable
+      pinned
+    }
+  }
+}
+    `) as unknown as TypedDocumentString<
+  TargetsScanTlsCertificateQuery,
+  TargetsScanTlsCertificateQueryVariables
+>;
+export const TargetsPinTlsCertificateDocument = new TypedDocumentString(`
+    mutation TargetsPinTlsCertificate($targetId: ID!, $fingerprint: String!) {
+  pinTargetTlsCertificate(targetId: $targetId, fingerprint: $fingerprint) {
+    id
+    tlsCertPins
+  }
+}
+    `) as unknown as TypedDocumentString<
+  TargetsPinTlsCertificateMutation,
+  TargetsPinTlsCertificateMutationVariables
 >;

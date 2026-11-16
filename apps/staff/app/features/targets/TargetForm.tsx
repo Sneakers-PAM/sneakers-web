@@ -1,4 +1,9 @@
-import { HostKeyPinDialog, type Refusal, refusalMessage } from "@sneakers-web/shell";
+import {
+  HostKeyPinDialog,
+  type Refusal,
+  refusalMessage,
+  TlsCertPinDialog,
+} from "@sneakers-web/shell";
 import {
   Alert,
   Button,
@@ -134,7 +139,9 @@ export const TargetForm = ({
   const busy = useNavigation().state === "submitting";
   const attachedHeadingId = useId();
   const hostKeyHeadingId = useId();
+  const tlsHeadingId = useId();
   const [pinOpen, setPinOpen] = useState(false);
+  const [tlsPinOpen, setTlsPinOpen] = useState(false);
   const revalidator = useRevalidator();
   const [d, setD] = useState<TargetDraft>(result?.draft ?? data.draft);
   const [tried, setTried] = useState(false);
@@ -337,6 +344,50 @@ export const TargetForm = ({
             onOpenChange={setPinOpen}
             onPinned={() => void revalidator.revalidate()}
             open={pinOpen}
+            targetId={target.id}
+          />
+        </Card>
+      )}
+      {target?.tls && (
+        <Card aria-labelledby={tlsHeadingId}>
+          <div className="flex items-baseline gap-3 px-5.5 py-4.5">
+            <h2
+              className="m-0 font-display text-[1.25rem] leading-none font-bold"
+              id={tlsHeadingId}
+            >
+              TLS certificate
+            </h2>
+          </div>
+          <div className="flex flex-col gap-3 p-5.5">
+            {target.tlsCertFingerprints.length === 0 ? (
+              <Alert tone="warn">
+                No certificate is pinned, so the box trusts this host only if a public CA signed its
+                certificate.
+              </Alert>
+            ) : (
+              <ul className="m-0 flex list-none flex-col gap-2 p-0">
+                {target.tlsCertFingerprints.map((fp) => (
+                  <li className="flex" key={fp}>
+                    <LongValue value={fp} />
+                  </li>
+                ))}
+              </ul>
+            )}
+            <Button
+              className="self-start"
+              onClick={() => setTlsPinOpen(true)}
+              type="button"
+              variant="secondary"
+            >
+              Scan and pin TLS certificate…
+            </Button>
+          </div>
+          <TlsCertPinDialog
+            // The saved host, the one the scan reads: an unsaved edit isn't scanned.
+            hostname={data.draft.hostname}
+            onOpenChange={setTlsPinOpen}
+            onPinned={() => void revalidator.revalidate()}
+            open={tlsPinOpen}
             targetId={target.id}
           />
         </Card>

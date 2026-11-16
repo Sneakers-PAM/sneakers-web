@@ -5,9 +5,24 @@ import {
   AdminTargetsDocument,
   GraphQLRequestError,
 } from "@sneakers-web/api-client";
-import { HostKeyPinDialog, type Refusal, refusalMessage, refusalOf } from "@sneakers-web/shell";
-import { guard, isAdmin, requireUser } from "@sneakers-web/shell/server";
-import { Alert, Button, Field, Input, PageHeader, plural, Textarea } from "@sneakers-web/ui";
+import {
+  HostKeyPinDialog,
+  type Refusal,
+  refusalMessage,
+  refusalOf,
+  TlsCertPinDialog,
+} from "@sneakers-web/shell";
+import { guard, isAdmin, requireUser, tlsFingerprint } from "@sneakers-web/shell/server";
+import {
+  Alert,
+  Button,
+  Field,
+  Input,
+  LongValue,
+  PageHeader,
+  plural,
+  Textarea,
+} from "@sneakers-web/ui";
 import { useState } from "react";
 import {
   data,
@@ -17,6 +32,7 @@ import {
   useActionData,
   useLoaderData,
   useNavigation,
+  useRevalidator,
 } from "react-router";
 
 import { Choice, Panel } from "@/components/Admin";
@@ -75,7 +91,16 @@ export const loader = ({ params, request }: LoaderFunctionArgs) =>
       canPinHostKey: isAdmin(user),
       connections,
       draft,
-      target: { id: t.id, ownerUserId: t.ownerUserId, secretCount: t.secretCount },
+      target: {
+        id: t.id,
+        ownerUserId: t.ownerUserId,
+        secretCount: t.secretCount,
+        // Only an explicit `useTls: false` hides the section; an unset flag may still be TLS.
+        tls: d.connections.some(
+          (c) => c.id === t.connectionId && c.useTls !== false && c.protocol !== "ssh",
+        ),
+        tlsCertFingerprints: (t.tlsCertPins ?? []).map((pin) => tlsFingerprint(pin)),
+      },
     };
   });
 
@@ -136,6 +161,8 @@ const TargetEditor = () => {
   const [d, setD] = useState<TargetDraft>(result?.draft ?? saved);
   const [tried, setTried] = useState(false);
   const [pinOpen, setPinOpen] = useState(false);
+  const [tlsPinOpen, setTlsPinOpen] = useState(false);
+  const revalidator = useRevalidator();
   const set = (patch: Partial<TargetDraft>) => setD((current) => ({ ...current, ...patch }));
   const protocol = connections.find((c) => c.value === d.connectionId)?.protocol ?? "";
   const ssh = protocol === "ssh";
@@ -306,6 +333,43 @@ const TargetEditor = () => {
           </>
         )}
       </Panel>
+      {target?.tls && (
+        <Panel title="TLS certificate">
+          <span className="-mt-2 text-small text-muted">
+            The SHA-256 fingerprints the box trusts for this target&apos;s own certificate, in
+            addition to the public CAs. Scan reads what the target sends now; nothing is pinned
+            until you confirm one.
+          </span>
+          {target.tlsCertFingerprints.length === 0 ? (
+            <Alert tone="warn">
+              No certificate is pinned, so the box trusts this host only if a public CA signed its
+              certificate.
+            </Alert>
+          ) : (
+            <ul className="m-0 flex list-none flex-col gap-2 p-0">
+              {target.tlsCertFingerprints.map((fp) => (
+                <li className="flex" key={fp}>
+                  <LongValue value={fp} />
+                </li>
+              ))}
+            </ul>
+          )}
+          {canPinHostKey ? (
+            <Button
+              className="self-start"
+              onClick={() => setTlsPinOpen(true)}
+              type="button"
+              variant="secondary"
+            >
+              Scan and pin TLS certificate…
+            </Button>
+          ) : (
+            <span className="text-small text-muted">
+              Ask a site admin to scan and pin this host&apos;s certificate.
+            </span>
+          )}
+        </Panel>
+      )}
       {target && (
         <HostKeyPinDialog
           hostname={d.hostname}
@@ -316,6 +380,15 @@ const TargetEditor = () => {
             }
           }}
           open={pinOpen}
+          targetId={target.id}
+        />
+      )}
+      {target?.tls && (
+        <TlsCertPinDialog
+          hostname={d.hostname}
+          onOpenChange={setTlsPinOpen}
+          onPinned={() => void revalidator.revalidate()}
+          open={tlsPinOpen}
           targetId={target.id}
         />
       )}

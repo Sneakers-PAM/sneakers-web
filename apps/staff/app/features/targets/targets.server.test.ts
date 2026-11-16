@@ -123,6 +123,8 @@ describe("the target editor", () => {
       scope: "personal",
       secretCount: 2,
       ssh: true,
+      tls: false,
+      tlsCertFingerprints: [],
     });
     expect(d.draft).toMatchObject({ hostname: "build1.example.org", kind: "linux" });
     expect(d.sharedNames).toEqual([]);

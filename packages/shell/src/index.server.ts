@@ -44,3 +44,9 @@ export {
   signOutAction,
 } from "#shell/server/signIn.server";
 export { stepUpAction, type StepUpState } from "#shell/server/stepUp.server";
+export {
+  tlsCertPinAction,
+  type TlsCertPinState,
+  type TlsCertScanView,
+  tlsFingerprint,
+} from "#shell/server/tlsCertPin.server";
