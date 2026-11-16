@@ -1110,3 +1110,8 @@ Follow the logging rules in `CLAUDE.md`. In short:
   `body` (inherited everywhere) and `min-width: 0` on a `dl.grid`'s `dd`, and the `LongValue`
   component (`@sneakers-web/ui`) renders the value itself, monospace, with an optional Copy button
   that always sends the exact value. Use `LongValue` instead of a new ad-hoc wrap class.
+- Rotation on the secret page follows the vault's rule: it schedules rotation only for a secret
+  whose target has a connection. `notRotating` (`features/secret/rotation.ts`) gives the reason a
+  rotation-capable secret won't rotate (turned off, no target, or a target with no connection);
+  the Details card shows "Not rotating" with that reason and no next-rotation date, and the
+  Automation card says it needs a target with a connection.

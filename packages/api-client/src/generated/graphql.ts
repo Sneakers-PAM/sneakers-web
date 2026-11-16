@@ -2334,7 +2334,7 @@ export type SecretDetailQuery = {
     }>;
   }>;
   folders: Array<{ id: string; name: string; parentId: string | null; scope: FolderScope }>;
-  targets: Array<{ id: string; name: string; hostname: string }>;
+  targets: Array<{ id: string; name: string; hostname: string; connectionId: string }>;
 };
 
 export type SecretAccessQueryVariables = Exact<{
@@ -5772,6 +5772,7 @@ export const SecretDetailDocument = new TypedDocumentString(`
     id
     name
     hostname
+    connectionId
   }
 }
     fragment SecretDetailFields on Secret {
