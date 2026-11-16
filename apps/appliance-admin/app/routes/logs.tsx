@@ -20,6 +20,7 @@ import { useEffect, useState } from "react";
 import type { ListEventsResponse } from "@/lib/osadmin/types";
 
 import { Advanced } from "@/components/Advanced";
+import { logsDownloadEnabled } from "@/lib/features";
 import { LOG_PRESETS, type LogPreset, LogsWindowError } from "@/lib/logsWindow";
 import { noAutofill } from "@/lib/noAutofill";
 import { audit } from "@/lib/osadmin/client";
@@ -206,50 +207,52 @@ export default function Logs() {
           </TableBody>
         </Table>
       </Card>
-      <Card>
-        <CardHeader title="Download logs" />
-        <section aria-label="Download logs" className="flex flex-col items-start gap-3 p-5.5">
-          <p className="m-0 text-small text-muted">
-            One .tar.gz of the box&apos;s cluster and system logs for the time you pick, with no
-            secrets in it. The box writes it as you wait, and only one download runs at a time.
-          </p>
-          <Segmented
-            label="Time window"
-            onChange={setWindowChoice}
-            options={LOG_WINDOWS}
-            value={windowChoice}
-          />
-          {windowChoice === CUSTOM && (
-            <div className="flex flex-wrap gap-3">
-              <Field label="From">
-                <Input
-                  {...noAutofill()}
-                  onChange={(event) => setFrom(event.target.value)}
-                  type="datetime-local"
-                  value={from}
-                />
-              </Field>
-              <Field label="To">
-                <Input
-                  {...noAutofill()}
-                  onChange={(event) => setTo(event.target.value)}
-                  type="datetime-local"
-                  value={to}
-                />
-              </Field>
-            </div>
-          )}
-          <Button disabled={logging} onClick={downloadLogs} variant="secondary">
-            {logging ? "Preparing the logs" : "Download logs"}
-          </Button>
-          {logging && (
-            <p className="m-0 text-small text-muted" role="status">
-              The box is writing the archive. It has no length to show, so this can take a while.
+      {logsDownloadEnabled() && (
+        <Card>
+          <CardHeader title="Download logs" />
+          <section aria-label="Download logs" className="flex flex-col items-start gap-3 p-5.5">
+            <p className="m-0 text-small text-muted">
+              One .tar.gz of the box&apos;s cluster and system logs for the time you pick, with no
+              secrets in it. The box writes it as you wait, and only one download runs at a time.
             </p>
-          )}
-          {logsRefusal && <Alert tone="danger">{logsRefusal}</Alert>}
-        </section>
-      </Card>
+            <Segmented
+              label="Time window"
+              onChange={setWindowChoice}
+              options={LOG_WINDOWS}
+              value={windowChoice}
+            />
+            {windowChoice === CUSTOM && (
+              <div className="flex flex-wrap gap-3">
+                <Field label="From">
+                  <Input
+                    {...noAutofill()}
+                    onChange={(event) => setFrom(event.target.value)}
+                    type="datetime-local"
+                    value={from}
+                  />
+                </Field>
+                <Field label="To">
+                  <Input
+                    {...noAutofill()}
+                    onChange={(event) => setTo(event.target.value)}
+                    type="datetime-local"
+                    value={to}
+                  />
+                </Field>
+              </div>
+            )}
+            <Button disabled={logging} onClick={downloadLogs} variant="secondary">
+              {logging ? "Preparing the logs" : "Download logs"}
+            </Button>
+            {logging && (
+              <p className="m-0 text-small text-muted" role="status">
+                The box is writing the archive. It has no length to show, so this can take a while.
+              </p>
+            )}
+            {logsRefusal && <Alert tone="danger">{logsRefusal}</Alert>}
+          </section>
+        </Card>
+      )}
       <Advanced label="Advanced: support bundle">
         <div className="flex flex-col items-start gap-3">
           <p className="m-0 text-small text-muted">

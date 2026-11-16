@@ -145,7 +145,16 @@ describe("Logs", () => {
     expect(row.getByText("192.0.2.50")).toBeInTheDocument();
   });
 
+  it("leaves the Download logs card off the page unless the switch is on", async () => {
+    await openLogs();
+    expect(screen.queryByRole("region", { name: "Download logs" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Download logs" })).not.toBeInTheDocument();
+  });
+
   describe("Download logs", () => {
+    beforeEach(() => vi.stubEnv("VITE_LOGS_DOWNLOAD", "true"));
+    afterEach(() => vi.unstubAllEnvs());
+
     it("offers the four windows with 24 hours chosen, and no custom range until asked", async () => {
       await openLogs();
       expect(card().getByRole("radio", { name: "24 hours" })).toBeChecked();
