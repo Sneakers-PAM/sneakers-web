@@ -62,7 +62,7 @@ describe("Updates", () => {
     expect(base.getByText("0.1.0", { selector: "[data-version=running]" })).toBeInTheDocument();
     expect(base.getByText("In the active slot.")).toBeInTheDocument();
     expect(base.getByText("Other slot: 0.0.9 (revert target)")).toBeInTheDocument();
-    expect(screen.getByText(/Daily at 02:00 for 120 minutes/)).toBeInTheDocument();
+    expect(screen.getByText("Manual only: an owner applies each update.")).toBeInTheDocument();
     const history = screen.getByRole("table", { name: "Update history" });
     expect(within(history).getAllByRole("row").length).toBeGreaterThan(1);
   });
@@ -597,25 +597,39 @@ describe("Updates", () => {
     expect(screen.queryByText(/Reverted from/)).not.toBeInTheDocument();
   });
 
-  it("switches the update window to manual only", async () => {
-    const user = userEvent.setup();
+  it("starts a fresh box on Manual only, with the daily window left off (#409)", async () => {
     await openPage();
-    await user.click(screen.getByRole("radio", { name: "Manual only" }));
-    await user.click(screen.getByRole("button", { name: "Save update window" }));
-    expect(await screen.findByText("Update window saved.")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Manual only" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Daily window" })).not.toBeChecked();
+    expect(screen.queryByLabelText("Daily start (HH:MM)")).not.toBeInTheDocument();
     expect(
-      await screen.findByText(/Manual only: an owner applies each update/),
+      screen.getByText(/Nothing applies on its own until you turn the daily window on/),
     ).toBeInTheDocument();
   });
 
-  it("changes the daily window's start time", async () => {
+  it("turns the daily window on as an opt-in and sets its start and length (#409)", async () => {
     const user = userEvent.setup();
     await openPage();
+    await user.click(screen.getByRole("radio", { name: "Daily window" }));
     const start = screen.getByLabelText("Daily start (HH:MM)");
     await user.clear(start);
     await user.type(start, "03:30");
     await user.click(screen.getByRole("button", { name: "Save update window" }));
+    expect(await screen.findByText("Update window saved.")).toBeInTheDocument();
     expect(await screen.findByText(/Daily at 03:30 for 120 minutes/)).toBeInTheDocument();
+  });
+
+  it("switches an opted-in window back to manual only", async () => {
+    const user = userEvent.setup();
+    await openPage();
+    await user.click(screen.getByRole("radio", { name: "Daily window" }));
+    await user.click(screen.getByRole("button", { name: "Save update window" }));
+    expect(await screen.findByText(/Daily at 02:00 for 120 minutes/)).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "Manual only" }));
+    await user.click(screen.getByRole("button", { name: "Save update window" }));
+    expect(
+      await screen.findByText("Manual only: an owner applies each update."),
+    ).toBeInTheDocument();
   });
 
   it("says which newer releases the check skipped, and why", async () => {
