@@ -2575,6 +2575,21 @@ export const edge: Edge = {
     const lines = auditEvents.map((event) => JSON.stringify(event)).join("\n");
     return new Blob([lines], { type: "application/jsonl" });
   },
+  async exportLogs(query: string) {
+    // The box's own checks, so the page's refusals read the same against the mock.
+    const parameters = new URLSearchParams(query);
+    const from = parameters.get("from");
+    const to = parameters.get("to");
+    const window = parameters.get("window");
+    if (window && (from || to))
+      throw new OsadminError("invalid_argument", "Send a window or a from and to, not both.");
+    if (!window && (!from || !to))
+      throw new OsadminError("invalid_argument", "Send a window, or both from and to.");
+    return {
+      blob: new Blob(["mock log archive"], { type: "application/gzip" }),
+      fileName: "sneakers-logs-20261115T120000Z-20261116T120000Z.tar.gz",
+    };
+  },
   async exportSupportBundle() {
     return {
       blob: new Blob([Uint8Array.from(atob(MOCK_BUNDLE_ZIP), (c) => c.codePointAt(0) ?? 0)], {

@@ -16,6 +16,11 @@ export interface Edge {
   /** Text for the persistent banner a mock build shows on every screen, or null for none. */
   banner: null | string;
   exportAuditLog(): Promise<Blob>;
+  /**
+   * The box's logs for a window, as one .tar.gz it streams (GET /export/logs). `query` is what
+   * `logsQuery` built. A stream that breaks part way rejects, and no file comes back.
+   */
+  exportLogs(query: string): Promise<SupportBundle>;
   /** The full support bundle and the file name the box gave it. */
   exportSupportBundle(): Promise<SupportBundle>;
   mode: "live" | "mock";
