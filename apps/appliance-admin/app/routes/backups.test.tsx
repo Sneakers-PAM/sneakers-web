@@ -1,7 +1,7 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { backup, setup } from "@/lib/osadmin/client";
+import { backup, rootKey, setup } from "@/lib/osadmin/client";
 import { OsadminError } from "@/lib/osadmin/errors";
 import Backups from "@/routes/backups";
 import { renderPage } from "@/test/renderPage";
@@ -59,5 +59,85 @@ describe("Backups", () => {
         element.textContent === "SHA256:rK1X8qf9w2v6z4m7h5s1rQwQEuY7zL5mZ8w5z6c1h9",
     );
     expect(fingerprint.className).toContain("wrap-anywhere");
+  });
+
+  describe("the vault root key", () => {
+    it("shows an owner that the root key hasn't been rotated, with a button to rotate it", async () => {
+      signInAs("alice");
+      renderPage(Backups);
+      const card = within(await screen.findByRole("region", { name: "Vault root key" }));
+      expect(card.getByText("The root key hasn't been rotated on this box.")).toBeInTheDocument();
+      expect(card.getByRole("button", { name: "Rotate root key" })).toBeInTheDocument();
+    });
+
+    it("asks first, says what happens to an older escrow, then follows the rotation to done", async () => {
+      const user = userEvent.setup();
+      signInAs("alice");
+      renderPage(Backups);
+      const card = within(await screen.findByRole("region", { name: "Vault root key" }));
+      await user.click(card.getByRole("button", { name: "Rotate root key" }));
+      const dialog = await screen.findByRole("alertdialog", { name: "Rotate the vault root key?" });
+      expect(
+        within(dialog).getByText(/older escrow no longer opens the vault/),
+      ).toBeInTheDocument();
+      await user.click(within(dialog).getByRole("button", { name: "Rotate root key" }));
+      expect(await card.findByText(/Rotating the root key/)).toBeInTheDocument();
+      expect(
+        await card.findByText(
+          /The root key was rotated\. Download a new escrow/,
+          {},
+          { timeout: 5000 },
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("leaves the rotation alone when the owner cancels", async () => {
+      const user = userEvent.setup();
+      const rotate = vi.spyOn(rootKey, "rotate");
+      signInAs("alice");
+      renderPage(Backups);
+      const card = within(await screen.findByRole("region", { name: "Vault root key" }));
+      await user.click(card.getByRole("button", { name: "Rotate root key" }));
+      await user.click(
+        within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Cancel" }),
+      );
+      expect(rotate).not.toHaveBeenCalled();
+    });
+
+    it("says why a rotation stopped and offers to carry on", async () => {
+      vi.spyOn(rootKey, "get").mockResolvedValue({
+        available: true,
+        state: "stopped",
+        step: "checking the working keys",
+        why: "the vault didn't answer",
+      });
+      signInAs("alice");
+      renderPage(Backups);
+      const card = within(await screen.findByRole("region", { name: "Vault root key" }));
+      expect(card.getByText(/stopped at checking the working keys/)).toBeInTheDocument();
+      expect(card.getByText(/the vault didn't answer/)).toBeInTheDocument();
+      expect(card.getByRole("button", { name: "Carry on rotating" })).toBeInTheDocument();
+    });
+
+    it("says so, with no button, when the installed product can't rotate its root key", async () => {
+      vi.spyOn(rootKey, "get").mockResolvedValue({
+        available: false,
+        state: "none",
+        step: "",
+        why: "",
+      });
+      signInAs("alice");
+      renderPage(Backups);
+      const card = within(await screen.findByRole("region", { name: "Vault root key" }));
+      expect(card.getByText(/can't rotate its root key/)).toBeInTheDocument();
+      expect(card.queryByRole("button")).not.toBeInTheDocument();
+    });
+
+    it("shows the card to owners only", async () => {
+      signInAs("bob");
+      renderPage(Backups);
+      await screen.findByText("Recovery keys");
+      expect(screen.queryByRole("region", { name: "Vault root key" })).not.toBeInTheDocument();
+    });
   });
 });

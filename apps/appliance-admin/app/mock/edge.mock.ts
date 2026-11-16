@@ -688,6 +688,8 @@ let tlsChanged = false;
 let lastCleanup: DiskCleanup | undefined;
 let verifyStalls = false;
 let stepUpOnce = false;
+let rootKeyState = "none";
+let rootKeyReads = 0;
 /** Sign-in failures in the current window, and the lockouts they caused, by admin. */
 const failures = new Map<string, number>();
 const locks = new Map<string, { until?: string; untilUnlocked: boolean }>();
@@ -746,6 +748,7 @@ const STEP_UP_METHODS = new Set([
   "NetworkService/CommitNetwork",
   "PowerService/ApproveFactoryReset",
   "PowerService/StartFactoryReset",
+  "RootKeyService/RotateRootKey",
   "StatusService/CleanUpDisk",
   "TelemetryService/RetryTelemetryRestart",
   "TelemetryService/SetTelemetry",
@@ -1715,6 +1718,27 @@ const route = async (service: string, method: string, body: Record<string, unkno
         productTitle: product.name,
         values: structuredClone(exposedValues),
       };
+    }
+    case "RootKeyService/GetRootKeyRotation": {
+      // A rotation the box has begun shows as running on the first read, then as done.
+      if (rootKeyState === "running" && rootKeyReads++ > 0) rootKeyState = "done";
+      return {
+        available: true,
+        state: rootKeyState,
+        ...(rootKeyState === "running" ? { step: "moving the working keys" } : {}),
+      };
+    }
+    case "RootKeyService/RotateRootKey": {
+      if (!isOwner(caller()))
+        throw new OsadminError(
+          "permission_denied",
+          "ACCESS_FORBIDDEN: only an owner can rotate the root key",
+        );
+      if (rootKeyState === "running")
+        throw new OsadminError("failed_precondition", "ROOTKEY_BUSY: a rotation is running");
+      rootKeyState = "running";
+      rootKeyReads = 0;
+      return {};
     }
     case "RootShellService/IssueRootShellCode": {
       if (!quorum.members.includes(caller()))
@@ -3086,6 +3110,8 @@ export const resetMockWorld = (): void => {
   resetMirror();
   units.resetUnits();
   webUpdatedTo = "";
+  rootKeyState = "none";
+  rootKeyReads = 0;
   upgradePolicy = structuredClone(world.UPGRADE_POLICY);
   runningVersion = "0.1.0";
   stagedVersion = "";
