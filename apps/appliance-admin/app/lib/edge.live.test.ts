@@ -234,3 +234,81 @@ describe("the support bundle", () => {
     });
   });
 });
+
+const gz = (extra: Record<string, string> = {}) => ({
+  headers: {
+    "Content-Disposition":
+      'attachment; filename="sneakers-logs-20261115T120000Z-20261116T120000Z.tar.gz"',
+    "Content-Type": "application/gzip",
+    ...extra,
+  },
+  status: 200,
+});
+
+describe("the log archive", () => {
+  it("asks for the window by its query and gives the file name the box chose", async () => {
+    const spy = answer("the archive", gz());
+    const { blob, fileName } = await edge.exportLogs("window=6h");
+    expect(spy).toHaveBeenCalledWith("/export/logs?window=6h", { credentials: "same-origin" });
+    expect(fileName).toBe("sneakers-logs-20261115T120000Z-20261116T120000Z.tar.gz");
+    expect(await blob.text()).toBe("the archive");
+  });
+
+  it("names the file itself when the box doesn't", async () => {
+    answer("the archive", { headers: { "Content-Type": "application/gzip" }, status: 200 });
+    const archive = await edge.exportLogs("window=24h");
+    expect(archive.fileName).toBe("sneakers-logs.tar.gz");
+  });
+
+  it("reads a 404, or the pages' index.html, as a box without log downloads", async () => {
+    answer("404 page not found", { status: 404 });
+    await expect(edge.exportLogs("window=24h")).rejects.toMatchObject({ code: "unimplemented" });
+    answer("<!doctype html>", { headers: { "Content-Type": "text/html" }, status: 200 });
+    await expect(edge.exportLogs("window=24h")).rejects.toMatchObject({ code: "unimplemented" });
+  });
+
+  it("keeps the box's plain-text refusal for a bad window", async () => {
+    answer("The range can be at most 7 days.\n", { status: 400 });
+    await expect(edge.exportLogs("from=a&to=b")).rejects.toMatchObject({
+      code: "invalid_argument",
+      message: "The range can be at most 7 days.",
+    });
+  });
+
+  it("says another export is running, and for how long to wait", async () => {
+    answer("Another log export is running.\n", { headers: { "Retry-After": "10" }, status: 409 });
+    await expect(edge.exportLogs("window=24h")).rejects.toMatchObject({
+      code: "failed_precondition",
+      message: "Another log export is running. Try again in 10 seconds.",
+    });
+  });
+
+  it("reads a 401 as a signed-out session", async () => {
+    answer("sign in again\n", { status: 401 });
+    await expect(edge.exportLogs("window=24h")).rejects.toMatchObject({ code: "unauthenticated" });
+  });
+
+  it("treats a stream that breaks part way as a failed download, with no file", async () => {
+    const broken = new ReadableStream({
+      pull(controller) {
+        controller.error(new TypeError("network error"));
+      },
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("half an arch"));
+      },
+    });
+    answer(broken, gz());
+    await expect(edge.exportLogs("window=24h")).rejects.toMatchObject({
+      code: "unavailable",
+      message: "The download broke part way, so nothing was saved. Try again.",
+    });
+  });
+
+  it("says the box can't be reached when the request never gets there", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    await expect(edge.exportLogs("window=24h")).rejects.toMatchObject({
+      code: "unavailable",
+      message: UNREACHABLE,
+    });
+  });
+});

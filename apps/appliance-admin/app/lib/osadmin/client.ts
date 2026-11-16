@@ -69,6 +69,7 @@ import type {
 } from "@/lib/osadmin/types";
 import type { Wire } from "@/lib/osadmin/wire";
 
+import { logsQuery, type LogsWindow } from "@/lib/logsWindow";
 import { OsadminError, symbolOf } from "@/lib/osadmin/errors";
 import { csrfToken } from "@/lib/osadmin/sessionStore";
 import * as wire from "@/lib/osadmin/wire";
@@ -546,6 +547,8 @@ export const modules = {
 
 export const audit = {
   exportLog: () => edge.exportAuditLog(),
+  /** The box's logs for a window; refuses a window the box would refuse, before sending. */
+  exportLogs: (window: LogsWindow) => edge.exportLogs(logsQuery(window)),
   exportSupportBundle: () => edge.exportSupportBundle(),
   list: (limit = 100, pageToken = "", action = "") =>
     call<ListEventsResponse>(

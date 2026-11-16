@@ -30,6 +30,22 @@ const bundleRefusal = (status: number, text: string): OsadminError =>
     text.trim() || `osadmin answered ${String(status)}`,
   );
 
+/** A refusal before the first byte of the log archive: plain text, as the other exports. */
+const logsRefusal = (status: number, text: string, headers: Headers): OsadminError => {
+  const said = text.trim() || `osadmin answered ${String(status)}`;
+  if (status === 409) {
+    const wait = Number(headers.get("Retry-After"));
+    return new OsadminError(
+      "failed_precondition",
+      wait > 0 ? `${said} Try again in ${String(wait)} seconds.` : said,
+    );
+  }
+  return new OsadminError(
+    status === 400 ? "invalid_argument" : status === 401 ? "unauthenticated" : "unknown",
+    said,
+  );
+};
+
 /**
  * The live edge: the browser calls osadmin's Connect API at the same origin (no gateway,
  * no Node server -- osadmin serves the static assets and the API side by side on :8443).
@@ -40,6 +56,31 @@ export const edge: Edge = {
     const response = await fetch("/export/audit-log", { credentials: "same-origin" });
     if (!response.ok) throw await parseOsadminError(response);
     return response.blob();
+  },
+  async exportLogs(query: string): Promise<SupportBundle> {
+    try {
+      const response = await fetch(`/export/logs?${query}`, { credentials: "same-origin" });
+      // Like the support bundle: 8443 serves index.html for a path it doesn't know, so a 200 that
+      // isn't a gzip means a box without this route.
+      const type = response.headers.get("Content-Type") ?? "";
+      if (response.status === 404 || (response.ok && !type.startsWith("application/gzip")))
+        throw new OsadminError("unimplemented", "This box has no log download.");
+      if (!response.ok) throw logsRefusal(response.status, await response.text(), response.headers);
+      const named = /filename="([^"]+)"/.exec(response.headers.get("Content-Disposition") ?? "");
+      try {
+        // The archive streams with no length, and a failure after the first byte only breaks the
+        // connection, so a read that throws is a failed download, never a short file.
+        return { blob: await response.blob(), fileName: named?.[1] ?? "sneakers-logs.tar.gz" };
+      } catch {
+        throw new OsadminError(
+          "unavailable",
+          "The download broke part way, so nothing was saved. Try again.",
+        );
+      }
+    } catch (error) {
+      if (error instanceof TypeError) throw new OsadminError("unavailable", UNREACHABLE);
+      throw error;
+    }
   },
   async exportSupportBundle(): Promise<SupportBundle> {
     try {

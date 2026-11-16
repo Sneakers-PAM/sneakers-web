@@ -3,7 +3,10 @@ import {
   Button,
   Card,
   CardHeader,
+  Field,
+  Input,
   PageHeader,
+  Segmented,
   Table,
   TableBody,
   TableCell,
@@ -17,6 +20,8 @@ import { useEffect, useState } from "react";
 import type { ListEventsResponse } from "@/lib/osadmin/types";
 
 import { Advanced } from "@/components/Advanced";
+import { LOG_PRESETS, type LogPreset, LogsWindowError } from "@/lib/logsWindow";
+import { noAutofill } from "@/lib/noAutofill";
 import { audit } from "@/lib/osadmin/client";
 import { isNotAvailable } from "@/lib/osadmin/errors";
 
@@ -78,6 +83,33 @@ const bundleError = (error: unknown): string => {
   return error instanceof Error ? error.message : "The support bundle didn't download.";
 };
 
+const PRESET_LABELS: Record<LogPreset, string> = {
+  "15m": "15 minutes",
+  "1h": "1 hour",
+  "24h": "24 hours",
+  "6h": "6 hours",
+};
+
+const CUSTOM = "custom";
+
+type LogChoice = LogPreset | typeof CUSTOM;
+
+const LOG_WINDOWS: { label: string; value: LogChoice }[] = [
+  ...LOG_PRESETS.map((value) => ({ label: PRESET_LABELS[value], value })),
+  { label: "Custom range", value: CUSTOM },
+];
+
+/** Why a log download failed, in the box's own words where it gave any. */
+const logsError = (error: unknown): string => {
+  if (error instanceof LogsWindowError) return error.message;
+  if (isNotAvailable(error))
+    return "This box can't download its logs yet. Update it, then try again.";
+  return error instanceof Error ? error.message : "The logs didn't download.";
+};
+
+// A datetime-local value is the admin's own clock; the box wants UTC, so it is converted here.
+const asUtc = (value: string) => (value ? new Date(value).toISOString() : "");
+
 const exportLog = () =>
   void audit
     .exportLog()
@@ -91,6 +123,11 @@ export default function Logs() {
   const [data, setData] = useState<ListEventsResponse>();
   const [bundling, setBundling] = useState(false);
   const [bundleRefusal, setBundleRefusal] = useState("");
+  const [windowChoice, setWindowChoice] = useState<LogChoice>("24h");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [logging, setLogging] = useState(false);
+  const [logsRefusal, setLogsRefusal] = useState("");
   const reload = () => void audit.list().then(setData);
   useEffect(reload, []);
 
@@ -105,6 +142,24 @@ export default function Logs() {
       })
       .catch((error: unknown) => setBundleRefusal(bundleError(error)))
       .finally(() => setBundling(false));
+  };
+
+  const downloadLogs = () => {
+    setLogging(true);
+    setLogsRefusal("");
+    void (async () => {
+      try {
+        const { blob, fileName } = await audit.exportLogs(
+          windowChoice === CUSTOM ? { from: asUtc(from), to: asUtc(to) } : { preset: windowChoice },
+        );
+        download(blob, fileName);
+        toast("Logs downloaded.");
+      } catch (error) {
+        setLogsRefusal(logsError(error));
+      } finally {
+        setLogging(false);
+      }
+    })();
   };
 
   if (!data) return null;
@@ -150,6 +205,50 @@ export default function Logs() {
             ))}
           </TableBody>
         </Table>
+      </Card>
+      <Card>
+        <CardHeader title="Download logs" />
+        <section aria-label="Download logs" className="flex flex-col items-start gap-3 p-5.5">
+          <p className="m-0 text-small text-muted">
+            One .tar.gz of the box&apos;s cluster and system logs for the time you pick, with no
+            secrets in it. The box writes it as you wait, and only one download runs at a time.
+          </p>
+          <Segmented
+            label="Time window"
+            onChange={setWindowChoice}
+            options={LOG_WINDOWS}
+            value={windowChoice}
+          />
+          {windowChoice === CUSTOM && (
+            <div className="flex flex-wrap gap-3">
+              <Field label="From">
+                <Input
+                  {...noAutofill()}
+                  onChange={(event) => setFrom(event.target.value)}
+                  type="datetime-local"
+                  value={from}
+                />
+              </Field>
+              <Field label="To">
+                <Input
+                  {...noAutofill()}
+                  onChange={(event) => setTo(event.target.value)}
+                  type="datetime-local"
+                  value={to}
+                />
+              </Field>
+            </div>
+          )}
+          <Button disabled={logging} onClick={downloadLogs} variant="secondary">
+            {logging ? "Preparing the logs" : "Download logs"}
+          </Button>
+          {logging && (
+            <p className="m-0 text-small text-muted" role="status">
+              The box is writing the archive. It has no length to show, so this can take a while.
+            </p>
+          )}
+          {logsRefusal && <Alert tone="danger">{logsRefusal}</Alert>}
+        </section>
       </Card>
       <Advanced label="Advanced: support bundle">
         <div className="flex flex-col items-start gap-3">
