@@ -280,7 +280,7 @@ export default function Updates() {
   const [rebooting, setRebooting] = useState<Rebooting>(null);
   const [held, setHeld] = useState<Held | null>(null);
   const [override, setOverride] = useState<{ elevation: Elevation; held: Held } | null>(null);
-  const [mode, setMode] = useState<UpgradePolicy["mode"]>("automatic");
+  const [mode, setMode] = useState<UpgradePolicy["mode"]>("manual");
   const [windowStart, setWindowStart] = useState("02:00");
   const [windowMinutes, setWindowMinutes] = useState(120);
   const [mirrorUrl, setMirrorUrl] = useState("");
@@ -1322,6 +1322,10 @@ export default function Updates() {
         <CardHeader title="Update window" />
         <div className="flex flex-col gap-4 p-5.5 text-small">
           {data.policy && <p>{describePolicy(data.policy)}</p>}
+          <p className="text-muted">
+            A new box applies updates only when an owner does. Nothing applies on its own until you
+            turn the daily window on.
+          </p>
           {isOwner && (
             <>
               <Segmented

@@ -505,7 +505,7 @@ export const PRODUCT_VERSIONS: ProductVersion[] = ["0.3.0", "0.2.0", "0.1.1", "0
 export const UPGRADE_POLICY: UpgradePolicy = {
   direct: false,
   mirrorUrl: "https://mirror.example.org/sneakers-appliance",
-  mode: "automatic",
+  mode: "manual",
   windowMinutes: 120,
   windowStart: "02:00",
 };
