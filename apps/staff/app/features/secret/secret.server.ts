@@ -16,6 +16,8 @@ import {
   type SecretDetailQuery,
   SecretExportCertificateDocument,
   SecretFieldsDocument,
+  SecretMovesDocument,
+  type SecretMovesQuery,
   SecretPrepareRevealDocument,
   SecretRedeemRevealDocument,
   SecretReplaceCertificateDocument,
@@ -59,6 +61,7 @@ export interface LoadFailure {
 }
 export type SecretAccess = SecretAccessQuery["mySecretAccess"];
 export type SecretLoad = { failure: LoadFailure; ok: false } | SecretPage;
+export type SecretMove = SecretMovesQuery["secretMoves"][number];
 export interface SecretPage {
   access: SecretAccess;
   /** The creator principal (#170), as its resolved label for a known human user, or the raw
@@ -67,6 +70,8 @@ export interface SecretPage {
   creatorLabel: null | string;
   /** Non-sensitive field values only. Sensitive ones come back from a reveal action. */
   fields: Record<string, string>;
+  /** Folder names by id, for the folders this person can see (a move names its folders). */
+  folderNames: Record<string, string>;
   folderPath: { id: string; name: string }[];
   /** The change list, for anyone who can read the secret. Null for everyone else. */
   history: null | SecretVersion[];
@@ -75,6 +80,8 @@ export interface SecretPage {
   lease: { expiresAt: string; id: string; userId: string } | null;
   /** Required field keys the type defines that this secret has no value for yet. */
   missingRequired: string[];
+  /** Folder moves, newest first, for the same readers as `history`. */
+  moves: SecretMove[];
   /** When the server answered, so "expires in" and "next rotation" read the same on both sides. */
   now: number;
   ok: true;
@@ -160,9 +167,10 @@ const page = async (
   const { mySecretAccess: access } = await gw.gql(SecretAccessDocument, { secretId: secret.id });
   const admin = isAdmin(user);
   const type = detail.secretTypes.find((t) => t.id === secret.typeId) ?? null;
-  const [fields, history, lease, creatorLabels, terminalTargets] = await Promise.all([
+  const [fields, history, moves, lease, creatorLabels, terminalTargets] = await Promise.all([
     access.read ? gw.gql(SecretFieldsDocument, { id: secret.id }) : null,
     access.read ? gw.gql(SecretVersionsDocument, { secretId: secret.id }) : null,
+    access.read ? gw.gql(SecretMovesDocument, { secretId: secret.id }) : null,
     type?.checkout ? activeLeaseFor(gw, secret.id) : null,
     secret.creatorPrincipalId
       ? gw.gql(SharingUserLabelsDocument, { ids: [secret.creatorPrincipalId] })
@@ -192,11 +200,13 @@ const page = async (
         secret.creatorPrincipalId)
       : null,
     fields: fieldValues,
+    folderNames: Object.fromEntries(detail.folders.map((f) => [f.id, f.name])),
     folderPath: pathTo(detail.folders, secret.folderId),
     history: history_,
     isAdmin: admin,
     lease: lease ? { expiresAt: lease.expiresAt, id: lease.id, userId: lease.userId } : null,
     missingRequired: missingRequiredFields(type, fieldValues, history_),
+    moves: moves?.secretMoves ?? [],
     now: Date.now(),
     ok: true,
     recovery: user.roles.includes(RECOVERY_ROLE),
