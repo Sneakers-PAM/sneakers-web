@@ -1,4 +1,10 @@
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
   Button,
   Card,
   CardHeader,
@@ -16,13 +22,13 @@ import {
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 
-import type { GetBackupsResponse, RecoveryKey } from "@/lib/osadmin/types";
+import type { GetBackupsResponse, RecoveryKey, RootKeyRotation } from "@/lib/osadmin/types";
 
 import { NotAvailable } from "@/components/NotAvailable";
 import { downloadEscrow, ESCROW_NOTE } from "@/features/setup/RecoveryKeysStep";
 import { noAutofill } from "@/lib/noAutofill";
 import { runAction } from "@/lib/osadmin/action";
-import { backup, setup } from "@/lib/osadmin/client";
+import { backup, rootKey, setup } from "@/lib/osadmin/client";
 import { isNotAvailable } from "@/lib/osadmin/errors";
 import { useSession } from "@/lib/useSession";
 
@@ -34,6 +40,8 @@ export default function Backups() {
   const [retentionDays, setRetentionDays] = useState(30);
   const [targets, setTargets] = useState("");
   const [unavailable, setUnavailable] = useState(false);
+  const [rotation, setRotation] = useState<RootKeyRotation>();
+  const [confirming, setConfirming] = useState(false);
 
   const reload = () =>
     void backup
@@ -57,6 +65,22 @@ export default function Backups() {
         .catch(() => null),
     [],
   );
+
+  // The vault root key's rotation, for an owner. While one runs the card asks again every
+  // couple of seconds, so it reads done by itself.
+  const loadRotation = () =>
+    void rootKey
+      .get()
+      .then(setRotation)
+      .catch(() => null);
+  useEffect(() => {
+    if (isOwner) loadRotation();
+  }, [isOwner]);
+  useEffect(() => {
+    if (rotation?.state !== "running") return;
+    const timer = setTimeout(loadRotation, 1500);
+    return () => clearTimeout(timer);
+  }, [rotation]);
 
   if (unavailable) {
     return (
@@ -103,6 +127,63 @@ export default function Backups() {
           </div>
         )}
       </Card>
+      {isOwner && rotation && (
+        <Card>
+          <CardHeader title="Vault root key" />
+          <section aria-label="Vault root key" className="flex flex-col gap-3 p-5.5 text-small">
+            {rotation.available ? (
+              <>
+                <p className="m-0">
+                  {rotation.state === "running" &&
+                    `Rotating the root key: ${rotation.step || "starting"}.`}
+                  {rotation.state === "stopped" &&
+                    `The rotation stopped at ${rotation.step || "an early step"}${
+                      rotation.why ? `: ${rotation.why}` : ""
+                    }. Nothing was deleted; carrying on picks it up where it stopped.`}
+                  {rotation.state === "done" &&
+                    "The root key was rotated. Download a new escrow: an older one no longer opens the vault."}
+                  {rotation.state === "none" && "The root key hasn't been rotated on this box."}
+                </p>
+                {rotation.state !== "running" && (
+                  <Button
+                    className="self-start"
+                    onClick={() => setConfirming(true)}
+                    variant="secondary"
+                  >
+                    {rotation.state === "stopped" ? "Carry on rotating" : "Rotate root key"}
+                  </Button>
+                )}
+              </>
+            ) : (
+              <p className="m-0">The installed product can&apos;t rotate its root key.</p>
+            )}
+          </section>
+          <AlertDialog onOpenChange={setConfirming} open={confirming}>
+            <AlertDialogContent>
+              <AlertDialogTitle>Rotate the vault root key?</AlertDialogTitle>
+              <AlertDialogDescription>
+                The box makes a new root key, moves the vault&apos;s working keys to it and checks
+                each one opens before the old key is retired. A new escrow carries only the new key,
+                and an older escrow no longer opens the vault, so download a new one afterwards. It
+                runs like a product update and asks for a fresh sign-in.
+              </AlertDialogDescription>
+              <div className="flex justify-end gap-2">
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() =>
+                    void runAction(() => rootKey.rotate(), {
+                      onSuccess: () =>
+                        setRotation({ available: true, state: "running", step: "", why: "" }),
+                    })
+                  }
+                >
+                  Rotate root key
+                </AlertDialogAction>
+              </div>
+            </AlertDialogContent>
+          </AlertDialog>
+        </Card>
+      )}
       <Card>
         <CardHeader title="Policy" />
         <form

@@ -457,8 +457,6 @@ export interface GetCertificateStoreResponse {
   updateTrust?: UpdateTrust;
 }
 
-// ---- network ----
-
 export interface GetEmailResponse {
   /** False while TLS or certificate verification is off. */
   encrypted: boolean;
@@ -468,6 +466,8 @@ export interface GetEmailResponse {
   /** "not installed", "not in this product", "not set" or "set". */
   state: string;
 }
+
+// ---- network ----
 
 export interface GetExposedValueResponse {
   entry?: ExposedValue;
@@ -743,8 +743,6 @@ export interface ImportFile {
   uploadedAt: string;
 }
 
-// ---- tls ----
-
 /** One sneakers-migrate step the box ran as a Job, and how it went. */
 export interface ImportRun {
   exitCode: number;
@@ -768,6 +766,8 @@ export interface ImportRun {
   template: string;
   wipe: boolean;
 }
+
+// ---- tls ----
 
 /** A one-time code for an admin to set a password and an authenticator. Shown once. */
 export interface Invitation {
@@ -916,8 +916,6 @@ export type LockoutMode =
   | "LOCKOUT_MODE_UNSPECIFIED"
   | "LOCKOUT_MODE_UNTIL_UNLOCKED";
 
-// ---- product ----
-
 /**
  * How the box reaches the mirror and how its last fetch went. The box keeps it in memory, so
  * `checked` is false after a restart until the next mirror fetch.
@@ -962,6 +960,8 @@ export interface MirrorStatus {
   url: string;
 }
 
+// ---- product ----
+
 /** One connectivity check. Proto3 JSON leaves out defaults, so an absent state is unspecified. */
 export interface NetdCheck {
   /** The NET_* symbol when the check isn't ok. */
@@ -980,8 +980,6 @@ export interface NetdInterface {
   name?: string;
 }
 
-// ---- mcp ----
-
 export interface NetdIpv4 {
   /** A prefix such as 192.0.2.10/24, in static mode only. */
   address?: string;
@@ -989,7 +987,7 @@ export interface NetdIpv4 {
   mode?: Ipv4Mode;
 }
 
-// ---- email ----
+// ---- mcp ----
 
 export interface NetdIpv6 {
   /** A prefix such as 2001:db8::10/64, in static mode only. */
@@ -997,6 +995,8 @@ export interface NetdIpv6 {
   gateway?: string;
   mode?: Ipv6Mode;
 }
+
+// ---- email ----
 
 /** netd's settings as the proto has them; a stage sends the whole set back. */
 export interface NetdSettings {
@@ -1096,14 +1096,14 @@ export interface ProductVersion {
 
 export type Protection = "PROTECTION_FULL" | "PROTECTION_REDUCED" | "PROTECTION_UNSPECIFIED";
 
-// ---- telemetry ----
-
 /** Who hid the reduced-protection notice for every admin, and when. */
 export interface ProtectionNotice {
   hidden: boolean;
   hiddenAt?: string;
   hiddenBy: string;
 }
+
+// ---- telemetry ----
 
 /**
  * The root-operator roster: who may open the root shell, and whose approvals count for a
@@ -1146,8 +1146,6 @@ export interface RelayCertificate {
 
 export type ReleaseChannel = "rc" | "stable";
 
-// ---- import ----
-
 /** A removed login key, on sshd's revocation list until an owner un-revokes it. */
 export interface RevokedKey {
   /** Who the key belonged to. */
@@ -1159,7 +1157,17 @@ export interface RevokedKey {
   type: string;
 }
 
+// ---- import ----
+
 export type Role = "ROLE_ADMIN" | "ROLE_OWNER" | "ROLE_UNSPECIFIED";
+
+/** Where the vault root key's rotation is (rootkey.proto). `state` is none, running, stopped or done. */
+export interface RootKeyRotation {
+  available: boolean;
+  state: string;
+  step: string;
+  why: string;
+}
 
 export interface RunChecksResponse {
   checks: NetdCheck[];

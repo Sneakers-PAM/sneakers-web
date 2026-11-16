@@ -49,6 +49,7 @@ import type {
   PinEmailCertificateResponse,
   RecoveryKey,
   RedeemCodeResponse,
+  RootKeyRotation,
   RunChecksResponse,
   RunImportStepRequest,
   SendTestEmailRequest,
@@ -455,6 +456,19 @@ export const backup = {
   run: () => call<Record<string, never>>("BackupService", "RunBackup"),
   setPolicy: (policy: BackupPolicy) =>
     call<Record<string, never>>("BackupService", "SetBackupPolicy", { policy }),
+};
+
+export const rootKey = {
+  /** Where the vault root key's rotation is; the fields at their zero value come back left out. */
+  get: (): Promise<RootKeyRotation> =>
+    call<Partial<RootKeyRotation>>("RootKeyService", "GetRootKeyRotation").then((r) => ({
+      available: r.available ?? false,
+      state: r.state || "none",
+      step: r.step ?? "",
+      why: r.why ?? "",
+    })),
+  /** Owner, a fresh step-up. Answers once the rotation has begun; get follows it. */
+  rotate: () => call<Record<string, never>>("RootKeyService", "RotateRootKey"),
 };
 
 export const upgrade = {
