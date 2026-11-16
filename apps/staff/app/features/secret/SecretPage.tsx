@@ -41,6 +41,7 @@ import { FieldsCard } from "@/features/secret/FieldsCard";
 import { GITHUB_APP_SHOWN, GitHubAppCard } from "@/features/secret/GitHubAppCard";
 import { HistoryCard } from "@/features/secret/HistoryCard";
 import { Panel } from "@/features/secret/Panel";
+import { PrintQrDialog } from "@/features/secret/PrintQrDialog";
 import { ReplaceAppKeyDialog } from "@/features/secret/ReplaceAppKeyDialog";
 import { RevealRunProvider } from "@/features/secret/revealRun";
 import { AgentAccessCard, AutomationCard } from "@/features/secret/SettingsCards";
@@ -52,6 +53,7 @@ type DialogName =
   | "delete"
   | "export"
   | "pin-host-key"
+  | "print-qr"
   | "replace-key"
   | "replace"
   | "rotate"
@@ -244,6 +246,9 @@ export const SecretPage = ({ page }: { page: Page }) => {
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link to={`/secret/${secret.id}/sharing`}>Manage access</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setDialog("print-qr")}>
+                    Print QR
                   </DropdownMenuItem>
                   {terminal && read && !secret.retired && (
                     <>
@@ -546,6 +551,16 @@ export const SecretPage = ({ page }: { page: Page }) => {
           onOpenChange={(o) => setDialog(o ? "break-glass" : null)}
           open={dialog === "break-glass" && !(glassResult && glassResult !== glassSeen)}
         />
+        {/* Opened by a click, so only ever rendered in the browser, where the origin exists. */}
+        {dialog === "print-qr" && (
+          <PrintQrDialog
+            id={secret.id}
+            name={secret.name}
+            onOpenChange={(o) => setDialog(o ? "print-qr" : null)}
+            open
+            origin={globalThis.location.origin}
+          />
+        )}
         <RotateDialog
           field={rotating}
           name={secret.name}

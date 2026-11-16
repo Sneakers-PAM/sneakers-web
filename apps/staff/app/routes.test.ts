@@ -35,6 +35,7 @@ describe("the staff route table", () => {
       "/secret/:id/sharing",
       "/folder/:id/sharing",
       "/secret/:id/terminal",
+      "/s/:id",
       "/checkouts",
       "/requests",
       "/targets",
