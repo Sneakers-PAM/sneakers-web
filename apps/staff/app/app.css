@@ -3,3 +3,19 @@
 @import "@sneakers-web/shell/styles.css";
 
 @source "./";
+
+/* Printing a secret's QR code (#387): show only the label, not the page or the dialog around it. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  [data-print-label],
+  [data-print-label] * {
+    visibility: visible;
+  }
+  [data-print-label] {
+    position: fixed;
+    inset: 0;
+    justify-content: center;
+  }
+}

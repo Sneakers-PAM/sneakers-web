@@ -14,6 +14,7 @@ export default [
   route("resources/notifications", "routes/resources.notifications.tsx"),
   route("resources/step-up", "routes/resources.step-up.tsx"),
   route("healthz", "routes/healthz.tsx"),
+  route("s/:id", "routes/s.link.tsx"),
   route("oauth/consent", "routes/oauth.consent.tsx"),
   route("cli/signed-in", "routes/cli.signed-in.tsx"),
   route("approvals/run/:runId", "routes/approvals.run.tsx"),

@@ -783,4 +783,15 @@ describe("a certificate", () => {
       expect(within(card("History")).getByText("Version 2")).toBeInTheDocument(),
     );
   });
+
+  it("prints a QR code for the secret's short link from the Actions menu (#387)", async () => {
+    const user = userEvent.setup();
+    open("mock-secret-db-admin");
+    await screen.findByRole("heading", { level: 1, name: /DB admin/ });
+    await menu(user, "Print QR");
+    const dialog = await screen.findByRole("dialog", { name: "Print QR code" });
+    expect(
+      within(dialog).getByText(`${globalThis.location.origin}/s/mock-secret-db-admin`),
+    ).toBeVisible();
+  });
 });
