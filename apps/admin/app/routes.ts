@@ -10,6 +10,7 @@ export default [
   route("resources/diagnostics", "routes/resources.diagnostics.tsx"),
   route("resources/display", "routes/resources.display.tsx"),
   route("resources/host-key-pin", "routes/resources.host-key-pin.tsx"),
+  route("resources/tls-cert-pin", "routes/resources.tls-cert-pin.tsx"),
   route("resources/notifications", "routes/resources.notifications.tsx"),
   route("resources/step-up", "routes/resources.step-up.tsx"),
   route("healthz", "routes/healthz.tsx"),

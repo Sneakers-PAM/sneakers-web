@@ -21,6 +21,7 @@ fragment TargetFields on Target {
   secretCount
   ownerUserId
   sshHostKeys
+  tlsCertPins
 }
 
 query AdminConnections {
@@ -53,6 +54,7 @@ query AdminTargets {
     name
     protocol
     port
+    useTls
   }
 }
 

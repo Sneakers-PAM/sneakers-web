@@ -212,6 +212,7 @@ export type PrincipalFolder = {
 export type Query = {
   availableExtensions: Array<SecretTypeSummary>;
   connectionsForPrincipal: Array<MachineConnection>;
+  disabledMcpTools: Array<Scalars["String"]["output"]>;
   findSecretsForPrincipal: Array<SecretSummary>;
   foldersForPrincipal: Array<PrincipalFolder>;
   machineHealth: Scalars["Boolean"]["output"];

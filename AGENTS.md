@@ -806,9 +806,17 @@ WebSocket from the browser.
   the host offers a key the target doesn't pin while it pins others, the pinned fingerprints and
   the offered one sit side by side and Pin waits for the hostname to be typed. Pinning adds the
   key to the target's pins; it doesn't remove the old ones.
-- **TLS next:** `FingerprintCheck` also takes a `tls-certificate` (subject, alternative names,
-  issuer, validity, SHA-256 fingerprint, address) for the LDAPS target and the email relay. No
-  page uses that shape yet.
+- **TLS certificates (#428):** the same trust-on-first-use step for a target's TLS certificate.
+  `TlsCertPinDialog` (`@sneakers-web/shell`) posts to each app's `resources/tls-cert-pin` route
+  (`tlsCertPinAction`): `scanTargetTlsCertificate` reads the chain the target sends (never pins),
+  `pinTargetTlsCertificate` pins exactly the SHA-256 fingerprint the person saw. Only a
+  certificate the gateway marks `pinnable` gets a Pin button; an already pinned one says so. When
+  the target pins something else and none of the offered chain is pinned, the pinned fingerprints
+  show and the hostname must be typed first. The staff target form and the admin target page
+  show a "TLS certificate" section with the pinned fingerprints (`tlsFingerprint` normalises
+  `sha256:`, colons and case) for a target with a non-SSH connection that isn't marked
+  `useTls: false`. Coded refusals (`TLS_CERT_*`, `TARGET_NO_TLS_CONNECTION`,
+  `CONNECTOR_UNAVAILABLE`) have plain sentences in `refusal.ts`.
 
 ## Manage controls on a secret
 

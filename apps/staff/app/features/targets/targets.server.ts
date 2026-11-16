@@ -13,6 +13,7 @@ import {
   isAdmin,
   requireUser,
   type SessionUser,
+  tlsFingerprint,
 } from "@sneakers-web/shell/server";
 import { data, redirect } from "react-router";
 
@@ -110,6 +111,10 @@ export interface TargetEditorData {
     secretCount: number;
     /** Whether it connects over SSH, so it has a host key to pin. */
     ssh: boolean;
+    /** Whether one of its connections may use TLS (not SSH), so it may have a certificate to pin. */
+    tls: boolean;
+    /** The SHA-256 fingerprints of its pinned TLS certificates (64 lowercase hex). */
+    tlsCertFingerprints: string[];
   } | null;
 }
 
@@ -198,6 +203,12 @@ export const loadTargetEditor = async (
         ssh: t.connections.some(
           (c) => d.connections.find((x) => x.id === c.connectionId)?.protocol === "ssh",
         ),
+        tls: t.connections.some((c) => {
+          const connection = d.connections.find((x) => x.id === c.connectionId);
+          // Only an explicit `useTls: false` hides the card; an unset flag may still be TLS.
+          return !!connection && connection.useTls !== false && connection.protocol !== "ssh";
+        }),
+        tlsCertFingerprints: t.tlsCertPins.map((pin) => tlsFingerprint(pin)),
       },
     };
   });

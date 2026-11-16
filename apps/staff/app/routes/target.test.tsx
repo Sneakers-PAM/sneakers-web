@@ -9,6 +9,7 @@ import { graphql } from "msw/graphql";
 import type { StubRoute } from "@/test/routeStub";
 
 import * as hostKeyPinRoute from "@/routes/resources.host-key-pin";
+import * as tlsCertPinRoute from "@/routes/resources.tls-cert-pin";
 import * as target from "@/routes/target";
 import { renderRoute } from "@/test/routeStub";
 
@@ -31,6 +32,7 @@ const pages = (): StubRoute[] => [
   editor("/targets/new", "routes/target"),
   editor("/targets/:id", "routes/target-edit"),
   { action: hostKeyPinRoute.action, path: "/resources/host-key-pin" },
+  { action: tlsCertPinRoute.action, path: "/resources/tls-cert-pin" },
 ];
 
 describe("U-11 target editor", () => {
@@ -260,5 +262,62 @@ describe("U-11 SSH host key on the target page", () => {
     renderRoute(`/targets/${NAS}`, pages(), { user: BOB });
     await screen.findByRole("heading", { name: "Bob's NAS" });
     expect(screen.queryByRole("region", { name: "SSH host key" })).toBeNull();
+  });
+});
+
+const tlsCard = () => screen.getByRole("region", { name: "TLS certificate" });
+
+// Gateway#179: a staff user scans and pins their own target's TLS certificate on its page.
+describe("U-11 TLS certificate on the target page", () => {
+  const DB = "mock-target-bob-db";
+  const bobsDatabase = (patch: Record<string, unknown> = {}) => {
+    mockState.world.targets.push({
+      connectionId: "mock-conn-postgres",
+      hostname: "db.example.org",
+      id: DB,
+      name: "Bob's database",
+      ownerUserId: BOB,
+      sshHostKeys: [],
+      ...patch,
+    });
+    return mockState.world.targets.at(-1)!;
+  };
+
+  it("says nothing is pinned yet, then scans and pins the target's own certificate", async () => {
+    const t = bobsDatabase();
+    const user = userEvent.setup();
+    renderRoute(`/targets/${DB}`, pages(), { user: BOB });
+    await screen.findByRole("heading", { name: "Bob's database" });
+    expect(within(tlsCard()).getByText(/No certificate is pinned/)).toBeInTheDocument();
+    await user.click(
+      within(tlsCard()).getByRole("button", { name: "Scan and pin TLS certificate…" }),
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Pin the TLS certificate" });
+    expect(await within(dialog).findByText("db.example.org:5432")).toBeInTheDocument();
+    expect(within(dialog).getAllByRole("button", { name: "Pin this certificate" })).toHaveLength(1);
+    await user.click(within(dialog).getByRole("button", { name: "Pin this certificate" }));
+    await vi.waitFor(() => expect(t.tlsCertPins).toHaveLength(1));
+    await vi.waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(await within(tlsCard()).findByText(/^[\da-f]{64}$/)).toBeInTheDocument();
+    expect(within(tlsCard()).queryByText(/No certificate is pinned/)).toBeNull();
+  });
+
+  it("has no TLS card for a target whose connections don't use TLS", async () => {
+    bobsDatabase({ connectionId: "mock-conn-ssh" });
+    renderRoute(`/targets/${DB}`, pages(), { user: BOB });
+    await screen.findByRole("heading", { name: "Bob's database" });
+    expect(screen.queryByRole("region", { name: "TLS certificate" })).toBeNull();
+  });
+
+  it("says the connector is unreachable in plain words", async () => {
+    bobsDatabase({ connectorUnavailable: true });
+    const user = userEvent.setup();
+    renderRoute(`/targets/${DB}`, pages(), { user: BOB });
+    await screen.findByRole("heading", { name: "Bob's database" });
+    await user.click(
+      within(tlsCard()).getByRole("button", { name: "Scan and pin TLS certificate…" }),
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Pin the TLS certificate" });
+    expect(await within(dialog).findByText(/connector .* reachable/)).toBeInTheDocument();
   });
 });
