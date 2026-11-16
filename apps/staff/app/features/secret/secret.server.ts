@@ -81,7 +81,7 @@ export interface SecretPage {
   /** Whether the person holds the recovery role, so the history offers a restore. */
   recovery: boolean;
   secret: SecretView;
-  target: { hostname: string; id: string; name: string } | null;
+  target: { connectionId: string; hostname: string; id: string; name: string } | null;
   /** Every target the vault knows about, for the attach picker (#168); excludes nothing — the
    * picker itself leaves out what's already attached. */
   targetChoices: { hostname: string; id: string; name: string }[];
