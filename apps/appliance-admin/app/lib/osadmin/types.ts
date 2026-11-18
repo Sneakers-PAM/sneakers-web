@@ -1412,6 +1412,8 @@ export interface UpdatePackage {
   /** A product bundle's base range, as in ProductVersion. */
   maxBase: string;
   minBase: string;
+  /** A note the box adds to the staged result, such as a withdrawn release staged on purpose. */
+  notice?: string;
   sha256: string;
   size: string;
   /** upload, mirror or direct. */

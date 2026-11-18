@@ -53,6 +53,8 @@ const until = async (id: string) => {
   throw new Error(`never reached ${id}`);
 };
 
+const withdrawn = () => binFile("withdrawn release", "sneakers-appliance-0.2.0-amd64.bin");
+
 describe("Updates", () => {
   beforeEach(() => signInAs("alice"));
 
@@ -125,6 +127,64 @@ describe("Updates", () => {
     expect(within(refusal).getByText(/Nothing was staged/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Apply/ })).not.toBeInTheDocument();
     expect(screen.getByText("Other slot: 0.0.9 (revert target)")).toBeInTheDocument();
+  });
+
+  describe("an uploaded release the signed list withdraws", () => {
+    it("warns with the box's message and does not stage on the first try", async () => {
+      const user = userEvent.setup();
+      await openPage();
+      await uploadAndVerify(user, withdrawn());
+      const box = await panel();
+      expect(
+        within(box).getByText(/release 0\.2\.0 is withdrawn: .*use 0\.2\.1 instead/),
+      ).toBeInTheDocument();
+      expect(within(box).getByRole("button", { name: "Stage it anyway" })).toBeInTheDocument();
+      expect(within(box).getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+      expect(within(box).queryByText("Verified")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Apply/ })).not.toBeInTheDocument();
+    });
+
+    it("does not focus Stage it anyway by default", async () => {
+      const user = userEvent.setup();
+      await openPage();
+      await uploadAndVerify(user, withdrawn());
+      const box = await panel();
+      expect(within(box).getByRole("button", { name: "Stage it anyway" })).not.toHaveFocus();
+    });
+
+    it("stages it on Stage it anyway, with the box's notice beside the result", async () => {
+      const user = userEvent.setup();
+      await openPage();
+      await uploadAndVerify(user, withdrawn());
+      await user.click(within(await panel()).getByRole("button", { name: "Stage it anyway" }));
+      const box = await screen.findByText("Verified");
+      expect(box).toBeInTheDocument();
+      const result = await panel();
+      expect(
+        within(result).getByText(/Staged although the signed list withdraws 0\.2\.0/),
+      ).toBeInTheDocument();
+    });
+
+    it("discards the held upload on Cancel", async () => {
+      const user = userEvent.setup();
+      await openPage();
+      await uploadAndVerify(user, withdrawn());
+      await user.click(within(await panel()).getByRole("button", { name: "Cancel" }));
+      await vi.waitFor(() => {
+        expect(screen.queryByRole("region", { name: "Verify result" })).not.toBeInTheDocument();
+      });
+      const after = await upgrade.get();
+      expect(after.heldUpload).toBeUndefined();
+    });
+
+    it("sends confirmWithdrawn only on the second stage", async () => {
+      const { uploadId } = await upgrade.upload(withdrawn());
+      await expect(upgrade.stage(uploadId)).rejects.toMatchObject({
+        symbol: "UPGRADE_WITHDRAWN_UPLOAD",
+      });
+      const staged = await upgrade.stage(uploadId, true);
+      expect(staged.package.notice).toMatch(/withdraws 0\.2\.0/);
+    });
   });
 
   it("shows the upload's progress while it sends", async () => {

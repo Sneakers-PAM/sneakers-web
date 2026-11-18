@@ -879,6 +879,7 @@ const updatePackage = (w: Wire<UpdatePackage> = {}): UpdatePackage => ({
   kind: word(w.kind),
   maxBase: w.maxBase ?? "",
   minBase: w.minBase ?? "",
+  ...(w.notice ? { notice: w.notice } : {}),
   sha256: w.sha256 ?? "",
   size: w.size ?? "",
   uploadId: w.uploadId ?? "",
