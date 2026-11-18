@@ -140,6 +140,14 @@ type Step =
       updatePackage: UpdatePackage;
     }
   | { fileName: string; kind: "verifying"; place: Place; uploadId: string }
+  | {
+      fileName: string;
+      kind: "withdrawn";
+      place: Place;
+      /** The box's message: the release, why it is withdrawn and what to use instead. */
+      reason: string;
+      uploadId: string;
+    }
   | { kind: "idle" };
 
 type Via = "Fetched" | "Uploaded";
@@ -537,14 +545,24 @@ export default function Updates() {
   // Base Web that doesn't fit the running Base OS is kept). It asks for no authenticator code:
   // only Apply and Revert do. Refusals are shown in place, not as a toast, so the reason stays on
   // screen. Once verified, the file's signed header picks its card.
-  const verifyAndStage = (fileName: string, uploadId: string, place: Place) => {
+  const verifyAndStage = (
+    fileName: string,
+    uploadId: string,
+    place: Place,
+    confirmWithdrawn = false,
+  ) => {
     void runAction(
       async () => {
         setStep({ fileName, kind: "verifying", place, uploadId });
         try {
-          return await upgrade.stage(uploadId);
+          return await upgrade.stage(uploadId, confirmWithdrawn);
         } catch (error) {
-          setStep(refusedStep(fileName, place, error, uploadId));
+          // The file stays held; staging it is a second, deliberate step.
+          setStep(
+            error instanceof OsadminError && error.symbol === "UPGRADE_WITHDRAWN_UPLOAD"
+              ? { fileName, kind: "withdrawn", place, reason: reasonOf(error), uploadId }
+              : refusedStep(fileName, place, error, uploadId),
+          );
           reload();
           return null;
         }
@@ -716,6 +734,7 @@ export default function Updates() {
     !!heldFile ||
     step.kind === "uploading" ||
     step.kind === "received" ||
+    step.kind === "withdrawn" ||
     step.kind === "verifying";
   // The file panel shows its own stage; this card is for everything else under way or failed.
   const showProgress =
@@ -723,6 +742,7 @@ export default function Updates() {
     (progress.inProgress || progress.failed) &&
     shown.kind !== "verifying" &&
     shown.kind !== "refused" &&
+    shown.kind !== "withdrawn" &&
     shown.kind !== "verified";
   const fetchProgress = data.fetchProgress;
 
@@ -751,6 +771,7 @@ export default function Updates() {
         heldId={heldFile?.uploadId}
         onCancel={discardFile}
         onCancelUpload={cancelUpload}
+        onStageWithdrawn={(fileName, uploadId) => verifyAndStage(fileName, uploadId, place, true)}
         onVerify={(fileName, uploadId) => verifyAndStage(fileName, uploadId, place)}
         progress={progress}
         removes={removes}
@@ -1553,6 +1574,7 @@ const UpdateStep = ({
   heldId,
   onCancel,
   onCancelUpload,
+  onStageWithdrawn,
   onVerify,
   progress,
   removes,
@@ -1563,6 +1585,7 @@ const UpdateStep = ({
   heldId?: string;
   onCancel: (uploadId: string) => void;
   onCancelUpload: () => void;
+  onStageWithdrawn: (fileName: string, uploadId: string) => void;
   onVerify: (fileName: string, uploadId: string) => void;
   /** The box's update steps: while the file stages, they're its stage's. */
   progress?: UpgradeProgress;
@@ -1679,6 +1702,29 @@ const UpdateStep = ({
         </ResultPanel>
       );
     }
+    case "withdrawn": {
+      return (
+        <ResultPanel title="This release is withdrawn" tone="warn">
+          <div className="flex flex-col gap-3">
+            <FileDetails fileName={step.fileName} />
+            <p>{step.reason}</p>
+            <p>Nothing was staged. The file is still on the appliance.</p>
+            <div className="flex flex-wrap gap-3">
+              <Button onClick={() => onCancel(step.uploadId)} size="lg">
+                Cancel
+              </Button>
+              <Button
+                onClick={() => onStageWithdrawn(step.fileName, step.uploadId)}
+                size="lg"
+                variant="secondary"
+              >
+                Stage it anyway
+              </Button>
+            </div>
+          </div>
+        </ResultPanel>
+      );
+    }
   }
 };
 
@@ -1734,6 +1780,7 @@ const VerifiedPanel = ({
   return (
     <ResultPanel title="Verified" tone="ok">
       <FileDetails fileName={fileName} size={updatePackage.size} />
+      {updatePackage.notice && <p>{updatePackage.notice}</p>}
       <dl className="m-0 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5">
         {rows.map(([label, value]) => (
           <div className="contents" key={label}>

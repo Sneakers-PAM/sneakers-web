@@ -839,7 +839,7 @@ const inRange = (base: string, minBase: string, maxBase: string) =>
 // The mock box's verification: a file whose content says "tampered" fails the signature, and
 // "lab" fails the channel, the way a real .bin's signed header would. A product bundle that
 // says "needs 9.0.0" needs a newer base than the box runs.
-const verify = async (uploadId: string): Promise<UpdatePackage> => {
+const verify = async (uploadId: string, confirmWithdrawn = false): Promise<UpdatePackage> => {
   const blob = uploads.get(uploadId);
   if (!blob)
     throw new OsadminError("failed_precondition", `UPGRADE_UPLOAD: there is no upload ${uploadId}`);
@@ -857,6 +857,34 @@ const verify = async (uploadId: string): Promise<UpdatePackage> => {
       "failed_precondition",
       "UPGRADE_CHANNEL: a lab package never installs on a production box",
     );
+  }
+  // As on the box: a release the signed list withdraws is refused, and the upload stays held,
+  // until the admin confirms it for a deliberate rollback.
+  const withdrawnVersion = content.includes("withdrawn")
+    ? (/\d+\.\d+\.\d+/.exec(uploadInfo.get(uploadId)?.fileName ?? "")?.[0] ?? "0.2.0")
+    : "";
+  if (withdrawnVersion && !confirmWithdrawn) {
+    throw new OsadminError(
+      "failed_precondition",
+      `UPGRADE_WITHDRAWN_UPLOAD (2523): release ${withdrawnVersion} is withdrawn: it fails to boot on some hardware; use 0.2.1 instead. Confirm to stage it anyway, for a deliberate rollback.`,
+    );
+  }
+  if (withdrawnVersion) {
+    return {
+      arch: "amd64",
+      bases: [],
+      channel: "stable",
+      kind: "full",
+      maxBase: "",
+      minBase: "",
+      notice: `Staged although the signed list withdraws ${withdrawnVersion}. Use 0.2.1 unless this is a deliberate rollback.`,
+      sha256: Array.from({ length: 32 }, (_, index) =>
+        (index * 7 + 1).toString(16).padStart(2, "0"),
+      ).join(""),
+      size: String(blob.size),
+      uploadId,
+      version: withdrawnVersion,
+    };
   }
   if (content.includes("product")) {
     const version = /\d+\.\d+\.\d+/.exec(content)?.[0] ?? "0.2.0";
@@ -2527,7 +2555,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
       }
       const uploadId = body.uploadId as string;
       try {
-        const updatePackage = await verify(uploadId);
+        const updatePackage = await verify(uploadId, body.confirmWithdrawn === true);
         upgradeProgress = progressAt(
           "stage",
           updatePackage.target ?? "UPDATE_TARGET_BASE",
@@ -2554,7 +2582,7 @@ const route = async (service: string, method: string, body: Record<string, unkno
         const code = error instanceof OsadminError ? (error.symbol ?? "") : "";
         // A Base Web that doesn't fit the running Base OS is kept, as on the box; anything else
         // refused at verify is deleted.
-        if (code !== "UPGRADE_COMPAT") dropUpload(uploadId);
+        if (code !== "UPGRADE_COMPAT" && code !== "UPGRADE_WITHDRAWN_UPLOAD") dropUpload(uploadId);
         historyEntry("stage", "", code);
         upgradeProgress = progressAt("stage", "UPDATE_TARGET_BASE", "", "verify", "FAILED", {
           code,

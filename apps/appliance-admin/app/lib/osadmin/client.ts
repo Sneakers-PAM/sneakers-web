@@ -527,12 +527,16 @@ export const upgrade = {
     }),
   setPolicy: (policy: UpgradePolicy) =>
     call<Record<string, never>>("UpgradeService", "SetUpgradePolicy", { policy }),
-  /** Verifies the upload's signature, channel and hash, and only then unpacks and stages it. */
-  stage: (uploadId: string) =>
+  /**
+   * Verifies the upload's signature, channel and hash, and only then unpacks and stages it. A
+   * release the signed list withdraws is refused (UPGRADE_WITHDRAWN_UPLOAD) and the file stays
+   * held until confirmWithdrawn is true, for a deliberate rollback.
+   */
+  stage: (uploadId: string, confirmWithdrawn = false) =>
     call<{ package: UpdatePackage; slot?: string }>(
       "UpgradeService",
       "StageUpdate",
-      { uploadId },
+      { uploadId, ...(confirmWithdrawn ? { confirmWithdrawn: true } : {}) },
       wire.stageUpdate,
     ),
   upload: (file: File, onProgress?: (fraction: number) => void, signal?: AbortSignal) =>

@@ -125,6 +125,8 @@ const PLAIN: Record<string, string> = {
   SETUP_INCOMPLETE: "A setup step isn't done yet.",
   TLS_NOT_SERVED: "The new certificate wasn't served in time, so the previous one is back.",
   UPGRADE_BUSY: "Another file is already on its way; wait for it or cancel it first.",
+  UPGRADE_WITHDRAWN_UPLOAD:
+    "That release is withdrawn. Confirm to stage it anyway, for a deliberate rollback.",
 };
 
 const sentence = (text: string): string => {

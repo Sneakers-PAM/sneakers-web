@@ -266,7 +266,11 @@ built only from `packages/ui` and `packages/shell` pieces; no new design-system 
   stage and Cancel; Cancel calls `DiscardUpdate` with its id, which deletes it on the box and
   unlocks Upload. The held file comes back from `GetUpgrades.heldUpload` after a reload, and a
   refusal that leaves the file on the box (a Base Web for another Base OS, `UPGRADE_COMPAT`,
-  is kept to stage later) offers Verify again and Cancel. A staged release shows Cancel staged
+  is kept to stage later) offers Verify again and Cancel. An uploaded release the signed list
+  withdraws is refused with `UPGRADE_WITHDRAWN_UPLOAD` and the file stays held: the panel warns
+  with the box's message and offers Cancel and, as a deliberate second step, Stage it anyway
+  (`StageUpdate` again with `confirmWithdrawn`); a package `notice` shows in the Verified panel.
+  A staged release shows Cancel staged
   next to Apply, behind a confirm (no code): `DiscardUpdate` with no id and the target
   unstages it. A product bundle names its base range (`minBase` to `maxBase`, or "or newer");
   the offers say it, and a bundle outside it is refused at verify with the range and the
